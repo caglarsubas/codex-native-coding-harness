@@ -105,13 +105,13 @@ class Client:
                 raise Refusal("Inference authentication was rejected; check or rotate the server-side credential.") from None
             if 300 <= error.code < 400:
                 raise Refusal("Inference redirect refused to protect the credential.") from None
-            raise Refusal(f"Inference service returned HTTP {error.code}; previous brief retained.") from None
+            raise Refusal(f"Inference service returned HTTP {error.code}; no new answer was published.") from None
         except (URLError, TimeoutError, socket.timeout, ssl.SSLError, OSError):
-            raise Refusal("Inference service could not be reached within the request limit; previous brief retained.") from None
+            raise Refusal("Inference service could not be reached within the request limit; no new answer was published.") from None
         except Refusal:
             raise
         except (ValueError, UnicodeError):
-            raise Refusal("Inference returned malformed JSON; previous brief retained.") from None
+            raise Refusal("Inference returned malformed JSON; no new answer was published.") from None
 
     def check(self):
         result = self.request("models")

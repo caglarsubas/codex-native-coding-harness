@@ -7,7 +7,7 @@ from pathlib import Path
 import secrets
 import threading
 import time
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 from .core import Refusal
 from .repository import aggregate, report
@@ -93,6 +93,8 @@ class Handler(BaseHTTPRequestHandler):
         static["/activity.js"] = ("activity.js", "text/javascript; charset=utf-8")
         static["/decisions.js"] = ("decisions.js", "text/javascript; charset=utf-8")
         static["/decisions.css"] = ("decisions.css", "text/css; charset=utf-8")
+        for file in ("panes.js", "assistant.js", "routing.js", "panes.css"):
+            static["/" + file] = (file, "text/javascript; charset=utf-8" if file.endswith(".js") else "text/css; charset=utf-8")
         if path in static:
             file, mime = static[path]
             return self.respond(200, (WEB / file).read_bytes(), mime)
@@ -102,6 +104,13 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if path == "/api/session":
                 return self.respond(200, {"csrf": session["csrf"]})
+            if path == "/api/assistant/context":
+                from .assistant import context
+                query = parse_qs(urlsplit(self.path).query)
+                if set(query) - {"view"} or len(query.get("view", ["overview"])) != 1:
+                    return self.respond(400, {"error": "Expected one dashboard view"})
+                data, _ = context(self.server.ledger.snapshot(), query.get("view", ["overview"])[0])
+                return self.respond(200, data)
             if path == "/api/state":
                 state = self.server.ledger.snapshot()
                 state["summary"] = aggregate(state)
@@ -166,6 +175,14 @@ class Handler(BaseHTTPRequestHandler):
                 if command["kind"] in NOTIFY_KINDS:
                     command = self.server.notifier.notify(command["id"])
                 return self.respond(200, command)
+            if self.path == "/api/assistant":
+                from .assistant import chat
+                try:
+                    return self.respond(200, chat(self.server.ledger, body, self.server.inference_env))
+                except Refusal as error:
+                    return self.respond(409, {"error": str(error)})
+                except Exception:
+                    return self.respond(502, {"error": "Assistant request failed. No automatic retry was sent; no dashboard controls were changed."})
             if self.path == "/api/provenance":
                 if not isinstance(body, dict) or set(body) != {"remote"} or type(body["remote"]) is not bool:
                     return self.respond(400, {"error": "Expected only a boolean remote flag; no paths or process controls"})

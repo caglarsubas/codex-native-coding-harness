@@ -105,6 +105,18 @@ This maintainer implementation does not qualify as the real native-worker pilot.
 - [x] Verify rendered control lifecycle and checkpoint reader in an isolated UI fixture
 - [ ] Publish and merge the brain-control extension
 
+## Contextual assistant and workspace panes — v10
+
+- [x] Request-only chat using the existing server-owned inference tenancy
+- [x] Bounded context preview, exact answer snapshot, transient chat and usage
+- [x] Validated links to views, specific decisions and artifact versions
+- [x] No assistant tools, controller actions, approval or conversation persistence
+- [x] Three collapsible panes with remembered widths and keyboard/pointer dividers
+- [x] Responsive workspace and focused single-pane mode for narrow screens
+- [x] Regression and isolated browser checks, including failure/draft recovery
+- [x] Verify configured live inference transport (not factual-accuracy qualification)
+- [ ] Publish and merge the assistant/pane extension
+
 ## Next increments — not yet authorized implementation packets
 
 - [ ] Native attachment coverage beyond retained local file references

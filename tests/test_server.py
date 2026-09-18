@@ -55,6 +55,38 @@ class ServerTest(unittest.TestCase):
         self.assertNotIn(self.server.bootstrap.encode(), body)
         self.assertNotEqual(self.request("/../.state/ledger.sqlite3", headers=self.login())[0], 200)
 
+    def test_assistant_auth_csrf_strict_input_and_read_only_context(self):
+        from test_assistant import response, CONFIG
+        from test_decisions import fixture
+        from orchestrator.decisions import publish
+        spec=fixture(self.ledger)
+        token=self.ledger.acquire("brain-fixture:assistant-http")
+        publish(self.ledger,token,spec)
+        body={"view":"overview","messages":[{"role":"user","content":"What needs review?"}]}
+        self.assertEqual(self.request("/api/assistant",body)[0],403)
+        self.assertEqual(self.request("/api/assistant/context")[0],401)
+        auth=self.login()
+        for change in ({"Origin":"https://other.example"},{"X-CSRF-Token":"wrong"},{"Host":"other.example"}):
+            self.assertEqual(self.request("/api/assistant",body,{**auth,**change})[0],403)
+        before=self.ledger.snapshot()
+        with patch("orchestrator.assistant.settings",return_value=CONFIG), patch("orchestrator.assistant.Client.request",return_value=response()) as call:
+            for path in ("/api/assistant/context?view=decisions","/api/state"):
+                self.assertEqual(self.request(path,headers=auth)[0],200)
+            call.assert_not_called()
+            self.assertEqual(self.request("/api/assistant",{**body,"model":"external"},auth)[0],409)
+            self.assertEqual(self.request("/api/assistant/context?view=unknown",headers=auth)[0],400)
+            self.assertEqual(self.request("/api/assistant/context?view=usage&view=queue",headers=auth)[0],400)
+            status,_,raw=self.request("/api/assistant",body,auth)
+            self.assertEqual(status,200)
+            self.assertNotIn(CONFIG.api_key.encode(),raw)
+            self.assertTrue(json.loads(raw)["advisoryOnly"])
+            self.assertEqual(call.call_count,1)
+        after=self.ledger.snapshot()
+        before.pop("serverTime"); after.pop("serverTime")
+        self.assertEqual(before,after)
+        for path in ("/assistant.js","/panes.js","/routing.js","/panes.css"):
+            self.assertEqual(self.request(path)[0],200)
+
     def test_unknown_command_and_bad_revision_rejected(self):
         auth = self.login()
         for kind, rev in (("shell",0), ("continuation-publish",0), ("pause",999)):
