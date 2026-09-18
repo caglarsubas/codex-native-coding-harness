@@ -45,7 +45,9 @@ than 35-minute check-ins/status observations are unconfirmed, not healthy.
 Initial activation (and reactivation after explicitly turning idle listening off)
 requires the brain/native automation tool once: the browser cannot wake a paused
 native schedule. Immediate notification is independent of this schedule: submitting
-an answer explicitly requests a native turn even with idle listening off. Turning
+an answer explicitly requests a native turn even with idle listening off, unless
+the owner has requested a brain stop. An explicit Resume brain wakes that task
+and restores scheduling through the brain per saved policy. Turning
 off idle listening is observed on the next cycle; pending actions
 and active workers still require reconciliation before parking. Keep the computer
 and Codex app running. Polling consumes model usage even without actionable work;
@@ -60,11 +62,14 @@ to reach the existing designated task. A separate app-server daemon is not a
 precondition; the verified desktop queue route works without one. Connection
 availability is established per send, not inferred from an executable on disk.
 
-Only a validated, committed, still-pending dashboard `decision_response` can
+Only validated, committed, still-pending dashboard `decision_response`, `resume`,
+`reconcile`, `checkpoint`, `archive`, `brain_stop` and `brain_resume` controls can
 notify the ledger's brain UUID. The fixed prompt includes hash-only identifiers,
 never answer text, secrets, model/effort changes or a browser-selected target.
-Resume/reconcile/checkpoint/archive controls retain their existing brain-cycle
-semantics; the bridge does not broaden to arbitrary messages or commands.
+The fixed allowlisted kind is also included; the bridge does not broaden to
+arbitrary messages or commands. Worker dispatch and native completion remain
+brain-controlled. Ordinary saved inputs do not wake a stopping/parked brain; use
+explicit Resume brain. See [safe brain control](BRAIN_CONTROL.md).
 
 The command's additive `notification` records `wakeId`, `brainId`, `attemptedAt`,
 status and, on completion, `finishedAt` and a sanitized detail. A successful exact

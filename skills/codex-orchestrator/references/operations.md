@@ -11,7 +11,8 @@ workspace and Python interpreter. No provider API credentials are needed.
 2. `acquire <brain-id:turn-id>` returns a private controller token. Supply it as
    `ORCHESTRATOR_CONTROLLER_TOKEN` to every controller operation. Store it only in
    local process/agent state; never in seeds, dashboard state, PRs or messages.
-3. `process` completes local resume/reconcile requests and emits native action
+3. Check `meta.brainControl` before ordinary work. Re-read `inbox` before/after
+   each bounded step and before native effects. `process` completes local resume/reconcile requests and emits native action
    descriptions for checkpoint/archive. Processing is not completion:
    - checkpoint: `send_message_to_thread`, requesting a safe progress checkpoint;
      do not claim to kill or pause a process.
@@ -27,7 +28,8 @@ workspace and Python interpreter. No provider API credentials are needed.
 
 Use the native `automation_update` tool for the existing 15-minute heartbeat.
 Record freshly observed ID/status with `heartbeat <id> ACTIVE|PAUSED`. Never edit
-the app's automation TOML. With owner-enabled `meta.decisionListener.enabled`,
+the app's automation TOML. An explicit brain stop takes priority: follow the safe
+checkpoint procedure below, even if listening is enabled. With owner-enabled `meta.decisionListener.enabled`,
 keep the existing heartbeat ACTIVE even when dispatch is paused, the queue is
 empty or only decisions remain. Do not use an empty queue as a reason to turn
 listening off. Without idle listening, pause only after approved/active work and
@@ -36,6 +38,59 @@ Inspect native automation state each cycle, process the inbox, and leave a
 checkpoint; quiet idle checks consume model usage. The webpage cannot activate a
 paused native schedule, so initial activation/reactivation requires the native
 tool once. No duplicate heartbeat or standalone replacement.
+
+## Safe brain checkpoint and resume
+
+The dashboard's `brain_stop` immediately fences new worker dispatch and acceptance
+acquisition. It does not interrupt a running tool, kill a process, revoke current
+worker ownership or cancel a native task. The installed queue command is not a
+mid-turn steering API. A queued wake may arrive only after the active turn; check
+the compact inbox cooperatively between bounded steps to notice a stop sooner.
+
+1. Acquire the designated brain controller normally. `process` receives the exact
+   current stop and returns `brain_stop`, setting `checkpointing`, not completion.
+   If already parked, release any newly acquired controller and end without work.
+2. Finish the currently executing bounded step without new dispatch, acceptance,
+   retries, merges or scope expansion. Observe runner process exit and required
+   cleanup before release. Reconcile uncertain native creation, never retry it.
+   Reconcile already-processing checkpoint/archive commands and actual effects.
+3. Observe every existing non-complete native worker with `wait_threads`. Request
+   a cooperative progress checkpoint via the normal messaging tool if needed;
+   wait for actual idle and preserve its continuation state. Do not archive or
+   interrupt workers. A reserved worker with no creation attempt stays reserved.
+   If safety cannot yet be established, retain `checkpointing`, preserve the
+   blocker and continue only required supervision; never claim the brain stopped.
+4. Retain a NEW checkpoint artifact after this stop (`artifact-add`). Include
+   current command ID, work completed, unfinished work, next step, worker/runner
+   observations, pending decisions and authority boundaries. At least one retained
+   artifact version must have been observed after the stop request.
+5. Re-read intent before changing the schedule. If this stop was superseded by
+   Resume brain, do not park it; recover the latest request. Otherwise pause the
+   existing heartbeat using `automation_update` with all other fields preserved,
+   then record `heartbeat <id> PAUSED` from the actual result. No new automation.
+6. Call `brain-park <stop-command-id> <checkpoint.json>`. The closed JSON schema is
+   `{summary, artifactIds, workerObservations}`. Each worker observation has
+   `{workerId, threadId, status: "idle", observedAt, reference}`; use actual native
+   evidence after the stop and no older than 120 seconds. Configured heartbeat
+   PAUSED evidence must also be after the stop and within 120 seconds. Do not
+   refresh timestamps without fresh observation. No owned runner, uncertain
+   creation/acceptance or processing worker control can remain. The helper
+   validates structure/freshness, not the truth of native assertions.
+7. `brain-park` saves immutable ledger context and completes ONLY the exact stop;
+   then `release <checkpoint-text>` and end the turn. It does not claim the native
+   turn has ended: the dashboard observes that separately. Exact retries are
+   idempotent; changed checkpoints or superseded stops are refused.
+
+While parked, save answers/ordinary controls without waking or executing them.
+An explicit newer `brain_resume` wakes this same task even with heartbeat PAUSED.
+Read its retained checkpoint, acquire and `process`, reconcile unfinished effects
+without replay, restore the existing heartbeat if saved listener/supervision
+policy requires, record the observed schedule, then drain authorized inputs.
+Worker dispatch remains paused until a separate explicit `resume` command. If a
+resume races with heartbeat pause, re-read latest intent and restore scheduling
+accordingly; do not overwrite the newer request. No automatic worker task reset.
+
+See `docs/BRAIN_CONTROL.md` in the installed workspace for UI meanings and limits.
 
 ## Decision inbox
 

@@ -7,8 +7,8 @@ description: Coordinate explicitly approved development packets across repositor
 
 The existing designated Codex brain is the only scheduler. The local helper is a
 transactional ledger and dashboard, not an agent or private desktop API client.
-An explicitly enabled bridge may send a fixed notification of a saved dashboard
-answer to this existing brain using the supported `codex queue` CLI. A user
+An explicitly enabled bridge may send fixed notifications of saved dashboard
+answers and typed controls to this existing brain using the supported `codex queue` CLI. A user
 request to install this tooling does not approve product packets.
 
 Run the installed `scripts/run.py` with `inbox` first (`status` for full inventory). It resolves the private
@@ -44,7 +44,11 @@ a native task or satisfy the real pilot requirement.
 
 1. Acquire one controller token with an identity including this brain and turn.
    Keep the token in `ORCHESTRATOR_CONTROLLER_TOKEN`, never in prompts or reports.
-2. Read durable state and checkpoint; process typed control requests. Observe
+2. Read durable state and checkpoint; process typed control requests. Check
+   `meta.brainControl` first, and re-read compact `inbox` before and after each
+   bounded step and before external effects. A stop takes priority over ordinary
+   work and idle-listener preference. Follow the Safe brain checkpoint procedure
+   in the operations reference; do not start new work while stopping or parked. Observe
    existing native tasks with compact `wait_threads` snapshots. An in-flight native
    request or uncertain creation must be reconciled before any retry.
 3. Verify eligible approved packets, current project mappings, actual refs, packet
@@ -65,12 +69,12 @@ a native task or satisfy the real pilot requirement.
 
 ## Scheduling and user interface
 
-Dashboard answers can notify this existing brain immediately through the opt-in
+Dashboard answers and pending controls can notify this existing brain immediately through the opt-in
 native queue bridge. If idle, process now; if busy, Codex queues behind the active
 turn. The notification is only a pointer: read the exact version-bound ledger
-answer, acquire the normal controller, and follow the decision procedure below.
+request, acquire the normal controller, and follow its dedicated procedure.
 Reconcile already received/resolved or superseded records; never replay. A wake
-does not approve packets, resume dispatch or grant access. Delivery acknowledgment
+does not approve packets, resume dispatch or grant access by itself. Delivery acknowledgment
 is not your receipt; only `process` and artifact-bound resolution establish that.
 
 Use the app's native heartbeat on this existing brain every 15 minutes as a
@@ -81,12 +85,21 @@ the queue is empty or only owner decisions remain. Otherwise pause only when no
 approved/active work or pending controls need supervision. No unchanged-state
 notifications. Native schedule changes use the app tool, never TOML edits.
 
-The dashboard can persist pause/approval/hold/priority changes immediately. Resume,
-reconciliation, worker checkpoint and archive requests wait for a brain cycle.
-An inactive heartbeat is not awakened by the webpage: initial activation or
-reactivation after explicit idle-listener shutdown needs the brain once. While
-enabled, immediate answer notification is independent of this schedule. It does
-not enable a paused heartbeat. Do not claim a queued
+Explicit brain stop overrides listening: reach a safe checkpoint, pause the
+existing heartbeat and record its actual status, use `brain-park`, release the
+controller and end the turn. Parked brains do no automatic work even if a stale
+wake arrives. Resume only for a newer explicit `brain_resume`; recover retained
+state and restore the existing heartbeat according to saved listening/supervision
+policy. Resume brain never implicitly enables worker dispatch.
+
+The dashboard persists pause/approval/hold/priority changes immediately. Resume,
+reconciliation, worker checkpoint/archive and brain controls notify this existing
+task immediately when the bridge is configured. If busy, the native queue waits
+behind its active turn; cooperative inbox checks can detect a stop sooner. There
+is no supported hard-kill or mid-tool interrupt in this bridge. While stopped,
+answers and ordinary requests are saved without waking the brain. Resume brain
+can wake it even with the heartbeat paused, then the brain restores that schedule
+through the native tool when policy requires. Do not claim a queued
 action executed, or a recorded native status is fresh without observing it.
 
 For an owner design choice or missing input, publish a version-bound question in

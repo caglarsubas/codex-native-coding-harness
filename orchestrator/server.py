@@ -14,7 +14,7 @@ from .repository import aggregate, report
 from .inference import ENV_FILE, public_status
 from .provenance import Provenance
 from .activity import BrainActivity
-from .notification import BrainNotifier
+from .notification import BrainNotifier, NOTIFY_KINDS
 
 WEB = Path(__file__).resolve().parent.parent / "web"
 COOKIE = "orchestrator_session"
@@ -163,7 +163,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(403, {"error": "Session and CSRF token required"})
             if self.path == "/api/commands":
                 command = self.server.ledger.submit(body)
-                if command["kind"] == "decision_response":
+                if command["kind"] in NOTIFY_KINDS:
                     command = self.server.notifier.notify(command["id"])
                 return self.respond(200, command)
             if self.path == "/api/provenance":

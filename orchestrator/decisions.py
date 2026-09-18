@@ -138,11 +138,15 @@ def workflow(state):
     pending = [c for c in state["commands"] if c["status"] in ("queued", "processing")]
     active = any(w["status"] in ACTIVE for w in state["workers"])
     approved = any(q["status"] == "approved" and not q["held"] for q in state["queue"])
+    brain = m.get("brainControl", {})
+    parked = brain.get("phase") == "parked"
+    if parked:
+        status = "brain_stopped"
     return {"listenerEnabled": enabled, "status": status, "lastCheckedAt": checked,
             "nativeStatus": heartbeat["status"], "nativeObservedAt": heartbeat.get("observedAt"),
             "intervalMinutes": 15, "pendingRequests": len(pending),
             "openDecisions": sum(d["status"] == "open" for d in state["decisions"]),
-            "shouldKeepHeartbeat": enabled or active or approved or bool(pending),
+            "shouldKeepHeartbeat": not parked and (enabled or active or approved or bool(pending)),
             "dispatchPaused": m["paused"], "boundary": BOUNDARY}
 
 

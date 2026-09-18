@@ -82,11 +82,20 @@ activity, unavailable/uncertain notification and overdue receipt. A live CLI wak
 and its independently observed brain receipt are separate from these fixtures;
 do not submit fake owner decisions into the live portfolio to test the bridge.
 
+Brain-control regression covers immediate stop fences, superseded resumes, exact
+controller identity, fresh artifacts/idle-worker/paused-heartbeat evidence,
+runner and uncertain-creation blockers, idempotent checkpoint retries, retained
+ownership, resume without dispatch, deferred inputs and authenticated control
+notification. Presentation checks cover stale last-known idle, pending dispatch
+resume, safe-checkpoint versus later native idle, and queued versus received.
+The current combined suite has 164 Python tests plus Node presentation checks.
+Synthetic safe-stop verification is not a live worker/acceptance pilot.
+
 ## Deliberate limits
 
 - Worker tool calls are performed by the brain, not the dashboard process. The
   only exception is opt-in, fixed-purpose `codex queue` notification of that brain
-  after a saved dashboard decision; no private desktop API is used.
+  after a saved dashboard answer or allowlisted typed control; no private desktop API is used.
 - The native CLI/app must be available. Delivery acknowledgment is not a brain
   receipt. Initial heartbeat activation/reactivation still requires the native
   brain once; notification does not enable the schedule. Native turns and active

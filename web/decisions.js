@@ -5,17 +5,19 @@ const decisionDetailsOpen = new Set();
 const decisionLabels = {open:"Needs your decision", answered:"Answer recorded", received:"Received by brain", applied:"Applied to design", blocked:"Needs follow-up", superseded:"Superseded"};
 
 function commandPresentation(c, activity=state?.brainActivity, now=Date.now()/1000) {
-  if(c.kind!=="decision_response")return {label:c.status,detail:c.result||"Awaiting the brain’s next active cycle"};
-  if(c.status!=="queued")return {label:c.status==='processing'?"Received by brain":c.status,detail:c.result||"The brain has received this answer."};
+  if(c.status!=="queued")return {label:c.status==='processing'?(c.kind==='brain_stop'?"Preparing safe checkpoint":"Received by brain"):c.status,detail:c.result||"The brain has received this request."};
+  if(state?.meta?.brainControl?.desired==='stopped'&&!['brain_stop','brain_resume'].includes(c.kind))
+    return {label:"Saved until brain resumes",detail:"The brain is stopping or stopped at your request. This input is preserved; use Resume brain to continue."};
+  const subject=c.kind==='decision_response'?"Answer":"Request";
   const n=c.notification;
-  if(!n)return {label:"Answer saved",detail:"No immediate notification is recorded for this older answer. The next brain cycle can receive it; open the brain if its heartbeat is inactive."};
+  if(!n)return {label:subject+" saved",detail:"No immediate notification is recorded for this request. Use Wake brain now to process saved controls; an active turn finishes first."};
   if(n.status==='sending')return now-n.attemptedAt<=12
-    ?{label:"Notifying brain",detail:"Answer saved. Waiting for Codex to acknowledge the notification."}
+    ?{label:"Notifying brain",detail:subject+" saved. Waiting for Codex to acknowledge the notification."}
     :{label:"Delivery unconfirmed",detail:"The send was interrupted or its result is missing. Check the brain; your answer is saved and will not be resent automatically."};
   if(n.status==='accepted') {
     if(now-n.finishedAt>90)return {label:"Receipt overdue",detail:"Codex accepted the notification, but the brain has not recorded a receipt yet. Open the brain to check progress, approval prompts or availability. The heartbeat remains a fallback."};
     return {label:activity?.fresh&&activity.status==='running'?"Brain active · awaiting receipt":"Sent to Codex",
-      detail:"Codex accepted the notification. An idle brain can start immediately; an active turn finishes first. Waiting for this answer’s receipt, not an implementation-worker slot."};
+      detail:"Codex accepted the notification. An idle brain can start immediately; an active turn finishes first. Waiting for this request’s receipt, not an implementation-worker slot. A resume request is not yet applied; a stop request is not yet a safe checkpoint."};
   }
   return {label:n.status==='unavailable'?"Notification unavailable":"Delivery unconfirmed",detail:n.detail};
 }
@@ -24,9 +26,10 @@ function workflowSummary(root, controls=false) {
   const w=state.workflow;
   if(!w) {root.append(callout("Workflow upgrade needs a server restart", "No listener or decision state is available from this running server.")); return;}
   const panel=el("section",null,"workflow-summary");
-  const label={off:"Idle listening is off",needs_activation:"Native listener needs activation",unconfirmed:"Listener schedule recorded · check-in overdue or missing",listening:"Listener checked in recently"}[w.status];
+  const label={brain_stopped:"Paused at brain checkpoint",off:"Idle listening is off",needs_activation:"Native listener needs activation",unconfirmed:"Listener schedule recorded · check-in overdue or missing",listening:"Listener checked in recently"}[w.status]||"Not observed";
   const notifier=state.brainNotification,immediate=notifier?.status==='configured';
-  panel.append(el("p","DECISIONS & CONTINUATION","eyebrow"),el("h2",immediate?"Answers notify the brain immediately":"Immediate notification unavailable"));
+  const stopped=state.meta.brainControl?.desired==='stopped';
+  panel.append(el("p","DECISIONS & CONTINUATION","eyebrow"),el("h2",stopped?"Inputs are saved until you resume the brain":immediate?"Answers and controls notify the brain immediately":"Immediate notification unavailable"));
   panel.append(el("p",notifier?.detail||"Restart with native notification enabled. Answers remain saved until the brain receives them.","muted"));
   panel.append(el("p",`${w.openDecisions} awaiting your decision · ${w.pendingRequests} requests awaiting completion · Worker dispatch ${w.dispatchPaused?'paused':'enabled'}`));
   panel.append(el("p",`Heartbeat fallback: ${label.toLowerCase()} · Inbox checked ${when(w.lastCheckedAt)}`,"muted"));
@@ -124,7 +127,7 @@ function decisionCard(d, root) {
     note.oninput=()=>{draft.note=note.value;draft.confirmed=false;check.checked=false;updateAnswerMode();};noteLabel.append(noteTitle,note);
     const confirmation=el("label",null,"decision-confirmation"),check=el("input");check.type="checkbox";check.required=true;check.checked=draft.confirmed;
     check.onchange=()=>{draft.confirmed=check.checked;};confirmation.append(check,el("span","I confirm this answer for this version. This is not approval to implement, access targets or merge."));
-    const submit=button(state.brainNotification?.status==='configured'?"Send answer to brain":"Record answer",()=>{},"primary");submit.type="submit";
+    const submit=button(state.meta.brainControl?.desired==='stopped'?"Save answer for later":state.brainNotification?.status==='configured'?"Send answer to brain":"Record answer",()=>{},"primary");submit.type="submit";
     form.onsubmit=e=>{e.preventDefault();if(form.reportValidity())submitDecision(d,draft,submit);};
     updateAnswerMode();
     form.append(intro,choices,ownAnswer,noteLabel,hint,confirmation,submit);card.append(form);

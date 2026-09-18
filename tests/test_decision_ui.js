@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const context = vm.createContext({titles:{}, state:{}, Map, Set, Date});
 vm.runInContext(fs.readFileSync('web/decisions.js','utf8'),context);
+vm.runInContext(fs.readFileSync('web/activity.js','utf8'),context);
 const command={kind:'decision_response',status:'queued'};
 const present=(notification,activity,now=100)=>context.commandPresentation({...command,notification},activity,now);
 assert.equal(present().label,'Answer saved');
@@ -18,4 +19,22 @@ assert.equal(present({status:'accepted',finishedAt:99},{fresh:false,status:'runn
 assert.equal(present({status:'accepted',finishedAt:1}).label,'Receipt overdue');
 assert.equal(context.commandPresentation({...command,status:'processing',notification:{status:'uncertain'}}).label,'Received by brain');
 assert.equal(context.commandPresentation({...command,status:'completed',result:'Retained outcome'}).detail,'Retained outcome');
-console.log('Decision delivery presentation checks passed');
+for(const kind of ['resume','reconcile','checkpoint','archive','brain_stop','brain_resume']) {
+  assert.equal(context.commandPresentation({kind,status:'queued',notification:{status:'accepted',finishedAt:99}},null,100).label,'Sent to Codex');
+}
+assert.equal(context.activityLabel({fresh:false,lastKnownStatus:'idle'}),'Last observed idle');
+assert.equal(context.activityLabel({fresh:false,lastKnownStatus:'running'}),'Last observed working');
+assert.equal(context.activityLabel({fresh:false}),'Activity not observed');
+context.state.meta={brainControl:{desired:'stopped',phase:'stop_requested'}};
+assert.equal(context.commandPresentation(command).label,'Saved until brain resumes');
+assert.equal(context.commandPresentation({kind:'brain_stop',status:'processing'}).label,'Preparing safe checkpoint');
+assert.equal(context.brainControlPresentation(context.state.meta).label,'Stop requested');
+assert.equal(context.dispatchPresentation({...context.state.meta,paused:true}).disabled,true);
+context.state.meta.brainControl={desired:'stopped',phase:'parked',checkpoint:{at:99}};
+assert.equal(context.brainControlPresentation(context.state.meta).label,'Safe checkpoint saved');
+assert.equal(context.brainControlPresentation(context.state.meta,{lastKnownStatus:'idle',observedAt:98}).label,'Safe checkpoint saved');
+assert.equal(context.brainControlPresentation(context.state.meta,{lastKnownStatus:'idle',observedAt:100}).label,'Brain stopped at checkpoint');
+assert.equal(context.brainControlPresentation(context.state.meta,{lastKnownStatus:'running',observedAt:100}).label,'Safe checkpoint saved');
+assert.equal(context.dispatchPresentation({paused:true},[{kind:'resume',status:'queued'}]).label,'Worker dispatch resume requested');
+assert.equal(context.dispatchPresentation({paused:true},[{kind:'resume',status:'completed'}]).label,'New worker dispatch paused');
+console.log('Decision, brain control and activity presentation checks passed');

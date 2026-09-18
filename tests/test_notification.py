@@ -157,7 +157,7 @@ class NotificationTest(unittest.TestCase):
         self.run.assert_not_called()
 
     def test_other_control_requests_and_brain_origin_do_not_send(self):
-        request = {"id":"test-other-request", "kind":"reconcile", "expectedRevision":self.ledger.snapshot()["meta"]["revision"], "payload":{}}
+        request = {"id":"test-other-request", "kind":"pause", "expectedRevision":self.ledger.snapshot()["meta"]["revision"], "payload":{}}
         cmd = self.ledger.submit(request)
         self.notifier.notify(cmd["id"])
         with self.ledger.tx() as db:
@@ -166,6 +166,20 @@ class NotificationTest(unittest.TestCase):
             self.ledger.put(db, "commands", c["id"], c)
         self.send()
         self.run.assert_not_called()
+
+    def test_pending_controls_notify_and_stopped_inputs_wait_for_resume(self):
+        def submit(kind):
+            return self.ledger.submit({"id":"control-"+kind,"kind":kind,"expectedRevision":self.ledger.snapshot()["meta"]["revision"],"payload":{}})
+        for kind in ("resume", "reconcile", "brain_stop"):
+            c=submit(kind)
+            self.assertEqual(self.notifier.notify(c["id"])["notification"]["status"],"accepted")
+            self.assertIn("kind "+kind,self.run.call_args.args[0][5])
+        self.assertEqual(self.run.call_count,3)
+        self.send()
+        self.assertEqual(self.run.call_count,3)
+        c=submit("brain_resume")
+        self.notifier.notify(c["id"])
+        self.assertEqual(self.run.call_count,4)
 
     def test_readonly_status_never_connects_or_exposes_path(self):
         public = self.notifier.status(BRAIN)

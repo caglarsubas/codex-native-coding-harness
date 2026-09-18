@@ -91,6 +91,32 @@ class ServerTest(unittest.TestCase):
         for path in ("/decisions.js","/decisions.css"):
             self.assertEqual(self.request(path)[0],200)
 
+    def test_brain_controls_are_authenticated_not_native_completion(self):
+        from test_decisions import fixture
+        from test_notification import BRAIN, MESSAGE
+        from orchestrator.notification import BrainNotifier
+        fixture(self.ledger,BRAIN)
+        self.server.notifier=BrainNotifier(self.ledger,sys.executable)
+        auth=self.login()
+        ack=subprocess.CompletedProcess([],0,f"Queued message {MESSAGE} for thread {BRAIN}.\n","")
+        with patch("orchestrator.notification.subprocess.run",return_value=ack) as native:
+            for kind in ("resume","reconcile","brain_stop","brain_resume"):
+                request={"id":str(uuid.uuid4()),"kind":kind,"expectedRevision":self.ledger.snapshot()["meta"]["revision"],"payload":{}}
+                self.assertEqual(self.request("/api/commands",request)[0],403)
+                self.assertEqual(self.request("/api/commands",{**request,"payload":{"threadId":"other"}},auth)[0],409)
+                status,_,raw=self.request("/api/commands",request,auth)
+                self.assertEqual(status,200)
+                result=json.loads(raw)
+                self.assertEqual(result["status"],"queued")
+                self.assertEqual(result["notification"]["status"],"accepted")
+                self.assertEqual(self.request("/api/commands",request,auth)[0],200)
+            self.assertEqual(native.call_count,4)
+            self.assertEqual(self.ledger.snapshot()["meta"]["brainControl"]["phase"],"resume_requested")
+            self.assertTrue(self.ledger.snapshot()["meta"]["paused"])
+            self.assertEqual(self.request("/api/brain-park",{},auth)[0],404)
+            self.request("/api/state",headers=auth)
+            self.assertEqual(native.call_count,4)
+
     def test_artifact_preview_is_authenticated_json_and_download_is_inert(self):
         with self.ledger.tx() as db:
             document = capture(db,"fixture",b"<script>alert('x')</script>",{"name":"page.html","references":[],"orderAt":1,"repository":"fixture"})

@@ -147,7 +147,7 @@ class BrainActivity:
         result = {"brainId": brain, "title": title or "Designated brain", "status": "unknown",
                   "source": "unavailable", "observedAt": None, "lastEventAt": None,
                   "phase": "No recent activity observed", "events": [], "checkedAt": now,
-                  "fresh": False, "reason": "Local task logs are not configured.", "readOnly": True}
+                  "fresh": False, "lastKnownStatus": None, "reason": "Local task logs are not configured.", "readOnly": True}
         if not isinstance(brain, str) or not IDENTITY.fullmatch(brain):
             return {**result, "reason": "No valid designated brain identity."}
         try:
@@ -173,8 +173,9 @@ class BrainActivity:
                 if events:
                     last = events[-1]
                     fresh = 0 <= now - last["at"] <= FRESH_SECONDS
-                    status = {"finished": "idle", "interrupted": "interrupted", "failed": "failed"}.get(last["kind"], "running") if fresh else "unknown"
-                    result.update(status=status, observedAt=last["at"], lastEventAt=last["at"], phase=last["label"], fresh=fresh)
+                    last_status = {"finished": "idle", "interrupted": "interrupted", "failed": "failed"}.get(last["kind"], "running")
+                    result.update(status=last_status if fresh else "unknown", lastKnownStatus=last_status,
+                                  observedAt=last["at"], lastEventAt=last["at"], phase=last["label"], fresh=fresh)
                 else:
                     result["reason"] = "No supported recent events in the bounded brain log tail. Open the brain task to verify activity."
         except (OSError, ValueError, TypeError, KeyError, Refusal):
@@ -190,6 +191,7 @@ class BrainActivity:
                 and observed >= (result["lastEventAt"] or 0)):
             status = observation.get("status", "unknown")
             result.update(status=status if status in ("running", "idle") else "unknown", fresh=True,
+                          lastKnownStatus=status if status in ("running", "idle") else None,
                           source="recorded_native_observation", observedAt=observed,
                           phase="Native task status observed: " + status,
                           reason="Status recorded using native Codex tools; the webpage does not call those tools.")

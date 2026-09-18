@@ -7,7 +7,7 @@ supervises them, and independently verifies completion.
 
 **The webpage is not an agent scheduler.** It records typed requests in SQLite;
 an opt-in bridge immediately notifies the existing brain of saved decision
-answers through `codex queue`. The brain performs worker operations. No private desktop API, runtime download
+answers and typed controls through `codex queue`. The brain performs worker operations. No private desktop API, runtime download
 or external telemetry is used. Orchestration needs no model API key. An optional,
 user-configured inference service can draft advisory briefs on explicit request;
 it has no controller authority.
@@ -88,16 +88,22 @@ state. Keep the computer and Codex app running for local scheduled work.
 |---|---|---|
 | Approve / hold / prioritize | Update reviewed ledger state | No task creation by itself |
 | Pause | Block the next creation boundary; supersede queued resumes | Does not cancel running or already-starting tasks |
-| Resume / reconcile | Queue a request | Brain processes it on its next active cycle |
-| Checkpoint worker | Queue a request | Brain sends a cooperative checkpoint request |
-| Archive completed task | Queue after preservation checks | Brain verifies inactivity and uses native archive |
+| Resume worker dispatch / reconcile | Save and notify existing brain now | Brain records receipt and applies the scoped control; active turns finish first |
+| Checkpoint worker | Save and notify brain | Brain sends a cooperative checkpoint request |
+| Archive completed task | Save after preservation checks; notify brain | Brain verifies inactivity and uses native archive |
+| Wake / Resume brain | Save intent and notify the same native task | Recover retained state; worker dispatch unchanged |
+| Stop brain at safe checkpoint | Pause new dispatch immediately; notify brain | Reconcile workers/runner, retain checkpoint, pause heartbeat, then end turn |
 | Answer a decision | Save the version-bound answer; notify the existing brain if enabled | Idle pickup immediately, or native queue behind an active turn; brain records receipt and scoped outcome |
 | Keep listening between jobs | Save the owner's listener preference | Brain keeps the existing native heartbeat active independently of dispatch |
 
 The [Decision inbox](docs/DECISIONS.md) separates recorded answers, brain receipt,
 design outcomes and implementation approval. Immediate notification removes the
-heartbeat delay for new answers; it does not interrupt a busy brain, enable a
-paused schedule, or grant execution authority. The 15-minute heartbeat remains a
+heartbeat delay for new answers and controls; it does not interrupt a busy brain
+or grant execution authority. [Brain controls](docs/BRAIN_CONTROL.md) distinguish
+stop intent, safe checkpoint and native turn completion. While stopped, ordinary
+inputs are saved until explicit Resume brain, which can wake the task even with
+its heartbeat paused. The brain then restores scheduling per saved policy.
+The 15-minute heartbeat remains a
 recovery fallback while enabled. Delivery is not receipt: unavailable, ambiguous
 and overdue states keep the answer and explain the next action. Keep the computer
 and Codex running. Native turns and scheduled checks consume model usage.
@@ -130,8 +136,9 @@ synthetic and cannot enable dispatch or two-worker concurrency.
 
 Read the [readiness runbook](docs/READINESS.md) and [first-pilot proposal](docs/FIRST_PILOT.md).
 Project registration, safe worktree setup, a valid CI evidence route, exact packet
-approval and a live brain cycle remain required. The webpage cannot wake a paused
-native heartbeat or silently register projects.
+approval and a live brain cycle remain required. The webpage cannot directly
+change the native heartbeat or silently register projects; it can notify the
+brain to process a saved control through the supported queue bridge.
 
 The [runtime provenance view](docs/RUNTIME.md) distinguishes the server-start
 checkout from the current source tree and explicitly observed GitHub revision.

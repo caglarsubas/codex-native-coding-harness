@@ -68,6 +68,24 @@ class DecisionTest(unittest.TestCase):
         self.assertEqual(after["decisions"][0]["response"]["answerKind"],"option")
         self.assertNotIn(self.token,json.dumps(after))
 
+    def test_parked_answer_is_saved_until_explicit_brain_resume(self):
+        from orchestrator.brain_control import park
+        def control(kind):
+            return self.ledger.submit({"id":str(uuid.uuid4()),"kind":kind,"payload":{},"expectedRevision":self.ledger.snapshot()["meta"]["revision"]})
+        stop=control("brain_stop")
+        self.ledger.process(self.token)
+        artifacts=self.result(stop)["artifactIds"]
+        park(self.ledger,self.token,stop["id"],{"summary":"Checkpoint the unresolved design question", "artifactIds":artifacts,"workerObservations":[]})
+        self.ledger.submit(envelope(self.ledger,self.d,optionId=None,note="Keep my answer while stopped"))
+        self.assertEqual(self.ledger.process(self.token),[])
+        self.assertEqual(self.ledger.snapshot()["decisions"][0]["status"],"answered")
+        self.assertFalse(workflow(self.ledger.snapshot())["shouldKeepHeartbeat"])
+        control("brain_resume")
+        actions=self.ledger.process(self.token)
+        self.assertEqual(actions[0]["decision"]["response"]["note"],"Keep my answer while stopped")
+        self.assertEqual(self.ledger.snapshot()["decisions"][0]["status"],"received")
+        self.assertTrue(self.ledger.snapshot()["meta"]["paused"])
+
     def test_free_text_is_preserved_without_inferred_option_through_resolution(self):
         before=self.ledger.snapshot()
         note="  Neither option fits.\nPlease record these non-secret asset labels: örnek.  "
