@@ -133,6 +133,14 @@ its unique dispatch/request identity against actual native state first.
 
 ## Reuse with another project
 
+The planned [development workspaces and phase-bounded autopilot](docs/WORKSPACES-AUTOPILOT.md)
+will bring separate portfolios into one dashboard with executive project introductions,
+workspace brains, configurable packet approval and phase checkpoints. Brains will
+choose tasks and execution settings within user-defined concurrency/budget limits;
+Play continues development and Pause reaches safe worker/brain checkpoints.
+This is an implementation plan, not an available feature. The current
+separate-directory workflow follows.
+
 The Harness portfolio is a private configuration, not hard-coded into this repo.
 For another portfolio, create a separate private configuration and state directory:
 
