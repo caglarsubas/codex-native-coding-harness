@@ -66,7 +66,7 @@ This maintainer implementation does not qualify as the real native-worker pilot.
 - [x] Read bounded local brain event metadata without retaining conversations
 - [x] Show recent activity in Knowledge and link the latest retained brain artifact
 - [x] Distinguish checkpoint age, native observations and implementation workers
-- [ ] Verify regression tests and rendered browser interactions
+- [x] Verify regression tests and rendered browser interactions (112 tests)
 - [ ] Publish and merge the brain visibility extension
 
 ## Next increments — not yet authorized implementation packets

@@ -49,7 +49,10 @@ Authenticated `POST /api/provenance` accepts only `{"remote": false}` for local
 inspection or `{"remote": true}` for an explicit GitHub check. Host, Origin,
 session and CSRF checks apply. One inspection runs at a time. No caller-selected
 path, URL, branch, shell, restart or controller action is accepted. GET state and
-normal dashboard polling return retained observations without scans or network.
+normal dashboard polling return retained provenance observations without repository
+scans or network. The separate [Brain activity](BRAIN_ACTIVITY.md) reader performs
+bounded local task-event reads during authenticated polling, without changing
+provenance or controller state.
 
 There is no automatic pull or restart. To restart manually, verify the exact
 dashboard process, preserve local changes, stop only that process, start `serve`
