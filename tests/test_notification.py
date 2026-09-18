@@ -67,6 +67,21 @@ class NotificationTest(unittest.TestCase):
         restarted.notify(replay["id"])
         self.run.assert_called_once()
 
+    def test_owner_confirmed_assistant_uses_same_claimed_native_path(self):
+        from orchestrator.assistant_actions import ActionProposals, catalog
+        from orchestrator.assistant import context
+        state = self.ledger.snapshot()
+        _, links = context(state, "overview")
+        proposals = ActionProposals()
+        p = proposals.prepare(catalog(state, links)["brain_stop"], state, "session")
+        command, _ = proposals.confirm(self.ledger, {"proposal":p,"confirmed":True}, "session")
+        result = self.notifier.notify(command["id"])
+        self.assertEqual(result["notification"]["status"], "accepted")
+        self.assertEqual(result["status"], "queued")
+        self.notifier.notify(command["id"])
+        self.run.assert_called_once()
+        self.assertIn("kind brain_stop", self.run.call_args.args[0][-1])
+
     def test_concurrent_notification_claim_is_one_shot(self):
         entered, release = threading.Event(), threading.Event()
         ack = self.run.return_value

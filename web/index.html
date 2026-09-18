@@ -73,7 +73,7 @@
       <div class="assistant-intro">
         <p>Understand the state. Find your next step.</p>
         <p id="assistant-service" class="muted">Connect to the ledger to ask a question.</p>
-        <details id="assistant-privacy"><summary>Context & privacy</summary><p>On Send, your message, up to four previous exchanges, aggregate status, decision prompts and artifact names go to the configured inference service. No source code, artifact contents, Codex conversations or owner decision answers are read. Do not enter secrets.</p><p>Chat stays in this tab’s memory; reload or Clear chat removes it here. Service-side retention is governed by your inference service. The assistant cannot execute controls or submit decisions.</p><button id="assistant-context">Preview current context</button><pre id="assistant-context-preview" hidden></pre></details>
+        <details id="assistant-privacy"><summary>Capabilities, context & privacy</summary><p>Ask about platform state or request a supported control: stop/resume the brain, pause/resume dispatch, reconcile, change idle-check preference, hold a packet, checkpoint/archive a worker, or answer a decision. Review and confirm the exact action before it is submitted. Packet approval and other operations open their review screens.</p><p>On Send, your message, up to four previous exchanges and bounded process states, repository metrics, decision prompts, follow-up summaries, checklist metadata and artifact names go to the configured inference service. Freshness and omitted records are explicit. No source code, artifact bodies, Codex conversations, credentials or prior owner-answer bodies are included. Do not enter secrets.</p><p>Chat and unconfirmed previews stay in this tab; reload or Clear chat removes them here. Confirmed controls and decision answers remain in the private ledger with receipts. Service-side retention follows your inference service policy.</p><button id="assistant-context">Preview current context & capabilities</button><pre id="assistant-context-preview" hidden></pre></details>
       </div>
       <div id="assistant-log" class="assistant-log" role="log" aria-label="Assistant conversation" aria-live="polite" aria-relevant="additions">
         <div id="assistant-welcome"><p class="eyebrow">START WITH A QUESTION</p><p>Ask about blockers, progress or where to look next.</p><div class="assistant-suggestions"><button data-question="What needs my attention, and where should I look next?">What needs my attention?</button><button data-question="Explain the difference between brain activity, worker dispatch and heartbeat in the current state.">Why is work waiting?</button><button data-question="Summarize recorded development progress and any gaps in the evidence.">How is development progressing?</button></div></div>
@@ -84,7 +84,7 @@
         <p id="assistant-send-help">Enter for a new line · ⌘/Ctrl + Enter to send</p>
         <div id="assistant-status" role="status" aria-live="polite"></div>
         <div class="assistant-actions"><button id="assistant-clear" type="button">Clear chat</button><button id="assistant-send" class="primary" type="submit" disabled>Send</button></div>
-        <p id="assistant-usage" class="muted">Advisory only. Links open views; they do not take actions.</p>
+        <p id="assistant-usage" class="muted">Actions need your confirmation. Sending a message does not execute a control.</p>
       </form>
     </div>
   </section>

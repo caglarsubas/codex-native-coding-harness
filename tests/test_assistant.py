@@ -17,7 +17,7 @@ CONFIG = Settings("https://inference.example/v1", "fixture-key-not-a-real-secret
 
 def response(answer="Review the open design decision. No execution has been approved."):
     return {"model": CONFIG.model, "request_key_source": "local-inference", "usage": {"prompt_tokens": 40, "completion_tokens": 20, "total_tokens": 60},
-            "choices": [{"finish_reason": "stop", "message": {"content": json.dumps({"answer": answer, "links": ["D1", "A1"], "evidence": ["F1", "F10"]})}}]}
+            "choices": [{"finish_reason": "stop", "message": {"content": json.dumps({"answer": answer, "links": ["D1", "A1"], "evidence": ["F1", "F10"], "action": None})}}]}
 
 
 class AssistantTest(unittest.TestCase):
@@ -48,7 +48,7 @@ class AssistantTest(unittest.TestCase):
         self.assertIn(self.spec["question"], serialized)
         self.assertIn("design.md", serialized)
         self.assertEqual(links["D1"]["href"], "#/decisions/" + self.decision["id"])
-        self.assertEqual(len(data["facts"]), 11)
+        self.assertGreaterEqual(len(data["facts"]), 18)
 
     def test_bounded_metadata_and_open_first(self):
         state = self.ledger.snapshot()
@@ -90,8 +90,9 @@ class AssistantTest(unittest.TestCase):
         route, payload = call.call_args.args
         self.assertEqual(route, "chat/completions")
         self.assertEqual(payload["model"], CONFIG.model)
-        self.assertFalse(payload["stream"])
+        self.assertTrue(payload["stream"])
         self.assertEqual(payload["response_format"], {"type": "json_object"})
+        self.assertEqual(payload["max_tokens"], 2048)
         self.assertNotIn("tools", payload)
         self.assertNotIn(CONFIG.api_key, canonical(payload))
         self.assertEqual([m["role"] for m in payload["messages"]], ["system", "user"])

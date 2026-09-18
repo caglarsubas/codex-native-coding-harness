@@ -29,4 +29,15 @@ assert(run(`assistantRecordedFacts({facts:[{id:'F1',data:{dispatchPaused:true}},
 const ui=fs.readFileSync('web/assistant.js','utf8');
 assert(!ui.includes('innerHTML'));assert(!ui.includes('/api/commands'));assert(!ui.includes('localStorage'));
 assert(fs.readFileSync('web/index.html','utf8').includes('aria-orientation="vertical"'));
+run(`var actionFixture={proposal:{document:{command:{id:'cmd',expectedRevision:2},expiresAt:200}}};var stateFixture={meta:{revision:2},commands:[]};`);
+assert.equal(run('assistantActionState(actionFixture,stateFixture,100).label'),'Awaiting your confirmation');
+assert.equal(run('assistantActionState(actionFixture,stateFixture,201).label'),'Preview expired');
+assert.equal(run('assistantActionState(actionFixture,{meta:{revision:3}},100).label'),'State changed');
+assert.equal(run('assistantActionState({...actionFixture,cancelled:true},stateFixture,100).label'),'Not submitted');
+assert.equal(run('assistantActionState({...actionFixture,sending:true},stateFixture,100).locked'),true);
+assert.equal(run('assistantActionState({...actionFixture,uncertain:true},stateFixture,100).label'),'Receipt not confirmed');
+run(`function commandPresentation(c){return {label:c.status,detail:'Recorded, not inferred'};}`);
+assert.equal(run("assistantActionState(actionFixture,{...stateFixture,commands:[{id:'cmd',status:'processing'}]},201).label"),'processing');
+assert.equal(run("assistantActionState({...actionFixture,receipt:{id:'cmd',status:'completed'}},stateFixture,201).locked"),true);
+assert(ui.includes('/api/assistant/confirm'));assert(ui.includes('confirmed:true'));
 console.log('Pane geometry, responsive states, route allowlist and bounded chat checks passed');

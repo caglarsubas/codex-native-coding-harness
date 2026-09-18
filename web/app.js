@@ -14,7 +14,7 @@ function section(title,detail) {const e=el("div",null,"section-heading");e.appen
 function empty(title,body) {const e=el("div",null,"empty");e.append(el("h2",title),el("p",body));return e;}
 function callout(title,body) {const e=el("div",null,"callout");e.append(el("h3",title),el("p",body));return e;}
 function textCell(main,sub) {const e=el("div");e.append(el("span",main));if(sub)e.append(el("span",sub,"subline"));return e;}
-async function api(path,options={}) {const r=await fetch(path,{credentials:"same-origin",cache:"no-store",...options});const body=await r.json();if(!r.ok)throw new Error(body.error||"Local request failed");return body;}
+async function api(path,options={}) {const r=await fetch(path,{credentials:"same-origin",cache:"no-store",...options});const body=await r.json();if(!r.ok){const error=new Error(body.error||"Local request failed");error.status=r.status;throw error;}return body;}
 const controlRequests=new Map();
 async function command(kind,payload={}) {
  if(!state||busy)return;

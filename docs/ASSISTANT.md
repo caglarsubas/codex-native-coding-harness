@@ -1,9 +1,11 @@
 # Dashboard assistant and three-pane workspace
 
 The assistant is an adviser beside the workspace, not another orchestration brain.
-It can explain recorded status and suggest where to review evidence. It cannot
-approve packets, answer decisions, send native task messages, resume/stop the brain,
-run commands, inspect arbitrary files or change the ledger.
+It explains recorded process state, capabilities and where to review evidence.
+It can propose supported controls and free-text decision answers; only a separate
+owner confirmation submits the exact preview through the existing control ledger.
+It cannot approve packets, run shell commands, inspect arbitrary files, merge code,
+provision infrastructure or directly operate native workers.
 
 ## Using it
 
@@ -13,7 +15,10 @@ run commands, inspect arbitrary files or change the ledger.
    questions populate the box without sending anything.
 4. Follow an answer's links into the workspace. Decision links focus the exact
    version; artifact links open the retained version's inert reader. Check the
-   evidence and then use the existing explicit form/control if appropriate.
+   evidence. For a requested supported action, review its inline preview: title,
+   target, impact, exact payload/scope, state revision and five-minute expiry.
+   Choose **Confirm: [specific action]** or **Dismiss preview**. Nothing is submitted
+   by sending a message, following a link, or receiving a model answer.
 5. Open an answer's **Snapshot** disclosure to inspect its source context, model,
    service-reported usage and time. Old answers do not update when state changes;
    ask again for a fresh snapshot. No monitoring is implied by chat.
@@ -28,6 +33,48 @@ the tab. They are deliberately not persisted across reloads, tabs, or server
 reconnection that requires a page reload. **Clear chat** removes the local transcript
 and draft, not upstream records. Failed requests retain the question for manual
 retry and cannot dispatch work. There is no automatic resend after uncertainty.
+
+## What the assistant knows and can do
+
+Each question gets a fresh, bounded projection from the **same snapshot builder
+as the workspace**: observed brain activity and freshness, control intent, heartbeat,
+controller/runner ownership, pending controls and notification receipts, workers
+and evidence axes, queue eligibility, follow-ups, per-repository size/Git/readiness,
+roadmap checklists, model/effort usage, recent PRs and artifact versions. A capability
+catalog explains every dashboard view, available controls, restrictions and next
+review locations. Counts show included/omitted records; it does not know every
+process or file, and old evidence does not become current merely because chat ran.
+
+Supported confirmation-backed actions:
+
+- Stop the brain at a safe checkpoint; resume/wake that same brain.
+- Pause or request resume of worker dispatch, separately from brain activity.
+- Request reconciliation; switch periodic idle checks/event-driven waiting.
+- Hold/release one prepared packet; request checkpoint or archive an eligible,
+  completed and preserved worker.
+- Record a free-text answer for one open decision version. The saved text must
+  be an exact excerpt of your latest message, shown before confirmation. The
+  assistant cannot invent an answer or select a suggested option for you.
+
+Examples: “Stop the brain at a safe checkpoint”, “Resume worker dispatch”, or
+“For the open design question, record this answer: …”. An ambiguous “resume”
+should elicit a clarification, not an inferred control. Model mistakes remain
+possible: verify the preview rather than treating its wording as authority.
+
+Packet approval/priority changes, diagnostics, refresh operations and new executive
+briefs still use their review screens. No blanket roadmap execution is added.
+
+Confirmation uses a server-signed, session-bound preview; the browser/model cannot
+change its target, command or payload. Changed state, a changed decision version,
+expiry or server restart requires a new preview. The existing transactional control
+checks still apply. One command ID survives retries: a lost confirmation response
+can recover its receipt, but does not resend an uncertain native notification.
+
+The card follows actual command state from dashboard polling: saved/notified,
+received/processing, completed or rejected. **Sent to Codex is not completed**;
+**stop requested is not checkpointed**. If notification is unavailable, the control
+is recorded but the brain has not been woken. Opening another tab/reloading loses
+chat but not the confirmed command: find it in the workspace's Control requests.
 
 ## Pane layout
 
@@ -71,6 +118,9 @@ the private URL from `session.json` inside the printed temporary directory.
 Never publish that URL. It shares the browser's loopback cookie name with a
 live dashboard on another port; reconnect the live dashboard afterward.
 The phrase `fixture failure` deliberately returns a recoverable chat error.
+“Please stop the brain” returns a fixture-only stop preview; “Answer: [text]”
+returns a fixture decision-answer preview. Confirming changes only the disposable
+fixture ledger; its native notification bridge is disabled.
 Stop the fixture with Ctrl+C. It never contacts the live inference service or brain.
 
 Acceptance remains separate: unit/fixture checks do not qualify the local model's

@@ -42,3 +42,11 @@ body{overflow:hidden}
 @media(max-width:719px){.pane-toolbar{padding:6px;gap:4px}.pane-toolbar button{font-size:10px;padding:6px;min-height:40px}#reset-panes{font-size:9px}.pane-shell .rail{padding:24px;max-width:none}.pane-shell .rail nav button span{display:inline-block}.assistant-heading{padding-top:16px}.assistant-intro{max-height:26%}.assistant-log{padding:16px 20px}.assistant-composer{padding:12px 20px}.pane-shell .brand{font-size:16px}.pane-shell .brand-mark{font-size:44px}}
 @media(max-height:620px){.assistant-heading{padding-block:10px}.assistant-intro{max-height:100px}.assistant-composer{padding-block:8px}.assistant-composer textarea{min-height:50px;max-height:90px}.assistant-heading h2{font-size:1.35rem}}
 @media(max-height:560px){.assistant-body{overflow:auto}.assistant-log{flex:none;min-height:140px;max-height:40dvh}.assistant-intro{max-height:none;overflow:visible}}
+.chat-action{border:1px solid var(--rule);padding:16px;margin-block:20px;display:grid;gap:12px;background:var(--surface)}
+.chat-action h3,.chat-action p{margin:0}
+.chat-action h3{font-size:1.15rem;line-height:1.35}
+.chat-action pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow:auto;font-size:.8rem}
+.chat-action .assistant-actions{flex-wrap:wrap}
+.chat-action button{white-space:normal;min-height:44px}
+.chat-action-status{font-size:.82rem;color:var(--muted)}
+.chat-action[data-action-state="recorded"]{background:var(--soft)}

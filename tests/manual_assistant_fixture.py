@@ -17,11 +17,20 @@ from test_decisions import fixture
 from test_assistant import CONFIG, response
 
 
-def reply(route, payload):
+def reply(route, payload, **_options):
     data = json.loads(payload["messages"][-1]["content"])
     if "fixture failure" in data["conversation"][-1]["content"]:
         raise Refusal("Fixture service unavailable; no retry sent")
-    return response()
+    question = data["conversation"][-1]["content"]
+    result = response()
+    answer = json.loads(result["choices"][0]["message"]["content"])
+    if "stop the brain" in question.lower():
+        answer.update(answer="Review the safe-checkpoint stop below. No action has been submitted.", action={"key":"brain_stop"})
+    elif "answer:" in question.lower():
+        answer.update(answer="Review your exact answer before saving it. This does not authorize execution.",
+                      action={"key":"answer_D1", "text":question.split(":", 1)[1].strip()})
+    result["choices"][0]["message"]["content"] = json.dumps(answer)
+    return result
 
 
 if __name__ == "__main__":

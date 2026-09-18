@@ -93,6 +93,34 @@ class ServerTest(unittest.TestCase):
             status, _, _ = self.request("/api/commands", {"id":str(uuid.uuid4()),"kind":kind,"expectedRevision":rev,"payload":{}}, auth)
             self.assertEqual(status, 409)
 
+    def test_assistant_confirmation_auth_exact_intent_and_single_notification(self):
+        from test_decisions import fixture
+        from orchestrator.assistant import context
+        from orchestrator.assistant_actions import catalog
+        fixture(self.ledger)
+        auth = self.login()
+        state = self.ledger.snapshot()
+        _, links = context(state, "overview")
+        proposal = self.server.assistant_proposals.prepare(catalog(state, links)["brain_stop"], state, auth["X-CSRF-Token"])
+        body = {"proposal": proposal, "confirmed": True}
+        self.assertEqual(self.request("/api/assistant/confirm", body)[0], 403)
+        for change in ({"Origin":"https://other.example"}, {"X-CSRF-Token":"wrong"}, {"Host":"other.example"}):
+            self.assertEqual(self.request("/api/assistant/confirm", body, {**auth, **change})[0], 403)
+        self.assertEqual(self.request("/api/assistant/confirm", {**body,"confirmed":False}, auth)[0], 409)
+        self.assertEqual(self.request("/api/assistant/confirm", body, self.login())[0], 409)
+        self.assertEqual(self.ledger.snapshot()["commands"], [])
+        with patch.object(self.server.notifier, "notify", wraps=self.server.notifier.notify) as notify:
+            status, _, raw = self.request("/api/assistant/confirm", body, auth)
+            self.assertEqual(status, 200)
+            command = json.loads(raw)
+            self.assertEqual(command["kind"], "brain_stop")
+            self.assertEqual(command["actor"], "assistant_owner_confirmed")
+            self.assertEqual(command["notification"]["status"], "unavailable")
+            status, _, raw = self.request("/api/assistant/confirm", body, auth)
+            self.assertEqual(status, 200)
+            self.assertEqual(json.loads(raw)["id"], command["id"])
+            self.assertEqual(notify.call_count, 1)
+
     def test_paused_dashboard_resume_is_queued_not_executed(self):
         status, _, raw = self.request("/api/commands", {"id":str(uuid.uuid4()),"kind":"resume","expectedRevision":0,"payload":{}}, self.login())
         self.assertEqual(status,200); self.assertEqual(json.loads(raw)["status"],"queued")

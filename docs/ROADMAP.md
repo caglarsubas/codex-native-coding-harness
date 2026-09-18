@@ -103,7 +103,7 @@ This maintainer implementation does not qualify as the real native-worker pilot.
 - [x] Regression suite (164 Python tests) and control presentation checks
 - [x] Install cooperative inbox-check and checkpoint guidance for the brain
 - [x] Verify rendered control lifecycle and checkpoint reader in an isolated UI fixture
-- [ ] Publish and merge the brain-control extension
+- [x] Brain-control extension merged as PR #9
 
 ## Contextual assistant and workspace panes — v10
 
@@ -115,7 +115,19 @@ This maintainer implementation does not qualify as the real native-worker pilot.
 - [x] Responsive workspace and focused single-pane mode for narrow screens
 - [x] Regression and isolated browser checks, including failure/draft recovery
 - [x] Verify configured live inference transport (not factual-accuracy qualification)
-- [ ] Publish and merge the assistant/pane extension
+- [x] Assistant/pane extension merged as PR #11 into the brain-control branch
+
+## Operational assistant and confirmed controls — v11
+
+- [x] Share dashboard evidence collection with the assistant; preserve freshness/unknown states
+- [x] Bounded per-domain records, capability catalog, available controls and explicit coverage
+- [x] Inert model proposals; signed, session-bound, expiring and revision-bound owner confirmation
+- [x] Existing typed control validation and one-shot native notification; no parallel dispatcher
+- [x] Exact free-text decision excerpts, no inferred option or packet approval
+- [x] Receipt-aware action cards; no automatic retry or optimistic completion
+- [x] Regression and fixture/browser verification, including stale previews and stopped-brain answers
+- [ ] Complete live richer-context inference smoke verification (server-side SSE transport)
+- [ ] Publish the integrated PR #11 baseline and v11 increment to main
 
 ## Next increments — not yet authorized implementation packets
 
