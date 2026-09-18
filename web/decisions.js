@@ -17,7 +17,8 @@ function commandPresentation(c, activity=state?.brainActivity, now=Date.now()/10
   if(n.status==='accepted') {
     if(now-n.finishedAt>90)return {label:"Receipt overdue",detail:"Codex accepted the notification, but the brain has not recorded a receipt yet. Open the brain to check progress, approval prompts or availability. The heartbeat remains a fallback."};
     return {label:activity?.fresh&&activity.status==='running'?"Brain active · awaiting receipt":"Sent to Codex",
-      detail:"Codex accepted the notification. An idle brain can start immediately; an active turn finishes first. Waiting for this request’s receipt, not an implementation-worker slot. A resume request is not yet applied; a stop request is not yet a safe checkpoint."};
+      detail:"Codex accepted the notification. An idle brain can start now; an active turn finishes first. Waiting for brain receipt, not a worker slot."
+        +(c.kind==='resume'?" Worker dispatch resume is not yet applied.":c.kind==='brain_stop'?" A safe checkpoint has not yet been reached.":c.kind==='brain_resume'?" Worker dispatch stays unchanged.":"")};
   }
   return {label:n.status==='unavailable'?"Notification unavailable":"Delivery unconfirmed",detail:n.detail};
 }
@@ -31,7 +32,7 @@ function workflowSummary(root, controls=false) {
   const stopped=state.meta.brainControl?.desired==='stopped';
   panel.append(el("p","DECISIONS & CONTINUATION","eyebrow"),el("h2",stopped?"Inputs are saved until you resume the brain":immediate?"Answers and controls notify the brain immediately":"Immediate notification unavailable"));
   panel.append(el("p",notifier?.detail||"Restart with native notification enabled. Answers remain saved until the brain receives them.","muted"));
-  panel.append(el("p",`${w.openDecisions} awaiting your decision · ${w.pendingRequests} requests awaiting completion · Worker dispatch ${w.dispatchPaused?'paused':'enabled'}`));
+  panel.append(el("p",`${w.openDecisions} awaiting your decision · ${w.pendingRequests} request${w.pendingRequests===1?'':'s'} awaiting completion · Worker dispatch ${w.dispatchPaused?'paused':'enabled'}`));
   panel.append(el("p",`Heartbeat fallback: ${label.toLowerCase()} · Inbox checked ${when(w.lastCheckedAt)}`,"muted"));
   const info=el("details",null,"coverage-details"),infoKey='listener:'+controls;
   info.open=decisionDetailsOpen.has(infoKey);
