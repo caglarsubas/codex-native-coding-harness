@@ -123,5 +123,28 @@ class ServerTest(unittest.TestCase):
             self.assertNotIn(b"private.example", raw)
             network.assert_not_called()
 
+    def test_readiness_operations_are_authenticated_fixed_and_serialized(self):
+        auth = self.login()
+        self.assertEqual(self.request("/api/readiness", {"operation": "inspect"})[0], 403)
+        for body in ({"operation": "dispatch"}, {"operation": "inspect", "path": "/private"}, {"operation": "native-observe"}, {"operation": []}):
+            self.assertEqual(self.request("/api/readiness", body, auth)[0], 400)
+        entered = threading.Event(); release = threading.Event()
+        def inspect(*args):
+            entered.set(); release.wait(2); return {"status": "complete"}
+        before = self.ledger.snapshot()["meta"]
+        with patch("orchestrator.readiness.collect", side_effect=inspect):
+            self.assertEqual(self.request("/api/readiness", {"operation": "inspect"}, auth)[0], 202)
+            self.assertTrue(entered.wait(1))
+            self.assertEqual(self.request("/api/readiness", {"operation": "rehearse"}, auth)[0], 409)
+            release.set()
+        self.assertEqual(before, self.ledger.snapshot()["meta"])
+
+    def test_state_readiness_does_not_inspect_repositories_or_run_rehearsal(self):
+        with patch("orchestrator.readiness.collect") as collect, patch("orchestrator.rehearsal.run") as run:
+            status, _, raw = self.request("/api/state", headers=self.login())
+            self.assertEqual(status, 200)
+            self.assertFalse(json.loads(raw)["readiness"]["launchAuthorized"])
+            collect.assert_not_called(); run.assert_not_called()
+
 
 if __name__ == "__main__": unittest.main()

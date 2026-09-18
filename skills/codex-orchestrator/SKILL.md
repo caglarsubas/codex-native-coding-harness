@@ -15,6 +15,10 @@ installation location and starts the CLI; it never invokes a shell. Read
 If the installation or native tools are unavailable, report that boundary; do not
 substitute private app APIs, background agents, cron, or another model service.
 
+For first-drive preparation or readiness questions, use the Readiness section of
+`references/operations.md`. Diagnostics and synthetic rehearsal do not authorize
+a native task or satisfy the real pilot requirement.
+
 ## Authority and dispatch
 
 - Operate only on the configured portfolio. Ask the user before adding unrelated

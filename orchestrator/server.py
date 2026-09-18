@@ -32,6 +32,8 @@ class Dashboard(ThreadingHTTPServer):
         self.inference_env = inference_env
         self.inference_lock = threading.Lock()
         self.inference_job = {"status": "idle"}
+        self.readiness_lock = threading.Lock()
+        self.readiness_job = {"status": "idle"}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -78,6 +80,7 @@ class Handler(BaseHTTPRequestHandler):
         static = {"/": ("index.html", "text/html; charset=utf-8"), "/app.js": ("app.js", "text/javascript; charset=utf-8"), "/style.css": ("style.css", "text/css; charset=utf-8")}
         static["/observations.js"] = ("observations.js", "text/javascript; charset=utf-8")
         static["/inference.js"] = ("inference.js", "text/javascript; charset=utf-8")
+        static["/readiness.js"] = ("readiness.js", "text/javascript; charset=utf-8")
         if path in static:
             file, mime = static[path]
             return self.respond(200, (WEB / file).read_bytes(), mime)
@@ -93,6 +96,9 @@ class Handler(BaseHTTPRequestHandler):
                 state["observationJob"] = self.server.observation_job.copy()
                 state["inference"] = public_status(self.server.ledger, state, self.server.inference_env)
                 state["inference"]["job"] = self.server.inference_job.copy()
+                from .readiness import diagnose
+                state["readiness"] = diagnose(self.server.ledger, state)
+                state["readiness"]["job"] = self.server.readiness_job.copy()
                 return self.respond(200, state)
             if path == "/api/export":
                 return self.respond(200, report(self.server.ledger.snapshot()), "text/markdown; charset=utf-8", {"Content-Disposition": 'attachment; filename="portfolio-snapshot.md"'})
@@ -141,6 +147,24 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(403, {"error": "Session and CSRF token required"})
             if self.path == "/api/commands":
                 return self.respond(200, self.server.ledger.submit(body))
+            if self.path == "/api/readiness":
+                if not isinstance(body, dict) or set(body) != {"operation"} or body["operation"] not in ("inspect", "rehearse"):
+                    return self.respond(400, {"error": "Only inspect or rehearse is accepted; no dispatch or native actions"})
+                if not self.server.readiness_lock.acquire(blocking=False):
+                    return self.respond(409, {"error": "Readiness check already running"})
+                self.server.readiness_job = {"status": "running", "operation": body["operation"], "startedAt": time.time()}
+                def check_readiness():
+                    try:
+                        from .readiness import collect
+                        from .rehearsal import run
+                        (collect if body["operation"] == "inspect" else run)(self.server.ledger)
+                        self.server.readiness_job = {"status": "complete", "operation": body["operation"], "finishedAt": time.time()}
+                    except Exception:
+                        self.server.readiness_job = {"status": "failed", "operation": body["operation"], "error": "Readiness check failed; no controller state was changed.", "finishedAt": time.time()}
+                    finally:
+                        self.server.readiness_lock.release()
+                threading.Thread(target=check_readiness, daemon=True).start()
+                return self.respond(202, self.server.readiness_job.copy())
             if self.path == "/api/executive-summary":
                 if not isinstance(body, dict) or set(body) != {"force"} or type(body["force"]) is not bool:
                     return self.respond(400, {"error": "Expected only a boolean force flag; prompts and endpoint settings are server-owned"})

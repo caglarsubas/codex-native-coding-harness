@@ -7,6 +7,7 @@ python3 -m unittest discover -s tests -v
 node --check web/app.js
 node --check web/observations.js
 node --check web/inference.js
+node --check web/readiness.js
 ```
 
 The tests use temporary local repositories and ledgers, not a product checkout or
@@ -25,6 +26,12 @@ concurrent requests, unchanged controller state, and authenticated fixed-shape
 requests. Live endpoint/model behavior and rendered UI must be checked separately;
 schema/evidence-ID validation does not prove narrative accuracy. See
 [inference boundaries](INFERENCE.md).
+
+Readiness tests cover metadata-only inspection, exact native identity/path/host,
+freshness, private inventory scoping, unchanged controller state, mapping-change
+approval invalidation, active ownership, shared packet gates and isolated fixture
+rehearsal. The real native pilot remains a separate acceptance gate; see
+[readiness and first-drive requirements](READINESS.md).
 
 ## Native integration acceptance
 

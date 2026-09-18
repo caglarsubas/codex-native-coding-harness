@@ -17,8 +17,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--state", type=Path, default=ROOT / ".state")
     sub = parser.add_subparsers(dest="action", required=True)
-    for name in ("status", "process", "scan", "export", "inference-check", "inference-status"):
+    for name in ("status", "process", "scan", "export", "inference-check", "inference-status", "readiness", "doctor", "rehearse"):
         sub.add_parser(name)
+    p = sub.add_parser("native-observe"); p.add_argument("observation", type=Path)
     p = sub.add_parser("executive-summary"); p.add_argument("--force", action="store_true")
     p = sub.add_parser("observe"); p.add_argument("--remote", action="store_true")
     p = sub.add_parser("artifact-add"); p.add_argument("path", type=Path); p.add_argument("--repo", required=True); p.add_argument("--session"); p.add_argument("--created-at", type=float)
@@ -86,6 +87,14 @@ def main():
     elif action == "observe":
         from .observations import refresh_observations
         out = refresh_observations(ledger, args.remote)
+    elif action in ("readiness", "doctor", "native-observe"):
+        from .readiness import collect, diagnose, native_observation
+        if action == "doctor": collect(ledger)
+        if action == "native-observe": out = native_observation(ledger, read(args.observation))
+        else: out = diagnose(ledger)
+    elif action == "rehearse":
+        from .rehearsal import run
+        out = run(ledger)
     elif action == "inference-check":
         from .inference import Client, settings
         out = Client(settings()).check()

@@ -495,4 +495,5 @@ def snapshot(db):
     artifacts = [json.loads(r[0]) for r in db.execute("SELECT data FROM artifact_versions")]
     return {"usage": values.get("usage"), "git": [v for k, v in values.items() if k.startswith("git:")],
         "roadmaps": values.get("roadmaps", {"plans": []}), "refresh": values.get("refresh"), "executive": values.get("executive"),
+        "readiness": values.get("readiness"), "native": values.get("native"), "rehearsal": values.get("rehearsal"),
         "artifacts": sorted(artifacts, key=lambda a: (a["orderAt"], a["key"], a["version"]))}

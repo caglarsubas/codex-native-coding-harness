@@ -22,6 +22,8 @@ VERSION = 1
 AXES = ("source", "ci", "merge", "artifact", "deployment", "runtime", "assurance", "tenant")
 ACTIVE = ("reserved", "starting", "running", "awaiting_acceptance", "accepting", "verifying", "blocked")
 COMMANDS = {"approve", "hold", "prioritize", "pause", "resume", "reconcile", "checkpoint", "archive"}
+PREFLIGHT_CHECKS = {"packetCurrent", "baseCurrent", "predecessorsVerified", "locksVerified", "noActiveDuplicate",
+    "setupSafe", "policyReviewed", "runnerAvailable", "scopeApproved"}
 SHA = re.compile(r"^[a-f0-9]{64}$")
 COMMIT = re.compile(r"^[a-f0-9]{40,64}$")
 
@@ -48,6 +50,31 @@ def safe_relative(value):
     p = PurePosixPath(value)
     require(not p.is_absolute() and ".." not in p.parts and value != ".", "Path escapes repository")
     return value
+
+
+def eligibility_issues(q, repo, seed, workers, now=None):
+    """Shared, read-only packet gates. Not a substitute for live external checks."""
+    now = time.time() if now is None else now
+    issues = []
+    def check(ok, code, detail):
+        if not ok:
+            issues.append({"code": code, "detail": detail})
+    check(q["status"] == "approved" and not q["held"], "approval", "Packet not approved or held")
+    approval = q.get("approval") or {}
+    check(approval.get("seedHash") == q["seedHash"] and approval.get("packetDigest") == q["packetDigest"],
+        "approval_binding", "Approval invalidated; exact seed and packet approval required")
+    p = q.get("preflight") or {}
+    check(bool(p) and 0 <= now - p.get("at", 0) <= 300, "preflight_freshness", "Fresh verified preflight required (5-minute window)")
+    for name in sorted(PREFLIGHT_CHECKS):
+        check(p.get("checks", {}).get(name) is True, name, "Preflight needs independent evidence: " + name)
+    check(p.get("seedHash") == q["seedHash"] and p.get("packetDigest") == q["packetDigest"] and p.get("baseSHA") == seed["baseSHA"],
+        "preflight_binding", "Preflight does not match the current seed, packet and base")
+    check(bool(repo["projectId"]) and repo["projectId"] == p.get("projectId"), "project_mapping", "Project mapping missing or changed; fresh preflight required")
+    for dep in seed["predecessors"]:
+        managed = next((w for w in workers if w["queueId"] == dep["repository"] + ":" + dep["packetId"]), None)
+        check(not managed or managed["evidence"][dep["axis"]]["status"] == "verified",
+            "predecessor", "Managed predecessor evidence not verified: " + dep["packetId"] + "/" + dep["axis"])
+    return issues
 
 
 def validate_seed(seed):
@@ -176,6 +203,13 @@ class Ledger:
                 if existing:
                     prior = json.loads(existing["data"])
                     require(prior["policyProfile"] == repo["policyProfile"] and prior["mergePolicy"] == repo["mergePolicy"], "Policy change requires explicit migration; do not weaken in place")
+                    if any(prior[k] != repo[k] for k in ("path", "projectId", "ref")):
+                        require(not any(w["repository"] == repo["id"] and w["status"] in ACTIVE for w in self.all(db, "workers")), "Repository mapping is owned by active work; reconcile before changing it")
+                        for q in self.all(db, "queue"):
+                            if q["repository"] == repo["id"] and q["status"] in ("proposed", "approved"):
+                                q.update(status="proposed", approval=None, preflight=None, reason="Repository mapping changed; review scope and approve again")
+                                self.put(db, "queue", q["id"], q)
+                        self.event(db, "mapping_changed_approvals_invalidated", {"repository": repo["id"]})
                 require(repo["mergePolicy"] in ("manual", "required_checks"), "Unknown merge policy")
                 self.put(db, "repos", repo["id"], repo)
             self.event(db, "initialized", {"repositories": len(config["repositories"])})
@@ -341,8 +375,7 @@ class Ledger:
 
     def preflight(self, token, key, observation):
         fields = {"seedHash", "packetDigest", "baseSHA", "projectId", "checks", "evidence"}
-        checks = {"packetCurrent", "baseCurrent", "predecessorsVerified", "locksVerified", "noActiveDuplicate",
-            "setupSafe", "policyReviewed", "runnerAvailable", "scopeApproved"}
+        checks = PREFLIGHT_CHECKS
         require(set(observation) == fields and set(observation["checks"]) == checks, "Incomplete preflight observations")
         require(all(type(v) is bool for v in observation["checks"].values()) and observation["evidence"], "Explicit checks and evidence references required")
         with self.tx() as db:
@@ -359,20 +392,10 @@ class Ledger:
             self.event(db, "preflight", {"id": key, "checks": observation["checks"]})
 
     def eligible(self, db, q):
-        require(q["status"] == "approved" and not q["held"], "Packet not approved or held")
-        require(q["approval"] and q["approval"]["seedHash"] == q["seedHash"], "Approval invalidated")
-        p = q["preflight"]
-        require(p and time.time() - p["at"] <= 300 and all(p["checks"].values()), "Fresh verified preflight required (5-minute window)")
         repo = self.get(db, "repos", q["repository"])
-        require(repo["projectId"] == p["projectId"], "Project mapping changed; fresh preflight required")
         seed = self.get(db, "snapshots", q["seedHash"])
-        # Imported predecessor evidence still needs the independent preflight check.
-        for dep in seed["predecessors"]:
-            depkey = dep["repository"] + ":" + dep["packetId"]
-            row = db.execute("SELECT data FROM workers WHERE queue_id=?", (depkey,)).fetchone()
-            if row:
-                w = json.loads(row["data"])
-                require(w["evidence"][dep["axis"]]["status"] == "verified", "Managed predecessor evidence not verified")
+        issues = eligibility_issues(q, repo, seed, self.all(db, "workers"))
+        require(not issues, issues[0]["detail"] if issues else "")
 
     def reserve(self, token, key):
         with self.tx() as db:
