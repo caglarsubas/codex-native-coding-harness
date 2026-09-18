@@ -107,6 +107,8 @@ class Ledger:
             CREATE TABLE IF NOT EXISTS snapshots (id TEXT PRIMARY KEY, kind TEXT NOT NULL, data TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS metrics (id TEXT PRIMARY KEY, data TEXT NOT NULL);
             """)
+            from .observations import setup
+            setup(db)
             if not db.execute("SELECT 1 FROM meta").fetchone():
                 self.put(db, "meta", 1, {"schemaVersion": 1, "revision": 0, "paused": True,
                     "concurrency": 1, "maximumConcurrency": 2, "pilotPassed": False, "brainId": None,
@@ -520,6 +522,8 @@ class Ledger:
                 "metrics": self.all(db, "metrics"), "events": events, "serverTime": time.time()}
             history = [{"at": r["at"], "kind": r["kind"], "data": json.loads(r["data"])} for r in db.execute("SELECT at,kind,data FROM events ORDER BY seq")]
             result["delivery"] = delivery_metrics(result["workers"], result["repositories"], history, result["serverTime"])
+            from .observations import snapshot
+            result["observations"] = snapshot(db)
             db.commit()
             return result
 
@@ -581,6 +585,7 @@ def worker_prompt(dispatch_id, seed):
         "Do not execute acceptance before the brain grants the shared runner reservation. At ready-for-acceptance, stop and report.",
         "Do not merge until repository policy and required checks permit it. No cloud provisioning or new paid services are authorized.",
         "Return exact commits, changed paths, PR/check references, all evidence axes and blockers. The brain independently verifies completion.",
+        "List created deliverable paths and observed creation/revision times for the brain to preserve in its artifact ledger. Do not run the controller helper from a product worker.",
     ]
     if seed["policyProfile"] == "harness":
         common += ["Harness profile: no warm-source access or material. No packet prefetch or tests outside the exact trusted isolated execution flow.",

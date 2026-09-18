@@ -71,3 +71,13 @@ say “continue orchestration” in the brain. Do not claim a queued action exec
 
 Read-only onboarding must not resume dispatch, approve a packet, create a worker,
 run acceptance, alter a product repository or auto-enable two-worker concurrency.
+
+## Observations and artifacts
+
+For portfolio monitoring or a requested report, read the Observations section of
+`references/operations.md`. Use `observe` for local measurements and `observe
+--remote` for explicit read-only GitHub status. These are not reconciliation or
+approval. Preserve task artifacts with `artifact-add` before closing a task;
+creation times must be observed, not inferred from file modification times.
+Never treat local token logs as a subscription bill, a checked plan item as
+acceptance, or a historical file reference as preserved historical bytes.

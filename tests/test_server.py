@@ -8,6 +8,8 @@ import uuid
 
 from orchestrator.core import Ledger
 from orchestrator.server import Dashboard
+from orchestrator.observations import capture
+from unittest.mock import patch
 
 
 class ServerTest(unittest.TestCase):
@@ -61,6 +63,37 @@ class ServerTest(unittest.TestCase):
         status, _, raw = self.request("/api/commands", {"id":str(uuid.uuid4()),"kind":"resume","expectedRevision":0,"payload":{}}, self.login())
         self.assertEqual(status,200); self.assertEqual(json.loads(raw)["status"],"queued")
         self.assertTrue(self.ledger.snapshot()["meta"]["paused"])
+
+    def test_artifact_preview_is_authenticated_json_and_download_is_inert(self):
+        with self.ledger.tx() as db:
+            document = capture(db,"fixture",b"<script>alert('x')</script>",{"name":"page.html","references":[],"orderAt":1,"repository":"fixture"})
+        path = "/api/artifacts/" + document["id"]
+        self.assertEqual(self.request(path)[0],401)
+        auth = self.login()
+        status, headers, raw = self.request(path,headers=auth)
+        self.assertEqual(status,200)
+        self.assertTrue(headers["Content-Type"].startswith("application/json"))
+        self.assertEqual(json.loads(raw)["text"],"<script>alert('x')</script>")
+        status, headers, raw = self.request(path + "/download",headers=auth)
+        self.assertEqual(status,200)
+        self.assertEqual(headers["Content-Type"],"application/octet-stream")
+        self.assertTrue(headers["Content-Disposition"].startswith("attachment;"))
+        self.assertNotEqual(self.request("/api/artifacts/../../ledger.sqlite3",headers=auth)[0],200)
+
+    def test_observation_refresh_requires_csrf_and_fixed_shape(self):
+        auth = self.login()
+        self.assertEqual(self.request("/api/observe",{"remote":False},{"Origin":self.server.origin})[0],403)
+        self.assertEqual(self.request("/api/observe",{"remote":False,"shell":"id"},auth)[0],400)
+        entered = threading.Event(); release = threading.Event()
+        def collect(*args):
+            entered.set(); release.wait(2); return {"status":"complete"}
+        with patch("orchestrator.observations.refresh_observations",side_effect=collect):
+            self.assertEqual(self.request("/api/observe",{"remote":False},auth)[0],202)
+            self.assertTrue(entered.wait(1))
+            self.assertEqual(self.request("/api/observe",{"remote":False},auth)[0],409)
+            release.set()
+        self.assertTrue(self.ledger.snapshot()["meta"]["paused"])
+        self.assertEqual(self.ledger.snapshot()["workers"],[])
 
 
 if __name__ == "__main__": unittest.main()

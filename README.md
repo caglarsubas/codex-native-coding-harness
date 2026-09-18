@@ -106,8 +106,11 @@ Counts cover tracked UTF-8 text including blank/comment lines, grouped as source
 tests, docs and config/data. Exclusions and exact commit IDs are recorded. They are
 not executable SLOC or test coverage. Worktrees are not counted multiple times.
 Missing measurements are unavailable, not zero. Delivery metrics cover only tasks
-managed by this ledger. Historical messages/sessions, model/effort, tokens and
-cache data are unavailable until a validated usage source is connected.
+managed by this ledger. Historical messages/tasks, model/effort, token and cache
+observations can be imported from configured local Codex logs. The dashboard
+includes Token usage, Git & delivery, Artifact library and Roadmap views. See
+[observation setup and limits](docs/OBSERVATIONS.md). Missing sources remain
+unavailable; retained local logs are not account-wide billing records.
 
 Do not infer subscription charges from API token prices, or causal model effects
 from unmatched tasks. Reports and the entire `.state/` directory are private and

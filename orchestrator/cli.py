@@ -19,6 +19,8 @@ def main():
     sub = parser.add_subparsers(dest="action", required=True)
     for name in ("status", "process", "scan", "export"):
         sub.add_parser(name)
+    p = sub.add_parser("observe"); p.add_argument("--remote", action="store_true")
+    p = sub.add_parser("artifact-add"); p.add_argument("path", type=Path); p.add_argument("--repo", required=True); p.add_argument("--session"); p.add_argument("--created-at", type=float)
     p = sub.add_parser("init"); p.add_argument("config", type=Path)
     p = sub.add_parser("acquire"); p.add_argument("owner")
     p = sub.add_parser("release"); p.add_argument("checkpoint")
@@ -80,6 +82,12 @@ def main():
         for repo in ledger.snapshot()["repositories"]:
             record = measure(repo); ledger.metric(record)
             out.append({k: record[k] for k in ("repository", "status", "commit", "files", "lines", "characters", "reason")})
+    elif action == "observe":
+        from .observations import refresh_observations
+        out = refresh_observations(ledger, args.remote)
+    elif action == "artifact-add":
+        from .observations import register_artifact
+        out = register_artifact(ledger, args.path, args.repo, args.session, args.created_at)
     elif action == "export":
         state = ledger.snapshot()
         folder = ROOT / "reports"; folder.mkdir(exist_ok=True, mode=0o700)

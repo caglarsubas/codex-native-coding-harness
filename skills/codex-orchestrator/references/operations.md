@@ -134,11 +134,47 @@ an onboarding message and a dashboard screenshot do not qualify as that pilot.
 
 `scan` measures only registered repository commits and records snapshots. `export`
 writes timestamped private Markdown/JSON reports. Read the methodology before
-interpreting line counts as source LOC. Historical sessions, tokens and cache are
-unavailable until a validated usage source is connected; do not invent values.
+interpreting line counts as source LOC. See observations below for scoped local
+usage history; absent sources remain unavailable.
 
 `serve` starts the loopback dashboard. The server is independent of worker lifetime.
 The private link is in `.state/dashboard-session.json`; do not publish it. Open it
 with the native browser-panel tool. Restarting the server rotates authentication,
 not task state. Closing its browser panel does not pause the brain. Keep the local
 computer and Codex app running for native scheduled work.
+
+## Observations
+
+Private `.state/observations.json` declares the Codex log location, explicit
+artifact roots and repository-relative roadmap Markdown files. Use the example
+configuration in the tool repository. Never add unrelated source roots merely
+because a task mentions a path. The initial task cwd must map to a configured
+repository or one of its registered Git worktrees to import its rollout.
+
+`observe` reads local Git state, code metrics, incremental rollout metadata and
+configured plan files. `observe --remote` additionally uses fixed GitHub REST
+GETs through existing gh authentication. Neither command fetches, pushes, merges,
+executes repository code, changes dispatch or wakes the brain. The dashboard
+offers the same read-only refresh independently of a paused heartbeat.
+
+Local logs are best-effort telemetry, not billing records. Counters are deduped
+across active/archived/continued logs and split by turn model/effort. Missing
+prefixes, resets, ambiguous deltas and malformed records are explicit diagnostics.
+Input includes cached input; output includes reasoning. Task-cwd attribution is
+not edited-file attribution. User/assistant message records are not semantic turns.
+Do not draw causal model/effort conclusions from unmatched work.
+
+At deliverable creation or revision, use:
+`artifact-add <absolute-file> --repo <registered-id> --session <native-task-id>`.
+Supply `--created-at <Unix-seconds>` only with an observed creation time. This
+retains immutable bounded bytes within approved artifact roots; unchanged bytes
+do not create another version. Register before overwriting or deleting a version.
+Assistant file links are also discovered from scoped logs; historical links only
+capture currently available bytes, not overwritten history. Binary outputs are
+downloadable; text, Markdown, JSON and HTML source can be read safely in the UI.
+Native attachments without local references require explicit registration.
+
+Roadmap checkboxes are observed at exact configured Git refs. No checkbox is
+execution approval or proof of CI, merge, runtime or tenant acceptance. Documents
+without checkboxes remain readable, not fabricated checklists. Update plans only
+within their own repository authority, never as an observation-side effect.
