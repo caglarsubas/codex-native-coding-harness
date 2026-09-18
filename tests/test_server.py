@@ -169,5 +169,18 @@ class ServerTest(unittest.TestCase):
             self.assertEqual(json.loads(raw)["provenance"]["status"], "unknown")
             local.assert_not_called(); remote.assert_not_called()
 
+    def test_brain_activity_is_authenticated_read_only_and_static_is_public(self):
+        with patch.object(self.server.brain_activity, "snapshot", return_value={"status":"unknown", "readOnly":True}) as reader:
+            self.assertEqual(self.request("/api/state")[0], 401)
+            reader.assert_not_called()
+            before = self.ledger.snapshot()["meta"]
+            status, _, raw = self.request("/api/state", headers=self.login())
+            self.assertEqual(status, 200)
+            self.assertTrue(json.loads(raw)["brainActivity"]["readOnly"])
+            self.assertEqual(self.ledger.snapshot()["meta"], before)
+        status, _, raw = self.request("/activity.js")
+        self.assertEqual(status, 200)
+        self.assertNotIn(self.server.bootstrap.encode(), raw)
+
 
 if __name__ == "__main__": unittest.main()

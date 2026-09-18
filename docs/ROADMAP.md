@@ -56,9 +56,18 @@ acceptance authority. Items change through reviewed repository edits.
 - [x] Explicit metadata checks without automatic fetch, pull, restart or dispatch
 - [x] Regression tests for runtime fingerprints, privacy and remote error handling
 - [x] Verify rendered runtime inspection and clean-restart comparison
-- [ ] Publish and merge the runtime provenance extension
+- [x] Publish and merge the runtime provenance extension (PR #5)
 
 This maintainer implementation does not qualify as the real native-worker pilot.
+
+## Brain visibility — v6
+
+- [x] Place brain activity, freshness and dispatch state at the top of Overview
+- [x] Read bounded local brain event metadata without retaining conversations
+- [x] Show recent activity in Knowledge and link the latest retained brain artifact
+- [x] Distinguish checkpoint age, native observations and implementation workers
+- [ ] Verify regression tests and rendered browser interactions
+- [ ] Publish and merge the brain visibility extension
 
 ## Next increments — not yet authorized implementation packets
 

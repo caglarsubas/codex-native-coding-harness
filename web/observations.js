@@ -138,6 +138,7 @@ function gitStatus(root) {
 
 function artifactReader(root, identity) {
   const panel = el("section", null, "artifact-reader");
+  panel.tabIndex=-1;
   panel.append(section("Artifact reader", "Immutable captured bytes. Active HTML/SVG is shown as source, never executed."));
   const pre = el("pre", "Loading preserved version…");
   const download = el("a", "Download this version", "button"); download.href="/api/artifacts/" + identity + "/download"; download.download="";

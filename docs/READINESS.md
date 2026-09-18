@@ -77,6 +77,11 @@ roots and refuses duplicate IDs, future/stale timestamps, unexpected fields and
 another brain identity. This is an auditable operator observation, not a signed
 native attestation. It never edits portfolio mappings or authorizes dispatch.
 
+The brain object also accepts an optional `title` (1–200 characters), copied
+verbatim from native task tools. Overview's [Brain activity](BRAIN_ACTIVITY.md)
+panel uses this title and a separate, shorter activity freshness window. Local
+activity metadata is not a substitute for the native readiness observation.
+
 The available native connector lists saved projects but does not expose a project
 registration operation. Register an existing checkout through the normal Codex
 project UI, then discover its actual ID again. Do not edit private app databases
