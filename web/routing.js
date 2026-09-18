@@ -15,13 +15,14 @@ function focusRouteTarget(route){
   if(target){target.tabIndex=-1;target.scrollIntoView({block:"start"});target.focus({preventScroll:true});}
   else{document.querySelector(".workspace").scrollTop=0;document.getElementById("main").focus({preventScroll:true});}
 }
-function applyDashboardRoute(){
+function applyDashboardRoute(activateWorkspace=true){
   if(!state)return;
   const route=location.hash?dashboardRoute(location.hash):{view:'overview',id:null};
   if(!route){if(location.hash.startsWith("#/"))showNotice("This dashboard link is not recognized.",true);return;}
+  activateWorkspace=activateWorkspace||Boolean(route.id);
   if(route.id&&route.view==="artifacts"&&!state.observations?.artifacts.some(a=>a.id===route.id)){
-    navigateView("artifacts",null,false);showNotice("The linked artifact is not in the retained library. No file was opened.",true);return;
+    navigateView("artifacts",null,false,activateWorkspace);showNotice("The linked artifact is not in the retained library. No file was opened.",true);return;
   }
-  navigateView(route.view,route.id,false);
+  navigateView(route.view,route.id,false,activateWorkspace);
 }
-window.addEventListener("hashchange",applyDashboardRoute);
+window.addEventListener("hashchange",()=>applyDashboardRoute());
