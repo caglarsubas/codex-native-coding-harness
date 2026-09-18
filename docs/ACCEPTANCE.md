@@ -6,6 +6,7 @@
 python3 -m unittest discover -s tests -v
 node --check web/app.js
 node --check web/observations.js
+node --check web/inference.js
 ```
 
 The tests use temporary local repositories and ledgers, not a product checkout or
@@ -15,6 +16,15 @@ uncertain/pending native identities, pause races, post-pilot concurrency, shared
 runner exclusion, crash recovery, bounded corrections, exact changed paths,
 completion evidence, archival acknowledgment, policy downgrade refusal, Unicode
 metrics, missing repositories, authentication, Host/Origin checks and CSRF.
+
+Optional inference tests use fake transport responses and temporary credentials:
+no real endpoint is called by the suite. They cover local-model allowlisting,
+owner-only configuration, redirect refusal, aggregate-only projection, sanitized
+errors, complete JSON answers, evidence IDs, cached snapshots, artifact versions,
+concurrent requests, unchanged controller state, and authenticated fixed-shape
+requests. Live endpoint/model behavior and rendered UI must be checked separately;
+schema/evidence-ID validation does not prove narrative accuracy. See
+[inference boundaries](INFERENCE.md).
 
 ## Native integration acceptance
 
@@ -56,5 +66,5 @@ blockers, not permission to synthesize a demonstration product task.
 
 Before publishing, inspect `git diff --cached` and `git ls-files`. Never include
 `.state/`, `reports/`, installed `installation.json`, session artifacts, private
-configuration, personal absolute paths or task IDs. No license is inferred merely
+configuration, `.env`, endpoint credentials, personal absolute paths or task IDs. No license is inferred merely
 from repository visibility; the owner can select a license separately.

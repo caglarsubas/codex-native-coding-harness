@@ -21,7 +21,18 @@ acceptance authority. Items change through reviewed repository edits.
 - [x] Preserve and read artifact versions across scoped tasks
 - [x] Show versioned roadmap checklist sources
 - [x] Verify importer, security, lifecycle and dashboard regressions
-- [ ] Publish and merge the observability extension
+- [x] Publish and merge the observability extension (PR #2)
+
+## Advisory intelligence — v3
+
+- [x] Optional server-side inference client and ignored credential configuration
+- [x] Bounded aggregate-only executive brief with evidence references
+- [x] On-demand Overview controls, stale/error states and explicit data preview
+- [x] Versioned brief artifacts and separate service-reported token counts
+- [x] Verify live routing, complete-answer rejection and regression tests
+- [x] Verify rendered generation, evidence preview and artifact-version reading
+- [ ] Qualify narrative accuracy with repeatable portfolio fixtures
+- [ ] Publish and merge the inference extension
 
 ## Next increments — not yet authorized implementation packets
 

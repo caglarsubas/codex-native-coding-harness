@@ -6,8 +6,10 @@ inheritance packets, creates native implementation tasks inside an approved queu
 supervises them, and independently verifies completion.
 
 **The webpage is not an agent scheduler.** It records typed requests in SQLite;
-the brain performs native Codex actions. There is no private desktop API, cloud
-service, separate model API key, runtime download or external telemetry.
+the brain performs native Codex actions. No private desktop API, runtime download
+or external telemetry is used. Orchestration needs no model API key. An optional,
+user-configured inference service can draft advisory briefs on explicit request;
+it has no controller authority.
 
 ## What is included
 
@@ -21,6 +23,13 @@ service, separate model API key, runtime download or external telemetry.
   Markdown report export. Local authentication, Host/Origin checks and CSRF guard.
 - Personal Codex skill and a runbook for native tool operations and recovery.
 - Read-only Git metrics: aggregate and per-repository snapshots at exact commits.
+- Optional evidence-linked executive brief on Overview, using an allowlisted
+  on-prem model through `llm-inference-engine`. Versioned output, freshness,
+  service-reported usage, and a preview of the exact aggregate data sent.
+
+AI briefs are unverified drafts. Initial live trials exposed occasional narrative
+errors; factual-accuracy qualification remains open. Deterministic metrics and
+independent evidence remain authoritative.
 
 This coordinates native tasks; it does not replace repository policy, a trusted
 runner, OS isolation, independent review or human authorization. The local owner
@@ -122,6 +131,7 @@ approvals, tokens, live databases or conversation transcripts.
 - [Operator runbook](skills/codex-orchestrator/references/operations.md)
 - [Record contracts](docs/RECORDS.md)
 - [Acceptance and known boundaries](docs/ACCEPTANCE.md)
+- [Inference setup, privacy and future uses](docs/INFERENCE.md)
 - [Official scheduled-task documentation](https://learn.chatgpt.com/docs/automations)
 - [Official worktree lifecycle](https://learn.chatgpt.com/docs/environments/git-worktrees)
 

@@ -19,6 +19,7 @@ async function command(kind,payload={}) {if(!state||busy)return;if(!connected){s
 async function refresh() {try{state=await api("/api/state");connected=true;$('connection').textContent="Ledger connected · "+new Date().toLocaleTimeString();render();}catch(e){connected=false;$('connection').textContent="Ledger disconnected";showNotice(e.message,true);$('pause').disabled=true;$('reconcile').disabled=true;}}
 function overview(root) {
  const m=state.meta,active=state.workers.filter(w=>!['complete'].includes(w.status));
+ executiveSummary(root);
  if(m.paused)root.append(callout("Dispatch is paused", "No new implementation tasks will be created. Existing work is not cancelled. Approve exact queue items, then request resume when their prerequisites are verified."));
  if(!m.lastReconciled||Date.now()/1000-m.lastReconciled>1800)root.append(callout("Brain observations are not current", "The dashboard connection does not prove the brain is running. Ask “continue orchestration” in the designated Codex brain to reconcile."));
  const strip=el("div",null,"summary-strip");[[active.length+" / "+m.concurrency,"worker slots"],[state.queue.filter(q=>q.status==='approved').length,"approved packets"],[state.repositories.length,"repositories"],[m.runner?"Reserved":"Unreserved","managed runner"]].forEach(([v,l])=>{const s=el("div");s.append(el("strong",v),el("span",l));strip.append(s);});root.append(strip);

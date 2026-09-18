@@ -17,8 +17,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--state", type=Path, default=ROOT / ".state")
     sub = parser.add_subparsers(dest="action", required=True)
-    for name in ("status", "process", "scan", "export"):
+    for name in ("status", "process", "scan", "export", "inference-check", "inference-status"):
         sub.add_parser(name)
+    p = sub.add_parser("executive-summary"); p.add_argument("--force", action="store_true")
     p = sub.add_parser("observe"); p.add_argument("--remote", action="store_true")
     p = sub.add_parser("artifact-add"); p.add_argument("path", type=Path); p.add_argument("--repo", required=True); p.add_argument("--session"); p.add_argument("--created-at", type=float)
     p = sub.add_parser("init"); p.add_argument("config", type=Path)
@@ -85,6 +86,15 @@ def main():
     elif action == "observe":
         from .observations import refresh_observations
         out = refresh_observations(ledger, args.remote)
+    elif action == "inference-check":
+        from .inference import Client, settings
+        out = Client(settings()).check()
+    elif action == "inference-status":
+        from .inference import public_status
+        out = public_status(ledger)
+    elif action == "executive-summary":
+        from .inference import generate
+        out = generate(ledger, force=args.force)
     elif action == "artifact-add":
         from .observations import register_artifact
         out = register_artifact(ledger, args.path, args.repo, args.session, args.created_at)
