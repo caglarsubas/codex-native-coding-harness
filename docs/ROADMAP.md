@@ -44,10 +44,21 @@ acceptance authority. Items change through reviewed repository edits.
 - [x] First-pilot scope proposal and explicit CI/setup/approval gates
 - [x] Update the brain skill with read-only readiness and rehearsal procedures
 - [x] Verify browser readiness controls and complete regression checks
-- [ ] Publish and merge the readiness extension
+- [x] Publish and merge the readiness extension (PR #4)
 - [ ] Register the selected pilot repository and verify native setup
 - [ ] Resolve and verify the pilot's CI evidence route
 - [ ] Approve and complete one real native-worker pilot
+
+## Runtime provenance — v5
+
+- [x] Separate server-start checkout, current checkout and observed GitHub revision
+- [x] Detect dirty, changed-source, changed-revision and unknown/stale states
+- [x] Explicit metadata checks without automatic fetch, pull, restart or dispatch
+- [x] Regression tests for runtime fingerprints, privacy and remote error handling
+- [ ] Verify rendered runtime inspection and clean-restart comparison
+- [ ] Publish and merge the runtime provenance extension
+
+This maintainer implementation does not qualify as the real native-worker pilot.
 
 ## Next increments — not yet authorized implementation packets
 

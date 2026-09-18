@@ -49,6 +49,7 @@ function readiness(root) {
   ['Real worker pilot',d.pilotPassed?'Recorded accepted':'Not accepted · one worker limit','Complete and independently verify a real approved worker; simulation does not qualify.'],
   ['Pending controls',d.pendingControls+' pending / '+d.uncertainControls+' uncertain','Reconcile uncertain native actions before retrying.']
  ]));
+ runtimeProvenance(root);
  root.append(section('Repository preparation','Metadata checks do not prove safe setup, CI or acceptance.'));
  root.append(table(['Repository / policy','Checkout & native mapping','Required follow-through'],d.repositories.map(r=>{
   const detail=el('details',null,'readiness-detail');detail.append(el('summary',r.issues.length?r.issues.length+' setup issue(s)':'Registration observed; review execution gates'));

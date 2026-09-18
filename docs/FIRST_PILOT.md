@@ -1,30 +1,25 @@
 # First native-worker pilot proposal
 
-**State: proposed scope only. Not approved, prepared, scheduled or dispatched.**
+**State: awaiting target/scope and CI decisions. Not approved, prepared, scheduled
+or dispatched.**
 
 Recommended target: this orchestration repository, under the standard profile
 and manual-merge policy. This avoids using an unqualified controller to execute
 a Harness product packet with stricter isolation and acceptance requirements.
 Selecting the target does not waive any of those requirements for future work.
 
-## Useful pilot task: runtime provenance
+## Scope selection
 
-Add a read-only runtime provenance indicator that distinguishes the server's
-loaded revision from the current checkout and the observed remote default branch.
-This addresses a real operational gap: merging a PR or checking out new code does
-not prove that the running dashboard has loaded that revision.
+The earlier runtime-provenance candidate is now implemented through the
+maintainer development task; see [RUNTIME.md](RUNTIME.md). It was not dispatched
+through the controller and is not native-worker pilot evidence. Do not dispatch
+that completed implementation again simply to make the pilot indicator green.
 
-Proposed scope to review before an immutable seed is prepared:
-
-- `orchestrator/provenance.py` and `tests/test_provenance.py`
-- `orchestrator/server.py`
-- `web/provenance.js`, `web/index.html`, `web/app.js`
-- `docs/RUNTIME.md`
-
-Acceptance should prove startup revision capture, honest dirty/unknown states,
-changed-checkout restart advice, no background fetch, no credential exposure and
-no changes to controller authority. The new native task would implement one
-`codex/` branch and open one PR; manual merge remains with the owner.
+Select a still-open, useful bounded task after native registration and the CI
+route are resolved. Review its objective, exact allowed paths, pinned base,
+acceptance and stop conditions before preparing an immutable seed. The new native
+task must implement one `codex/` branch and one PR; manual merge stays with the
+owner. An already completed maintainer change cannot retroactively become a pilot.
 
 ## Must resolve before approval
 

@@ -20,6 +20,7 @@ async function refresh() {try{state=await api("/api/state");connected=true;$('co
 function overview(root) {
  const m=state.meta,active=state.workers.filter(w=>!['complete'].includes(w.status));
  readinessSummary(root);
+ runtimeSummary(root);
  executiveSummary(root);
  if(m.paused)root.append(callout("Dispatch is paused", "No new implementation tasks will be created. Existing work is not cancelled. Approve exact queue items, then request resume when their prerequisites are verified."));
  if(!m.lastReconciled||Date.now()/1000-m.lastReconciled>1800)root.append(callout("Brain observations are not current", "The dashboard connection does not prove the brain is running. Ask “continue orchestration” in the designated Codex brain to reconcile."));

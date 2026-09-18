@@ -116,6 +116,11 @@ Project registration, safe worktree setup, a valid CI evidence route, exact pack
 approval and a live brain cycle remain required. The webpage cannot wake a paused
 native heartbeat or silently register projects.
 
+The [runtime provenance view](docs/RUNTIME.md) distinguishes the server-start
+checkout from the current source tree and explicitly observed GitHub revision.
+It flags dirty/changed/stale evidence and recommends manual restart when needed;
+it never pulls code, restarts the process or treats a merge as deployment.
+
 ## Metrics and privacy
 
 ```sh

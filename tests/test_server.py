@@ -16,7 +16,7 @@ class ServerTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.ledger = Ledger(Path(self.tmp.name) / "state")
-        self.server = Dashboard(self.ledger, 0, Path(self.tmp.name) / ".env")
+        self.server = Dashboard(self.ledger, 0, Path(self.tmp.name) / ".env", runtime_root=self.tmp.name)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
 
@@ -145,6 +145,29 @@ class ServerTest(unittest.TestCase):
             self.assertEqual(status, 200)
             self.assertFalse(json.loads(raw)["readiness"]["launchAuthorized"])
             collect.assert_not_called(); run.assert_not_called()
+
+    def test_runtime_inspection_requires_auth_fixed_shape_and_single_operation(self):
+        auth = self.login()
+        self.assertEqual(self.request("/api/provenance", {"remote": False})[0], 403)
+        for body in ({"remote": 1}, {"remote": False, "path": "/private"}, {"operation": "restart"}):
+            self.assertEqual(self.request("/api/provenance", body, auth)[0], 400)
+        entered = threading.Event(); release = threading.Event()
+        def inspect(remote):
+            self.assertFalse(remote); entered.set(); release.wait(2)
+        before = self.ledger.snapshot()["meta"]
+        with patch.object(self.server.provenance, "refresh", side_effect=inspect):
+            self.assertEqual(self.request("/api/provenance", {"remote": False}, auth)[0], 202)
+            self.assertTrue(entered.wait(1))
+            self.assertEqual(self.request("/api/provenance", {"remote": True}, auth)[0], 409)
+            release.set()
+        self.assertEqual(before, self.ledger.snapshot()["meta"])
+
+    def test_runtime_state_polling_never_scans_or_calls_remote(self):
+        with patch("orchestrator.provenance.inspect") as local, patch("orchestrator.provenance.remote_revision") as remote:
+            status, _, raw = self.request("/api/state", headers=self.login())
+            self.assertEqual(status, 200)
+            self.assertEqual(json.loads(raw)["provenance"]["status"], "unknown")
+            local.assert_not_called(); remote.assert_not_called()
 
 
 if __name__ == "__main__": unittest.main()

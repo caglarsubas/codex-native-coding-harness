@@ -12,6 +12,7 @@ from urllib.parse import urlsplit
 from .core import Refusal
 from .repository import aggregate, report
 from .inference import ENV_FILE, public_status
+from .provenance import Provenance
 
 WEB = Path(__file__).resolve().parent.parent / "web"
 COOKIE = "orchestrator_session"
@@ -20,7 +21,7 @@ COOKIE = "orchestrator_session"
 class Dashboard(ThreadingHTTPServer):
     daemon_threads = True
 
-    def __init__(self, ledger, port=8768, inference_env=ENV_FILE):
+    def __init__(self, ledger, port=8768, inference_env=ENV_FILE, runtime_root=WEB.parent):
         super().__init__(("127.0.0.1", port), Handler)
         self.ledger = ledger
         self.origin = f"http://127.0.0.1:{self.server_port}"
@@ -34,6 +35,9 @@ class Dashboard(ThreadingHTTPServer):
         self.inference_job = {"status": "idle"}
         self.readiness_lock = threading.Lock()
         self.readiness_job = {"status": "idle"}
+        self.provenance = Provenance(runtime_root)
+        self.provenance_lock = threading.Lock()
+        self.provenance_job = {"status": "idle"}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -81,6 +85,7 @@ class Handler(BaseHTTPRequestHandler):
         static["/observations.js"] = ("observations.js", "text/javascript; charset=utf-8")
         static["/inference.js"] = ("inference.js", "text/javascript; charset=utf-8")
         static["/readiness.js"] = ("readiness.js", "text/javascript; charset=utf-8")
+        static["/provenance.js"] = ("provenance.js", "text/javascript; charset=utf-8")
         if path in static:
             file, mime = static[path]
             return self.respond(200, (WEB / file).read_bytes(), mime)
@@ -99,6 +104,8 @@ class Handler(BaseHTTPRequestHandler):
                 from .readiness import diagnose
                 state["readiness"] = diagnose(self.server.ledger, state)
                 state["readiness"]["job"] = self.server.readiness_job.copy()
+                state["provenance"] = self.server.provenance.snapshot()
+                state["provenance"]["job"] = self.server.provenance_job.copy()
                 return self.respond(200, state)
             if path == "/api/export":
                 return self.respond(200, report(self.server.ledger.snapshot()), "text/markdown; charset=utf-8", {"Content-Disposition": 'attachment; filename="portfolio-snapshot.md"'})
@@ -147,6 +154,22 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(403, {"error": "Session and CSRF token required"})
             if self.path == "/api/commands":
                 return self.respond(200, self.server.ledger.submit(body))
+            if self.path == "/api/provenance":
+                if not isinstance(body, dict) or set(body) != {"remote"} or type(body["remote"]) is not bool:
+                    return self.respond(400, {"error": "Expected only a boolean remote flag; no paths or process controls"})
+                if not self.server.provenance_lock.acquire(blocking=False):
+                    return self.respond(409, {"error": "Runtime inspection already running"})
+                self.server.provenance_job = {"status": "running", "startedAt": time.time()}
+                def inspect_runtime():
+                    try:
+                        self.server.provenance.refresh(body["remote"])
+                        self.server.provenance_job = {"status": "complete", "finishedAt": time.time()}
+                    except Exception:
+                        self.server.provenance_job = {"status": "failed", "error": "Runtime inspection failed; no process or controller action was performed."}
+                    finally:
+                        self.server.provenance_lock.release()
+                threading.Thread(target=inspect_runtime, daemon=True).start()
+                return self.respond(202, self.server.provenance_job.copy())
             if self.path == "/api/readiness":
                 if not isinstance(body, dict) or set(body) != {"operation"} or body["operation"] not in ("inspect", "rehearse"):
                     return self.respond(400, {"error": "Only inspect or rehearse is accepted; no dispatch or native actions"})
