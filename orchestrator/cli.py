@@ -1,0 +1,101 @@
+"""Machine-readable CLI for the brain. All native tool calls stay in Codex."""
+import argparse
+import json
+import os
+from pathlib import Path
+import sys
+import time
+import uuid
+
+from .core import Ledger, Refusal, canonical
+from .repository import aggregate, measure, prepare_packet, report, verify_git_inputs
+
+ROOT = Path(__file__).resolve().parent.parent
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--state", type=Path, default=ROOT / ".state")
+    sub = parser.add_subparsers(dest="action", required=True)
+    for name in ("status", "process", "scan", "export"):
+        sub.add_parser(name)
+    p = sub.add_parser("init"); p.add_argument("config", type=Path)
+    p = sub.add_parser("acquire"); p.add_argument("owner")
+    p = sub.add_parser("release"); p.add_argument("checkpoint")
+    p = sub.add_parser("recover"); p.add_argument("owner"); p.add_argument("observation")
+    p = sub.add_parser("heartbeat"); p.add_argument("id"); p.add_argument("status", choices=["ACTIVE", "PAUSED"])
+    p = sub.add_parser("prepare"); p.add_argument("manifest", type=Path); p.add_argument("--repo", required=True); p.add_argument("--catalog", required=True)
+    p = sub.add_parser("prepare-seed"); p.add_argument("seed", type=Path)
+    p = sub.add_parser("document"); p.add_argument("hash")
+    p = sub.add_parser("command"); p.add_argument("kind"); p.add_argument("--payload", default="{}"); p.add_argument("--revision", type=int, required=True); p.add_argument("--id", default=None)
+    p = sub.add_parser("preflight"); p.add_argument("queue_id"); p.add_argument("observation", type=Path); p.add_argument("--catalog", required=True)
+    for name in ("reserve", "begin"):
+        p = sub.add_parser(name); p.add_argument("id")
+    p = sub.add_parser("bind"); p.add_argument("id"); p.add_argument("--thread-id"); p.add_argument("--client-id"); p.add_argument("--host-id", default="local")
+    p = sub.add_parser("transition"); p.add_argument("id"); p.add_argument("status"); p.add_argument("note"); p.add_argument("--no-progress", action="store_true")
+    p = sub.add_parser("runner"); p.add_argument("id"); p.add_argument("operation", choices=["acquire", "release"]); p.add_argument("observation")
+    p = sub.add_parser("complete"); p.add_argument("id"); p.add_argument("envelope", type=Path)
+    p = sub.add_parser("ack"); p.add_argument("id"); p.add_argument("result"); p.add_argument("--failed", action="store_true")
+    p = sub.add_parser("pilot"); p.add_argument("id"); p.add_argument("evidence")
+    p = sub.add_parser("serve"); p.add_argument("--port", type=int, default=8768)
+    args = parser.parse_args()
+    ledger = Ledger(args.state)
+    token = os.environ.get("ORCHESTRATOR_CONTROLLER_TOKEN", "")
+    read = lambda path: json.loads(path.read_text())
+    action = args.action
+    if action == "init": out = ledger.initialize(read(args.config))
+    elif action == "status":
+        out = ledger.snapshot(); out["summary"] = aggregate(out)
+    elif action == "acquire": out = {"controllerToken": ledger.acquire(args.owner)}
+    elif action == "release": out = ledger.release(token, args.checkpoint)
+    elif action == "recover": out = ledger.recover(args.owner, args.observation)
+    elif action == "heartbeat": out = ledger.heartbeat(args.id, args.status)
+    elif action == "prepare-seed": out = ledger.prepare(read(args.seed))
+    elif action == "prepare":
+        repo = next(r for r in ledger.snapshot()["repositories"] if r["id"] == args.repo)
+        out = ledger.prepare(prepare_packet(args.catalog, repo, read(args.manifest)))
+    elif action == "document": out = ledger.document(args.hash)
+    elif action == "command":
+        out = ledger.submit({"id": args.id or str(uuid.uuid4()), "kind": args.kind,
+            "expectedRevision": args.revision, "payload": json.loads(args.payload)}, actor="explicit_user_via_brain")
+    elif action == "process": out = ledger.process(token)
+    elif action == "preflight":
+        state = ledger.snapshot()
+        q = next(q for q in state["queue"] if q["id"] == args.queue_id)
+        repo = next(r for r in state["repositories"] if r["id"] == q["repository"])
+        seed = ledger.document(q["seedHash"])
+        observation = read(args.observation)
+        observation["checks"].update(verify_git_inputs(args.catalog, repo, seed))
+        out = ledger.preflight(token, args.queue_id, observation)
+    elif action == "reserve": out = ledger.reserve(token, args.id)
+    elif action == "begin": out = ledger.begin_creation(token, args.id)
+    elif action == "bind": out = ledger.bind(token, args.id, args.thread_id, args.client_id, args.host_id)
+    elif action == "transition": out = ledger.transition(token, args.id, args.status, args.note, not args.no_progress)
+    elif action == "runner": out = ledger.runner(token, args.id, args.operation, args.observation)
+    elif action == "complete": out = ledger.complete(token, args.id, read(args.envelope))
+    elif action == "ack": out = ledger.acknowledge(token, args.id, not args.failed, args.result)
+    elif action == "pilot": out = ledger.pilot(token, args.id, args.evidence)
+    elif action == "scan":
+        out = []
+        for repo in ledger.snapshot()["repositories"]:
+            record = measure(repo); ledger.metric(record)
+            out.append({k: record[k] for k in ("repository", "status", "commit", "files", "lines", "characters", "reason")})
+    elif action == "export":
+        state = ledger.snapshot()
+        folder = ROOT / "reports"; folder.mkdir(exist_ok=True, mode=0o700)
+        stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()) + "-" + uuid.uuid4().hex[:6]
+        path = folder / f"portfolio-{stamp}.md"
+        path.write_text(report(state)); path.with_suffix(".json").write_text(json.dumps({"state": state, "summary": aggregate(state)}, indent=2))
+        out = {"markdown": str(path), "json": str(path.with_suffix(".json"))}
+    elif action == "serve":
+        from .server import serve
+        serve(ledger, args.port); return
+    print(json.dumps(out if out is not None else {"ok": True}, ensure_ascii=False, indent=2))
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (Refusal, ValueError, OSError, KeyError, StopIteration) as error:
+        print(json.dumps({"error": str(error) or "Unknown repository or queue item"}), file=sys.stderr)
+        sys.exit(2)

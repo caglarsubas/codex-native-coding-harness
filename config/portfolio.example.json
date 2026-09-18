@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "brainId": "REPLACE_WITH_EXISTING_CODEX_TASK_ID",
+  "repositories": [
+    {
+      "id": "example-project",
+      "path": "/absolute/path/to/your/project",
+      "projectId": null,
+      "ref": "origin/main",
+      "mergePolicy": "manual",
+      "policyProfile": "standard"
+    }
+  ]
+}

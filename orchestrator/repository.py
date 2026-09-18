@@ -1,0 +1,161 @@
+"""Read-only Git measurements and packet preparation; never executes repo code."""
+from __future__ import annotations
+
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+import time
+
+from .core import Refusal, canonical, require, safe_relative, validate_seed
+
+EXCLUDED = {"node_modules", "vendor", "dist", "build", "coverage", ".git", ".venv", "__pycache__", "generated"}
+LOCKS = {"package-lock.json", "pnpm-lock.yaml", "yarn.lock", "uv.lock", "requirements.lock", "Cargo.lock", "poetry.lock"}
+SOURCE = {".py", ".js", ".ts", ".tsx", ".jsx", ".go", ".rs", ".java", ".c", ".h", ".cpp", ".cs", ".swift", ".rb", ".sh", ".css", ".html", ".sql", ".vue", ".svelte"}
+
+
+def git(path, *args, binary=False):
+    require(path and Path(path).is_dir(), "Repository not present on disk")
+    result = subprocess.run(["git", "-c", "core.hooksPath=/dev/null", "-C", str(path), *args],
+        capture_output=True, timeout=60, check=False)
+    require(result.returncode == 0, "Git read failed: " + result.stderr.decode(errors="replace")[:300])
+    return result.stdout if binary else result.stdout.decode().strip()
+
+
+def head(path, ref):
+    require(isinstance(ref, str) and ref and not ref.startswith("-"), "Invalid Git reference")
+    return git(path, "rev-parse", "--verify", ref + "^{commit}")
+
+
+def blob(path, commit, relative):
+    safe_relative(relative)
+    return git(path, "show", f"{commit}:{relative}", binary=True)
+
+
+def measure(repo):
+    stamp = time.time()
+    result = {"schemaVersion": 1, "repository": repo["id"], "at": stamp, "commit": None,
+        "status": "unavailable", "reason": None, "groups": {}, "files": 0, "lines": 0,
+        "characters": 0, "bytes": 0, "excluded": 0, "binary": 0, "sessions": None,
+        "messages": None, "tokens": None, "cacheRate": None, "modelEffort": None,
+        "methodology": "Tracked UTF-8 text at configured ref; Unicode code points and physical lines, including blanks/comments. No worktree or untracked files. Excludes vendor/build/generated directories, lockfiles, symlinks, binaries and files over 2 MiB. Not SLOC or coverage."}
+    try:
+        commit = head(repo["path"], repo["ref"])
+        result["commit"] = commit
+        entries = git(repo["path"], "ls-tree", "-r", "-l", "-z", commit, binary=True).split(b"\0")
+        selected = []
+        for entry in entries:
+            if not entry:
+                continue
+            metadata, filename = entry.split(b"\t", 1)
+            mode, kind, oid, size = metadata.split()
+            path = Path(filename.decode("utf-8", errors="replace"))
+            if kind != b"blob" or mode == b"120000" or any(p in EXCLUDED for p in path.parts) or path.name in LOCKS or int(size) > 2 * 1024 * 1024:
+                result["excluded"] += 1
+                continue
+            selected.append((oid.decode(), path))
+        # Batch reads use immutable blob IDs; no checked-out file or symlink is opened.
+        require(sum(int(e.split(b"\t")[0].split()[-1]) for e in entries if e and e.split(b"\t")[0].split()[1] == b"blob") < 512 * 1024 * 1024, "Tree too large for bounded metrics scan")
+        output = subprocess.run(["git", "-c", "core.hooksPath=/dev/null", "-C", repo["path"], "cat-file", "--batch"],
+            input="".join(oid + "\n" for oid, _ in selected).encode(), capture_output=True, timeout=120, check=True).stdout
+        offset = 0
+        for _, path in selected:
+            end = output.index(b"\n", offset)
+            size = int(output[offset:end].split()[-1])
+            raw = output[end + 1:end + 1 + size]
+            offset = end + 2 + size
+            try:
+                require(b"\0" not in raw, "Binary")
+                text = raw.decode("utf-8")
+            except (UnicodeError, Refusal):
+                result["binary"] += 1
+                continue
+            group = "tests" if any(x in ("tests", "test", "__tests__") for x in path.parts) or path.name.startswith("test_") or ".test." in path.name or ".spec." in path.name else "docs" if path.suffix.lower() in (".md", ".rst", ".txt") else "source" if path.suffix.lower() in SOURCE else "config/data"
+            values = {"files": 1, "lines": len(text.splitlines()), "characters": len(text), "bytes": len(raw)}
+            target = result["groups"].setdefault(group, {key: 0 for key in values})
+            for key, value in values.items():
+                target[key] += value
+                result[key] += value
+        result["status"] = "measured"
+    except (Refusal, subprocess.SubprocessError, OSError, ValueError) as error:
+        result["reason"] = str(error)
+        result["groups"] = {}
+        for key in ("files", "lines", "characters", "bytes", "excluded", "binary"):
+            result[key] = None
+    return result
+
+
+def prepare_packet(catalog, repo, manifest):
+    """Read packet data at an immutable commit. User-supplied approvals are separate."""
+    try:
+        import yaml
+    except ImportError as error:
+        raise Refusal("PyYAML is not installed; no runtime download is allowed") from error
+    required = {"packetPath", "catalogCommit", "baseSHA", "rationale", "predecessors", "locks", "completionAxes"}
+    require(set(manifest) == required, "Invalid preparation manifest")
+    commit = head(catalog, manifest["catalogCommit"])
+    require(commit == manifest["catalogCommit"], "Pin exact catalog commit")
+    raw = blob(catalog, commit, manifest["packetPath"])
+    packet = yaml.safe_load(raw)
+    require(packet["repository"] == repo["id"], "Packet belongs to another repository")
+    require(set(packet.get("predecessors", [])) == {d["packetId"] for d in manifest["predecessors"]}, "Every predecessor needs pinned evidence")
+    # Provenance fields/sourceReuse are intentionally not copied into worker context.
+    ex = packet.get("offlineExecution", {})
+    seed = {"schemaVersion": 1, "repository": repo["id"], "policyProfile": repo["policyProfile"],
+        "packetId": packet["id"], "packetDigest": hashlib.sha256(raw).hexdigest(),
+        "packetPath": manifest["packetPath"], "catalogCommit": commit, "baseSHA": manifest["baseSHA"],
+        "branch": packet["branch"], "objective": packet["objective"], "rationale": manifest["rationale"],
+        "allowedPaths": packet["allowedPaths"], "contracts": packet["contracts"], "predecessors": manifest["predecessors"],
+        "locks": manifest["locks"], "execution": {"wrapperArgv": ex["wrapperArgv"],
+            "prefetchCommands": packet.get("prefetchCommands", []), "offlineAcceptanceCommands": packet["offlineAcceptanceCommands"],
+            "isolation": ex["isolation"]}, "acceptance": packet.get("expectedEvidence", packet.get("deliverables", [])),
+        "stopConditions": ["Packet, base, lock or ownership mismatch", "Missing authority, unavailable isolation or runner",
+            "Public contract, tenant isolation, destructive data, licensing, privileges or billing decision"],
+        "completionAxes": manifest["completionAxes"]}
+    validate_seed(seed)
+    return seed
+
+
+def verify_git_inputs(catalog, repo, seed):
+    """Recheck bytes and current base. Does not assert predecessor acceptance."""
+    require(head(repo["path"], repo["ref"]) == seed["baseSHA"], "Configured base SHA changed")
+    raw = blob(catalog, seed["catalogCommit"], seed["packetPath"])
+    require(hashlib.sha256(raw).hexdigest() == seed["packetDigest"], "Pinned packet bytes differ")
+    current = blob(catalog, head(catalog, "origin/main"), seed["packetPath"])
+    require(hashlib.sha256(current).hexdigest() == seed["packetDigest"], "Current catalog packet changed")
+    for lock in seed["locks"]:
+        raw = blob(catalog, seed["catalogCommit"], lock["path"])
+        require(hashlib.sha256(raw).hexdigest() == lock["sha256"], "Source lock digest differs")
+    return {"packetCurrent": True, "baseCurrent": True, "locksVerified": True}
+
+
+def aggregate(state):
+    latest = {}
+    for metric in state["metrics"]:
+        if metric["repository"] not in latest or metric["at"] > latest[metric["repository"]]["at"]:
+            latest[metric["repository"]] = metric
+    totals = {key: sum(m[key] for m in latest.values() if m["status"] == "measured") for key in ("files", "lines", "characters", "bytes")}
+    completed = [w for w in state["workers"] if w["status"] == "complete"]
+    cycles = [w["completedAt"] - w["createdAt"] for w in completed]
+    totals.update(measuredRepositories=sum(m["status"] == "measured" for m in latest.values()),
+        repositoryCount=len(state["repositories"]), managedTasks=len(state["workers"]), completedPackets=len(completed),
+        meanCycleSeconds=sum(cycles) / len(cycles) if cycles else None)
+    return {"aggregate": totals, "repositories": list(latest.values()), "delivery": state.get("delivery"), "usage": {"status": "unavailable",
+        "reason": "No validated per-task usage source connected. Model/effort, tokens, cache, messages and historical sessions are not inferred from task counts."}}
+
+
+def report(state):
+    metrics = aggregate(state)
+    text = ["# Codex Orchestrator — portfolio snapshot", "", f"Generated: {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}",
+        f"Ledger revision: {state['meta']['revision']}. Dispatch paused: {state['meta']['paused']}.", "",
+        "## Aggregate", "", "```json", json.dumps(metrics["aggregate"], indent=2), "```", "",
+        "## Repository distribution", "", "| Repository | Commit | Status | Files | Lines | Characters |", "|---|---|---|---:|---:|---:|"]
+    for m in metrics["repositories"]:
+        measured = m["status"] == "measured"
+        text.append(f"| {m['repository']} | {(m['commit'] or '—')[:12]} | {m['status']} | {m['files'] if measured else '—'} | {m['lines'] if measured else '—'} | {m['characters'] if measured else '—'} |")
+    if state.get("delivery"):
+        text += ["", "## Managed delivery", "", "| Repository | Tasks | Completed in 7 days | Blocked minutes | Runner wait minutes | No-progress cycles |", "|---|---:|---:|---:|---:|---:|"]
+        for row in state["delivery"]["repositories"]:
+            text.append(f"| {row['repository']} | {row['tasks']} | {row['completedLast7Days']} | {row['blockedSeconds']/60:.1f} | {row['runnerWaitSeconds']/60:.1f} | {row['noProgressCycles']} |")
+    text += ["", "## Method and limitations", "", "Counts cover tracked UTF-8 text at exact commits, including blank/comment lines; they are not executable SLOC. Vendor/build/generated directories, lockfiles, binaries, symlinks and files over 2 MiB are excluded. Untracked work and duplicate worktrees are not counted. Missing repositories are unavailable, not zero.", "", metrics["usage"]["reason"], "", "No API-equivalent cost is a subscription bill. Model/effort comparisons require measured, comparable tasks and do not establish causation.", "", "## Brain checkpoint", "", state["meta"]["checkpoint"], ""]
+    return "\n".join(text)
