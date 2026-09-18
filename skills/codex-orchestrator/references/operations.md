@@ -212,6 +212,24 @@ and its unresolved gates; prepare/approve/resume remain separate actions.
 
 ## Prepare and authorize
 
+### Mission configuration (WSP-03A)
+
+For an explicitly requested phase proposal, read `docs/MISSIONS.md` in the tool
+repository for the closed contract. Use exact `--platform` and `--workspace`
+routing, then `mission-state`. Under the designated-brain controller, and only
+while not stopping/parked, `mission-draft <private-spec.json> --revision <current>
+--id <stable-request-id>` saves a proposed immutable version. Inspect the receipt
+before retrying; uncertain retries use the same ID/content. The owner reviews
+the exact hash in Mission & authority; the brain cannot review or revoke it.
+
+No draft/review/revocation sends a native wake or changes dispatch. These records
+do not grant delegation, packet approval, native model settings or enforce token
+limits. `reviewed` means configuration reviewed, not permission to start. Do not
+auto-activate a reviewed record after upgrades. Follow the exact packet procedure
+below until explicit activation and its admission gates are implemented.
+
+### Exact packet preparation
+
 `prepare <manifest.json> --repo <registered-id> --catalog <meta-repo>` imports only
 selected packet fields at a pinned catalog commit. Read the CLI implementation
 for the seven-field manifest and seed schema if preparing a new packet type.

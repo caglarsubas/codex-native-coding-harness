@@ -85,6 +85,12 @@ shares inference capacity, not prompts, conversation history, jobs or action key
 
 ## What this increment does not enable
 
+**Mission & authority** now prepares a versioned phase configuration and records
+exact owner review/revocation. See [mission configuration](MISSIONS.md). It remains
+inactive, grants no packet authority and enforces no token/task allocation yet.
+Saving or reviewing does not notify the brain. Existing reviews must not become
+active merely because a later software upgrade supports activation.
+
 Registration is not delegated packet authority, a token budget or continuous Play.
 Existing exact packet approval, pilot limits, cooperative brain controls and native
 task procedures are unchanged. Phase authority and global repository/runner/budget

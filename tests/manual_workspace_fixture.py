@@ -24,7 +24,9 @@ if __name__ == "__main__":
     registry = Registry(root / "platform", create=True)
     for wid, name in (("alpha", "Harness platform · fixture"), ("beta", "Second product · fixture")):
         ledger = Ledger(root / wid)
-        ledger.initialize({"schemaVersion": 1, "brainId": "brain-" + wid, "repositories": []})
+        ledger.initialize({"schemaVersion": 1, "brainId": "brain-" + wid, "repositories": [
+            {"id": wid + "-repo", "path": str(root / (wid + "-checkout")), "projectId": "fixture-project-" + wid,
+             "ref": "origin/main", "mergePolicy": "manual", "policyProfile": "harness" if wid == "alpha" else "standard"}]})
         registry.register(wid, name, ledger.root)
         registry.save_profile(wid, {"goal": "Build an evidence-led " + ("agent platform" if wid == "alpha" else "product research tool"),
             "successCriteria": ["One bounded milestone independently verified", "No cross-workspace actions"],

@@ -26,6 +26,9 @@ def main():
     p = sub.add_parser("workspace-register"); p.add_argument("id"); p.add_argument("name"); p.add_argument("state_root", type=Path)
     p.add_argument("--apply", action="store_true", help="Register in place after a verified SQLite backup; default is preview")
     p = sub.add_parser("workspace-profile-set"); p.add_argument("profile", type=Path); p.add_argument("--version", type=int, required=True)
+    sub.add_parser("mission-state", help="Read workspace mission configuration; not execution authority")
+    p = sub.add_parser("mission-draft", help="Designated brain proposes a version; owner reviews in the dashboard")
+    p.add_argument("spec", type=Path); p.add_argument("--revision", type=int, required=True); p.add_argument("--id", required=True)
     p = sub.add_parser("native-observe"); p.add_argument("observation", type=Path)
     p = sub.add_parser("decision-publish"); p.add_argument("spec", type=Path)
     p = sub.add_parser("decision-resolve"); p.add_argument("id"); p.add_argument("result", type=Path)
@@ -116,6 +119,13 @@ def main():
     elif action == "brain-park":
         from .brain_control import park
         out = park(ledger, token, args.id, read(args.checkpoint))
+    elif action == "mission-state":
+        from .missions import read as read_mission
+        out = read_mission(ledger)
+    elif action == "mission-draft":
+        from .missions import change
+        out = change(ledger, {"id": args.id, "operation": "save", "expectedRevision": args.revision,
+                             "spec": read(args.spec)}, actor="designated_brain", token=token)
     elif action == "preflight":
         state = ledger.snapshot()
         q = next(q for q in state["queue"] if q["id"] == args.queue_id)

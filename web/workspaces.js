@@ -31,6 +31,7 @@ async function initializeWorkspaces(){
   const data=await api('/api/workspaces');workspaceList=data.workspaces;
   if(!data.enabled)return;
   $('workspace-picker').hidden=false;
+  $('mission-nav').hidden=false;
   if(!workspaceList.length)throw new Error('No registered workspaces are available.');
   const select=$('workspace-select');select.replaceChildren();
   select.onchange=()=>switchWorkspace(select.value);

@@ -172,7 +172,7 @@ class Handler(BaseHTTPRequestHandler):
         static["/activity.js"] = ("activity.js", "text/javascript; charset=utf-8")
         static["/decisions.js"] = ("decisions.js", "text/javascript; charset=utf-8")
         static["/decisions.css"] = ("decisions.css", "text/css; charset=utf-8")
-        for file in ("panes.js", "assistant.js", "routing.js", "workspaces.js", "panes.css"):
+        for file in ("panes.js", "assistant.js", "routing.js", "workspaces.js", "missions.js", "panes.css"):
             static["/" + file] = (file, "text/javascript; charset=utf-8" if file.endswith(".js") else "text/css; charset=utf-8")
         if path in static:
             file, mime = static[path]
@@ -194,6 +194,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(200, {"csrf": scoped_csrf(session, workspace_id), "workspaceId": workspace_id})
             if path == "/api/profile" and workspace_id:
                 return self.respond(200, self.server.registry.profile(workspace_id))
+            if path == "/api/mission" and workspace_id:
+                from .missions import read
+                return self.respond(200, read(runtime.ledger))
             if path == "/api/assistant/context":
                 from .assistant import context
                 query = parse_qs(urlsplit(self.path).query)
@@ -258,6 +261,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(200, self.server.registry.save_profile(workspace_id, body["profile"], body["expectedVersion"]))
             if path == "/api/commands":
                 return self.respond(200, runtime.submit_control(body))
+            if path == "/api/mission" and workspace_id:
+                from .missions import change
+                return self.respond(200, change(runtime.ledger, body))
             if path == "/api/assistant/confirm":
                 command, first = runtime.assistant_proposals.confirm(runtime.ledger, body, csrf)
                 if first:

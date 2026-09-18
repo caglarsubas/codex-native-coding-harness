@@ -603,6 +603,9 @@ class Ledger:
             result["continuations"] = project(result, self.all(db, "continuations"))
             from .decisions import workflow
             result["workflow"] = workflow(result)
+            if getattr(self, "workspace_id", None):
+                from .missions import state_in
+                result["mission"] = state_in(self, db)
             db.commit()
             return result
 
