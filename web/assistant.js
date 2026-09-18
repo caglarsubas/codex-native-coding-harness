@@ -7,7 +7,7 @@ function assistantMessages(history,question){
 }
 function assistantConnectionChanged(){
   const configured=connected&&state?.inference?.configured;
-  $('assistant-service').textContent=!connected?"Connect to the ledger to ask a question.":configured?"On-prem inference · "+state.inference.model:"Inference not configured. Ask the local operator to check the private .env.";
+  $('assistant-service').textContent=!connected?"Connect to the ledger to ask a question.":configured?"On-prem inference · "+(state.inference.assistantModel||state.inference.model):"Inference not configured. Ask the local operator to check the private .env.";
   $('assistant-send').disabled=!configured||assistantPending||!$('assistant-question').value.trim();
   $('assistant-question').readOnly=assistantPending;
   $('assistant-clear').disabled=assistantPending;
@@ -18,7 +18,12 @@ function assistantStatus(text,error=false){$('assistant-status').textContent=tex
 function chatTurn(role,content){
   $('assistant-welcome').hidden=true;
   const item=el('article',null,'chat-turn');item.dataset.role=role;
-  item.append(el('p',role==='user'?'YOU':'AI · ADVISORY','eyebrow'),el('p',content));
+  const body=el('p');
+  // Models sometimes emit emphasis despite the plain-text contract. Only bold
+  // text is supported; HTML, URLs and Markdown links never become active markup.
+  if(role==='assistant')content.split(/(\*\*[^*\n]{1,240}\*\*)/g).forEach(part=>body.append(el(part.startsWith('**')&&part.endsWith('**')?'strong':'span',part.startsWith('**')&&part.endsWith('**')?part.slice(2,-2):part)));
+  else body.textContent=content;
+  item.append(el('p',role==='user'?'YOU':'AI · ADVISORY','eyebrow'),body);
   $('assistant-log').append(item);return item;
 }
 function assistantScroll(){const log=$('assistant-log');log.scrollTop=log.scrollHeight;}

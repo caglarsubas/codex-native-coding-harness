@@ -53,12 +53,22 @@ class AssistantTest(unittest.TestCase):
     def test_bounded_metadata_and_open_first(self):
         state = self.ledger.snapshot()
         d = state["decisions"][0]
-        state["decisions"] = [{**copy.deepcopy(d), "id": str(i), "createdAt": i, "status": "blocked" if i else "open"} for i in range(50)]
+        state["decisions"] = [{**copy.deepcopy(d), "id": str(i), "createdAt": i, "status": "answered" if i else "open"} for i in range(50)]
         data, links = context(state, "decisions")
         rows = data["facts"][9]["data"]
         self.assertEqual(len(rows), 6)
         self.assertEqual(rows[0]["status"], "open")
         self.assertLess(len(canonical(data).encode()), 24000)
+
+    def test_closed_prompts_cannot_reopen_settled_questions_in_chat_context(self):
+        state = self.ledger.snapshot()
+        state["decisions"][0]["status"] = "blocked"
+        state["decisions"][0]["response"] = {"note": "Already answered"}
+        data, links = context(state, "overview")
+        self.assertEqual(data["facts"][9]["data"], [])
+        self.assertEqual(data["facts"][8]["data"]["historicalDecisionStates"], {"blocked": 1})
+        self.assertNotIn(self.spec["question"], canonical(data))
+        self.assertNotIn("D1", links)
 
     def test_strict_request_roles_bounds_and_no_configuration(self):
         for change in ({"model": "other"}, {"url": "https://other.example"}, {"view": "../../.env"}, {"messages": []},
@@ -105,6 +115,17 @@ class AssistantTest(unittest.TestCase):
         with patch("orchestrator.assistant.Client.request") as call, self.assertRaises(Refusal):
             chat(self.ledger, self.body, self.env)
         call.assert_not_called()
+
+    def test_chat_model_override_does_not_change_brief_or_tenant(self):
+        self.env.write_text(self.env.read_text()+"CODEX_LLM_ASSISTANT_MODEL=qwen3.8:27b\n")
+        r=response(); r["model"]="qwen3.8:27b"
+        with patch("orchestrator.assistant.Client.request",return_value=r) as call:
+            result=chat(self.ledger,self.body,self.env)
+        self.assertEqual(result["model"],"qwen3.8:27b")
+        self.assertEqual(call.call_args.args[1]["model"],"qwen3.8:27b")
+        from orchestrator.inference import settings
+        self.assertEqual(settings(self.env).model,CONFIG.model)
+        self.assertEqual(settings(self.env).api_key,CONFIG.api_key)
 
     def test_reject_routing_tools_truncation_unknown_evidence_links_and_secret_echo(self):
         data, links = context(self.ledger.snapshot(), "overview")

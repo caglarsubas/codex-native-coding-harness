@@ -17,6 +17,9 @@ or controller authority.
    `CODEX_LLM_API_KEY` privately, and select `CODEX_LLM_MODEL`.
 3. Keep the default `ministral-3:8b` for low-overhead briefs. The explicit local
    allowlist also includes `qwen3.8:27b`, `gemma4:26b`, and `llama3.2:3b`.
+   Optional `CODEX_LLM_ASSISTANT_MODEL` selects a different model from this same
+   allowlist for chat only. Omit it to reuse the brief model. The endpoint and
+   bearer tenancy remain shared; neither model is selectable from the browser.
 4. Run `python3 -m orchestrator.cli inference-check`, then choose **Generate brief**
    on Overview, or run `python3 -m orchestrator.cli executive-summary`.
 
@@ -113,10 +116,13 @@ Each request rebuilds F1–F8 and adds:
 
 - F9: recorded brain desired state/phase, workflow, pending request kinds and
   notification statuses, and follow-up status counts. No checkpoint narrative.
-- F10: up to six decision titles, questions, scopes, next steps and option labels,
-  open decisions first. Answer-present and needs-input flags are included, not
+- F10: up to six current decision titles, questions, scopes, next steps and option
+  labels, open decisions first, then answered/received items awaiting a result.
+  Closed/blocked historical prompts are withheld to avoid reopening settled
+  questions; only historical status counts are included in F9.
+  Answer-present and needs-input flags are included, not
   owner responses, selected options or resolution text. Option labels are omitted
-  for closed decisions.
+  for answered/received decisions.
 - F11: names, versions and creation/reference timestamps for eight recent artifacts.
   No file contents, paths or native conversation retrieval.
 
@@ -131,6 +137,12 @@ native activity. Prompt clarification and explicit data-availability fields redu
 ambiguity but do not establish factual accuracy. Replies therefore carry a visible
 AI-draft warning and deterministic open-decision/pending-control/dispatch counts
 from the actual snapshot. Factual-accuracy qualification remains open.
+In a subsequent same-snapshot trial, `qwen3.8:27b` preserved the recorded/unknown
+distinction and did not reopen settled questions. That single response took about
+84 seconds; it is a smoke test, not a comparative benchmark or model qualification.
+The optional assistant-only model setting allows this latency/quality trade-off
+without changing executive briefs or the service identity. There is no automatic
+model fallback on timeout or validation failure.
 
 `GET /api/assistant/context?view=overview` previews the bounded context with no
 inference request. Sending captures a fresh snapshot, which can differ from the

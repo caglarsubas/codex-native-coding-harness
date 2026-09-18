@@ -1,5 +1,6 @@
 """Request-only advisory chat. No ledger writes, tools, native sends or retrieval."""
 from collections import Counter
+from dataclasses import replace
 from datetime import datetime, timezone
 import fcntl
 import json
@@ -88,8 +89,12 @@ def context(state, view):
         "pendingKinds": dict(Counter(c["kind"] for c in pending)),
         "pendingDelivery": dict(Counter((c.get("notification") or {}).get("status", "not_observed") for c in pending)),
         "followUpStates": dict(Counter(c["status"] for c in state.get("continuations", []))),
+        "historicalDecisionStates": dict(Counter(d["status"] for d in state.get("decisions", []) if d["status"] not in ("open", "answered", "received"))),
     }})
-    decisions = sorted(state.get("decisions", []), key=lambda d: (d["status"] != "open", -d["createdAt"]))[:6]
+    # Closed prompts describe old questions, not pending work. Sending them caused
+    # the small model to reopen settled questions despite explicit status flags.
+    decisions = sorted((d for d in state.get("decisions", []) if d["status"] in ("open", "answered", "received")),
+                       key=lambda d: (d["status"] != "open", -d["createdAt"]))[:6]
     rows = []
     for index, decision in enumerate(decisions, 1):
         key, spec = "D" + str(index), decision["spec"]
@@ -98,7 +103,7 @@ def context(state, view):
                      "needsOwnerInput": decision["status"] == "open", "ownerAnswerRecorded": bool(decision.get("response")),
                      **{k: short(spec.get(k)) for k in ("title", "question", "scope", "nextStep")},
                      "options": [short(o["label"], 100) for o in spec["options"][:4]] if decision["status"] == "open" else []})
-    facts.append({"id": "F10", "label": "Up to six decisions, open first; no owner answers included", "data": rows})
+    facts.append({"id": "F10", "label": "Up to six current decisions, open first; closed prompts and owner answers withheld", "data": rows})
     artifacts = sorted(state.get("observations", {}).get("artifacts", []), key=lambda a: a.get("orderAt") or 0, reverse=True)[:8]
     rows = []
     for index, artifact in enumerate(artifacts, 1):
@@ -155,6 +160,7 @@ def chat(ledger, body, env_path=ENV_FILE):
         except BlockingIOError:
             raise Refusal("An inference request is already running. Wait for it to finish, then send again.") from None
         config = settings(env_path)
+        config = replace(config, model=config.assistant_model or config.model)
         data, links = context(ledger.snapshot(), view)
         require(config.api_key not in canonical({"context": data, "messages": messages}), "Sensitive configuration found in chat input; request refused")
         started = time.monotonic()
