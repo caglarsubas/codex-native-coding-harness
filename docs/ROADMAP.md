@@ -81,7 +81,17 @@ This maintainer implementation does not qualify as the real native-worker pilot.
 - [x] Install updated skill and activate the existing native listener
 - [x] Verify a real brain-published decision in the dashboard
 - [ ] Complete a real dashboard-approved implementation-worker pilot
-- [ ] Publish and merge the dashboard-first continuation extension
+- [x] Publish and merge the dashboard-first continuation extension (PR #7)
+
+## Immediate decision notification — v8
+
+- [x] Opt-in supported native queue notification of the existing brain
+- [x] Durable one-shot claim, duplicate protection and ambiguity recovery
+- [x] Separate notification, brain receipt, scoped outcome and dispatch authority
+- [x] Regression suite (147 Python tests) and delivery presentation checks
+- [x] Live CLI wake verified against independent brain receipt and retained outcome
+- [x] Verify rendered saved-answer and notification states in an isolated fixture
+- [ ] Publish and merge the immediate-notification extension
 
 ## Next increments — not yet authorized implementation packets
 

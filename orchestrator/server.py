@@ -1,4 +1,4 @@
-"""Loopback-only dashboard. This server cannot call Codex or launch workers."""
+"""Loopback dashboard with an opt-in, fixed-purpose native brain notification."""
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -14,6 +14,7 @@ from .repository import aggregate, report
 from .inference import ENV_FILE, public_status
 from .provenance import Provenance
 from .activity import BrainActivity
+from .notification import BrainNotifier
 
 WEB = Path(__file__).resolve().parent.parent / "web"
 COOKIE = "orchestrator_session"
@@ -22,7 +23,7 @@ COOKIE = "orchestrator_session"
 class Dashboard(ThreadingHTTPServer):
     daemon_threads = True
 
-    def __init__(self, ledger, port=8768, inference_env=ENV_FILE, runtime_root=WEB.parent):
+    def __init__(self, ledger, port=8768, inference_env=ENV_FILE, runtime_root=WEB.parent, notification_cli=None):
         super().__init__(("127.0.0.1", port), Handler)
         self.ledger = ledger
         self.origin = f"http://127.0.0.1:{self.server_port}"
@@ -40,6 +41,7 @@ class Dashboard(ThreadingHTTPServer):
         self.provenance_lock = threading.Lock()
         self.provenance_job = {"status": "idle"}
         self.brain_activity = BrainActivity(ledger)
+        self.notifier = BrainNotifier(ledger, notification_cli)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -112,6 +114,7 @@ class Handler(BaseHTTPRequestHandler):
                 state["provenance"] = self.server.provenance.snapshot()
                 state["provenance"]["job"] = self.server.provenance_job.copy()
                 state["brainActivity"] = self.server.brain_activity.snapshot(state)
+                state["brainNotification"] = self.server.notifier.status(state["meta"]["brainId"])
                 return self.respond(200, state)
             if path == "/api/export":
                 return self.respond(200, report(self.server.ledger.snapshot()), "text/markdown; charset=utf-8", {"Content-Disposition": 'attachment; filename="portfolio-snapshot.md"'})
@@ -159,7 +162,10 @@ class Handler(BaseHTTPRequestHandler):
             if not session or not secrets.compare_digest(self.headers.get("X-CSRF-Token", ""), session["csrf"]):
                 return self.respond(403, {"error": "Session and CSRF token required"})
             if self.path == "/api/commands":
-                return self.respond(200, self.server.ledger.submit(body))
+                command = self.server.ledger.submit(body)
+                if command["kind"] == "decision_response":
+                    command = self.server.notifier.notify(command["id"])
+                return self.respond(200, command)
             if self.path == "/api/provenance":
                 if not isinstance(body, dict) or set(body) != {"remote"} or type(body["remote"]) is not bool:
                     return self.respond(400, {"error": "Expected only a boolean remote flag; no paths or process controls"})
@@ -237,7 +243,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.respond(400, {"error": "Malformed request: " + str(error)})
 
 
-def serve(ledger, port):
+def serve(ledger, port, notification_cli=None):
     # File lock prevents separate app instances presenting competing local sessions.
     import fcntl
     lock = open(ledger.root / "dashboard.lock", "a")
@@ -245,7 +251,7 @@ def serve(ledger, port):
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError as error:
         raise Refusal("Dashboard already running for this ledger") from error
-    server = Dashboard(ledger, port)
+    server = Dashboard(ledger, port, notification_cli=notification_cli)
     session_file = ledger.root / "dashboard-session.json"
     fd = os.open(session_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w") as stream:

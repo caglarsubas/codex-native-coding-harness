@@ -6,7 +6,8 @@ inheritance packets, creates native implementation tasks inside an approved queu
 supervises them, and independently verifies completion.
 
 **The webpage is not an agent scheduler.** It records typed requests in SQLite;
-the brain performs native Codex actions. No private desktop API, runtime download
+an opt-in bridge immediately notifies the existing brain of saved decision
+answers through `codex queue`. The brain performs worker operations. No private desktop API, runtime download
 or external telemetry is used. Orchestration needs no model API key. An optional,
 user-configured inference service can draft advisory briefs on explicit request;
 it has no controller authority.
@@ -60,6 +61,16 @@ PyYAML. Do not install dependencies during a restricted execution run.
    python3 -m orchestrator.cli serve
    ```
 
+   To enable immediate decision delivery, use the absolute path to the installed
+   Codex CLI (the bundled path below is for this macOS installation):
+
+   ```sh
+   python3 -m orchestrator.cli serve --notify-brain /Applications/ChatGPT.app/Contents/Resources/codex
+   ```
+
+   Keep this option on subsequent restarts. Without it the bridge is disabled,
+   clearly reported in the dashboard. No CLI is downloaded or daemon started.
+
    Open the private URL in `.state/dashboard-session.json` in a Codex browser
    panel. It uses a local bootstrap token in the fragment, clears that fragment,
    and establishes an HttpOnly, SameSite session. Never publish the private URL.
@@ -80,16 +91,16 @@ state. Keep the computer and Codex app running for local scheduled work.
 | Resume / reconcile | Queue a request | Brain processes it on its next active cycle |
 | Checkpoint worker | Queue a request | Brain sends a cooperative checkpoint request |
 | Archive completed task | Queue after preservation checks | Brain verifies inactivity and uses native archive |
-| Answer a decision | Bind an answer to an immutable question version | Brain continues authorized design and records an artifact-backed outcome |
+| Answer a decision | Save the version-bound answer; notify the existing brain if enabled | Idle pickup immediately, or native queue behind an active turn; brain records receipt and scoped outcome |
 | Keep listening between jobs | Save the owner's listener preference | Brain keeps the existing native heartbeat active independently of dispatch |
 
 The [Decision inbox](docs/DECISIONS.md) separates recorded answers, brain receipt,
-design outcomes and implementation approval. With idle listening enabled and its
-native heartbeat active, dashboard answers do not need a chat “continue”. Initial
-activation or reactivation after deliberately stopping idle listening needs the
-brain once; the webpage cannot wake a paused native schedule. Local scheduled
-checks require the computer/app running and consume model usage. Immediate task
-interruption stays in native Codex controls.
+design outcomes and implementation approval. Immediate notification removes the
+heartbeat delay for new answers; it does not interrupt a busy brain, enable a
+paused schedule, or grant execution authority. The 15-minute heartbeat remains a
+recovery fallback while enabled. Delivery is not receipt: unavailable, ambiguous
+and overdue states keep the answer and explain the next action. Keep the computer
+and Codex running. Native turns and scheduled checks consume model usage.
 
 Never blindly retry a `starting` worker or `processing` native action. Reconcile
 its unique dispatch/request identity against actual native state first.

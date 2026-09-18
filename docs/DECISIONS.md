@@ -1,8 +1,9 @@
 # Dashboard-first decisions and continuation
 
 The Decision inbox stores owner choices independently of executable packets.
-The native brain remains the only scheduler. The server never calls Codex,
-executes a response note, or starts a background dispatcher.
+The native brain remains the only scheduler. The server may notify that existing
+brain via the supported `codex queue` CLI when explicitly enabled at startup. It
+never executes a response note, launches a worker or starts a background dispatcher.
 
 ## Operator experience
 
@@ -12,7 +13,9 @@ executes a response note, or starts a background dispatcher.
    a suggestion and add any requested information. No option is preselected.
    **Use my own answer instead** clears a selection without losing your text.
 3. Confirm the exact version and record the answer. It is initially **Answer
-   recorded**, not executed. The native brain processes it on a scheduled cycle.
+   recorded**, not executed. With the bridge enabled, it immediately notifies
+   Codex: an idle brain can start now, while an active turn finishes first.
+   **Sent to Codex** means native queue acknowledgment, not a brain receipt.
 4. **Received by brain** is an in-flight receipt. **Applied to design** or **Needs
    follow-up** includes the brain's outcome and retained artifact references.
    This is not independent verification, public-schema adoption or acceptance.
@@ -34,18 +37,56 @@ types use the same 4,000-character limit and version-bound receipt lifecycle.
 - **Pause dispatch** closes the next worker creation boundary. It neither stops
   an existing worker nor disables the decision listener.
 
-The existing native heartbeat is reused at a 15-minute cadence. No duplicate cron
+The existing native heartbeat is reused as a fallback at a 15-minute cadence. No duplicate cron
 or separate task is created. Requested listening, last native status observation,
 last inbox check and dispatch state are displayed separately. Missing or older
 than 35-minute check-ins/status observations are unconfirmed, not healthy.
 
 Initial activation (and reactivation after explicitly turning idle listening off)
 requires the brain/native automation tool once: the browser cannot wake a paused
-native schedule. Normal dashboard answers need no chat while that schedule stays
-active. Turning off idle listening is observed on the next cycle; pending actions
+native schedule. Immediate notification is independent of this schedule: submitting
+an answer explicitly requests a native turn even with idle listening off. Turning
+off idle listening is observed on the next cycle; pending actions
 and active workers still require reconciliation before parking. Keep the computer
 and Codex app running. Polling consumes model usage even without actionable work;
 use compact `inbox` output and avoid unchanged-state notifications.
+
+## Immediate notification and recovery
+
+Start `serve --notify-brain /absolute/path/to/codex` from the local Codex-capable
+environment. This trusted startup option cannot be changed by the browser.
+The installed CLI must support `queue --thread <id> --message <text>` and be able
+to reach the existing designated task. A separate app-server daemon is not a
+precondition; the verified desktop queue route works without one. Connection
+availability is established per send, not inferred from an executable on disk.
+
+Only a validated, committed, still-pending dashboard `decision_response` can
+notify the ledger's brain UUID. The fixed prompt includes hash-only identifiers,
+never answer text, secrets, model/effort changes or a browser-selected target.
+Resume/reconcile/checkpoint/archive controls retain their existing brain-cycle
+semantics; the bridge does not broaden to arbitrary messages or commands.
+
+The command's additive `notification` records `wakeId`, `brainId`, `attemptedAt`,
+status and, on completion, `finishedAt` and a sanitized detail. A successful exact
+CLI acknowledgment also records `nativeMessageId`. Status is one of `sending`,
+`accepted`, `unavailable`, or `uncertain`. The command/decision receipt remains
+independent and can arrive before the CLI acknowledgment.
+
+A SQLite claim is committed before invoking the CLI, outside the transaction.
+Concurrent submissions, an HTTP retry, restart and repeated polling cannot send
+the same answer twice. CLI execution has an eight-second timeout. A nonzero exit,
+timeout or unrecognized acknowledgment is uncertain, not safe to resend; raw CLI
+output is never retained or returned. A crash may leave `sending`: after 12
+seconds the UI says delivery unconfirmed. An accepted notification with no ledger
+receipt after 90 seconds says receipt overdue, not failed or definitely busy.
+
+Open the brain using the dashboard link for unavailable, unconfirmed or overdue
+delivery. The original answer remains in the inbox for a normal controller cycle
+or the active heartbeat to reconcile. There is no automatic resend or startup
+backlog sweep; historical answers without notification records retain honest
+legacy status. Do not submit a second answer to recover notification. There is
+no claim of exactly-once native execution across SQLite and Codex; one external
+attempt plus idempotent brain receipt/recovery is the safety boundary.
 
 ## Brain contract
 

@@ -16,8 +16,12 @@ temporary fixture repos.
 
 Run `python3 -m unittest discover -s tests -v` and `node --check web/app.js`.
 Keep `.state/` private. Never commit auth tokens, conversation transcripts or
-the live SQLite database. No background dispatcher or private Codex API: native
-task operations are performed by the brain using the installed personal skill.
+the live SQLite database. No background dispatcher or private Codex API. The
+owner-authorized notification bridge may invoke only the installed `codex queue`
+CLI with a fixed message to the configured existing brain after a validated,
+committed dashboard decision response. No response text, arbitrary argv, target,
+model or effort comes from the browser. Claim before sending; never blindly retry
+uncertain delivery. All worker operations and authority remain with the brain.
 
 Dispatch defaults to paused. Queue authorization must identify exact packet and
 seed hashes. A request to build this controller is not product packet approval.

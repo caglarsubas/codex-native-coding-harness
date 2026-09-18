@@ -11,6 +11,7 @@ node --check web/readiness.js
 node --check web/provenance.js
 node --check web/activity.js
 node --check web/decisions.js
+node tests/test_decision_ui.js
 ```
 
 The tests use temporary local repositories and ledgers, not a product checkout or
@@ -73,12 +74,23 @@ Unit tests or a read-only onboarding turn do not establish item 5. Missing
 projects, packet authority, runner/backend, or consequential design decisions are
 blockers, not permission to synthesize a demonstration product task.
 
+Notification tests mock the native CLI. They cover authenticated HTTP submission,
+fixed target/argv, hash-only message content, atomic duplicate claims, interrupted
+sends, ambiguous/wrong-target acknowledgments, preserved racing receipts and
+unchanged execution authority. UI checks distinguish accepted delivery, fresh
+activity, unavailable/uncertain notification and overdue receipt. A live CLI wake
+and its independently observed brain receipt are separate from these fixtures;
+do not submit fake owner decisions into the live portfolio to test the bridge.
+
 ## Deliberate limits
 
-- Codex tool calls are performed by the brain, not the dashboard process.
-- No immediate page-to-brain wake API is assumed. Initial activation or explicit
-  idle-listener reactivation requires the native brain once; queued requests are
-  durable while it is inactive. Active scheduling consumes model usage.
+- Worker tool calls are performed by the brain, not the dashboard process. The
+  only exception is opt-in, fixed-purpose `codex queue` notification of that brain
+  after a saved dashboard decision; no private desktop API is used.
+- The native CLI/app must be available. Delivery acknowledgment is not a brain
+  receipt. Initial heartbeat activation/reactivation still requires the native
+  brain once; notification does not enable the schedule. Native turns and active
+  scheduling consume model usage.
 - Native creation and SQLite cannot be committed atomically. A one-shot outbox
   boundary prevents blind retries but may require manual recovery of uncertainty.
 - Controller recovery is a trusted operator action, never a time-based takeover.

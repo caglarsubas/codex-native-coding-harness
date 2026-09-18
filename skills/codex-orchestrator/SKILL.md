@@ -6,7 +6,9 @@ description: Coordinate explicitly approved development packets across repositor
 # Codex Orchestrator
 
 The existing designated Codex brain is the only scheduler. The local helper is a
-transactional ledger and dashboard, not an agent or desktop API client. A user
+transactional ledger and dashboard, not an agent or private desktop API client.
+An explicitly enabled bridge may send a fixed notification of a saved dashboard
+answer to this existing brain using the supported `codex queue` CLI. A user
 request to install this tooling does not approve product packets.
 
 Run the installed `scripts/run.py` with `inbox` first (`status` for full inventory). It resolves the private
@@ -63,7 +65,16 @@ a native task or satisfy the real pilot requirement.
 
 ## Scheduling and user interface
 
-Use the app's native heartbeat on this existing brain every 15 minutes. Inspect
+Dashboard answers can notify this existing brain immediately through the opt-in
+native queue bridge. If idle, process now; if busy, Codex queues behind the active
+turn. The notification is only a pointer: read the exact version-bound ledger
+answer, acquire the normal controller, and follow the decision procedure below.
+Reconcile already received/resolved or superseded records; never replay. A wake
+does not approve packets, resume dispatch or grant access. Delivery acknowledgment
+is not your receipt; only `process` and artifact-bound resolution establish that.
+
+Use the app's native heartbeat on this existing brain every 15 minutes as a
+recovery fallback, not an intentional delay after answers. Inspect
 for the matching automation; do not create a duplicate. If the owner enabled
 `meta.decisionListener.enabled`, keep it active even when dispatch is paused,
 the queue is empty or only owner decisions remain. Otherwise pause only when no
@@ -74,7 +85,8 @@ The dashboard can persist pause/approval/hold/priority changes immediately. Resu
 reconciliation, worker checkpoint and archive requests wait for a brain cycle.
 An inactive heartbeat is not awakened by the webpage: initial activation or
 reactivation after explicit idle-listener shutdown needs the brain once. While
-active, dashboard answers require no routine chat prompt. Do not claim a queued
+enabled, immediate answer notification is independent of this schedule. It does
+not enable a paused heartbeat. Do not claim a queued
 action executed, or a recorded native status is fresh without observing it.
 
 For an owner design choice or missing input, publish a version-bound question in
