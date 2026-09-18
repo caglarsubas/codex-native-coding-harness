@@ -165,6 +165,7 @@ def workflow(state):
 def inbox(state):
     """Compact native-cycle input: no token logs, artifact bodies or event history."""
     return {"meta":state["meta"], "workflow":state["workflow"], "continuations": state.get("continuations", []),
+            "missionConfiguration": {k: state.get("mission", {}).get(k) for k in ("version", "effectiveStatus", "documentHash", "activation", "executionAuthority")},
             "decisions":[d for d in state["decisions"] if d["status"] in ("open", "answered", "received")],
             "commands":[c for c in state["commands"] if c["status"] in ("queued", "processing") or c.get("needsBrainReceipt")],
             "queue":[q for q in state["queue"] if q["status"] == "approved"],

@@ -24,6 +24,11 @@ Use `workspace-list` to discover registered IDs, then confirm the selected ledge
 brain ID matches this task before any controller operation. Registry registration
 is not onboarding authority, packet approval or permission to start development.
 
+Mission configuration is not activation. `mission-state` shows proposed scope,
+limits and owner review; even `reviewed` grants no execution authority. If asked
+to prepare a phase proposal, read the Mission configuration section in
+`references/operations.md`. Never replace exact packet approval with this record.
+
 For first-drive preparation or readiness questions, use the Readiness section of
 `references/operations.md`. Diagnostics and synthetic rehearsal do not authorize
 a native task or satisfy the real pilot requirement.

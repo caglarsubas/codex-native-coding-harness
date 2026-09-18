@@ -35,3 +35,10 @@ uncertain delivery. All worker operations and authority remain with the brain.
 
 Dispatch defaults to paused. Queue authorization must identify exact packet and
 seed hashes. A request to build this controller is not product packet approval.
+
+Workspace mission/phase authority records are configuration-only in WSP-03A.
+Owner review is not packet approval, delegation, enforced budget or activation.
+The brain can propose drafts under its controller but cannot review/revoke them.
+Do not read `reviewed` as executable authority or auto-activate on upgrade. See
+docs/MISSIONS.md; resource/budget admission and run/checkpoint gates must ship
+before a separate exact owner-bound activation can enable autonomous Play.
