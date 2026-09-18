@@ -26,7 +26,7 @@ function navigateView(next, identity=null, updateAddress=true, activateWorkspace
   if(identity&&next==='artifacts'){observationRepo='all';artifactQuery='';}
   document.querySelectorAll('[data-view]').forEach(b => b.removeAttribute('aria-current'));
   document.querySelector('[data-view="'+next+'"]').setAttribute('aria-current','page');
-  if(updateAddress)history.pushState(null,'','#/'+next+(identity&&['decisions','artifacts'].includes(next)?'/'+identity:''));
+  if(updateAddress)history.pushState(null,'',workspaceHref(next,identity&&['decisions','artifacts'].includes(next)?identity:null));
   if(activateWorkspace&&typeof revealPane==='function')revealPane('workspace');
   render();
   if(activateWorkspace){

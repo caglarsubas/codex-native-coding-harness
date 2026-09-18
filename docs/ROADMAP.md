@@ -129,12 +129,26 @@ This maintainer implementation does not qualify as the real native-worker pilot.
 - [x] Live richer-context SSE reply and exact brain-stop preview verified; no live control submitted
 - [ ] Publish the integrated PR #11 baseline and v11 increment to main
 
-## Next increments — not yet authorized implementation packets
+## Development workspaces and phase-bounded autopilot — planned v12+
+
+See [the workspace/autopilot design and acceptance plan](WORKSPACES-AUTOPILOT.md).
+These are planned tooling increments, not live mission or product authorization.
+
+- [x] Record owner's phase-bounded delegation, brain-owned task routing and Play/Pause requirements
+- [x] WSP-01: private workspace registry, isolated state and verified in-place migration
+- [x] WSP-02 foundation: workspace selection, executive project introduction, recorded aggregates and scoped assistant
+- [ ] WSP-02 scale qualification and WSP-04 canonical clone/worktree deduplication
+- [ ] WSP-03: configurable brain authority, phase checkpoint releases and safe Play/Pause
+- [ ] WSP-04: brain-owned task/model/effort/speed choices, parallel limits and token admission
+- [ ] WSP-05: continuous phase-scoped development, inheritance and preserved task archival
+- [ ] WSP-06: real supervised two-workspace acceptance and verified runtime rollout
+
+## Other future increments — not yet authorized implementation packets
 
 - [ ] Native attachment coverage beyond retained local file references
 - [ ] Historical artifact recovery from selected Git revisions
 - [ ] Matched-task model/effort comparisons and configurable price scenarios
 - [ ] Notifications for explicit usage budgets and evidence changes
-- [ ] Onboard a second portfolio with its own brain and policy
+- [ ] Onboard a second portfolio through the workspace acceptance plan above
 
 OpenClaw integration remains deferred.

@@ -15,10 +15,17 @@ ROOT = Path(__file__).resolve().parent.parent
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--state", type=Path, default=ROOT / ".state")
+    parser.add_argument("--state", type=Path)
+    parser.add_argument("--platform", type=Path, help="Private workspace registry directory")
+    parser.add_argument("--workspace", help="Exact registered workspace ID; never inferred from cwd")
     sub = parser.add_subparsers(dest="action", required=True)
     for name in ("status", "inbox", "process", "scan", "export", "inference-check", "inference-status", "readiness", "doctor", "rehearse"):
         sub.add_parser(name)
+    for name in ("workspace-list", "workspace-verify-backup", "workspace-profile"):
+        sub.add_parser(name)
+    p = sub.add_parser("workspace-register"); p.add_argument("id"); p.add_argument("name"); p.add_argument("state_root", type=Path)
+    p.add_argument("--apply", action="store_true", help="Register in place after a verified SQLite backup; default is preview")
+    p = sub.add_parser("workspace-profile-set"); p.add_argument("profile", type=Path); p.add_argument("--version", type=int, required=True)
     p = sub.add_parser("native-observe"); p.add_argument("observation", type=Path)
     p = sub.add_parser("decision-publish"); p.add_argument("spec", type=Path)
     p = sub.add_parser("decision-resolve"); p.add_argument("id"); p.add_argument("result", type=Path)
@@ -48,7 +55,33 @@ def main():
     p = sub.add_parser("serve"); p.add_argument("--port", type=int, default=8768)
     p.add_argument("--notify-brain", type=Path, metavar="CODEX_CLI", help="Opt in to immediate decision notification using an absolute installed Codex CLI path")
     args = parser.parse_args()
-    ledger = Ledger(args.state)
+    from .workspaces import Registry
+    if args.workspace and not args.platform:
+        raise Refusal("--workspace requires --platform")
+    if args.state and (args.workspace or args.platform):
+        raise Refusal("Choose a registered workspace or --state, not both")
+    registry = Registry(args.platform, create=args.action == "workspace-register") if args.platform else None
+    if args.action.startswith("workspace-"):
+        if not registry:
+            raise Refusal("Workspace operations require --platform")
+        if args.action == "workspace-list": out = registry.list()
+        elif args.action == "workspace-register":
+            out = (registry.register if args.apply else registry.preview)(args.id, args.name, args.state_root)
+        elif not args.workspace: raise Refusal("Select an exact --workspace")
+        elif args.action == "workspace-verify-backup": out = registry.verify_backup(args.workspace)
+        elif args.action == "workspace-profile": out = registry.profile(args.workspace)
+        else: out = registry.save_profile(args.workspace, json.loads(args.profile.read_text()), args.version)
+        print(json.dumps(out, ensure_ascii=False, indent=2)); return
+    if registry and args.action == "serve" and not args.workspace:
+        from .server import serve
+        workspaces = registry.list()
+        if not workspaces:
+            raise Refusal("Register at least one workspace before serving")
+        serve(registry.ledger(workspaces[0]["id"]), args.port, notification_cli=args.notify_brain, registry=registry)
+        return
+    if registry and not args.workspace:
+        raise Refusal("Select an exact --workspace; no default portfolio is inferred")
+    ledger = registry.ledger(args.workspace) if registry else Ledger(args.state or ROOT / ".state")
     token = os.environ.get("ORCHESTRATOR_CONTROLLER_TOKEN", "")
     read = lambda path: json.loads(path.read_text())
     action = args.action
@@ -129,14 +162,14 @@ def main():
         out = register_artifact(ledger, args.path, args.repo, args.session, args.created_at)
     elif action == "export":
         state = ledger.snapshot()
-        folder = ROOT / "reports"; folder.mkdir(exist_ok=True, mode=0o700)
+        folder = ledger.root / "reports"; folder.mkdir(exist_ok=True, mode=0o700)
         stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()) + "-" + uuid.uuid4().hex[:6]
         path = folder / f"portfolio-{stamp}.md"
         path.write_text(report(state)); path.with_suffix(".json").write_text(json.dumps({"state": state, "summary": aggregate(state)}, indent=2))
         out = {"markdown": str(path), "json": str(path.with_suffix(".json"))}
     elif action == "serve":
         from .server import serve
-        serve(ledger, args.port, notification_cli=args.notify_brain); return
+        serve(ledger, args.port, notification_cli=args.notify_brain, registry=registry); return
     print(json.dumps(out if out is not None else {"ok": True}, ensure_ascii=False, indent=2))
 
 
