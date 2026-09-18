@@ -13,6 +13,7 @@ from .core import Refusal
 from .repository import aggregate, report
 from .inference import ENV_FILE, public_status
 from .provenance import Provenance
+from .activity import BrainActivity
 
 WEB = Path(__file__).resolve().parent.parent / "web"
 COOKIE = "orchestrator_session"
@@ -38,6 +39,7 @@ class Dashboard(ThreadingHTTPServer):
         self.provenance = Provenance(runtime_root)
         self.provenance_lock = threading.Lock()
         self.provenance_job = {"status": "idle"}
+        self.brain_activity = BrainActivity(ledger)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -86,6 +88,7 @@ class Handler(BaseHTTPRequestHandler):
         static["/inference.js"] = ("inference.js", "text/javascript; charset=utf-8")
         static["/readiness.js"] = ("readiness.js", "text/javascript; charset=utf-8")
         static["/provenance.js"] = ("provenance.js", "text/javascript; charset=utf-8")
+        static["/activity.js"] = ("activity.js", "text/javascript; charset=utf-8")
         if path in static:
             file, mime = static[path]
             return self.respond(200, (WEB / file).read_bytes(), mime)
@@ -106,6 +109,7 @@ class Handler(BaseHTTPRequestHandler):
                 state["readiness"]["job"] = self.server.readiness_job.copy()
                 state["provenance"] = self.server.provenance.snapshot()
                 state["provenance"]["job"] = self.server.provenance_job.copy()
+                state["brainActivity"] = self.server.brain_activity.snapshot(state)
                 return self.respond(200, state)
             if path == "/api/export":
                 return self.respond(200, report(self.server.ledger.snapshot()), "text/markdown; charset=utf-8", {"Content-Disposition": 'attachment; filename="portfolio-snapshot.md"'})

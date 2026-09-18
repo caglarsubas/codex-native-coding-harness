@@ -17,7 +17,10 @@ def native_observation(ledger, record):
     require(record["schemaVersion"] == 1 and type(record["observedAt"]) in (int, float)
         and 0 <= time.time() - record["observedAt"] <= 300, "Native observation must be current (five minutes)")
     brain = record["brain"]
-    require(isinstance(brain, dict) and set(brain) == {"id", "status"}, "Invalid brain observation")
+    require(isinstance(brain, dict) and {"id", "status"} <= set(brain) <= {"id", "status", "title"}, "Invalid brain observation")
+    if "title" in brain:
+        require(isinstance(brain["title"], str) and 0 < len(brain["title"]) <= 200
+            and all(ord(c) >= 32 for c in brain["title"]), "Invalid brain title")
     state = ledger.snapshot()
     require(isinstance(brain["id"], str) and bool(brain["id"]) and brain["id"] == state["meta"]["brainId"]
         and brain["status"] in ("idle", "running", "unavailable", "unknown"), "Native brain observation does not match portfolio")
