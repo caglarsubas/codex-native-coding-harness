@@ -55,7 +55,7 @@ acceptance authority. Items change through reviewed repository edits.
 - [x] Detect dirty, changed-source, changed-revision and unknown/stale states
 - [x] Explicit metadata checks without automatic fetch, pull, restart or dispatch
 - [x] Regression tests for runtime fingerprints, privacy and remote error handling
-- [ ] Verify rendered runtime inspection and clean-restart comparison
+- [x] Verify rendered runtime inspection and clean-restart comparison
 - [ ] Publish and merge the runtime provenance extension
 
 This maintainer implementation does not qualify as the real native-worker pilot.
