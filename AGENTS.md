@@ -20,7 +20,8 @@ the live SQLite database. No background dispatcher or private Codex API. The
 owner-authorized notification bridge may invoke only the installed `codex queue`
 CLI with a fixed message to the configured existing brain after a validated,
 committed dashboard decision response or typed resume/reconcile/checkpoint/archive/
-brain_stop/brain_resume control. A brain stop is a cooperative checkpoint, never
+brain_stop/brain_resume or locally applied approve/hold/prioritize/listening/pause
+control awaiting its brain receipt. A brain stop is a cooperative checkpoint, never
 a process kill. Saved ordinary inputs do not wake a stopping/parked brain; only
 explicit brain resume does. No response text, arbitrary argv, target,
 model or effort comes from the browser. Claim before sending; never blindly retry

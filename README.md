@@ -86,7 +86,7 @@ state. Keep the computer and Codex app running for local scheduled work.
 
 | Action | Immediate effect | Native effect |
 |---|---|---|
-| Approve / hold / prioritize | Update reviewed ledger state | No task creation by itself |
+| Approve / hold / prioritize | Update reviewed ledger state; notify brain | Brain receipts current state; no task creation by notification alone |
 | Pause | Block the next creation boundary; supersede queued resumes | Does not cancel running or already-starting tasks |
 | Resume worker dispatch / reconcile | Save and notify existing brain now | Brain records receipt and applies the scoped control; active turns finish first |
 | Checkpoint worker | Save and notify brain | Brain sends a cooperative checkpoint request |
@@ -94,7 +94,7 @@ state. Keep the computer and Codex app running for local scheduled work.
 | Wake / Resume brain | Save intent and notify the same native task | Recover retained state; worker dispatch unchanged |
 | Stop brain at safe checkpoint | Pause new dispatch immediately; notify brain | Reconcile workers/runner, retain checkpoint, pause heartbeat, then end turn |
 | Answer a decision | Save the version-bound answer; notify the existing brain if enabled | Idle pickup immediately, or native queue behind an active turn; brain records receipt and scoped outcome |
-| Keep listening between jobs | Save the owner's listener preference | Brain keeps the existing native heartbeat active independently of dispatch |
+| Use event-driven waiting / enable periodic idle checks | Save preference; notify brain | Brain pauses idle scheduling or enables explicit idle checks; active work remains supervised |
 
 The [Decision inbox](docs/DECISIONS.md) separates recorded answers, brain receipt,
 design outcomes and implementation approval. Immediate notification removes the
@@ -107,6 +107,12 @@ The 15-minute heartbeat remains a
 recovery fallback while enabled. Delivery is not receipt: unavailable, ambiguous
 and overdue states keep the answer and explain the next action. Keep the computer
 and Codex running. Native turns and scheduled checks consume model usage.
+
+[Actionable follow-ups](docs/CONTINUATION.md) keep blocked answers visible until
+the brain publishes a concrete proposal, a new decision or a named external
+dependency. Event-driven waiting pauses model polling while awaiting owner input;
+new dashboard events wake the same brain. A paused heartbeat cannot recover a
+failed notification, which stays visible for manual recovery.
 
 Never blindly retry a `starting` worker or `processing` native action. Reconcile
 its unique dispatch/request identity against actual native state first.

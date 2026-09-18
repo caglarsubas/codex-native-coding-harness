@@ -103,7 +103,7 @@ def park(ledger, token, command_id, checkpoint):
         document = {"schemaVersion": 1, "kind": "brain_checkpoint", "commandId": command_id,
                     "at": now, "heartbeat": hb, "workers": workers,
                     "queue": ledger.all(db, "queue"),
-                    "pendingCommands": [c["id"] for c in ledger.all(db, "commands") if c["status"] in ("queued", "processing") and c["id"] != command_id],
+                    "pendingCommands": [c["id"] for c in ledger.all(db, "commands") if (c["status"] in ("queued", "processing") or c.get("needsBrainReceipt")) and c["id"] != command_id],
                     **checkpoint}
         identity = digest(document)
         db.execute("INSERT INTO snapshots VALUES (?,?,?)", (identity, "brain_checkpoint", canonical(document)))

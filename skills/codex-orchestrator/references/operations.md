@@ -29,15 +29,24 @@ workspace and Python interpreter. No provider API credentials are needed.
 Use the native `automation_update` tool for the existing 15-minute heartbeat.
 Record freshly observed ID/status with `heartbeat <id> ACTIVE|PAUSED`. Never edit
 the app's automation TOML. An explicit brain stop takes priority: follow the safe
-checkpoint procedure below, even if listening is enabled. With owner-enabled `meta.decisionListener.enabled`,
-keep the existing heartbeat ACTIVE even when dispatch is paused, the queue is
-empty or only decisions remain. Do not use an empty queue as a reason to turn
-listening off. Without idle listening, pause only after approved/active work and
-pending controls are drained. Never silently change the listener preference.
-Inspect native automation state each cycle, process the inbox, and leave a
-checkpoint; quiet idle checks consume model usage. The webpage cannot activate a
-paused native schedule, so initial activation/reactivation requires the native
-tool once. No duplicate heartbeat or standalone replacement.
+checkpoint procedure below, even if listening is enabled. Follow
+`workflow.shouldKeepHeartbeat` and its `supervisionReasons`. Event-driven waiting
+(listener false, also the default) pauses idle scheduling once receipts and
+bounded follow-up planning are drained. Open questions, proposed unapproved
+packets and recorded external waits alone do not justify a model wake. Active
+worker/runner ownership and unpaused approved work still require supervision.
+Explicit owner-enabled `meta.decisionListener.enabled` opts into idle checks;
+do not silently change it. Quiet checks still consume model usage.
+
+Inspect native state, use `automation_update` on the same ID with other fields
+preserved, and record its actual result. Re-read `inbox` after a pause for racing
+requests; process those and restore supervision if needed, then release and end
+the turn. Do not stay in a sleep/poll loop. The dashboard bridge can notify this
+existing task even with the schedule paused. Locally completed policy controls
+have `needsBrainReceipt`: `process` clears the flag without replaying old values.
+Use the current queue and policy, not the historical request payload. Failed or
+ambiguous bridge sends remain visible for manual recovery; a paused heartbeat
+cannot recover them. No duplicate heartbeat or standalone replacement.
 
 ## Safe brain checkpoint and resume
 
@@ -105,7 +114,8 @@ idle. Native delivery status is separate from ledger receipt and outcome. If the
 answer is already received/resolved or superseded, reconcile without replay.
 Do not send another wake, start a second brain, or infer any execution authority.
 The same recovery applies after an unavailable/uncertain notification when the
-heartbeat or operator later wakes the brain. Keep the heartbeat as fallback.
+active heartbeat or operator later wakes the brain. A paused heartbeat is not a
+fallback; surface failed notification for manual recovery.
 
 1. Retain the current design/blocker artifact using `artifact-add`. Under the
    designated brain controller (`brain-id:turn-id`), publish its question with
@@ -138,6 +148,44 @@ for an explicit owner preference (false to disable). It does not change native
 scheduling or dispatch. Reflect the requested preference through the existing
 native heartbeat tool and record the actual observed result. Pause dispatch
 remains immediate; don't resume merely because listening is enabled.
+
+### Blocked-outcome continuation
+
+`inbox.continuations` exposes legacy and new blocked outcomes without rewriting
+their answers. For `needs_proposal`/`needs_revision`, make one bounded planning
+pass. Do not merely checkpoint the same blocker, repeat a settled question or
+infer new implementation/access/billing permission. Preserve a concrete proposal
+artifact, publish only genuinely missing next choices in Decision inbox, or
+prepare an exact unapproved packet within current planning authority. If no
+authorized planning remains possible, document the external dependency and the
+specific event that permits reconsideration.
+
+Under the designated brain controller, call
+`continuation-publish <blocked-decision-id> <private-spec.json>` with exactly:
+
+```json
+{
+  "expectedVersion": 0,
+  "summary": "Concrete next step and its authority boundary.",
+  "artifactIds": ["retained-new-proposal-artifact-id"],
+  "decisionIds": ["new-open-decision-id"],
+  "queueIds": [],
+  "externalBlocker": null
+}
+```
+
+Alternatively leave both link lists empty and use
+`externalBlocker: {"reason":"What is missing", "resumeWhen":"Specific owner or external event"}`.
+Do not combine an external wait with action links. Links and artifact versions
+must belong to the same repository; decisions and unapproved seeds must be newer
+than the source outcome. At least one artifact must be newly retained after that
+outcome. It cannot be the same already-answered decision key. Publication binds
+source-resolution, decision and seed hashes; it does not approve any packet.
+Use the current continuation version for a revision; prior documents are retained
+immutably and exact retries are idempotent. Changed/superseded links become
+`needs_revision`. After publication, wait for the new input; an external wait is
+revisited only on a new explicit input/reconciliation, never on a no-change timer.
+See `docs/CONTINUATION.md` for status meanings and recovery.
 
 ## Readiness
 

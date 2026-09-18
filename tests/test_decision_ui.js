@@ -19,6 +19,8 @@ assert.equal(present({status:'accepted',finishedAt:99},{fresh:false,status:'runn
 assert.equal(present({status:'accepted',finishedAt:1}).label,'Receipt overdue');
 assert.equal(context.commandPresentation({...command,status:'processing',notification:{status:'uncertain'}}).label,'Received by brain');
 assert.equal(context.commandPresentation({...command,status:'completed',result:'Retained outcome'}).detail,'Retained outcome');
+assert.equal(context.commandPresentation({kind:'approve',status:'completed',needsBrainReceipt:true}).label,'Approval saved');
+assert.equal(context.commandPresentation({kind:'listening',status:'completed',needsBrainReceipt:true,notification:{status:'accepted',finishedAt:99}},null,100).label,'Sent to Codex');
 for(const kind of ['resume','reconcile','checkpoint','archive','brain_stop','brain_resume']) {
   assert.equal(context.commandPresentation({kind,status:'queued',notification:{status:'accepted',finishedAt:99}},null,100).label,'Sent to Codex');
 }
