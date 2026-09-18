@@ -11,6 +11,7 @@ from urllib.parse import urlsplit
 
 from .core import Refusal
 from .repository import aggregate, report
+from .inference import ENV_FILE, public_status
 
 WEB = Path(__file__).resolve().parent.parent / "web"
 COOKIE = "orchestrator_session"
@@ -19,7 +20,7 @@ COOKIE = "orchestrator_session"
 class Dashboard(ThreadingHTTPServer):
     daemon_threads = True
 
-    def __init__(self, ledger, port=8768):
+    def __init__(self, ledger, port=8768, inference_env=ENV_FILE):
         super().__init__(("127.0.0.1", port), Handler)
         self.ledger = ledger
         self.origin = f"http://127.0.0.1:{self.server_port}"
@@ -28,6 +29,9 @@ class Dashboard(ThreadingHTTPServer):
         self.session_lock = threading.Lock()
         self.observation_lock = threading.Lock()
         self.observation_job = {"status": "idle"}
+        self.inference_env = inference_env
+        self.inference_lock = threading.Lock()
+        self.inference_job = {"status": "idle"}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -73,6 +77,7 @@ class Handler(BaseHTTPRequestHandler):
         path = urlsplit(self.path).path
         static = {"/": ("index.html", "text/html; charset=utf-8"), "/app.js": ("app.js", "text/javascript; charset=utf-8"), "/style.css": ("style.css", "text/css; charset=utf-8")}
         static["/observations.js"] = ("observations.js", "text/javascript; charset=utf-8")
+        static["/inference.js"] = ("inference.js", "text/javascript; charset=utf-8")
         if path in static:
             file, mime = static[path]
             return self.respond(200, (WEB / file).read_bytes(), mime)
@@ -86,6 +91,8 @@ class Handler(BaseHTTPRequestHandler):
                 state = self.server.ledger.snapshot()
                 state["summary"] = aggregate(state)
                 state["observationJob"] = self.server.observation_job.copy()
+                state["inference"] = public_status(self.server.ledger, state, self.server.inference_env)
+                state["inference"]["job"] = self.server.inference_job.copy()
                 return self.respond(200, state)
             if path == "/api/export":
                 return self.respond(200, report(self.server.ledger.snapshot()), "text/markdown; charset=utf-8", {"Content-Disposition": 'attachment; filename="portfolio-snapshot.md"'})
@@ -134,6 +141,25 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(403, {"error": "Session and CSRF token required"})
             if self.path == "/api/commands":
                 return self.respond(200, self.server.ledger.submit(body))
+            if self.path == "/api/executive-summary":
+                if not isinstance(body, dict) or set(body) != {"force"} or type(body["force"]) is not bool:
+                    return self.respond(400, {"error": "Expected only a boolean force flag; prompts and endpoint settings are server-owned"})
+                if not self.server.inference_lock.acquire(blocking=False):
+                    return self.respond(409, {"error": "Executive brief generation already running"})
+                self.server.inference_job = {"status": "running", "startedAt": time.time()}
+                def summarize():
+                    try:
+                        from .inference import generate
+                        result = generate(self.server.ledger, self.server.inference_env, body["force"])
+                        self.server.inference_job = {"status": result["status"], "finishedAt": time.time()}
+                    except Refusal as error:
+                        self.server.inference_job = {"status": "failed", "finishedAt": time.time(), "error": str(error)}
+                    except Exception:
+                        self.server.inference_job = {"status": "failed", "finishedAt": time.time(), "error": "Executive brief failed; previous brief retained. No automatic retry was sent."}
+                    finally:
+                        self.server.inference_lock.release()
+                threading.Thread(target=summarize, daemon=True).start()
+                return self.respond(202, self.server.inference_job.copy())
             if self.path == "/api/observe":
                 if not isinstance(body, dict) or set(body) != {"remote"} or type(body["remote"]) is not bool:
                     return self.respond(400, {"error": "Expected only a boolean remote flag"})

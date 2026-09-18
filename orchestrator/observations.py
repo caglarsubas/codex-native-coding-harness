@@ -494,5 +494,5 @@ def snapshot(db):
     values = {r["id"]: json.loads(r["data"]) for r in db.execute("SELECT * FROM observation_records")}
     artifacts = [json.loads(r[0]) for r in db.execute("SELECT data FROM artifact_versions")]
     return {"usage": values.get("usage"), "git": [v for k, v in values.items() if k.startswith("git:")],
-        "roadmaps": values.get("roadmaps", {"plans": []}), "refresh": values.get("refresh"),
+        "roadmaps": values.get("roadmaps", {"plans": []}), "refresh": values.get("refresh"), "executive": values.get("executive"),
         "artifacts": sorted(artifacts, key=lambda a: (a["orderAt"], a["key"], a["version"]))}

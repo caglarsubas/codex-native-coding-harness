@@ -16,7 +16,7 @@ class ServerTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.ledger = Ledger(Path(self.tmp.name) / "state")
-        self.server = Dashboard(self.ledger, 0)
+        self.server = Dashboard(self.ledger, 0, Path(self.tmp.name) / ".env")
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
 
@@ -94,6 +94,34 @@ class ServerTest(unittest.TestCase):
             release.set()
         self.assertTrue(self.ledger.snapshot()["meta"]["paused"])
         self.assertEqual(self.ledger.snapshot()["workers"],[])
+
+    def test_inference_requires_csrf_fixed_shape_and_serializes(self):
+        auth = self.login()
+        self.assertEqual(self.request("/api/executive-summary", {"force": False})[0], 403)
+        for body in ({"prompt": "arbitrary"}, {"force": 1}, {"force": False, "model": "external"}, {"force": False, "url": "https://elsewhere"}):
+            self.assertEqual(self.request("/api/executive-summary", body, auth)[0], 400)
+        entered = threading.Event(); release = threading.Event()
+        def generate(*args):
+            entered.set(); release.wait(2); return {"status": "generated"}
+        with patch("orchestrator.inference.generate", side_effect=generate):
+            self.assertEqual(self.request("/api/executive-summary", {"force": False}, auth)[0], 202)
+            self.assertTrue(entered.wait(1))
+            self.assertEqual(self.request("/api/executive-summary", {"force": False}, auth)[0], 409)
+            release.set()
+        self.assertTrue(self.ledger.snapshot()["meta"]["paused"])
+        self.assertEqual(self.ledger.snapshot()["commands"], [])
+
+    def test_state_is_network_free_and_has_no_inference_credentials(self):
+        env = self.server.inference_env
+        env.write_text("CODEX_LLM_BASE_URL=https://private.example/v1\nCODEX_LLM_API_KEY=private-fixture-key\n")
+        env.chmod(0o600)
+        with patch("orchestrator.inference.Client.request") as network:
+            status, _, raw = self.request("/api/state", headers=self.login())
+            self.assertEqual(status, 200)
+            self.assertTrue(json.loads(raw)["inference"]["configured"])
+            self.assertNotIn(b"private-fixture-key", raw)
+            self.assertNotIn(b"private.example", raw)
+            network.assert_not_called()
 
 
 if __name__ == "__main__": unittest.main()
