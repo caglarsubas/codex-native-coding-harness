@@ -32,6 +32,7 @@ class Settings:
     base_url: str = field(repr=False)
     api_key: str = field(repr=False)
     model: str = "ministral-3:8b"
+    assistant_model: str | None = None
 
 
 def settings(path=ENV_FILE):
@@ -53,7 +54,7 @@ def settings(path=ENV_FILE):
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, value = line.split("=", 1)
-        if key.strip() not in ("CODEX_LLM_BASE_URL", "CODEX_LLM_API_KEY", "CODEX_LLM_MODEL"):
+        if key.strip() not in ("CODEX_LLM_BASE_URL", "CODEX_LLM_API_KEY", "CODEX_LLM_MODEL", "CODEX_LLM_ASSISTANT_MODEL"):
             continue
         value = value.strip()
         if len(value) > 1 and value[0] == value[-1] and value[0] in "\"'":
@@ -67,7 +68,9 @@ def settings(path=ENV_FILE):
     require(8 <= len(key) <= 4096 and all(33 <= ord(c) <= 126 for c in key), "Missing or invalid inference API key")
     model = values.get("CODEX_LLM_MODEL", "ministral-3:8b")
     require(model in LOCAL_MODELS, "Only documented on-prem models are allowed; external-provider routing is disabled in this client")
-    return Settings(base, key, model)
+    assistant_model = values.get("CODEX_LLM_ASSISTANT_MODEL")
+    require(assistant_model is None or assistant_model in LOCAL_MODELS, "Assistant model must be on the documented on-prem allowlist")
+    return Settings(base, key, model, assistant_model)
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -105,13 +108,13 @@ class Client:
                 raise Refusal("Inference authentication was rejected; check or rotate the server-side credential.") from None
             if 300 <= error.code < 400:
                 raise Refusal("Inference redirect refused to protect the credential.") from None
-            raise Refusal(f"Inference service returned HTTP {error.code}; previous brief retained.") from None
+            raise Refusal(f"Inference service returned HTTP {error.code}; no new answer was published.") from None
         except (URLError, TimeoutError, socket.timeout, ssl.SSLError, OSError):
-            raise Refusal("Inference service could not be reached within the request limit; previous brief retained.") from None
+            raise Refusal("Inference service could not be reached within the request limit; no new answer was published.") from None
         except Refusal:
             raise
         except (ValueError, UnicodeError):
-            raise Refusal("Inference returned malformed JSON; previous brief retained.") from None
+            raise Refusal("Inference returned malformed JSON; no new answer was published.") from None
 
     def check(self):
         result = self.request("models")
@@ -240,7 +243,7 @@ def validate_response(response, facts, config):
 def public_status(ledger, state=None, env_path=ENV_FILE):
     state = state or ledger.snapshot()
     previous = state.get("observations", {}).get("executive")
-    data = {"configured": False, "model": None, "latest": previous, "stale": True, "reason": None,
+    data = {"configured": False, "model": None, "assistantModel": None, "latest": previous, "stale": True, "reason": None,
         "currentEvidence": projection(state), "cacheSeconds": CACHE_SECONDS}
     retained = [a for a in state.get("observations", {}).get("artifacts", [])
         if all(type((a.get("inferenceUsage") or {}).get(k)) is int for k in ("prompt_tokens", "completion_tokens", "total_tokens"))]
@@ -248,7 +251,7 @@ def public_status(ledger, state=None, env_path=ENV_FILE):
         **{k: sum(a["inferenceUsage"].get(k) or 0 for a in retained) for k in ("prompt_tokens", "completion_tokens", "total_tokens")}}
     try:
         config = settings(env_path)
-        data.update(configured=True, model=config.model)
+        data.update(configured=True, model=config.model, assistantModel=config.assistant_model or config.model)
         current = digest(data["currentEvidence"])
         data["stale"] = not previous or previous["snapshotHash"] != current or previous["model"] != config.model or time.time() - previous["generatedAt"] > CACHE_SECONDS
     except (Refusal, ValueError):

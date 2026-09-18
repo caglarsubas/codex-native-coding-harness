@@ -20,11 +20,19 @@ function dispatchPresentation(meta, commands=[]) {
     button:pending?"Worker resume requested":meta.paused?"Resume worker dispatch":"Pause new workers",
     disabled:meta.paused && (pending || meta.brainControl?.desired==='stopped')};
 }
-function navigateView(next, identity=null) {
-  view=next; selected=identity; observationPage=0;
+function navigateView(next, identity=null, updateAddress=true, activateWorkspace=true) {
+  if(!titles[next])return;
+  view=next; selected=next==='decisions'?null:identity; observationPage=0;
+  if(identity&&next==='artifacts'){observationRepo='all';artifactQuery='';}
   document.querySelectorAll('[data-view]').forEach(b => b.removeAttribute('aria-current'));
   document.querySelector('[data-view="'+next+'"]').setAttribute('aria-current','page');
-  render(); window.scrollTo(0,0);
+  if(updateAddress)history.pushState(null,'','#/'+next+(identity&&['decisions','artifacts'].includes(next)?'/'+identity:''));
+  if(activateWorkspace&&typeof revealPane==='function')revealPane('workspace');
+  render();
+  if(activateWorkspace){
+    if(typeof focusRouteTarget==='function')focusRouteTarget({view:next,id:identity});
+    else window.scrollTo(0,0);
+  }
 }
 function brainActivity(root, history=false) {
   const a=state.brainActivity || {}, m=state.meta;

@@ -62,6 +62,16 @@ class InferenceTest(unittest.TestCase):
         self.env.write_text(self.env.read_text() + "CODEX_LLM_MODEL=llama3.2:3b\n")
         self.assertRaises(Refusal, settings, self.env)
 
+    def test_separate_assistant_model_is_local_and_server_owned(self):
+        self.env.write_text(self.env.read_text()+"CODEX_LLM_ASSISTANT_MODEL=qwen3.8:27b\n")
+        cfg=settings(self.env)
+        self.assertEqual(cfg.model,CONFIG.model)
+        self.assertEqual(cfg.assistant_model,"qwen3.8:27b")
+        self.assertEqual(public_status(self.ledger,env_path=self.env)["assistantModel"],"qwen3.8:27b")
+        self.write_env()
+        self.env.write_text(self.env.read_text()+"CODEX_LLM_ASSISTANT_MODEL=external:openrouter\n")
+        self.assertRaises(Refusal,settings,self.env)
+
     def test_projection_does_not_include_private_free_text(self):
         state = self.ledger.snapshot()
         state["meta"]["checkpoint"] = "secret transcript with /private/path"
