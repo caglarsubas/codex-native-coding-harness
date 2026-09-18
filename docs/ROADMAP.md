@@ -126,7 +126,7 @@ This maintainer implementation does not qualify as the real native-worker pilot.
 - [x] Exact free-text decision excerpts, no inferred option or packet approval
 - [x] Receipt-aware action cards; no automatic retry or optimistic completion
 - [x] Regression and fixture/browser verification, including stale previews and stopped-brain answers
-- [ ] Complete live richer-context inference smoke verification (server-side SSE transport)
+- [x] Live richer-context SSE reply and exact brain-stop preview verified; no live control submitted
 - [ ] Publish the integrated PR #11 baseline and v11 increment to main
 
 ## Next increments — not yet authorized implementation packets

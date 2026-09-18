@@ -36,6 +36,24 @@ class InferenceStreamTest(unittest.TestCase):
         self.assertEqual(req.get_header("Authorization"), "Bearer "+CONFIG.api_key)
         self.assertEqual(result["choices"][0]["message"]["content"], "ok")
 
+    def test_tenancy_final_chunk_without_blank_before_done(self):
+        wire = ("data: "+json.dumps(event("ready", "stop"))+"\ndata: [DONE]\n\n").encode()
+        result = stream_response(io.BytesIO(wire), CONFIG, time.monotonic())
+        self.assertEqual(result["choices"][0]["message"]["content"], "ready")
+        invalid = b'data: {"partial":\ndata: [DONE]\n\n'
+        with self.assertRaises(ValueError): stream_response(io.BytesIO(invalid), CONFIG, time.monotonic())
+
+    def test_adjacent_complete_json_records_and_multiline_event(self):
+        wire = ''.join('data: '+json.dumps(e)+'\n' for e in [event('one'),event(' two','stop'),
+            {"usage":{"total_tokens":12},"choices":[]}])+'data: [DONE]\n\n'
+        r = stream_response(io.BytesIO(wire.encode()),CONFIG,time.monotonic())
+        self.assertEqual(r['choices'][0]['message']['content'],'one two')
+        self.assertEqual(r['usage']['total_tokens'],12)
+        lines = json.dumps(event('multiline','stop'),indent=2).splitlines()
+        wire = ''.join('data: '+line+'\n' for line in lines)+'\ndata: [DONE]\n\n'
+        r = stream_response(io.BytesIO(wire.encode()),CONFIG,time.monotonic())
+        self.assertEqual(r['choices'][0]['message']['content'],'multiline')
+
     def test_reject_missing_done_finish_and_routing(self):
         for stream in (sse([event("partial")]), sse([event("partial","stop")], done=False),
                        sse([{"choices":[{"delta":{"content":"unknown"},"finish_reason":"stop"}]}])):

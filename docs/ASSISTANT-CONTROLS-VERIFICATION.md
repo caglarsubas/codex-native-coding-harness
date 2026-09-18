@@ -15,7 +15,7 @@ notification is never blindly resent.
 
 ## Verified locally
 
-- Python regression suite, JS presentation/geometry checks and syntax checks.
+- 207 Python regression tests, JS presentation/geometry checks and syntax checks.
 - Host/Origin/session/CSRF protections on context, chat and confirmation.
 - No ledger mutation from context, inference, a model suggestion or a dismissed preview.
 - Signature/payload/target tampering, wrong session, server restart, expiry and
@@ -46,7 +46,18 @@ bounded server-side SSE, keeping partial text/actions private until completion a
 schema/routing validation. The overview context was reduced from roughly 36 KB
 to 20 KB, with more detail in the matching workspace views and explicit coverage.
 
-Live richer-context SSE validation is tracked in the roadmap. Model factual accuracy,
+The richer-context SSE path returned a validated explanation in 65.7 seconds with
+no ledger controls created. The service's adjacent final JSON/DONE records are
+handled explicitly, with regression coverage for adjacent JSON events, missing
+completion, invalid framing, model/routing changes, tool calls and stream limits.
+Streaming usage can be absent and remains unknown, not zero.
+
+The initial live model reply described a requested control but did not propose it.
+The instruction now explicitly distinguishes preparing an available action preview
+from executing it. A subsequent live request returned the exact `brain_stop`
+preview in **28.66 seconds** using `qwen3.8:27b`. It required owner confirmation and
+created **zero control requests**. No real stop/resume/worker operation was executed
+as part of these tests. Model factual accuracy,
 inference availability/latency, real safe-checkpoint completion and worker acceptance
 remain separate from unit tests, fixture results, publication and merge status.
 

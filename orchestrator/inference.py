@@ -33,20 +33,41 @@ def stream_response(response, config, started):
     content, usage, model, source, finished = [], None, None, None, None
     total, events, content_size = 0, 0, 0
     data_lines = []
+    terminal_pending = False
     while True:
         require(time.monotonic() - started <= 240, "Inference stream exceeded its processing window; no answer was published")
-        raw = response.readline(MAX_RESPONSE + 1)
-        require(raw, "Inference stream ended without completion; no answer was published")
-        total += len(raw)
-        require(len(raw) <= MAX_RESPONSE and total <= MAX_STREAM_BYTES, "Inference stream exceeded its size limit")
-        require(config.api_key.encode() not in raw, "Sensitive configuration in inference stream was discarded")
-        line = raw.decode("utf-8").rstrip("\r\n")
-        if line.startswith("data:"):
-            data_lines.append(line[5:].lstrip(" "))
-            continue
-        if line or not data_lines:
-            continue  # SSE comments/event names and empty heartbeat separators.
-        data, data_lines = "\n".join(data_lines), []
+        if terminal_pending:
+            data = "[DONE]"
+        else:
+            raw = response.readline(MAX_RESPONSE + 1)
+            require(raw, "Inference stream ended without completion; no answer was published")
+            total += len(raw)
+            require(len(raw) <= MAX_RESPONSE and total <= MAX_STREAM_BYTES, "Inference stream exceeded its size limit")
+            require(config.api_key.encode() not in raw, "Sensitive configuration in inference stream was discarded")
+            line = raw.decode("utf-8").rstrip("\r\n")
+            if line.startswith("data:"):
+                value = line[5:].lstrip(" ")
+                if value == "[DONE]":
+                    # This tenancy emits finish JSON then DONE without a blank
+                    # separator. Validate that JSON first, then the terminal marker.
+                    if data_lines:
+                        terminal_pending = True
+                    else:
+                        data_lines = [value]
+                    line = ""
+                else:
+                    data_lines.append(value)
+                    # The service also emits adjacent complete JSON data records
+                    # without blank separators. A complete object is unambiguous;
+                    # incomplete/multiline data still waits for its closing frame.
+                    try:
+                        json.loads("\n".join(data_lines))
+                    except json.JSONDecodeError:
+                        continue
+                    line = ""
+            if line or not data_lines:
+                continue  # SSE comments/event names and empty heartbeat separators.
+            data, data_lines = "\n".join(data_lines), []
         if data == "[DONE]":
             require(finished is not None and model == config.model and source == "local-inference",
                     "Inference stream did not confirm completion and local routing")
