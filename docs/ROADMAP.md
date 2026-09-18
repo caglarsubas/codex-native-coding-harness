@@ -103,7 +103,31 @@ This maintainer implementation does not qualify as the real native-worker pilot.
 - [x] Regression suite (164 Python tests) and control presentation checks
 - [x] Install cooperative inbox-check and checkpoint guidance for the brain
 - [x] Verify rendered control lifecycle and checkpoint reader in an isolated UI fixture
-- [ ] Publish and merge the brain-control extension
+- [x] Brain-control extension merged as PR #9
+
+## Contextual assistant and workspace panes — v10
+
+- [x] Request-only chat using the existing server-owned inference tenancy
+- [x] Bounded context preview, exact answer snapshot, transient chat and usage
+- [x] Validated links to views, specific decisions and artifact versions
+- [x] No assistant tools, controller actions, approval or conversation persistence
+- [x] Three collapsible panes with remembered widths and keyboard/pointer dividers
+- [x] Responsive workspace and focused single-pane mode for narrow screens
+- [x] Regression and isolated browser checks, including failure/draft recovery
+- [x] Verify configured live inference transport (not factual-accuracy qualification)
+- [x] Assistant/pane extension merged as PR #11 into the brain-control branch
+
+## Operational assistant and confirmed controls — v11
+
+- [x] Share dashboard evidence collection with the assistant; preserve freshness/unknown states
+- [x] Bounded per-domain records, capability catalog, available controls and explicit coverage
+- [x] Inert model proposals; signed, session-bound, expiring and revision-bound owner confirmation
+- [x] Existing typed control validation and one-shot native notification; no parallel dispatcher
+- [x] Exact free-text decision excerpts, no inferred option or packet approval
+- [x] Receipt-aware action cards; no automatic retry or optimistic completion
+- [x] Regression and fixture/browser verification, including stale previews and stopped-brain answers
+- [x] Live richer-context SSE reply and exact brain-stop preview verified; no live control submitted
+- [ ] Publish the integrated PR #11 baseline and v11 increment to main
 
 ## Next increments — not yet authorized implementation packets
 

@@ -7,8 +7,14 @@ their own approved packet, allowedPaths, AGENTS.md and trusted execution rules.
 Use Python standard-library tooling. No runtime downloads or external telemetry.
 The user-authorized optional llm-inference-engine integration is the only model
 service exception: load its credential server-side from a Git-ignored .env, send
-only the documented bounded status projection on explicit request, use an
-allowlisted on-prem model, and never dispatch or mutate based on model output.
+only the documented bounded status projection and, for assistant chat, explicitly
+submitted messages plus bounded process/capability/decision/artifact metadata on explicit request,
+use an allowlisted on-prem model, and never dispatch or mutate based on model output alone.
+Chat may propose only server-catalogued existing typed controls. A separate explicit owner
+confirmation of the exact, signed, expiring, revision-bound preview is required before the
+normal ledger submission and notification path. No model-authored commands, direct native
+execution, implicit packet approvals or inferred confirmations. Keep durable command receipts
+separate from transient chat, and preserve every existing control gate.
 Never commit endpoint credentials or the supplied credential document. No hosted
 provider fallback or new paid-service integration. The installed PyYAML is used
 only by the read-only packet importer; it never executes a packet. Tests use

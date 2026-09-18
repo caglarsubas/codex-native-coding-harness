@@ -43,7 +43,7 @@ class BrainNotifier:
         with ledger.tx() as db:
             command = ledger.get(db, "commands", command_id)
             if (command["kind"] not in NOTIFY_KINDS or (command["status"] != "queued" and not command.get("needsBrainReceipt"))
-                    or command.get("actor") != "dashboard" or command.get("notification")):
+                    or command.get("actor") not in ("dashboard", "assistant_owner_confirmed") or command.get("notification")):
                 return command
             meta = ledger.get(db, "meta", 1)
             from .brain_control import stopped

@@ -7,7 +7,7 @@ from pathlib import Path
 import secrets
 import threading
 import time
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 from .core import Refusal
 from .repository import aggregate, report
@@ -42,6 +42,33 @@ class Dashboard(ThreadingHTTPServer):
         self.provenance_job = {"status": "idle"}
         self.brain_activity = BrainActivity(ledger)
         self.notifier = BrainNotifier(ledger, notification_cli)
+        from .assistant_actions import ActionProposals
+        self.assistant_proposals = ActionProposals()
+
+    def snapshot(self):
+        """Same evidence for workspace and assistant; no model-triggered scans or refresh."""
+        state = self.ledger.snapshot()
+        state["summary"] = aggregate(state)
+        state["observationJob"] = self.observation_job.copy()
+        state["inference"] = public_status(self.ledger, state, self.inference_env)
+        state["inference"]["job"] = self.inference_job.copy()
+        from .readiness import diagnose
+        state["readiness"] = diagnose(self.ledger, state)
+        state["readiness"]["job"] = self.readiness_job.copy()
+        state["provenance"] = self.provenance.snapshot()
+        state["provenance"]["job"] = self.provenance_job.copy()
+        state["brainActivity"] = self.brain_activity.snapshot(state)
+        state["brainNotification"] = self.notifier.status(state["meta"]["brainId"])
+        return state
+
+    def submit_control(self, body, actor="dashboard"):
+        command = self.ledger.submit(body, actor=actor)
+        return self.notify_control(command)
+
+    def notify_control(self, command):
+        if command["kind"] in NOTIFY_KINDS:
+            return self.notifier.notify(command["id"])
+        return command
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -93,6 +120,8 @@ class Handler(BaseHTTPRequestHandler):
         static["/activity.js"] = ("activity.js", "text/javascript; charset=utf-8")
         static["/decisions.js"] = ("decisions.js", "text/javascript; charset=utf-8")
         static["/decisions.css"] = ("decisions.css", "text/css; charset=utf-8")
+        for file in ("panes.js", "assistant.js", "routing.js", "panes.css"):
+            static["/" + file] = (file, "text/javascript; charset=utf-8" if file.endswith(".js") else "text/css; charset=utf-8")
         if path in static:
             file, mime = static[path]
             return self.respond(200, (WEB / file).read_bytes(), mime)
@@ -102,20 +131,15 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if path == "/api/session":
                 return self.respond(200, {"csrf": session["csrf"]})
+            if path == "/api/assistant/context":
+                from .assistant import context
+                query = parse_qs(urlsplit(self.path).query)
+                if set(query) - {"view"} or len(query.get("view", ["overview"])) != 1:
+                    return self.respond(400, {"error": "Expected one dashboard view"})
+                data, _ = context(self.server.snapshot(), query.get("view", ["overview"])[0])
+                return self.respond(200, data)
             if path == "/api/state":
-                state = self.server.ledger.snapshot()
-                state["summary"] = aggregate(state)
-                state["observationJob"] = self.server.observation_job.copy()
-                state["inference"] = public_status(self.server.ledger, state, self.server.inference_env)
-                state["inference"]["job"] = self.server.inference_job.copy()
-                from .readiness import diagnose
-                state["readiness"] = diagnose(self.server.ledger, state)
-                state["readiness"]["job"] = self.server.readiness_job.copy()
-                state["provenance"] = self.server.provenance.snapshot()
-                state["provenance"]["job"] = self.server.provenance_job.copy()
-                state["brainActivity"] = self.server.brain_activity.snapshot(state)
-                state["brainNotification"] = self.server.notifier.status(state["meta"]["brainId"])
-                return self.respond(200, state)
+                return self.respond(200, self.server.snapshot())
             if path == "/api/export":
                 return self.respond(200, report(self.server.ledger.snapshot()), "text/markdown; charset=utf-8", {"Content-Disposition": 'attachment; filename="portfolio-snapshot.md"'})
             if path.startswith("/api/documents/"):
@@ -162,10 +186,21 @@ class Handler(BaseHTTPRequestHandler):
             if not session or not secrets.compare_digest(self.headers.get("X-CSRF-Token", ""), session["csrf"]):
                 return self.respond(403, {"error": "Session and CSRF token required"})
             if self.path == "/api/commands":
-                command = self.server.ledger.submit(body)
-                if command["kind"] in NOTIFY_KINDS:
-                    command = self.server.notifier.notify(command["id"])
+                return self.respond(200, self.server.submit_control(body))
+            if self.path == "/api/assistant/confirm":
+                command, first = self.server.assistant_proposals.confirm(self.server.ledger, body, session["csrf"])
+                if first:
+                    command = self.server.notify_control(command)
                 return self.respond(200, command)
+            if self.path == "/api/assistant":
+                from .assistant import chat
+                try:
+                    return self.respond(200, chat(self.server.ledger, body, self.server.inference_env,
+                        self.server.snapshot, self.server.assistant_proposals, session["csrf"]))
+                except Refusal as error:
+                    return self.respond(409, {"error": str(error)})
+                except Exception:
+                    return self.respond(502, {"error": "Assistant request failed. No automatic retry was sent; no dashboard controls were changed."})
             if self.path == "/api/provenance":
                 if not isinstance(body, dict) or set(body) != {"remote"} or type(body["remote"]) is not bool:
                     return self.respond(400, {"error": "Expected only a boolean remote flag; no paths or process controls"})

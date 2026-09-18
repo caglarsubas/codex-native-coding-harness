@@ -9,8 +9,9 @@ supervises them, and independently verifies completion.
 an opt-in bridge immediately notifies the existing brain of saved decision
 answers and typed controls through `codex queue`. The brain performs worker operations. No private desktop API, runtime download
 or external telemetry is used. Orchestration needs no model API key. An optional,
-user-configured inference service can draft advisory briefs on explicit request;
-it has no controller authority.
+user-configured inference service can draft advisory briefs and answer dashboard
+questions on explicit request. It may propose existing typed controls, but has no
+controller authority: an exact owner confirmation is required for submission.
 
 ## What is included
 
@@ -27,6 +28,19 @@ it has no controller authority.
 - Optional evidence-linked executive brief on Overview, using an allowlisted
   on-prem model through `llm-inference-engine`. Versioned output, freshness,
   service-reported usage, and a preview of the exact aggregate data sent.
+- Contextual AI assistant with bounded, transient chat and server-validated links
+  to dashboard views, decisions and artifact versions; bounded operational/capability
+  awareness and expiring, state-bound, owner-confirmed action previews.
+- Three collapsible panes, draggable/keyboard splitters and remembered layout;
+  focused single-pane navigation on narrow screens.
+
+Use the top **Navigation / Workspace / AI assistant** controls to show or collapse
+panes. Drag either divider, or focus it and use Left/Right (Shift for larger
+steps; Home/End for limits). **Reset layout** restores defaults. Type in the right
+panel and choose **Send** (or Cmd/Ctrl+Enter). Suggested questions only fill the
+box. Chat links navigate. To act, request a supported control and separately confirm
+its exact inline preview. Brain activity and worker dispatch are different controls.
+See [Assistant guide and data boundary](docs/ASSISTANT.md).
 
 AI briefs are unverified drafts. Initial live trials exposed occasional narrative
 errors; factual-accuracy qualification remains open. Deterministic metrics and

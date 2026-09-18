@@ -25,6 +25,83 @@ LOCAL_MODELS = {"ministral-3:8b", "qwen3.8:27b", "gemma4:26b", "llama3.2:3b"}
 PROMPT_VERSION = 4
 CACHE_SECONDS = 15 * 60
 MAX_RESPONSE = 128 * 1024
+MAX_STREAM_BYTES = 4 * 1024 * 1024
+
+
+def stream_response(response, config, started):
+    """Buffer bounded SSE privately; no partial text or intent leaves the server."""
+    content, usage, model, source, finished = [], None, None, None, None
+    total, events, content_size = 0, 0, 0
+    data_lines = []
+    terminal_pending = False
+    while True:
+        require(time.monotonic() - started <= 240, "Inference stream exceeded its processing window; no answer was published")
+        if terminal_pending:
+            data = "[DONE]"
+        else:
+            raw = response.readline(MAX_RESPONSE + 1)
+            require(raw, "Inference stream ended without completion; no answer was published")
+            total += len(raw)
+            require(len(raw) <= MAX_RESPONSE and total <= MAX_STREAM_BYTES, "Inference stream exceeded its size limit")
+            require(config.api_key.encode() not in raw, "Sensitive configuration in inference stream was discarded")
+            line = raw.decode("utf-8").rstrip("\r\n")
+            if line.startswith("data:"):
+                value = line[5:].lstrip(" ")
+                if value == "[DONE]":
+                    # This tenancy emits finish JSON then DONE without a blank
+                    # separator. Validate that JSON first, then the terminal marker.
+                    if data_lines:
+                        terminal_pending = True
+                    else:
+                        data_lines = [value]
+                    line = ""
+                else:
+                    data_lines.append(value)
+                    # The service also emits adjacent complete JSON data records
+                    # without blank separators. A complete object is unambiguous;
+                    # incomplete/multiline data still waits for its closing frame.
+                    try:
+                        json.loads("\n".join(data_lines))
+                    except json.JSONDecodeError:
+                        continue
+                    line = ""
+            if line or not data_lines:
+                continue  # SSE comments/event names and empty heartbeat separators.
+            data, data_lines = "\n".join(data_lines), []
+        if data == "[DONE]":
+            require(finished is not None and model == config.model and source == "local-inference",
+                    "Inference stream did not confirm completion and local routing")
+            return {"model": model, "request_key_source": source, "usage": usage,
+                    "choices": [{"finish_reason": finished, "message": {"content": "".join(content)}}]}
+        events += 1
+        require(events <= 16384, "Too many inference stream events")
+        event = json.loads(data)
+        require(isinstance(event, dict) and not event.get("error"), "Inference stream failed; no answer was published")
+        if event.get("model") is not None:
+            require(event["model"] == config.model, "Inference stream changed model; discarded")
+            model = event["model"]
+        if event.get("request_key_source") is not None:
+            require(event["request_key_source"] == "local-inference", "Inference stream left local routing; discarded")
+            source = event["request_key_source"]
+        if event.get("usage") is not None:
+            require(isinstance(event["usage"], dict), "Invalid stream usage")
+            usage = event["usage"]
+        choices = event.get("choices", [])
+        require(isinstance(choices, list) and len(choices) <= 1, "Expected one streamed answer")
+        for choice in choices:
+            require(isinstance(choice, dict) and choice.get("index", 0) == 0, "Unexpected stream choice")
+            delta = choice.get("delta") or {}
+            require(isinstance(delta, dict) and not delta.get("tool_calls") and not delta.get("function_call"),
+                    "Assistant tool calls are not supported")
+            text = delta.get("content")
+            if text:
+                require(isinstance(text, str) and finished is None, "Invalid stream content")
+                content_size += len(text)
+                require(content_size <= 12000, "Assistant answer exceeded its length limit")
+                content.append(text)
+            if choice.get("finish_reason") is not None:
+                require(finished is None, "Duplicate stream completion")
+                finished = choice["finish_reason"]
 
 
 @dataclass(frozen=True)
@@ -32,6 +109,7 @@ class Settings:
     base_url: str = field(repr=False)
     api_key: str = field(repr=False)
     model: str = "ministral-3:8b"
+    assistant_model: str | None = None
 
 
 def settings(path=ENV_FILE):
@@ -53,7 +131,7 @@ def settings(path=ENV_FILE):
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, value = line.split("=", 1)
-        if key.strip() not in ("CODEX_LLM_BASE_URL", "CODEX_LLM_API_KEY", "CODEX_LLM_MODEL"):
+        if key.strip() not in ("CODEX_LLM_BASE_URL", "CODEX_LLM_API_KEY", "CODEX_LLM_MODEL", "CODEX_LLM_ASSISTANT_MODEL"):
             continue
         value = value.strip()
         if len(value) > 1 and value[0] == value[-1] and value[0] in "\"'":
@@ -67,7 +145,9 @@ def settings(path=ENV_FILE):
     require(8 <= len(key) <= 4096 and all(33 <= ord(c) <= 126 for c in key), "Missing or invalid inference API key")
     model = values.get("CODEX_LLM_MODEL", "ministral-3:8b")
     require(model in LOCAL_MODELS, "Only documented on-prem models are allowed; external-provider routing is disabled in this client")
-    return Settings(base, key, model)
+    assistant_model = values.get("CODEX_LLM_ASSISTANT_MODEL")
+    require(assistant_model is None or assistant_model in LOCAL_MODELS, "Assistant model must be on the documented on-prem allowlist")
+    return Settings(base, key, model, assistant_model)
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -81,14 +161,18 @@ class Client:
         # Do not forward the bearer key via redirects or ambient HTTP proxies.
         self.opener = build_opener(ProxyHandler({}), NoRedirect())
 
-    def request(self, route, payload=None):
+    def request(self, route, payload=None, *, timeout=90):
         require(route in ("models", "chat/completions"), "Unsupported inference operation")
+        streaming = bool(payload and payload.get("stream"))
         request = Request(self.config.base_url + "/" + route,
             data=canonical(payload).encode() if payload is not None else None,
-            headers={"Authorization": "Bearer " + self.config.api_key, "Content-Type": "application/json", "Accept": "application/json"},
+            headers={"Authorization": "Bearer " + self.config.api_key, "Content-Type": "application/json", "Accept": "text/event-stream" if streaming else "application/json"},
             method="POST" if payload is not None else "GET")
         try:
-            with self.opener.open(request, timeout=90) as response:
+            started = time.monotonic()
+            with self.opener.open(request, timeout=timeout) as response:
+                if streaming:
+                    return stream_response(response, self.config, started)
                 raw = response.read(MAX_RESPONSE + 1)
             require(len(raw) <= MAX_RESPONSE, "Inference response exceeded the size limit")
             require(self.config.api_key.encode() not in raw, "Inference response contained sensitive configuration and was discarded")
@@ -105,13 +189,15 @@ class Client:
                 raise Refusal("Inference authentication was rejected; check or rotate the server-side credential.") from None
             if 300 <= error.code < 400:
                 raise Refusal("Inference redirect refused to protect the credential.") from None
-            raise Refusal(f"Inference service returned HTTP {error.code}; previous brief retained.") from None
-        except (URLError, TimeoutError, socket.timeout, ssl.SSLError, OSError):
-            raise Refusal("Inference service could not be reached within the request limit; previous brief retained.") from None
+            raise Refusal(f"Inference service returned HTTP {error.code}; no new answer was published.") from None
+        except (TimeoutError, socket.timeout):
+            raise Refusal("Inference timed out before a complete response. No automatic retry was sent.") from None
+        except (URLError, ssl.SSLError, OSError):
+            raise Refusal("Inference service could not be reached within the request limit; no new answer was published.") from None
         except Refusal:
             raise
         except (ValueError, UnicodeError):
-            raise Refusal("Inference returned malformed JSON; previous brief retained.") from None
+            raise Refusal("Inference returned malformed JSON; no new answer was published.") from None
 
     def check(self):
         result = self.request("models")
@@ -240,7 +326,7 @@ def validate_response(response, facts, config):
 def public_status(ledger, state=None, env_path=ENV_FILE):
     state = state or ledger.snapshot()
     previous = state.get("observations", {}).get("executive")
-    data = {"configured": False, "model": None, "latest": previous, "stale": True, "reason": None,
+    data = {"configured": False, "model": None, "assistantModel": None, "latest": previous, "stale": True, "reason": None,
         "currentEvidence": projection(state), "cacheSeconds": CACHE_SECONDS}
     retained = [a for a in state.get("observations", {}).get("artifacts", [])
         if all(type((a.get("inferenceUsage") or {}).get(k)) is int for k in ("prompt_tokens", "completion_tokens", "total_tokens"))]
@@ -248,7 +334,7 @@ def public_status(ledger, state=None, env_path=ENV_FILE):
         **{k: sum(a["inferenceUsage"].get(k) or 0 for a in retained) for k in ("prompt_tokens", "completion_tokens", "total_tokens")}}
     try:
         config = settings(env_path)
-        data.update(configured=True, model=config.model)
+        data.update(configured=True, model=config.model, assistantModel=config.assistant_model or config.model)
         current = digest(data["currentEvidence"])
         data["stale"] = not previous or previous["snapshotHash"] != current or previous["model"] != config.model or time.time() - previous["generatedAt"] > CACHE_SECONDS
     except (Refusal, ValueError):
