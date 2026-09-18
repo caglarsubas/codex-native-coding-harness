@@ -5,7 +5,7 @@ phase-authority, project-introduction and continuous-development requirements.
 The autonomy direction is settled: configurable delegation to each brain within
 user-defined phase checkpoints. This document does not activate a workspace,
 grant a live packet approval, change a model, start a schedule, or authorize
-merging. Implementation checklist items below are open.
+merging. Implementation evidence and remaining gates are recorded in section 10.
 
 Prepared 2026-09-18 against tooling commit
 `6ea0d3b4b5acea29e7c3252da170a4eb313093c7`. That is an inspected local baseline,
@@ -584,22 +584,31 @@ Do not mix these changes into unfinished assistant-controls publication.
 
 ### WSP-01 — registry, isolation and migration
 
-- [ ] Versioned private registry and explicit workspace-aware CLI/skill routing.
-- [ ] Per-workspace ledger/context factories and scoped authenticated reads.
-- [ ] Read-only migration preview of the existing portfolio into the first workspace.
-- [ ] Register the current ledger in place; preserve brain identity, receipts,
+- [x] Versioned private registry and explicit workspace-aware CLI/skill routing.
+- [x] Per-workspace ledger/context factories and scoped authenticated reads.
+- [x] Read-only migration preview of the existing portfolio into the first workspace.
+- [x] Register the current ledger in place; preserve brain identity, receipts,
       approvals, artifact hashes, metrics and all native tasks. No reinitialization.
-- [ ] Back up with SQLite's supported backup flow; verify hashes/counts and recovery.
-- [ ] Tests with two synthetic workspaces, colliding IDs, invalid roots and restart.
+- [x] Back up with SQLite's supported backup flow; verify hashes/counts, restart and corruption detection. Recovery remains an explicit manual operation, not an automatic restore.
+- [x] Tests with two synthetic workspaces, colliding IDs, invalid roots and restart.
+
+Local migration evidence: existing brain retained, all 15 ledger tables match the
+registration backup, including 78 artifact versions. Ledger revision did not
+change. No native task, approval, heartbeat or product mutation was performed.
 
 ### WSP-02 — workspace navigation and scoped assistant
 
-- [ ] Workspace switcher, All workspaces view and scoped deep links.
-- [ ] Overview-first selection and versioned executive project introduction with sources.
-- [ ] Separate static project purpose/architecture from live operational brief/status.
-- [ ] Per-workspace jobs, drafts, assistant context and confirmation binding.
-- [ ] Aggregated/distributed usage, delivery, artifacts and roadmap without double counts.
-- [ ] Browser checks for narrow panes, keyboard use, stale requests, zero/many workspaces.
+- [x] Workspace switcher, All workspaces view and scoped deep links.
+- [x] Overview-first selection and versioned executive project introduction with sources.
+- [x] Separate static project purpose/architecture from live operational brief/status.
+- [x] Per-workspace jobs, drafts, assistant context and confirmation binding.
+- [x] Recorded aggregate/distributed usage, delivery, artifacts and roadmap with explicit deduplication and coverage. Different clones are not yet canonicalized together; conflicting shared-session summaries are excluded.
+- [x] Two-workspace browser checks: switching, draft retention, scoped chat, profile save and narrow-screen selection; automated stale-response and confirmation-isolation tests.
+- [ ] Larger-portfolio browser/performance qualification and full canonical clone/worktree identity (WSP-04).
+
+See [implemented workspace operations](WORKSPACES.md). WSP-03 through WSP-06 remain
+open: this release does not rename legacy Resume into continuous Play or grant
+delegated packet authority. Cross-workspace concurrent mutation is not enabled.
 
 ### WSP-03 — delegated phase authority and truthful Play/Pause
 

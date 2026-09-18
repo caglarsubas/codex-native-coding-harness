@@ -5,6 +5,7 @@ configured brain; the note, commands, model and target are never browser inputs.
 An ambiguous send is retained, never automatically retried.
 """
 import os
+import json
 from pathlib import Path
 import re
 import subprocess
@@ -74,6 +75,8 @@ class BrainNotifier:
         # Hash-only identifiers prevent response text/request IDs becoming argv.
         message = (
             f"Dashboard control notification {notification['wakeId']}; kind {command['kind']}. "
+            + (f"Workspace {ledger.workspace_id}. Use scripts/run.py --platform {json.dumps(str(ledger.platform_root))} --workspace {ledger.workspace_id} inbox; never the default portfolio. "
+               if getattr(ledger, "workspace_id", None) else "")
             + (f"Decision version {decision['decisionHash']} has a recorded response. " if decision else "") +
             "Read the installed codex-orchestrator skill and your configured portfolio's compact inbox. "
             "Check brainControl first. A stop takes priority: no new work; finish the current bounded operation, "

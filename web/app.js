@@ -14,7 +14,18 @@ function section(title,detail) {const e=el("div",null,"section-heading");e.appen
 function empty(title,body) {const e=el("div",null,"empty");e.append(el("h2",title),el("p",body));return e;}
 function callout(title,body) {const e=el("div",null,"callout");e.append(el("h3",title),el("p",body));return e;}
 function textCell(main,sub) {const e=el("div");e.append(el("span",main));if(sub)e.append(el("span",sub,"subline"));return e;}
-async function api(path,options={}) {const r=await fetch(path,{credentials:"same-origin",cache:"no-store",...options});const body=await r.json();if(!r.ok){const error=new Error(body.error||"Local request failed");error.status=r.status;throw error;}return body;}
+async function api(path,options={}) {
+ const generation=workspaceGeneration,write=options.method==='POST',global=options.global===true;
+ const requestOptions={...options};delete requestOptions.global;
+ if(write){workspaceWrites++;updateWorkspaceSelector();}
+ try{
+  const r=await fetch(global?path:workspacePath(path),{credentials:"same-origin",cache:"no-store",...requestOptions});
+  const body=await r.json();
+  if(generation!==workspaceGeneration&&!global){const error=new Error("Workspace changed; old response discarded");error.workspaceChanged=true;throw error;}
+  if(!r.ok){const error=new Error(body.error||"Local request failed");error.status=r.status;throw error;}return body;
+ }catch(error){if(generation!==workspaceGeneration&&!global)error.workspaceChanged=true;throw error;}
+ finally{if(write){workspaceWrites--;updateWorkspaceSelector();}}
+}
 const controlRequests=new Map();
 async function command(kind,payload={}) {
  if(!state||busy)return;
@@ -29,11 +40,12 @@ async function command(kind,payload={}) {
   showNotice(delivery.label+". "+delivery.detail);
   selected=null;await refresh();
  }catch(e){if(e.message.includes("State changed"))controlRequests.delete(key);showNotice(e.message+" Refresh before retrying; uncertain requests retain the same ID.",true);}
- finally{busy=false;render();}
+ finally{busy=false;render();updateWorkspaceSelector();}
 }
-async function refresh() {try{state=await api("/api/state");connected=true;$('connection').textContent="Ledger connected · "+new Date().toLocaleTimeString();render();}catch(e){connected=false;$('connection').textContent="Ledger disconnected";showNotice(e.message,true);$('pause').disabled=true;$('reconcile').disabled=true;}finally{if(typeof assistantConnectionChanged==='function')assistantConnectionChanged();}}
+async function refresh() {try{state=await api("/api/state");connected=true;$('connection').textContent="Ledger connected · "+new Date().toLocaleTimeString();render();}catch(e){if(e.workspaceChanged)return;connected=false;$('connection').textContent="Ledger disconnected";showNotice(e.message,true);$('pause').disabled=true;$('reconcile').disabled=true;}finally{if(typeof assistantConnectionChanged==='function')assistantConnectionChanged();}}
 function overview(root) {
  const m=state.meta,active=state.workers.filter(w=>!['complete'].includes(w.status));
+ projectIntroduction(root);
  workflowSummary(root);
  brainActivity(root);
  readinessSummary(root);
@@ -77,10 +89,10 @@ function metrics(root) {
  root.append(section("Usage & cost coverage"),el("p",state.summary.usage.reason,"muted"),el("p","Subscription charges are not inferred from API token prices. Model/effort comparisons remain observational.","subline"));
  if(state.metrics.length>state.summary.repositories.length){root.append(section("Snapshot history"));root.append(table(["Repository","Captured","Commit","Lines"],[...state.metrics].sort((a,b)=>b.at-a.at).slice(0,50).map(m=>[m.repository,when(m.at),m.commit?.slice(0,12)||"—",m.status==='measured'?num(m.lines):"—"])));}
 }
-function render() {if(!state)return;const m=state.meta,dispatch=dispatchPresentation(m,state.commands);$('mode').textContent=dispatch.label+" · Brain: "+activityLabel(state.brainActivity)+" · Checkpoint: "+age(m.lastReconciled)+" · Heartbeat (recorded): "+m.heartbeat.status;$('pause').textContent=dispatch.button;$('pause').disabled=!connected||busy||dispatch.disabled;$('reconcile').disabled=!connected||busy;$('title').textContent=titles[view][0];$('subtitle').textContent=titles[view][1];const root=$('content');root.replaceChildren();({overview,decisions,queue,workers,knowledge,metrics,usage,gitStatus,artifacts,roadmap,readiness})[view](root);if(state.commands.length){root.append(section("Control requests","Delivery, brain receipt and completion are separate."));root.append(table(["Request","Status","Result"],[...state.commands].reverse().slice(0,8).map(c=>{const delivery=commandPresentation(c);return [textCell(c.kind,when(c.createdAt)),badge(delivery.label),delivery.detail];})));}}
+function render() {if(!state)return;document.querySelector(".page-actions").hidden=view==="workspaces";const m=state.meta,dispatch=dispatchPresentation(m,state.commands);$('mode').textContent=dispatch.label+" · Brain: "+activityLabel(state.brainActivity)+" · Checkpoint: "+age(m.lastReconciled)+" · Heartbeat (recorded): "+m.heartbeat.status;$('pause').textContent=dispatch.button;$('pause').disabled=!connected||busy||dispatch.disabled;$('reconcile').disabled=!connected||busy;$('title').textContent=titles[view][0];$('subtitle').textContent=titles[view][1];const root=$('content');root.replaceChildren();({overview,decisions,queue,workers,knowledge,metrics,usage,gitStatus,artifacts,roadmap,readiness,workspaces:allWorkspaces})[view](root);if(state.commands.length){root.append(section("Control requests","Delivery, brain receipt and completion are separate."));root.append(table(["Request","Status","Result"],[...state.commands].reverse().slice(0,8).map(c=>{const delivery=commandPresentation(c);return [textCell(c.kind,when(c.createdAt)),badge(delivery.label),delivery.detail];})));}}
 document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>navigateView(b.dataset.view)));
 $('pause').onclick=()=>command(state.meta.paused?'resume':'pause');$('reconcile').onclick=()=>command('reconcile');$('refresh').onclick=refresh;
 const initialTheme=localStorage.getItem('orchestrator-theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.dataset.theme=initialTheme;$('theme').onclick=()=>{const next=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=next;localStorage.setItem('orchestrator-theme',next);};
-async function start(){try{const token=new URLSearchParams(location.hash.slice(1)).get('token');if(token){history.replaceState(null,'',location.pathname);csrf=(await api('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})})).csrf;}else csrf=(await api('/api/session')).csrf;await refresh();applyDashboardRoute(false);setInterval(()=>{const editing=document.activeElement?.matches('input,select,textarea');if(!busy&&!selected&&!editing&&document.visibilityState==='visible')refresh();},5000);}catch(e){showNotice(e.message,true);$('connection').textContent='Authentication required';$('pause').disabled=true;$('reconcile').disabled=true;}}
+async function start(){try{const token=new URLSearchParams(location.hash.slice(1)).get('token');if(token){history.replaceState(null,'',location.pathname);csrf=(await api('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})})).csrf;}else csrf=(await api('/api/session',{global:true})).csrf;await initializeWorkspaces();await refresh();applyDashboardRoute(false);setInterval(()=>{const editing=document.activeElement?.matches('input,select,textarea');if(!busy&&!selected&&!editing&&document.visibilityState==='visible')refresh();},5000);}catch(e){showNotice(e.message,true);$('connection').textContent='Authentication required';$('pause').disabled=true;$('reconcile').disabled=true;}}
 // All deferred view modules must be ready before the first authenticated render.
 document.addEventListener('DOMContentLoaded',start,{once:true});

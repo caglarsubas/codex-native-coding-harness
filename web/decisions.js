@@ -86,7 +86,7 @@ async function submitDecision(d, draft, submit) {
   } catch(error) {
     if(error.message.includes("State changed")) draft.request=null;
     showNotice(error.message+" Your draft is retained. Refresh and review before retrying.",true);
-  } finally {busy=false;submit.disabled=false;}
+  } finally {busy=false;submit.disabled=false;if(typeof updateWorkspaceSelector==='function')updateWorkspaceSelector();}
 }
 
 function decisionCard(d, root) {

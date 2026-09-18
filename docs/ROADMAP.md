@@ -135,8 +135,9 @@ See [the workspace/autopilot design and acceptance plan](WORKSPACES-AUTOPILOT.md
 These are planned tooling increments, not live mission or product authorization.
 
 - [x] Record owner's phase-bounded delegation, brain-owned task routing and Play/Pause requirements
-- [ ] WSP-01: private workspace registry, isolated state and lossless migration
-- [ ] WSP-02: workspace selection, executive project introduction, aggregates and scoped assistant
+- [x] WSP-01: private workspace registry, isolated state and verified in-place migration
+- [x] WSP-02 foundation: workspace selection, executive project introduction, recorded aggregates and scoped assistant
+- [ ] WSP-02 scale qualification and WSP-04 canonical clone/worktree deduplication
 - [ ] WSP-03: configurable brain authority, phase checkpoint releases and safe Play/Pause
 - [ ] WSP-04: brain-owned task/model/effort/speed choices, parallel limits and token admission
 - [ ] WSP-05: continuous phase-scoped development, inheritance and preserved task archival

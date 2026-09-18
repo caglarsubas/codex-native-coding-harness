@@ -18,6 +18,7 @@
   <script src="/routing.js" defer></script>
   <script src="/panes.js" defer></script>
   <script src="/assistant.js" defer></script>
+  <script src="/workspaces.js" defer></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
@@ -36,6 +37,7 @@
   <aside class="rail pane-body">
     <a class="brand" href="/" aria-label="Codex Orchestrator home"><span class="brand-mark" aria-hidden="true">co.</span><span>Codex<br>Orchestrator</span></a>
     <p class="eyebrow">LOCAL OPERATIONS LEDGER</p>
+    <div id="workspace-picker" class="workspace-picker" hidden><label for="workspace-select">Development workspace</label><select id="workspace-select" aria-label="Development workspace"></select><button id="all-workspaces" data-view="workspaces">All workspaces</button></div>
     <nav aria-label="Dashboard views">
       <button data-view="overview" aria-current="page"><span>01</span> Overview</button>
       <button data-view="decisions"><span>↳</span> Decision inbox</button>
@@ -56,7 +58,7 @@
   <section id="workspace-pane" class="pane workspace-pane" aria-label="Workspace pane">
   <button class="pane-expand" data-pane-toggle="workspace" aria-label="Expand workspace" hidden>Workspace →</button>
   <div class="workspace pane-body">
-    <header class="topbar"><span id="mode">Awaiting authenticated connection</span><div><button id="refresh">Refresh</button><a class="button" href="/api/export" download>Export report</a></div></header>
+    <header class="topbar"><span id="mode">Awaiting authenticated connection</span><div><button id="refresh">Refresh</button><a id="export-report" class="button" href="/api/export" download>Export report</a></div></header>
     <main id="main" tabindex="-1">
       <div class="page-heading"><div><p class="eyebrow">CONTROL / OBSERVE / VERIFY</p><h1 id="title">Operations overview</h1><p id="subtitle">A clear view of what is authorized, active, and proven.</p></div><div class="page-actions"><button id="pause">Pause dispatch</button><button id="reconcile" class="primary">Request reconciliation</button></div></div>
       <div id="notice" role="status" aria-live="polite" hidden></div>
@@ -69,7 +71,7 @@
   <section id="assistant-pane" class="pane assistant-pane" aria-label="AI assistant pane">
     <button class="pane-expand" data-pane-toggle="assistant" aria-label="Expand AI assistant" hidden>← Assistant</button>
     <div class="assistant-body pane-body">
-      <header class="assistant-heading"><div><p class="eyebrow">PORTFOLIO COMPANION</p><h2>AI assistant</h2></div><button data-pane-toggle="assistant" aria-label="Collapse AI assistant" title="Collapse assistant">→</button></header>
+      <header class="assistant-heading"><div><p class="eyebrow" id="assistant-workspace">WORKSPACE COMPANION</p><h2>AI assistant</h2></div><button data-pane-toggle="assistant" aria-label="Collapse AI assistant" title="Collapse assistant">→</button></header>
       <div class="assistant-intro">
         <p>Understand the state. Find your next step.</p>
         <p id="assistant-service" class="muted">Connect to the ledger to ask a question.</p>
