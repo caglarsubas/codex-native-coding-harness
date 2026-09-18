@@ -76,9 +76,9 @@ This maintainer implementation does not qualify as the real native-worker pilot.
 - [x] Preserve duplicate, superseded and interrupted response states
 - [x] Separate idle decision listening from implementation dispatch authority
 - [x] Compact inbox CLI and native-brain continuation procedure
-- [ ] Verify full regression suite and rendered decision interactions
+- [x] Verify full regression suite and rendered decision interactions (128 tests)
 - [x] Install updated skill and activate the existing native listener
-- [ ] Verify a real brain-published decision in the dashboard
+- [x] Verify a real brain-published decision in the dashboard
 - [ ] Complete a real dashboard-approved implementation-worker pilot
 - [ ] Publish and merge the dashboard-first continuation extension
 
