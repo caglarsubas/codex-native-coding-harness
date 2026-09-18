@@ -29,6 +29,29 @@ app's automation TOML. If there is no approved or active work, keep dispatch and
 the heartbeat paused. The explicit “continue orchestration” user command can
 process inbox requests and reactivate the existing heartbeat if work now exists.
 
+## Readiness
+
+`readiness` explains retained observations and current ledger gates without
+acquiring a controller. `doctor` refreshes local Git/file metadata only; it never
+runs repository code, setup or acceptance. Use native `list_projects` and
+`read_thread` for fresh project/brain observations, then record their scoped
+result with `native-observe <private-json>`. Read `docs/READINESS.md` in the
+installed workspace for the exact schema. Never invent IDs or timestamps.
+The available connector has no project-registration operation; use the normal
+Codex UI rather than private app databases. Metadata and native observations
+expire after 15 minutes and do not replace the five-minute dispatch preflight.
+
+Path, project-ID or ref changes invalidate pending approval and preflight; active
+worker ownership prevents changing the mapping. Review native setup and ignored
+file copying independently, including exclusion of the private inference `.env`.
+Identify the actual approved CI route before approval: workflow filenames and
+manual local tests are not verified CI, and completion still requires source/CI.
+
+`rehearse` creates a disposable synthetic ledger, invokes no native/model calls,
+and retains a versioned report. It does not modify real controller state or
+qualify for `pilot`. For a live first drive, present one useful bounded proposal
+and its unresolved gates; prepare/approve/resume remain separate actions.
+
 ## Prepare and authorize
 
 `prepare <manifest.json> --repo <registered-id> --catalog <meta-repo>` imports only

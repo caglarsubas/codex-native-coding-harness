@@ -104,6 +104,18 @@ only when its deny-all-outbound trusted execution contract applies. The controll
 refuses an in-place policy downgrade. No product source changes are needed merely
 to install this tool. OpenClaw and other agent interfaces are out of scope.
 
+## Prepare the first supervised drive
+
+Open **Readiness** to inspect checkout/native-mapping gaps, packet launch blockers,
+brain freshness and the separate real-pilot gate. Run the isolated lifecycle
+rehearsal to test ledger transitions without touching product work. Its report is
+synthetic and cannot enable dispatch or two-worker concurrency.
+
+Read the [readiness runbook](docs/READINESS.md) and [first-pilot proposal](docs/FIRST_PILOT.md).
+Project registration, safe worktree setup, a valid CI evidence route, exact packet
+approval and a live brain cycle remain required. The webpage cannot wake a paused
+native heartbeat or silently register projects.
+
 ## Metrics and privacy
 
 ```sh

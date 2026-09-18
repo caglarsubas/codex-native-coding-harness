@@ -32,7 +32,22 @@ acceptance authority. Items change through reviewed repository edits.
 - [x] Verify live routing, complete-answer rejection and regression tests
 - [x] Verify rendered generation, evidence preview and artifact-version reading
 - [ ] Qualify narrative accuracy with repeatable portfolio fixtures
-- [ ] Publish and merge the inference extension
+- [x] Publish and merge the inference extension (PR #3)
+
+## Operational readiness — v4
+
+- [x] Deterministic readiness view with per-repository blockers and next actions
+- [x] Scoped native inventory observations with explicit freshness
+- [x] Shared read-only packet eligibility explanation and dispatch enforcement
+- [x] Invalidate approvals on mapping changes; preserve active ownership
+- [x] Isolated lifecycle rehearsal with retained synthetic evidence
+- [x] First-pilot scope proposal and explicit CI/setup/approval gates
+- [x] Update the brain skill with read-only readiness and rehearsal procedures
+- [x] Verify browser readiness controls and complete regression checks
+- [ ] Publish and merge the readiness extension
+- [ ] Register the selected pilot repository and verify native setup
+- [ ] Resolve and verify the pilot's CI evidence route
+- [ ] Approve and complete one real native-worker pilot
 
 ## Next increments — not yet authorized implementation packets
 

@@ -13,6 +13,10 @@ SQLite uses WAL, synchronous FULL and BEGIN IMMEDIATE for serialized transitions
 `harness`). Configuration stays private. Adding a repo requires user scope approval;
 the initializer is not a discovery or authorization tool.
 
+Changing path/projectId/ref invalidates pending approvals and preflights; an
+active worker blocks that change. Policy and brain changes still require explicit
+migration. Read-only readiness observations cannot edit these bindings.
+
 ## Inheritance seed
 
 Exact fields: `schemaVersion`, `repository`, `policyProfile`, `packetId`,
