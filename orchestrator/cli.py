@@ -17,9 +17,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--state", type=Path, default=ROOT / ".state")
     sub = parser.add_subparsers(dest="action", required=True)
-    for name in ("status", "process", "scan", "export", "inference-check", "inference-status", "readiness", "doctor", "rehearse"):
+    for name in ("status", "inbox", "process", "scan", "export", "inference-check", "inference-status", "readiness", "doctor", "rehearse"):
         sub.add_parser(name)
     p = sub.add_parser("native-observe"); p.add_argument("observation", type=Path)
+    p = sub.add_parser("decision-publish"); p.add_argument("spec", type=Path)
+    p = sub.add_parser("decision-resolve"); p.add_argument("id"); p.add_argument("result", type=Path)
     p = sub.add_parser("executive-summary"); p.add_argument("--force", action="store_true")
     p = sub.add_parser("observe"); p.add_argument("--remote", action="store_true")
     p = sub.add_parser("artifact-add"); p.add_argument("path", type=Path); p.add_argument("--repo", required=True); p.add_argument("--session"); p.add_argument("--created-at", type=float)
@@ -50,6 +52,9 @@ def main():
     if action == "init": out = ledger.initialize(read(args.config))
     elif action == "status":
         out = ledger.snapshot(); out["summary"] = aggregate(out)
+    elif action == "inbox":
+        from .decisions import inbox
+        out = inbox(ledger.snapshot())
     elif action == "acquire": out = {"controllerToken": ledger.acquire(args.owner)}
     elif action == "release": out = ledger.release(token, args.checkpoint)
     elif action == "recover": out = ledger.recover(args.owner, args.observation)
@@ -63,6 +68,12 @@ def main():
         out = ledger.submit({"id": args.id or str(uuid.uuid4()), "kind": args.kind,
             "expectedRevision": args.revision, "payload": json.loads(args.payload)}, actor="explicit_user_via_brain")
     elif action == "process": out = ledger.process(token)
+    elif action == "decision-publish":
+        from .decisions import publish
+        out = publish(ledger, token, read(args.spec))
+    elif action == "decision-resolve":
+        from .decisions import resolve
+        out = resolve(ledger, token, args.id, read(args.result))
     elif action == "preflight":
         state = ledger.snapshot()
         q = next(q for q in state["queue"] if q["id"] == args.queue_id)

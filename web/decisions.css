@@ -1,0 +1,15 @@
+.workflow-summary{display:grid;gap:12px;padding:0 0 28px;margin-bottom:28px;border-bottom:1px solid var(--rule)}
+.workflow-summary .muted{font-size:12px}.workflow-summary .inline-actions{margin-top:8px}
+.decision-card{display:grid;gap:16px;padding:28px 0;border-top:1px solid var(--rule);overflow-wrap:anywhere}
+.decision-card>.badge{justify-self:start}.decision-card>h3{max-width:65ch}.decision-card>.muted{font-size:12px}
+.decision-scope{font-weight:600}.decision-note{white-space:pre-wrap}
+.decision-form{display:grid;gap:20px;max-width:760px}.decision-form fieldset{border:0;padding:0;margin:0;display:grid;gap:8px;min-width:0}
+.decision-form legend{font-size:13px;font-weight:600;margin-bottom:12px}
+.decision-option,.decision-confirmation{display:flex;align-items:flex-start;gap:12px;font-size:13px}
+.decision-option{padding:14px;border:1px solid var(--rule);border-radius:4px;cursor:pointer}
+.decision-option:has(input:checked){background:var(--soft);border-color:var(--accent)}
+.decision-form input[type=radio],.decision-form input[type=checkbox]{width:18px;height:18px;min-height:18px;flex-shrink:0;margin:2px 0;accent-color:var(--accent)}
+.decision-option strong{font-weight:600}.decision-form>label:not(.decision-confirmation){display:grid;gap:8px;font-size:13px}
+.decision-form textarea{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--rule);border-radius:4px;padding:12px;resize:vertical;width:100%}
+.decision-form textarea:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+.decision-form>button{justify-self:start}.decision-history{border-bottom:1px solid var(--rule);padding:16px 0}.decision-history>summary{cursor:pointer;font-size:13px}

@@ -80,10 +80,16 @@ state. Keep the computer and Codex app running for local scheduled work.
 | Resume / reconcile | Queue a request | Brain processes it on its next active cycle |
 | Checkpoint worker | Queue a request | Brain sends a cooperative checkpoint request |
 | Archive completed task | Queue after preservation checks | Brain verifies inactivity and uses native archive |
+| Answer a decision | Bind an answer to an immutable question version | Brain continues authorized design and records an artifact-backed outcome |
+| Keep listening between jobs | Save the owner's listener preference | Brain keeps the existing native heartbeat active independently of dispatch |
 
-The UI shows queued, processing, completed and rejected separately. A paused
-heartbeat cannot be awakened by the webpage: say **“continue orchestration”** in
-the brain. Immediate task interruption stays in native Codex controls.
+The [Decision inbox](docs/DECISIONS.md) separates recorded answers, brain receipt,
+design outcomes and implementation approval. With idle listening enabled and its
+native heartbeat active, dashboard answers do not need a chat “continue”. Initial
+activation or reactivation after deliberately stopping idle listening needs the
+brain once; the webpage cannot wake a paused native schedule. Local scheduled
+checks require the computer/app running and consume model usage. Immediate task
+interruption stays in native Codex controls.
 
 Never blindly retry a `starting` worker or `processing` native action. Reconcile
 its unique dispatch/request identity against actual native state first.

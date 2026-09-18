@@ -67,7 +67,21 @@ This maintainer implementation does not qualify as the real native-worker pilot.
 - [x] Show recent activity in Knowledge and link the latest retained brain artifact
 - [x] Distinguish checkpoint age, native observations and implementation workers
 - [x] Verify regression tests and rendered browser interactions (112 tests)
-- [ ] Publish and merge the brain visibility extension
+- [x] Publish and merge the brain visibility extension (PR #6)
+
+## Dashboard-first continuation — v7
+
+- [x] Versioned decision inbox with immutable artifact links and explicit scope
+- [x] Authenticated owner answers, one-time receipt and artifact-bound outcomes
+- [x] Standalone free-text answers without choosing a suggestion; exact text retained
+- [x] Preserve duplicate, superseded and interrupted response states
+- [x] Separate idle decision listening from implementation dispatch authority
+- [x] Compact inbox CLI and native-brain continuation procedure
+- [x] Verify full regression suite and rendered decision interactions (133 tests)
+- [x] Install updated skill and activate the existing native listener
+- [x] Verify a real brain-published decision in the dashboard
+- [ ] Complete a real dashboard-approved implementation-worker pilot
+- [ ] Publish and merge the dashboard-first continuation extension
 
 ## Next increments — not yet authorized implementation packets
 

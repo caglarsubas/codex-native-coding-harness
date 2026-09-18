@@ -27,8 +27,9 @@ task tool, resumes dispatch, wakes a heartbeat or treats AI prose as a control.
    source, CI, artifacts, merge and any required runtime/tenant axes independently.
    Repository-specific manual merge rules remain in force.
 8. **Accept the real pilot:** only an independently verified, preserved native
-   worker can qualify for two-worker concurrency. Pause when no approved work or
-   active supervision remains. No automatic scope expansion follows pilot success.
+   worker can qualify for two-worker concurrency. Park dispatch when no approved
+   work remains, but keep an owner-enabled decision listener active. No automatic
+   scope expansion follows pilot success.
 
 ## Freshness and authority
 

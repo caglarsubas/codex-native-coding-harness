@@ -9,6 +9,8 @@ node --check web/observations.js
 node --check web/inference.js
 node --check web/readiness.js
 node --check web/provenance.js
+node --check web/activity.js
+node --check web/decisions.js
 ```
 
 The tests use temporary local repositories and ledgers, not a product checkout or
@@ -42,13 +44,27 @@ memory, dependencies or deployment; see [runtime boundaries](RUNTIME.md).
 
 ## Native integration acceptance
 
+Decision tests cover version/hash binding, authenticated HTTP receipts, artifact
+resolution, single-answer races, supersession, interruption, compact inbox and
+independent listening/dispatch state. For rendered interaction checks,
+`scripts/bootstrap_fixture.py` creates a labeled temporary fixture; never submit
+test answers into the live portfolio. Synthetic checks do not qualify as a pilot.
+
+For free-text UI regression, submit an answer with no option selected and verify
+its exact text through receipt and artifact-bound history. Reject blank and
+whitespace-only answers. Select an option, then use **Use my own answer instead**:
+text must survive, all options must clear and confirmation must reset. In-page
+Refresh must retain a draft. Also verify an option with no required note still
+submits, required notes are enforced, and HTML-looking answer text renders inert.
+
 Before enabling dispatch, verify in the actual designated brain:
 
 1. Installed skill loads and the private workspace resolves.
 2. `status`, acquire, inbox processing and release work with no product mutation.
 3. Native task/project discovery works; existing work is reconciled, not duplicated.
-4. The 15-minute heartbeat is attached to the correct existing brain and stays
-   paused when no approved queue exists.
+4. The 15-minute heartbeat is attached to the correct existing brain. With explicit
+   idle listening enabled, it stays active for decisions even while dispatch is
+   paused. Otherwise it parks once approved/active work and pending controls drain.
 5. A single explicitly approved real packet completes in a fresh native worktree,
    with scope, acceptance, native identity and exact evidence independently checked.
 6. Only then record pilot success to enable two workers.
@@ -60,8 +76,9 @@ blockers, not permission to synthesize a demonstration product task.
 ## Deliberate limits
 
 - Codex tool calls are performed by the brain, not the dashboard process.
-- No immediate page-to-brain wake API is assumed. A paused heartbeat requires a
-  user message to the brain; queued requests are durable while it is inactive.
+- No immediate page-to-brain wake API is assumed. Initial activation or explicit
+  idle-listener reactivation requires the native brain once; queued requests are
+  durable while it is inactive. Active scheduling consumes model usage.
 - Native creation and SQLite cannot be committed atomically. A one-shot outbox
   boundary prevents blind retries but may require manual recovery of uncertainty.
 - Controller recovery is a trusted operator action, never a time-based takeover.
