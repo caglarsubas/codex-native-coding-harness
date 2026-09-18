@@ -8,6 +8,7 @@ node --check web/app.js
 node --check web/observations.js
 node --check web/inference.js
 node --check web/readiness.js
+node --check web/provenance.js
 ```
 
 The tests use temporary local repositories and ledgers, not a product checkout or
@@ -32,6 +33,12 @@ freshness, private inventory scoping, unchanged controller state, mapping-change
 approval invalidation, active ownership, shared packet gates and isolated fixture
 rehearsal. The real native pilot remains a separate acceptance gate; see
 [readiness and first-drive requirements](READINESS.md).
+
+Runtime-provenance tests cover immutable startup observations, same-HEAD source
+edits, dirty/untracked/deleted source, ignored credentials, symlink refusal,
+unstable/stale snapshots, fixed GitHub GETs, changed origins and failed refreshes.
+State polling never inspects source or calls GitHub. This does not attest loaded
+memory, dependencies or deployment; see [runtime boundaries](RUNTIME.md).
 
 ## Native integration acceptance
 
