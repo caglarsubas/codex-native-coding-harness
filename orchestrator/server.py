@@ -26,6 +26,8 @@ class Dashboard(ThreadingHTTPServer):
         self.bootstrap = secrets.token_urlsafe(32)
         self.sessions = {}
         self.session_lock = threading.Lock()
+        self.observation_lock = threading.Lock()
+        self.observation_job = {"status": "idle"}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -70,6 +72,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.respond(403, {"error": "Host refused"})
         path = urlsplit(self.path).path
         static = {"/": ("index.html", "text/html; charset=utf-8"), "/app.js": ("app.js", "text/javascript; charset=utf-8"), "/style.css": ("style.css", "text/css; charset=utf-8")}
+        static["/observations.js"] = ("observations.js", "text/javascript; charset=utf-8")
         if path in static:
             file, mime = static[path]
             return self.respond(200, (WEB / file).read_bytes(), mime)
@@ -82,11 +85,26 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/state":
                 state = self.server.ledger.snapshot()
                 state["summary"] = aggregate(state)
+                state["observationJob"] = self.server.observation_job.copy()
                 return self.respond(200, state)
             if path == "/api/export":
                 return self.respond(200, report(self.server.ledger.snapshot()), "text/markdown; charset=utf-8", {"Content-Disposition": 'attachment; filename="portfolio-snapshot.md"'})
             if path.startswith("/api/documents/"):
                 return self.respond(200, self.server.ledger.document(path.rsplit("/", 1)[1]))
+            if path.startswith("/api/artifacts/"):
+                from .observations import artifact
+                identity = path.split("/")[3]
+                metadata, raw = artifact(self.server.ledger, identity)
+                if path == "/api/artifacts/" + identity + "/download":
+                    # Active HTML/SVG/documents never execute in the dashboard origin.
+                    return self.respond(200, raw, "application/octet-stream", {"Content-Disposition": 'attachment; filename="artifact-' + identity[:12] + Path(metadata["name"]).suffix + '"'})
+                if path != "/api/artifacts/" + identity:
+                    return self.respond(404, {"error": "Not found"})
+                try:
+                    preview = raw.decode("utf-8") if b"\0" not in raw else None
+                except UnicodeError:
+                    preview = None
+                return self.respond(200, {"metadata": metadata, "text": preview[:500000] if preview else None, "truncated": bool(preview and len(preview) > 500000)})
             return self.respond(404, {"error": "Not found"})
         except (Refusal, ValueError) as error:
             return self.respond(400, {"error": str(error)})
@@ -116,6 +134,23 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(403, {"error": "Session and CSRF token required"})
             if self.path == "/api/commands":
                 return self.respond(200, self.server.ledger.submit(body))
+            if self.path == "/api/observe":
+                if not isinstance(body, dict) or set(body) != {"remote"} or type(body["remote"]) is not bool:
+                    return self.respond(400, {"error": "Expected only a boolean remote flag"})
+                if not self.server.observation_lock.acquire(blocking=False):
+                    return self.respond(409, {"error": "Observation refresh already running"})
+                self.server.observation_job = {"status": "running", "startedAt": time.time(), "remote": body["remote"]}
+                def collect():
+                    try:
+                        from .observations import refresh_observations
+                        result = refresh_observations(self.server.ledger, body["remote"])
+                        self.server.observation_job = {"status": "complete", "finishedAt": time.time(), "result": result}
+                    except Exception as error:
+                        self.server.observation_job = {"status": "failed", "finishedAt": time.time(), "error": str(error)[:300]}
+                    finally:
+                        self.server.observation_lock.release()
+                threading.Thread(target=collect, daemon=True).start()
+                return self.respond(202, self.server.observation_job.copy())
             return self.respond(404, {"error": "Not found"})
         except Refusal as error:
             return self.respond(409, {"error": str(error)})

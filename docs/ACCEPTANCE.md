@@ -5,6 +5,7 @@
 ```sh
 python3 -m unittest discover -s tests -v
 node --check web/app.js
+node --check web/observations.js
 ```
 
 The tests use temporary local repositories and ledgers, not a product checkout or
@@ -43,8 +44,12 @@ blockers, not permission to synthesize a demonstration product task.
 - Runner exclusion applies to this ledger; the brain checks unmanaged work too.
 - Evidence is independently reviewed by the brain; references are not a standalone
   cryptographic proof system.
-- Token/cache/model/effort and historical message/session imports are not connected
-  in v1. They are visibly unavailable rather than guessed.
+- Token/cache/model/effort and task/message counts cover configured retained local
+  logs only. Counter/fork/continuation diagnostics and limits are described in
+  [observation contracts](OBSERVATIONS.md); they are not billing records.
+- Artifact discovery covers scoped local file links and explicit registration,
+  not all native attachments or overwritten historical bytes.
+- Roadmap checkboxes are recorded source claims, not independently verified gates.
 - No cloud deployment, hosted CI, product launcher modification or OpenClaw.
 
 ## Public-repository hygiene

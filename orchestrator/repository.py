@@ -16,7 +16,7 @@ SOURCE = {".py", ".js", ".ts", ".tsx", ".jsx", ".go", ".rs", ".java", ".c", ".h"
 
 def git(path, *args, binary=False):
     require(path and Path(path).is_dir(), "Repository not present on disk")
-    result = subprocess.run(["git", "-c", "core.hooksPath=/dev/null", "-C", str(path), *args],
+    result = subprocess.run(["git", "-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false", "-C", str(path), *args],
         capture_output=True, timeout=60, check=False)
     require(result.returncode == 0, "Git read failed: " + result.stderr.decode(errors="replace")[:300])
     return result.stdout if binary else result.stdout.decode().strip()
@@ -140,7 +140,7 @@ def aggregate(state):
     totals.update(measuredRepositories=sum(m["status"] == "measured" for m in latest.values()),
         repositoryCount=len(state["repositories"]), managedTasks=len(state["workers"]), completedPackets=len(completed),
         meanCycleSeconds=sum(cycles) / len(cycles) if cycles else None)
-    return {"aggregate": totals, "repositories": list(latest.values()), "delivery": state.get("delivery"), "usage": {"status": "unavailable",
+    return {"aggregate": totals, "repositories": list(latest.values()), "delivery": state.get("delivery"), "usage": state.get("observations", {}).get("usage") or {"status": "unavailable",
         "reason": "No validated per-task usage source connected. Model/effort, tokens, cache, messages and historical sessions are not inferred from task counts."}}
 
 
@@ -157,5 +157,9 @@ def report(state):
         text += ["", "## Managed delivery", "", "| Repository | Tasks | Completed in 7 days | Blocked minutes | Runner wait minutes | No-progress cycles |", "|---|---:|---:|---:|---:|---:|"]
         for row in state["delivery"]["repositories"]:
             text.append(f"| {row['repository']} | {row['tasks']} | {row['completedLast7Days']} | {row['blockedSeconds']/60:.1f} | {row['runnerWaitSeconds']/60:.1f} | {row['noProgressCycles']} |")
-    text += ["", "## Method and limitations", "", "Counts cover tracked UTF-8 text at exact commits, including blank/comment lines; they are not executable SLOC. Vendor/build/generated directories, lockfiles, binaries, symlinks and files over 2 MiB are excluded. Untracked work and duplicate worktrees are not counted. Missing repositories are unavailable, not zero.", "", metrics["usage"]["reason"], "", "No API-equivalent cost is a subscription bill. Model/effort comparisons require measured, comparable tasks and do not establish causation.", "", "## Brain checkpoint", "", state["meta"]["checkpoint"], ""]
+    observations = state.get("observations", {})
+    for title, value in (("Local token usage", observations.get("usage")), ("Git and pull requests", observations.get("git")), ("Artifact versions", observations.get("artifacts")), ("Roadmap checklist", observations.get("roadmaps"))):
+        if value:
+            text += ["", "## " + title, "", "```json", json.dumps(value, indent=2, ensure_ascii=False), "```"]
+    text += ["", "## Method and limitations", "", "Counts cover tracked UTF-8 text at exact commits, including blank/comment lines; they are not executable SLOC. Vendor/build/generated directories, lockfiles, binaries, symlinks and files over 2 MiB are excluded. Untracked work and duplicate worktrees are not counted. Missing repositories are unavailable, not zero.", "", metrics["usage"]["reason"], "", "No API-equivalent cost is a subscription bill. Model/effort comparisons require measured, comparable tasks and do not establish causation. Artifact dates distinguish supplied creation dates, first references and observation times. Checklist states are recorded source claims, never dispatch or acceptance authority.", "", "## Brain checkpoint", "", state["meta"]["checkpoint"], ""]
     return "\n".join(text)

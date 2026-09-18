@@ -1,0 +1,9 @@
+{
+  "codexHome": "/absolute/path/to/.codex",
+  "artifactRoots": [
+    {"repository": "example-project", "path": "/absolute/path/to/your/project/reports"}
+  ],
+  "roadmaps": [
+    {"repository": "example-project", "path": "docs/ROADMAP.md", "title": "Development roadmap"}
+  ]
+}
