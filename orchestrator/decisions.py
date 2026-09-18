@@ -134,10 +134,20 @@ def workflow(state):
     observed = heartbeat.get("observedAt")
     recent = (checked is not None and 0 <= now - checked <= 35 * 60
               and observed is not None and 0 <= now - observed <= 35 * 60)
-    status = "off" if not enabled else "needs_activation" if heartbeat["status"] != "ACTIVE" else "listening" if recent else "unconfirmed"
-    pending = [c for c in state["commands"] if c["status"] in ("queued", "processing")]
+    pending = [c for c in state["commands"] if c["status"] in ("queued", "processing") or c.get("needsBrainReceipt")]
     active = any(w["status"] in ACTIVE for w in state["workers"])
-    approved = any(q["status"] == "approved" and not q["held"] for q in state["queue"])
+    approved = not m["paused"] and any(q["status"] == "approved" and not q["held"] for q in state["queue"])
+    continuations = state.get("continuations", [])
+    unplanned = sum(c["status"] in ("needs_proposal", "needs_revision") for c in continuations)
+    reasons = []
+    for needed, reason in ((active, "active_workers"), (bool(m.get("runner")), "runner_owned"),
+                           (approved, "approved_dispatch"), (bool(pending), "pending_receipts"),
+                           (bool(unplanned), "follow_up_planning")):
+        if needed:
+            reasons.append(reason)
+    keep = enabled or bool(reasons)
+    status = ("needs_activation" if heartbeat["status"] != "ACTIVE" else "listening" if recent else "unconfirmed") if keep else (
+        "idle_pause_pending" if heartbeat["status"] == "ACTIVE" else "event_waiting")
     brain = m.get("brainControl", {})
     parked = brain.get("phase") == "parked"
     if parked:
@@ -146,14 +156,16 @@ def workflow(state):
             "nativeStatus": heartbeat["status"], "nativeObservedAt": heartbeat.get("observedAt"),
             "intervalMinutes": 15, "pendingRequests": len(pending),
             "openDecisions": sum(d["status"] == "open" for d in state["decisions"]),
-            "shouldKeepHeartbeat": not parked and (enabled or active or approved or bool(pending)),
+            "followUpsNeedingProposal": unplanned, "followUps": len(continuations),
+            "schedulingMode": "periodic_idle" if enabled else "event_driven",
+            "supervisionReasons": reasons, "shouldKeepHeartbeat": not parked and keep,
             "dispatchPaused": m["paused"], "boundary": BOUNDARY}
 
 
 def inbox(state):
     """Compact native-cycle input: no token logs, artifact bodies or event history."""
-    return {"meta":state["meta"], "workflow":state["workflow"],
+    return {"meta":state["meta"], "workflow":state["workflow"], "continuations": state.get("continuations", []),
             "decisions":[d for d in state["decisions"] if d["status"] in ("open", "answered", "received")],
-            "commands":[c for c in state["commands"] if c["status"] in ("queued", "processing")],
+            "commands":[c for c in state["commands"] if c["status"] in ("queued", "processing") or c.get("needsBrainReceipt")],
             "queue":[q for q in state["queue"] if q["status"] == "approved"],
             "workers":[w for w in state["workers"] if w["status"] in ACTIVE]}

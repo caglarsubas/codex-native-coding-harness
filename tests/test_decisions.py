@@ -224,7 +224,7 @@ class DecisionTest(unittest.TestCase):
     def test_listener_is_independent_and_honest_about_native_activation(self):
         def listening(enabled):
             self.ledger.submit({"id":str(uuid.uuid4()),"kind":"listening","expectedRevision":self.ledger.snapshot()["meta"]["revision"],"payload":{"enabled":enabled}})
-        self.assertEqual(self.ledger.snapshot()["workflow"]["status"],"off")
+        self.assertEqual(self.ledger.snapshot()["workflow"]["status"],"event_waiting")
         listening(True)
         self.assertEqual(self.ledger.snapshot()["workflow"]["status"],"needs_activation")
         self.ledger.heartbeat("fixture-heartbeat","ACTIVE")
@@ -237,10 +237,14 @@ class DecisionTest(unittest.TestCase):
         state["serverTime"]+=36*60
         self.assertEqual(workflow(state)["status"],"unconfirmed")
         listening(False)
+        self.assertTrue(self.ledger.snapshot()["workflow"]["shouldKeepHeartbeat"])
+        self.ledger.process(self.token)
         state=self.ledger.snapshot()
-        self.assertEqual(state["workflow"]["status"],"off")
+        self.assertEqual(state["workflow"]["status"],"idle_pause_pending")
         self.assertEqual(state["meta"]["heartbeat"]["status"],"ACTIVE")
         self.assertFalse(state["workflow"]["shouldKeepHeartbeat"])
+        self.ledger.heartbeat("fixture-heartbeat","PAUSED")
+        self.assertEqual(self.ledger.snapshot()["workflow"]["status"],"event_waiting")
 
     def test_legacy_ledger_defaults_and_additive_migration(self):
         with self.ledger.tx() as db:db.execute("DROP TABLE decisions")

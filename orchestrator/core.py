@@ -130,6 +130,7 @@ class Ledger:
             CREATE TABLE IF NOT EXISTS workers (id TEXT PRIMARY KEY, queue_id TEXT NOT NULL UNIQUE, data TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS commands (id TEXT PRIMARY KEY, data TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS decisions (id TEXT PRIMARY KEY, data TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS continuations (id TEXT PRIMARY KEY, data TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS events (seq INTEGER PRIMARY KEY AUTOINCREMENT, at REAL NOT NULL,
               kind TEXT NOT NULL, data TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS snapshots (id TEXT PRIMARY KEY, kind TEXT NOT NULL, data TEXT NOT NULL);
@@ -348,6 +349,10 @@ class Ledger:
                     require(worker["status"] == "complete" and worker.get("preserved") is True, "Verify completion, pushed commits and preserved evidence first")
                     require(not worker.get("archived"), "Already archived")
                 require(not any(c["kind"] == kind and c["payload"] == p and c["status"] in ("queued", "processing") for c in self.all(db, "commands")), "Equivalent native request already pending")
+            if kind in ("approve", "hold", "prioritize", "listening", "pause"):
+                # Local policy is applied already. The brain must reconcile the
+                # latest state once, without replaying an older policy change.
+                record["needsBrainReceipt"] = True
             self.put(db, "commands", record["id"], record)
             self.event(db, "control_request", {"id": record["id"], "kind": kind, "status": record["status"], "actor": actor})
             return record
@@ -365,6 +370,13 @@ class Ledger:
             if stopped(meta):
                 return receive_stop(self, db, token)
             for cmd in self.all(db, "commands"):
+                if cmd.get("needsBrainReceipt"):
+                    from .decisions import authorize_brain
+                    authorize_brain(self, db, token)
+                    cmd.update(needsBrainReceipt=False, receivedAt=time.time())
+                    self.put(db, "commands", cmd["id"], cmd)
+                    self.event(db, "policy_received", {"id": cmd["id"], "kind": cmd["kind"]})
+                    continue
                 if cmd["status"] != "queued":
                     continue
                 if cmd["kind"] == "brain_resume":
@@ -587,6 +599,8 @@ class Ledger:
             result["delivery"] = delivery_metrics(result["workers"], result["repositories"], history, result["serverTime"])
             from .observations import snapshot
             result["observations"] = snapshot(db)
+            from .continuation import project
+            result["continuations"] = project(result, self.all(db, "continuations"))
             from .decisions import workflow
             result["workflow"] = workflow(result)
             db.commit()

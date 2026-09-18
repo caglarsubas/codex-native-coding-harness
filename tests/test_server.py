@@ -57,7 +57,7 @@ class ServerTest(unittest.TestCase):
 
     def test_unknown_command_and_bad_revision_rejected(self):
         auth = self.login()
-        for kind, rev in (("shell",0), ("pause",999)):
+        for kind, rev in (("shell",0), ("continuation-publish",0), ("pause",999)):
             status, _, _ = self.request("/api/commands", {"id":str(uuid.uuid4()),"kind":kind,"expectedRevision":rev,"payload":{}}, auth)
             self.assertEqual(status, 409)
 
@@ -88,6 +88,8 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(state["workers"],[])
         self.assertNotIn(token.encode(),raw)
         self.assertEqual(self.request("/api/decision-publish",spec,auth)[0],404)
+        self.assertEqual(self.request("/api/continuation-publish",spec,auth)[0],404)
+        self.assertEqual(state["continuations"][0]["status"],"needs_proposal")
         for path in ("/decisions.js","/decisions.css"):
             self.assertEqual(self.request(path)[0],200)
 

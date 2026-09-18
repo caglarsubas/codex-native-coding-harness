@@ -28,7 +28,7 @@ class LedgerTest(unittest.TestCase):
         self.config = {"schemaVersion": 1, "brainId": "brain-fixture", "repositories": [
             {"id": name, "path": "/fixture/" + name, "projectId": "project-" + name, "ref": "origin/main", "mergePolicy": "manual", "policyProfile": "harness"} for name in ("a", "b", "c")]}
         self.ledger.initialize(self.config)
-        self.token = self.ledger.acquire("test")
+        self.token = self.ledger.acquire("brain-fixture:test")
 
     def tearDown(self):
         self.temp.cleanup()
@@ -136,7 +136,7 @@ class LedgerTest(unittest.TestCase):
 
     def test_crash_recovery_keeps_worker_ownership(self):
         w = self.running()
-        self.ledger.recover("test", "Native task observed still active; only controller process is gone")
+        self.ledger.recover("brain-fixture:test", "Native task observed still active; only controller process is gone")
         state = Ledger(self.ledger.root).snapshot()
         self.assertTrue(state["meta"]["paused"])
         self.assertEqual(state["workers"][0]["id"], w["id"])
