@@ -4,20 +4,39 @@ const decisionDrafts = new Map();
 const decisionDetailsOpen = new Set();
 const decisionLabels = {open:"Needs your decision", answered:"Answer recorded", received:"Received by brain", applied:"Applied to design", blocked:"Needs follow-up", superseded:"Superseded"};
 
+function commandPresentation(c, activity=state?.brainActivity, now=Date.now()/1000) {
+  if(c.kind!=="decision_response")return {label:c.status,detail:c.result||"Awaiting the brain’s next active cycle"};
+  if(c.status!=="queued")return {label:c.status==='processing'?"Received by brain":c.status,detail:c.result||"The brain has received this answer."};
+  const n=c.notification;
+  if(!n)return {label:"Answer saved",detail:"No immediate notification is recorded for this older answer. The next brain cycle can receive it; open the brain if its heartbeat is inactive."};
+  if(n.status==='sending')return now-n.attemptedAt<=12
+    ?{label:"Notifying brain",detail:"Answer saved. Waiting for Codex to acknowledge the notification."}
+    :{label:"Delivery unconfirmed",detail:"The send was interrupted or its result is missing. Check the brain; your answer is saved and will not be resent automatically."};
+  if(n.status==='accepted') {
+    if(now-n.finishedAt>90)return {label:"Receipt overdue",detail:"Codex accepted the notification, but the brain has not recorded a receipt yet. Open the brain to check progress, approval prompts or availability. The heartbeat remains a fallback."};
+    return {label:activity?.fresh&&activity.status==='running'?"Brain active · awaiting receipt":"Sent to Codex",
+      detail:"Codex accepted the notification. An idle brain can start immediately; an active turn finishes first. Waiting for this answer’s receipt, not an implementation-worker slot."};
+  }
+  return {label:n.status==='unavailable'?"Notification unavailable":"Delivery unconfirmed",detail:n.detail};
+}
+
 function workflowSummary(root, controls=false) {
   const w=state.workflow;
   if(!w) {root.append(callout("Workflow upgrade needs a server restart", "No listener or decision state is available from this running server.")); return;}
   const panel=el("section",null,"workflow-summary");
   const label={off:"Idle listening is off",needs_activation:"Native listener needs activation",unconfirmed:"Listener schedule recorded · check-in overdue or missing",listening:"Listener checked in recently"}[w.status];
-  panel.append(el("p","DECISIONS & CONTINUATION","eyebrow"),el("h2",label));
+  const notifier=state.brainNotification,immediate=notifier?.status==='configured';
+  panel.append(el("p","DECISIONS & CONTINUATION","eyebrow"),el("h2",immediate?"Answers notify the brain immediately":"Immediate notification unavailable"));
+  panel.append(el("p",notifier?.detail||"Restart with native notification enabled. Answers remain saved until the brain receives them.","muted"));
   panel.append(el("p",`${w.openDecisions} awaiting your decision · ${w.pendingRequests} requests awaiting completion · Worker dispatch ${w.dispatchPaused?'paused':'enabled'}`));
-  panel.append(el("p",`Every 15 minutes while enabled · Inbox checked ${when(w.lastCheckedAt)}`,"muted"));
+  panel.append(el("p",`Heartbeat fallback: ${label.toLowerCase()} · Inbox checked ${when(w.lastCheckedAt)}`,"muted"));
   const info=el("details",null,"coverage-details"),infoKey='listener:'+controls;
   info.open=decisionDetailsOpen.has(infoKey);
   info.addEventListener('toggle',()=>{if(info.open)decisionDetailsOpen.add(infoKey);else decisionDetailsOpen.delete(infoKey);});
   info.append(el("summary","Schedule, usage & availability"));
   info.append(el("p",`Native heartbeat: ${w.nativeStatus} (observed ${when(w.nativeObservedAt)}).`));
-  info.append(el("p","Keep this computer and Codex running. Scheduled checks consume model usage, including idle checks; this is not an instant browser-to-Codex connection."));
+  info.append(el("p","Keep this computer and Codex running. Immediate notification uses the existing native task queue; it never interrupts an active turn. Acknowledged delivery is not a brain receipt or permission to execute."));
+  info.append(el("p","The 15-minute heartbeat is a recovery fallback while enabled, not a required delay after answering. Both answer processing and scheduled checks consume model usage, including idle checks."));
   const actions=el("div",null,"inline-actions");
   if(!controls) actions.append(button(w.openDecisions?`Review ${w.openDecisions} decision${w.openDecisions===1?'':'s'}`:"Open decision inbox",()=>navigateView("decisions"),w.openDecisions?"primary":""));
   else {
@@ -25,10 +44,10 @@ function workflowSummary(root, controls=false) {
     info.append(el("p","Listening and worker dispatch are separate. Turning off idle listening takes effect on the next brain cycle; active workers still need supervision. Turning it back on cannot wake an already-paused native schedule."));
   }
   if(w.status==='needs_activation'||w.status==='unconfirmed') {
-    panel.append(el("p",w.status==='needs_activation'?"Open the brain once to activate its native decision listener. A saved request cannot wake a paused schedule.":"No fresh inbox check or native status confirmation. Check the brain and app availability; the saved schedule alone does not prove it is running.","muted"));
-    if(/^[a-zA-Z0-9_-]{1,100}$/.test(state.meta.brainId||"")) {
-      const link=el("a","Open brain in Codex","button");link.href="codex://threads/"+encodeURIComponent(state.meta.brainId);actions.append(link);
-    }
+    panel.append(el("p",w.status==='needs_activation'?"The fallback schedule needs native activation. Immediate answer notification is separate and does not enable the schedule.":"No fresh fallback check or native schedule confirmation. The saved schedule alone does not prove it is running.","muted"));
+  }
+  if(/^[a-zA-Z0-9_-]{1,100}$/.test(state.meta.brainId||"")) {
+    const link=el("a","Open brain in Codex","button");link.href="codex://threads/"+encodeURIComponent(state.meta.brainId);actions.append(link);
   }
   panel.append(actions,info);root.append(panel);
 }
@@ -53,9 +72,10 @@ async function submitDecision(d, draft, submit) {
     draft.request={id:crypto.randomUUID(),kind:"decision_response",expectedRevision:state.meta.revision,payload};
   busy=true;submit.disabled=true;
   try {
-    await api('/api/commands',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify(draft.request)});
+    const result=await api('/api/commands',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify(draft.request)});
     decisionDrafts.delete(d.id);
-    showNotice("Answer recorded for this exact version. The brain will receive it on its next active cycle; no implementation was authorized.");
+    const delivery=commandPresentation(result);
+    showNotice("Answer saved. "+delivery.label+". "+delivery.detail+" No implementation was authorized.");
     await refresh();
   } catch(error) {
     if(error.message.includes("State changed")) draft.request=null;
@@ -104,13 +124,18 @@ function decisionCard(d, root) {
     note.oninput=()=>{draft.note=note.value;draft.confirmed=false;check.checked=false;updateAnswerMode();};noteLabel.append(noteTitle,note);
     const confirmation=el("label",null,"decision-confirmation"),check=el("input");check.type="checkbox";check.required=true;check.checked=draft.confirmed;
     check.onchange=()=>{draft.confirmed=check.checked;};confirmation.append(check,el("span","I confirm this answer for this version. This is not approval to implement, access targets or merge."));
-    const submit=button("Record decision",()=>{},"primary");submit.type="submit";
+    const submit=button(state.brainNotification?.status==='configured'?"Send answer to brain":"Record answer",()=>{},"primary");submit.type="submit";
     form.onsubmit=e=>{e.preventDefault();if(form.reportValidity())submitDecision(d,draft,submit);};
     updateAnswerMode();
     form.append(intro,choices,ownAnswer,noteLabel,hint,confirmation,submit);card.append(form);
   } else if(d.response) {
     const option=s.options.find(o=>o.id===d.response.optionId);
     card.append(el("p",d.response.optionId===null?"Your answer · in your own words":"Your answer: "+(option?.label||d.response.optionId)),el("p",d.response.note||"No additional note.","decision-note"),el("p","Recorded "+when(d.response.at),"muted"));
+    const command=state.commands.find(c=>c.id===d.response.commandId);
+    if(command&&d.status==='answered') {
+      const delivery=commandPresentation(command);
+      card.append(callout(delivery.label,delivery.detail));
+    }
     if(d.receivedAt)card.append(el("p","Received by brain "+when(d.receivedAt),"muted"));
   }
   if(d.resolution){card.append(el("h3","Brain outcome"),el("p",d.resolution.summary),el("p",when(d.resolution.at),"muted"));decisionArtifacts(card,d.resolution.artifactIds);}

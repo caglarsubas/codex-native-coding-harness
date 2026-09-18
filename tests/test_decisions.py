@@ -12,8 +12,8 @@ from orchestrator.decisions import inbox, publish, resolve, workflow
 from orchestrator.observations import capture
 
 
-def fixture(ledger):
-    ledger.initialize({"schemaVersion":1, "brainId":"brain-fixture", "repositories":[
+def fixture(ledger, brain_id="brain-fixture"):
+    ledger.initialize({"schemaVersion":1, "brainId":brain_id, "repositories":[
         {"id":"fixture", "path":"/fixture", "projectId":None, "ref":"main", "mergePolicy":"manual", "policyProfile":"standard"}]})
     with ledger.tx() as db:
         a = capture(db, "design", b"Private design fixture", {"repository":"fixture", "name":"design.md", "orderAt":time.time(), "references":[]})

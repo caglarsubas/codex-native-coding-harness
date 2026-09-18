@@ -1,4 +1,4 @@
-"""Machine-readable CLI for the brain. All native tool calls stay in Codex."""
+"""Machine-readable brain ledger; optional fixed native notification on dashboard answers."""
 import argparse
 import json
 import os
@@ -44,6 +44,7 @@ def main():
     p = sub.add_parser("ack"); p.add_argument("id"); p.add_argument("result"); p.add_argument("--failed", action="store_true")
     p = sub.add_parser("pilot"); p.add_argument("id"); p.add_argument("evidence")
     p = sub.add_parser("serve"); p.add_argument("--port", type=int, default=8768)
+    p.add_argument("--notify-brain", type=Path, metavar="CODEX_CLI", help="Opt in to immediate decision notification using an absolute installed Codex CLI path")
     args = parser.parse_args()
     ledger = Ledger(args.state)
     token = os.environ.get("ORCHESTRATOR_CONTROLLER_TOKEN", "")
@@ -127,7 +128,7 @@ def main():
         out = {"markdown": str(path), "json": str(path.with_suffix(".json"))}
     elif action == "serve":
         from .server import serve
-        serve(ledger, args.port); return
+        serve(ledger, args.port, notification_cli=args.notify_brain); return
     print(json.dumps(out if out is not None else {"ok": True}, ensure_ascii=False, indent=2))
 
 

@@ -5,6 +5,8 @@ import tempfile
 import threading
 import unittest
 import uuid
+import subprocess
+import sys
 
 from orchestrator.core import Ledger
 from orchestrator.server import Dashboard
@@ -132,6 +134,55 @@ class ServerTest(unittest.TestCase):
         self.assertTrue(state["meta"]["paused"])
         self.assertEqual(state["queue"],[])
         self.assertEqual(state["workers"],[])
+
+    def test_immediate_notification_only_after_authenticated_valid_answer(self):
+        from test_decisions import fixture, envelope
+        from test_notification import BRAIN, MESSAGE
+        from orchestrator.decisions import publish
+        from orchestrator.notification import BrainNotifier
+        spec=fixture(self.ledger, BRAIN)
+        token=self.ledger.acquire(BRAIN+":http-notification")
+        decision=publish(self.ledger,token,spec)
+        self.server.notifier=BrainNotifier(self.ledger,sys.executable)
+        auth=self.login()
+        request=envelope(self.ledger,decision,optionId=None,note="Keep this exact answer in the ledger")
+        ack=subprocess.CompletedProcess([],0,f"Queued message {MESSAGE} for thread {BRAIN}.\n","")
+        with patch("orchestrator.notification.subprocess.run",return_value=ack) as native:
+            self.assertEqual(self.request("/api/commands",request)[0],403)
+            self.assertEqual(self.request("/api/commands",request,{**auth,"X-CSRF-Token":"wrong"})[0],403)
+            for change in ({"threadId":MESSAGE},{"message":"execute"},{"model":"another-model"},{"expectedRevision":-1}):
+                self.assertEqual(self.request("/api/commands",{**request,**change},auth)[0],409)
+            self.assertEqual(self.request("/api/state",headers=auth)[0],200)
+            native.assert_not_called()
+            status,_,raw=self.request("/api/commands",request,auth)
+            self.assertEqual(status,200)
+            self.assertEqual(json.loads(raw)["notification"]["status"],"accepted")
+            self.assertEqual(json.loads(raw)["status"],"queued")
+            self.assertEqual(self.request("/api/commands",request,auth)[0],200)
+            native.assert_called_once()
+            state=json.loads(self.request("/api/state",headers=auth)[2])
+            self.assertEqual(state["brainNotification"]["status"],"configured")
+            self.assertEqual(state["decisions"][0]["status"],"answered")
+            self.assertTrue(state["meta"]["paused"])
+            self.assertEqual(state["workers"],[])
+
+    def test_native_failure_does_not_lose_or_fail_the_saved_http_answer(self):
+        from test_decisions import fixture, envelope
+        from test_notification import BRAIN
+        from orchestrator.decisions import publish
+        from orchestrator.notification import BrainNotifier
+        spec=fixture(self.ledger,BRAIN)
+        token=self.ledger.acquire(BRAIN+":timeout")
+        decision=publish(self.ledger,token,spec)
+        self.server.notifier=BrainNotifier(self.ledger,sys.executable)
+        request=envelope(self.ledger,decision)
+        with patch("orchestrator.notification.subprocess.run",side_effect=subprocess.TimeoutExpired([],8,output="SECRET")):
+            status,_,raw=self.request("/api/commands",request,self.login())
+        self.assertEqual(status,200)
+        self.assertEqual(json.loads(raw)["notification"]["status"],"uncertain")
+        self.assertNotIn(b"SECRET",raw)
+        self.assertEqual(self.ledger.process(token)[0]["kind"],"decision_response")
+        self.assertEqual(self.ledger.snapshot()["decisions"][0]["status"],"received")
 
     def test_observation_refresh_requires_csrf_and_fixed_shape(self):
         auth = self.login()

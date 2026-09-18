@@ -84,6 +84,12 @@ document. `meta.decisionListener` is an explicit owner preference (absent=false)
 No existing packet/worker records or approvals are migrated. See
 [decision contract and recovery](DECISIONS.md).
 
+Dashboard response commands may have an additive `notification` record for the
+one-shot native wake attempt. `accepted` means the CLI acknowledged queueing;
+only designated-brain `process` marks receipt, and artifact-bound resolution
+marks the outcome. Legacy commands need no migration. Notification state is
+not part of the original request fingerprint and never changes its answer.
+
 ## Completion envelope
 
 Exactly `schemaVersion`, `seedHash`, `commit`, `changedPaths`, `pr`, `evidence`,

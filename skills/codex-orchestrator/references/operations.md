@@ -42,6 +42,16 @@ tool once. No duplicate heartbeat or standalone replacement.
 Use this before repeating an owner question in chat. Full schemas and operator
 behavior are in `docs/DECISIONS.md` in the installed workspace.
 
+A fixed dashboard notification may wake this existing task immediately through
+the supported native queue. It contains only hash identifiers, not the answer.
+Read the configured portfolio's `inbox`, confirm this is its designated brain,
+and use the normal controller procedure now; do not wait for a heartbeat when
+idle. Native delivery status is separate from ledger receipt and outcome. If the
+answer is already received/resolved or superseded, reconcile without replay.
+Do not send another wake, start a second brain, or infer any execution authority.
+The same recovery applies after an unavailable/uncertain notification when the
+heartbeat or operator later wakes the brain. Keep the heartbeat as fallback.
+
 1. Retain the current design/blocker artifact using `artifact-add`. Under the
    designated brain controller (`brain-id:turn-id`), publish its question with
    `decision-publish <spec.json>`: stable key, repository, title, question,
@@ -205,7 +215,11 @@ writes timestamped private Markdown/JSON reports. Read the methodology before
 interpreting line counts as source LOC. See observations below for scoped local
 usage history; absent sources remain unavailable.
 
-`serve` starts the loopback dashboard. The server is independent of worker lifetime.
+`serve` starts the loopback dashboard. Add `--notify-brain /absolute/path/to/codex`
+to opt in to immediate notification after saved dashboard decision responses;
+retain the flag on restarts. The trusted local CLI must support `queue` and reach
+the existing task. No private API, new brain or standalone daemon is substituted.
+The server is independent of worker lifetime.
 The private link is in `.state/dashboard-session.json`; do not publish it. Open it
 with the native browser-panel tool. Restarting the server rotates authentication,
 not task state. Closing its browser panel does not pause the brain. Keep the local

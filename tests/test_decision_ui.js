@@ -1,0 +1,21 @@
+"use strict";
+// Pure presentation checks; no browser dependency or connection to a real brain.
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const context = vm.createContext({titles:{}, state:{}, Map, Set, Date});
+vm.runInContext(fs.readFileSync('web/decisions.js','utf8'),context);
+const command={kind:'decision_response',status:'queued'};
+const present=(notification,activity,now=100)=>context.commandPresentation({...command,notification},activity,now);
+assert.equal(present().label,'Answer saved');
+assert.equal(present({status:'sending',attemptedAt:99}).label,'Notifying brain');
+assert.equal(present({status:'sending',attemptedAt:1}).label,'Delivery unconfirmed');
+assert.equal(present({status:'unavailable',detail:'Saved'}).label,'Notification unavailable');
+assert.equal(present({status:'uncertain',detail:'Saved'}).label,'Delivery unconfirmed');
+assert.equal(present({status:'accepted',finishedAt:99},{fresh:true,status:'idle'}).label,'Sent to Codex');
+assert.equal(present({status:'accepted',finishedAt:99},{fresh:true,status:'running'}).label,'Brain active · awaiting receipt');
+assert.equal(present({status:'accepted',finishedAt:99},{fresh:false,status:'running'}).label,'Sent to Codex');
+assert.equal(present({status:'accepted',finishedAt:1}).label,'Receipt overdue');
+assert.equal(context.commandPresentation({...command,status:'processing',notification:{status:'uncertain'}}).label,'Received by brain');
+assert.equal(context.commandPresentation({...command,status:'completed',result:'Retained outcome'}).detail,'Retained outcome');
+console.log('Decision delivery presentation checks passed');
