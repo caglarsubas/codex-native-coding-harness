@@ -1,0 +1,9 @@
+[project]
+name = "codex-native-coding-harness"
+version = "1.0.0"
+description = "Local approved-queue coordination and observability for native Codex tasks"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+codex-orchestrator = "orchestrator.cli:main"

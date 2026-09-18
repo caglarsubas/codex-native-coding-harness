@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Codex Orchestrator · Operations ledger</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <aside class="rail">
+    <a class="brand" href="/" aria-label="Codex Orchestrator home"><span class="brand-mark" aria-hidden="true">co.</span><span>Codex<br>Orchestrator</span></a>
+    <p class="eyebrow">LOCAL OPERATIONS LEDGER</p>
+    <nav aria-label="Dashboard views">
+      <button data-view="overview" aria-current="page"><span>01</span> Overview</button>
+      <button data-view="queue"><span>02</span> Approved queue</button>
+      <button data-view="workers"><span>03</span> Workers & evidence</button>
+      <button data-view="knowledge"><span>04</span> Knowledge</button>
+      <button data-view="metrics"><span>05</span> Portfolio metrics</button>
+    </nav>
+    <div class="rail-bottom"><p>One brain.<br>Bounded implementation tasks.<br>Explicit evidence.</p><button id="theme" class="rail-action">Switch theme</button><span id="connection">Connecting to local ledger…</span></div>
+  </aside>
+  <div class="workspace">
+    <header class="topbar"><span id="mode">Awaiting authenticated connection</span><div><button id="refresh">Refresh</button><a class="button" href="/api/export" download>Export report</a></div></header>
+    <main id="main" tabindex="-1">
+      <div class="page-heading"><div><p class="eyebrow">CONTROL / OBSERVE / VERIFY</p><h1 id="title">Operations overview</h1><p id="subtitle">A clear view of what is authorized, active, and proven.</p></div><div class="page-actions"><button id="pause">Pause dispatch</button><button id="reconcile" class="primary">Request reconciliation</button></div></div>
+      <div id="notice" role="status" aria-live="polite" hidden></div>
+      <section id="content" aria-label="Selected dashboard view"><div class="empty"><h2>Connecting securely</h2><p>Use the private dashboard link generated on this computer. No repository or task data is exposed before authentication.</p></div></section>
+    </main>
+    <footer>Local data only · No independent scheduler · Native tasks remain in Codex</footer>
+  </div>
+</body>
+</html>

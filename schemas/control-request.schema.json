@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:codex-native-coding-harness:control-request:1",
+  "title": "Version 1 dashboard control request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "kind", "expectedRevision", "payload"],
+  "properties": {
+    "id": {"type": "string", "minLength": 8, "maxLength": 128},
+    "expectedRevision": {"type": "integer", "minimum": 0},
+    "kind": {"enum": ["approve", "hold", "prioritize", "pause", "resume", "reconcile", "checkpoint", "archive"]},
+    "payload": {"type": "object"}
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "kind": {"const": "approve"},
+        "payload": {
+          "type": "object", "additionalProperties": false,
+          "required": ["queueId", "seedHash", "packetDigest"],
+          "properties": {"queueId": {"type": "string", "minLength": 1}, "seedHash": {"$ref": "#/$defs/sha256"}, "packetDigest": {"$ref": "#/$defs/sha256"}}
+        }
+      }
+    },
+    {
+      "properties": {
+        "kind": {"const": "hold"},
+        "payload": {"type": "object", "additionalProperties": false, "required": ["queueId", "held"], "properties": {"queueId": {"type": "string", "minLength": 1}, "held": {"type": "boolean"}}}
+      }
+    },
+    {
+      "properties": {
+        "kind": {"const": "prioritize"},
+        "payload": {"type": "object", "additionalProperties": false, "required": ["queueId", "priority"], "properties": {"queueId": {"type": "string", "minLength": 1}, "priority": {"type": "integer", "minimum": 0, "maximum": 999}}}
+      }
+    },
+    {
+      "properties": {"kind": {"enum": ["pause", "resume", "reconcile"]}, "payload": {"type": "object", "maxProperties": 0}}
+    },
+    {
+      "properties": {
+        "kind": {"enum": ["checkpoint", "archive"]},
+        "payload": {"type": "object", "additionalProperties": false, "required": ["workerId"], "properties": {"workerId": {"type": "string", "minLength": 1}}}
+      }
+    }
+  ],
+  "$defs": {"sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}
+}
