@@ -62,6 +62,7 @@ Kinds and payloads:
 | hold | queueId, held boolean |
 | prioritize | queueId, priority integer 0–999 |
 | pause / resume / reconcile | empty object |
+| brain_stop / brain_resume | empty object; cooperative lifecycle, no worker dispatch grant |
 | checkpoint / archive | workerId |
 | listening | enabled boolean; native scheduling and dispatch remain separate |
 | decision_response | decisionId, decisionHash, optionId, note, confirmed=true |
@@ -84,11 +85,17 @@ document. `meta.decisionListener` is an explicit owner preference (absent=false)
 No existing packet/worker records or approvals are migrated. See
 [decision contract and recovery](DECISIONS.md).
 
-Dashboard response commands may have an additive `notification` record for the
+Dashboard response and allowlisted pending control commands may have an additive `notification` record for the
 one-shot native wake attempt. `accepted` means the CLI acknowledged queueing;
 only designated-brain `process` marks receipt, and artifact-bound resolution
 marks the outcome. Legacy commands need no migration. Notification state is
 not part of the original request fingerprint and never changes its answer.
+
+`meta.brainControl` retains desired state, phase, commandId, requestedAt and the
+last checkpoint. Legacy absence means running/ready. Exact schema and safety
+gates are documented in [Brain control](BRAIN_CONTROL.md). Brain checkpoint
+documents use the existing immutable snapshots table; no ownership is released
+by saving a stop intent or checkpoint.
 
 ## Completion envelope
 

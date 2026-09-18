@@ -1,8 +1,24 @@
 "use strict";
 let activityDetailsOpen = false;
 function activityLabel(activity) {
-  if (!activity?.fresh) return "Activity unknown";
+  if (!activity?.fresh) return ({idle:"Last observed idle",running:"Last observed working"})[activity?.lastKnownStatus] || "Activity not observed";
   return ({running:"Active recently",idle:"Idle observed",interrupted:"Turn interrupted",failed:"Turn failed"})[activity.status] || "Activity unknown";
+}
+function brainControlPresentation(meta, activity) {
+  const c=meta.brainControl || {desired:"running",phase:"ready"};
+  const labels={stop_requested:"Stop requested",checkpointing:"Preparing safe checkpoint",parked:"Safe checkpoint saved",resume_requested:"Brain resume requested",ready:"Brain available"};
+  const idleAfterCheckpoint=c.phase==='parked' && activity?.lastKnownStatus==='idle' && activity.observedAt>=c.checkpoint?.at;
+  return {phase:c.phase,stopped:c.desired==='stopped',label:idleAfterCheckpoint?"Brain stopped at checkpoint":labels[c.phase]||"Brain control not observed",
+    detail:c.phase==='parked'?"Automatic brain work is stopped. "+(idleAfterCheckpoint?"A later native idle observation confirms the turn finished.":"Native turn completion has not yet been observed after this checkpoint.")+" Saved answers wait for Resume brain."
+      :c.desired==='stopped'?"New worker dispatch is paused now. The brain must finish its current bounded step, reconcile workers and acceptance, save a checkpoint and pause its heartbeat. Running tools are not interrupted."
+      :c.phase==='resume_requested'?"Resume saved and awaiting brain receipt. The brain will recover its retained checkpoint; worker dispatch stays unchanged."
+      :"Resume brain wakes this existing task from retained state. Stop is cooperative: it takes effect at a verified safe checkpoint, not in the middle of a running tool."};
+}
+function dispatchPresentation(meta, commands=[]) {
+  const pending=commands.some(c=>c.kind==='resume' && ['queued','processing'].includes(c.status));
+  return {label:pending?"Worker dispatch resume requested":meta.paused?"New worker dispatch paused":"Approved worker dispatch enabled",
+    button:pending?"Worker resume requested":meta.paused?"Resume worker dispatch":"Pause new workers",
+    disabled:meta.paused && (pending || meta.brainControl?.desired==='stopped')};
 }
 function navigateView(next, identity=null) {
   view=next; selected=identity; observationPage=0;
@@ -14,12 +30,24 @@ function brainActivity(root, history=false) {
   const a=state.brainActivity || {}, m=state.meta;
   const panel=el("section",null,"brain-activity"); panel.setAttribute("aria-label","Brain activity");
   const heading=el("div",null,"brain-heading"), identity=el("div");
-  identity.append(el("p","DESIGNATED BRAIN · READ-ONLY ACTIVITY","eyebrow"),el("h2",a.title || "Brain activity"));
+  identity.append(el("p","DESIGNATED BRAIN · CONTROL & OBSERVED ACTIVITY","eyebrow"),el("h2",a.title || "Brain activity"));
   heading.append(identity,badge(activityLabel(a))); panel.append(heading);
   panel.append(el("p",a.fresh ? a.phase : "No fresh status. Last recorded step: "+(a.phase || "Not observed"),"brain-step"));
   const facts=el("dl",null,"brain-facts");
   [["Activity observed",when(a.observedAt)], ["Checkpoint saved",when(m.lastReconciled)], ["New worker dispatch",m.paused?"Paused":"Enabled"]].forEach(([label,value])=>{const row=el("div");row.append(el("dt",label),el("dd",value));facts.append(row);});
-  panel.append(facts,el("p",m.paused?"Dispatch is paused. The brain can still plan, reconcile and save results; no new implementation tasks will start.":"Dispatch is enabled for approved packets only. Brain activity does not authorize new work.","brain-note"));
+  panel.append(facts,el("p",m.brainControl?.desired==='stopped'?"Brain stop and worker dispatch are separate. No new implementation tasks will start; existing ownership and unfinished work are preserved.":m.paused?"Dispatch is paused. The brain can still plan, reconcile and save results; no new implementation tasks will start.":"Dispatch is enabled for approved packets only. Brain activity does not authorize new work.","brain-note"));
+  const control=brainControlPresentation(m,a),controls=el("div",null,"inline-actions");
+  panel.append(callout(control.label,control.detail));
+  const resume=button(control.phase==='resume_requested'?"Brain resume requested":control.stopped?"Resume brain":"Wake brain now",()=>command("brain_resume"),"primary");
+  resume.disabled=!connected||busy||control.phase==='resume_requested';
+  const stop=button("Stop brain at safe checkpoint",()=>command("brain_stop"));
+  stop.disabled=!connected||busy||control.stopped;
+  controls.append(resume,stop);panel.append(controls);
+  if(m.brainControl?.checkpoint) {
+    const cp=m.brainControl.checkpoint;
+    panel.append(el("p","Retained safe checkpoint · "+when(cp.at)+" · "+cp.summary,"brain-note"));
+    decisionArtifacts(panel,cp.artifactIds);
+  }
   if(m.checkpoint) panel.append(el("p","Saved checkpoint: "+m.checkpoint.slice(0,280)+(m.checkpoint.length>280?"…":""),"brain-note"));
   const actions=el("div",null,"inline-actions");
   if (/^[a-zA-Z0-9_-]{1,100}$/.test(m.brainId || "")) {

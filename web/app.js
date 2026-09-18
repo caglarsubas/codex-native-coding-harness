@@ -15,7 +15,22 @@ function empty(title,body) {const e=el("div",null,"empty");e.append(el("h2",titl
 function callout(title,body) {const e=el("div",null,"callout");e.append(el("h3",title),el("p",body));return e;}
 function textCell(main,sub) {const e=el("div");e.append(el("span",main));if(sub)e.append(el("span",sub,"subline"));return e;}
 async function api(path,options={}) {const r=await fetch(path,{credentials:"same-origin",cache:"no-store",...options});const body=await r.json();if(!r.ok)throw new Error(body.error||"Local request failed");return body;}
-async function command(kind,payload={}) {if(!state||busy)return;if(!connected){showNotice("Refresh the local connection before issuing a control request.",true);return;}busy=true;try {const result=await api("/api/commands",{method:"POST",headers:{"Content-Type":"application/json","X-CSRF-Token":csrf},body:JSON.stringify({id:crypto.randomUUID(),kind,expectedRevision:state.meta.revision,payload})});showNotice(result.status+": "+(result.result||"Request recorded. The brain will process it on its next active cycle; a paused heartbeat requires “continue orchestration” in the brain."));selected=null;await refresh();}catch(e){showNotice(e.message,true);}finally{busy=false;}}
+const controlRequests=new Map();
+async function command(kind,payload={}) {
+ if(!state||busy)return;
+ if(!connected){showNotice("Refresh the local connection before issuing a control request.",true);return;}
+ const key=JSON.stringify([kind,payload]);
+ if(!controlRequests.has(key))controlRequests.set(key,{id:crypto.randomUUID(),kind,expectedRevision:state.meta.revision,payload});
+ busy=true;
+ try {
+  const result=await api("/api/commands",{method:"POST",headers:{"Content-Type":"application/json","X-CSRF-Token":csrf},body:JSON.stringify(controlRequests.get(key))});
+  controlRequests.delete(key);
+  const delivery=commandPresentation(result);
+  showNotice(delivery.label+". "+delivery.detail);
+  selected=null;await refresh();
+ }catch(e){if(e.message.includes("State changed"))controlRequests.delete(key);showNotice(e.message+" Refresh before retrying; uncertain requests retain the same ID.",true);}
+ finally{busy=false;render();}
+}
 async function refresh() {try{state=await api("/api/state");connected=true;$('connection').textContent="Ledger connected · "+new Date().toLocaleTimeString();render();}catch(e){connected=false;$('connection').textContent="Ledger disconnected";showNotice(e.message,true);$('pause').disabled=true;$('reconcile').disabled=true;}}
 function overview(root) {
  const m=state.meta,active=state.workers.filter(w=>!['complete'].includes(w.status));
@@ -62,7 +77,7 @@ function metrics(root) {
  root.append(section("Usage & cost coverage"),el("p",state.summary.usage.reason,"muted"),el("p","Subscription charges are not inferred from API token prices. Model/effort comparisons remain observational.","subline"));
  if(state.metrics.length>state.summary.repositories.length){root.append(section("Snapshot history"));root.append(table(["Repository","Captured","Commit","Lines"],[...state.metrics].sort((a,b)=>b.at-a.at).slice(0,50).map(m=>[m.repository,when(m.at),m.commit?.slice(0,12)||"—",m.status==='measured'?num(m.lines):"—"])));}
 }
-function render() {if(!state)return;const m=state.meta;$('mode').textContent=(m.paused?"DISPATCH PAUSED":"DISPATCH ENABLED")+" · Brain: "+activityLabel(state.brainActivity)+" · Checkpoint: "+age(m.lastReconciled)+" · Heartbeat (recorded): "+m.heartbeat.status;$('pause').textContent=m.paused?"Request resume":"Pause dispatch";$('pause').disabled=false;$('reconcile').disabled=false;$('title').textContent=titles[view][0];$('subtitle').textContent=titles[view][1];const root=$('content');root.replaceChildren();({overview,decisions,queue,workers,knowledge,metrics,usage,gitStatus,artifacts,roadmap,readiness})[view](root);if(state.commands.length){root.append(section("Control requests","Delivery, brain receipt and completion are separate."));root.append(table(["Request","Status","Result"],[...state.commands].reverse().slice(0,8).map(c=>{const delivery=commandPresentation(c);return [textCell(c.kind,when(c.createdAt)),badge(delivery.label),delivery.detail];})));}}
+function render() {if(!state)return;const m=state.meta,dispatch=dispatchPresentation(m,state.commands);$('mode').textContent=dispatch.label+" · Brain: "+activityLabel(state.brainActivity)+" · Checkpoint: "+age(m.lastReconciled)+" · Heartbeat (recorded): "+m.heartbeat.status;$('pause').textContent=dispatch.button;$('pause').disabled=!connected||busy||dispatch.disabled;$('reconcile').disabled=!connected||busy;$('title').textContent=titles[view][0];$('subtitle').textContent=titles[view][1];const root=$('content');root.replaceChildren();({overview,decisions,queue,workers,knowledge,metrics,usage,gitStatus,artifacts,roadmap,readiness})[view](root);if(state.commands.length){root.append(section("Control requests","Delivery, brain receipt and completion are separate."));root.append(table(["Request","Status","Result"],[...state.commands].reverse().slice(0,8).map(c=>{const delivery=commandPresentation(c);return [textCell(c.kind,when(c.createdAt)),badge(delivery.label),delivery.detail];})));}}
 document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{view=b.dataset.view;selected=null;observationPage=0;document.querySelectorAll('[data-view]').forEach(x=>x.removeAttribute('aria-current'));b.setAttribute('aria-current','page');render();window.scrollTo(0,0);}));
 $('pause').onclick=()=>command(state.meta.paused?'resume':'pause');$('reconcile').onclick=()=>command('reconcile');$('refresh').onclick=refresh;
 const initialTheme=localStorage.getItem('orchestrator-theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.dataset.theme=initialTheme;$('theme').onclick=()=>{const next=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=next;localStorage.setItem('orchestrator-theme',next);};

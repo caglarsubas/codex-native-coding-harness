@@ -31,9 +31,11 @@ types use the same 4,000-character limit and version-bound receipt lifecycle.
 
 ## Two independent controls
 
-- **Keep listening between jobs** requests ongoing native inbox checks, including
+- **Enable periodic idle checks** requests ongoing native inbox checks, including
   while workers are paused, the approved queue is empty or owner input is needed.
   It does not grant implementation, target access, provisioning or merge authority.
+- **Use event-driven waiting** pauses idle checks after pending receipts and
+  bounded planning are handled. New dashboard events notify the same brain.
 - **Pause dispatch** closes the next worker creation boundary. It neither stops
   an existing worker nor disables the decision listener.
 
@@ -42,14 +44,19 @@ or separate task is created. Requested listening, last native status observation
 last inbox check and dispatch state are displayed separately. Missing or older
 than 35-minute check-ins/status observations are unconfirmed, not healthy.
 
-Initial activation (and reactivation after explicitly turning idle listening off)
-requires the brain/native automation tool once: the browser cannot wake a paused
-native schedule. Immediate notification is independent of this schedule: submitting
-an answer explicitly requests a native turn even with idle listening off. Turning
+Native activation/pause requires the brain's automation tool; a saved preference
+is not observed native status. Preference changes now notify the brain for receipt
+and schedule reconciliation. Immediate notification is independent of this schedule: submitting
+an answer explicitly requests a native turn even with idle listening off, unless
+the owner has requested a brain stop. An explicit Resume brain wakes that task
+and restores scheduling through the brain per saved policy. Turning
 off idle listening is observed on the next cycle; pending actions
 and active workers still require reconciliation before parking. Keep the computer
 and Codex app running. Polling consumes model usage even without actionable work;
-use compact `inbox` output and avoid unchanged-state notifications.
+use compact `inbox` output and avoid unchanged-state notifications. See
+[Actionable follow-ups](CONTINUATION.md) for blocked-answer proposals and exact
+idle/supervision rules. With the heartbeat paused, failed notification requires
+manual recovery; it does not silently restart periodic checks.
 
 ## Immediate notification and recovery
 
@@ -60,11 +67,14 @@ to reach the existing designated task. A separate app-server daemon is not a
 precondition; the verified desktop queue route works without one. Connection
 availability is established per send, not inferred from an executable on disk.
 
-Only a validated, committed, still-pending dashboard `decision_response` can
+Only validated, committed, still-pending dashboard `decision_response`, `resume`,
+`reconcile`, `checkpoint`, `archive`, `brain_stop` and `brain_resume` controls can
 notify the ledger's brain UUID. The fixed prompt includes hash-only identifiers,
 never answer text, secrets, model/effort changes or a browser-selected target.
-Resume/reconcile/checkpoint/archive controls retain their existing brain-cycle
-semantics; the bridge does not broaden to arbitrary messages or commands.
+The fixed allowlisted kind is also included; the bridge does not broaden to
+arbitrary messages or commands. Worker dispatch and native completion remain
+brain-controlled. Ordinary saved inputs do not wake a stopping/parked brain; use
+explicit Resume brain. See [safe brain control](BRAIN_CONTROL.md).
 
 The command's additive `notification` records `wakeId`, `brainId`, `attemptedAt`,
 status and, on completion, `finishedAt` and a sanitized detail. A successful exact

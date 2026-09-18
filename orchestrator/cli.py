@@ -22,6 +22,8 @@ def main():
     p = sub.add_parser("native-observe"); p.add_argument("observation", type=Path)
     p = sub.add_parser("decision-publish"); p.add_argument("spec", type=Path)
     p = sub.add_parser("decision-resolve"); p.add_argument("id"); p.add_argument("result", type=Path)
+    p = sub.add_parser("continuation-publish"); p.add_argument("id"); p.add_argument("spec", type=Path)
+    p = sub.add_parser("brain-park"); p.add_argument("id"); p.add_argument("checkpoint", type=Path)
     p = sub.add_parser("executive-summary"); p.add_argument("--force", action="store_true")
     p = sub.add_parser("observe"); p.add_argument("--remote", action="store_true")
     p = sub.add_parser("artifact-add"); p.add_argument("path", type=Path); p.add_argument("--repo", required=True); p.add_argument("--session"); p.add_argument("--created-at", type=float)
@@ -75,6 +77,12 @@ def main():
     elif action == "decision-resolve":
         from .decisions import resolve
         out = resolve(ledger, token, args.id, read(args.result))
+    elif action == "continuation-publish":
+        from .continuation import publish
+        out = publish(ledger, token, args.id, read(args.spec))
+    elif action == "brain-park":
+        from .brain_control import park
+        out = park(ledger, token, args.id, read(args.checkpoint))
     elif action == "preflight":
         state = ledger.snapshot()
         q = next(q for q in state["queue"] if q["id"] == args.queue_id)

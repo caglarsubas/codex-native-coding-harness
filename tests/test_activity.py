@@ -67,6 +67,15 @@ class ActivityTest(unittest.TestCase):
         self.assertEqual(later["status"], "unknown")
         self.assertEqual(later["observedAt"], first["observedAt"])
         self.assertFalse(later["fresh"])
+        self.assertEqual(later["lastKnownStatus"],"running")
+
+    def test_stale_finished_preserves_last_observed_idle_without_claiming_freshness(self):
+        self.log([self.event("task_complete")])
+        result=self.snapshot(self.now+3600)
+        self.assertEqual(result["status"],"unknown")
+        self.assertEqual(result["lastKnownStatus"],"idle")
+        self.assertEqual(result["observedAt"],self.now)
+        self.assertFalse(result["fresh"])
 
     def test_deduplicates_continuations_and_reads_new_events(self):
         self.log([self.event("task_started", self.now - 60)])

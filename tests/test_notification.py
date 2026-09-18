@@ -156,9 +156,10 @@ class NotificationTest(unittest.TestCase):
         self.send()
         self.run.assert_not_called()
 
-    def test_other_control_requests_and_brain_origin_do_not_send(self):
-        request = {"id":"test-other-request", "kind":"reconcile", "expectedRevision":self.ledger.snapshot()["meta"]["revision"], "payload":{}}
+    def test_received_policy_and_brain_origin_do_not_send(self):
+        request = {"id":"test-other-request", "kind":"pause", "expectedRevision":self.ledger.snapshot()["meta"]["revision"], "payload":{}}
         cmd = self.ledger.submit(request)
+        self.ledger.process(self.token)
         self.notifier.notify(cmd["id"])
         with self.ledger.tx() as db:
             c = self.ledger.get(db, "commands", self.command["id"])
@@ -166,6 +167,44 @@ class NotificationTest(unittest.TestCase):
             self.ledger.put(db, "commands", c["id"], c)
         self.send()
         self.run.assert_not_called()
+
+    def test_applied_policy_notifies_once_without_replaying_local_effects(self):
+        import uuid
+        from test_core import seed
+        q=self.ledger.prepare(seed("fixture",profile="standard"))
+        for kind,payload in (("approve",{"queueId":q["id"],"seedHash":q["seedHash"],"packetDigest":q["packetDigest"]}),
+                             ("hold",{"queueId":q["id"],"held":True}),
+                             ("prioritize",{"queueId":q["id"],"priority":1}),
+                             ("listening",{"enabled":False}), ("pause",{})):
+            with self.subTest(kind=kind):
+                request={"id":str(uuid.uuid4()),"kind":kind,"expectedRevision":self.ledger.snapshot()["meta"]["revision"],"payload":payload}
+                c=self.ledger.submit(request)
+                self.assertEqual(c["status"],"completed")
+                self.assertTrue(c["needsBrainReceipt"])
+                before=self.ledger.snapshot()["queue"]
+                result=self.notifier.notify(c["id"])
+                self.assertEqual(result["notification"]["status"],"accepted")
+                self.notifier.notify(c["id"])
+                self.ledger.process(self.token)
+                self.notifier.notify(c["id"])
+                after=self.ledger.snapshot()
+                self.assertEqual(after["queue"],before)
+                self.assertFalse(next(x for x in after["commands"] if x["id"]==c["id"])["needsBrainReceipt"])
+        self.assertEqual(self.run.call_count,5)
+
+    def test_pending_controls_notify_and_stopped_inputs_wait_for_resume(self):
+        def submit(kind):
+            return self.ledger.submit({"id":"control-"+kind,"kind":kind,"expectedRevision":self.ledger.snapshot()["meta"]["revision"],"payload":{}})
+        for kind in ("resume", "reconcile", "brain_stop"):
+            c=submit(kind)
+            self.assertEqual(self.notifier.notify(c["id"])["notification"]["status"],"accepted")
+            self.assertIn("kind "+kind,self.run.call_args.args[0][5])
+        self.assertEqual(self.run.call_count,3)
+        self.send()
+        self.assertEqual(self.run.call_count,3)
+        c=submit("brain_resume")
+        self.notifier.notify(c["id"])
+        self.assertEqual(self.run.call_count,4)
 
     def test_readonly_status_never_connects_or_exposes_path(self):
         public = self.notifier.status(BRAIN)

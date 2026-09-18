@@ -91,7 +91,19 @@ This maintainer implementation does not qualify as the real native-worker pilot.
 - [x] Regression suite (147 Python tests) and delivery presentation checks
 - [x] Live CLI wake verified against independent brain receipt and retained outcome
 - [x] Verify rendered saved-answer and notification states in an isolated fixture
-- [ ] Publish and merge the immediate-notification extension
+- [x] Publish and merge the immediate-notification extension (PR #8)
+
+## Brain control and safe checkpoints — v9
+
+- [x] Immediate native notifications for pending typed controls, not just answers
+- [x] Separate brain resume/stop from worker dispatch and native activity
+- [x] Cooperative checkpoint gates, supersession and retained ownership
+- [x] Stopped-input deferral and resume from the retained checkpoint
+- [x] Preserve stale last-observed idle instead of an ambiguous unknown label
+- [x] Regression suite (164 Python tests) and control presentation checks
+- [x] Install cooperative inbox-check and checkpoint guidance for the brain
+- [x] Verify rendered control lifecycle and checkpoint reader in an isolated UI fixture
+- [ ] Publish and merge the brain-control extension
 
 ## Next increments — not yet authorized implementation packets
 

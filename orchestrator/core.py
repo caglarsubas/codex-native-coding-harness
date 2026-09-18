@@ -21,7 +21,7 @@ from urllib.parse import urlsplit
 VERSION = 1
 AXES = ("source", "ci", "merge", "artifact", "deployment", "runtime", "assurance", "tenant")
 ACTIVE = ("reserved", "starting", "running", "awaiting_acceptance", "accepting", "verifying", "blocked")
-COMMANDS = {"approve", "hold", "prioritize", "pause", "resume", "reconcile", "checkpoint", "archive", "decision_response", "listening"}
+COMMANDS = {"approve", "hold", "prioritize", "pause", "resume", "reconcile", "checkpoint", "archive", "decision_response", "listening", "brain_stop", "brain_resume"}
 PREFLIGHT_CHECKS = {"packetCurrent", "baseCurrent", "predecessorsVerified", "locksVerified", "noActiveDuplicate",
     "setupSafe", "policyReviewed", "runnerAvailable", "scopeApproved"}
 SHA = re.compile(r"^[a-f0-9]{64}$")
@@ -130,6 +130,7 @@ class Ledger:
             CREATE TABLE IF NOT EXISTS workers (id TEXT PRIMARY KEY, queue_id TEXT NOT NULL UNIQUE, data TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS commands (id TEXT PRIMARY KEY, data TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS decisions (id TEXT PRIMARY KEY, data TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS continuations (id TEXT PRIMARY KEY, data TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS events (seq INTEGER PRIMARY KEY AUTOINCREMENT, at REAL NOT NULL,
               kind TEXT NOT NULL, data TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS snapshots (id TEXT PRIMARY KEY, kind TEXT NOT NULL, data TEXT NOT NULL);
@@ -299,10 +300,18 @@ class Ledger:
             fields = {"approve": {"queueId", "seedHash", "packetDigest"}, "hold": {"queueId", "held"},
                 "prioritize": {"queueId", "priority"}, "checkpoint": {"workerId"},
                 "archive": {"workerId"}, "pause": set(), "resume": set(), "reconcile": set(),
-                "listening": {"enabled"}, "decision_response": {"decisionId", "decisionHash", "optionId", "note", "confirmed"}}
+                "listening": {"enabled"}, "decision_response": {"decisionId", "decisionHash", "optionId", "note", "confirmed"},
+                "brain_stop": set(), "brain_resume": set()}
             require(set(p) == fields[kind], "Unexpected command payload")
             record = {**command, "fingerprint": fingerprint, "actor": actor, "status": "queued", "createdAt": time.time(), "result": None}
-            if kind == "decision_response":
+            from .brain_control import request as brain_request, stopped
+            if kind in ("resume", "reconcile"):
+                require(not any(c["kind"] == kind and c["status"] in ("queued", "processing") for c in self.all(db, "commands")), "Equivalent request already pending")
+            if kind == "resume":
+                require(not stopped(meta), "Resume the brain before enabling worker dispatch")
+            if kind in ("brain_stop", "brain_resume"):
+                brain_request(self, db, record, meta)
+            elif kind == "decision_response":
                 from .decisions import answer
                 answer(self, db, command)
             elif kind == "listening":
@@ -340,6 +349,10 @@ class Ledger:
                     require(worker["status"] == "complete" and worker.get("preserved") is True, "Verify completion, pushed commits and preserved evidence first")
                     require(not worker.get("archived"), "Already archived")
                 require(not any(c["kind"] == kind and c["payload"] == p and c["status"] in ("queued", "processing") for c in self.all(db, "commands")), "Equivalent native request already pending")
+            if kind in ("approve", "hold", "prioritize", "listening", "pause"):
+                # Local policy is applied already. The brain must reconcile the
+                # latest state once, without replaying an older policy change.
+                record["needsBrainReceipt"] = True
             self.put(db, "commands", record["id"], record)
             self.event(db, "control_request", {"id": record["id"], "kind": kind, "status": record["status"], "actor": actor})
             return record
@@ -353,10 +366,27 @@ class Ledger:
                 meta["inboxCheckedAt"] = time.time()
                 self.put(db, "meta", 1, meta)
             actions = []
+            from .brain_control import stopped, receive_stop
+            if stopped(meta):
+                return receive_stop(self, db, token)
             for cmd in self.all(db, "commands"):
+                if cmd.get("needsBrainReceipt"):
+                    from .decisions import authorize_brain
+                    authorize_brain(self, db, token)
+                    cmd.update(needsBrainReceipt=False, receivedAt=time.time())
+                    self.put(db, "commands", cmd["id"], cmd)
+                    self.event(db, "policy_received", {"id": cmd["id"], "kind": cmd["kind"]})
+                    continue
                 if cmd["status"] != "queued":
                     continue
-                if cmd["kind"] == "decision_response":
+                if cmd["kind"] == "brain_resume":
+                    from .decisions import authorize_brain
+                    meta = authorize_brain(self, db, token)
+                    require(meta.get("brainControl", {}).get("commandId") == cmd["id"], "Brain request changed")
+                    meta["brainControl"]["phase"] = "ready"
+                    self.put(db, "meta", 1, meta)
+                    cmd.update(status="completed", result="Brain resumed from retained state. Worker dispatch is unchanged; packet approvals still apply.")
+                elif cmd["kind"] == "decision_response":
                     from .decisions import authorize_brain, receive
                     authorize_brain(self, db, token)
                     actions.append(receive(self, db, cmd))
@@ -382,7 +412,7 @@ class Ledger:
         with self.tx() as db:
             self.authorize(db, token)
             cmd = self.get(db, "commands", command_id)
-            require(cmd["kind"] != "decision_response", "Use decision-resolve with retained result artifacts")
+            require(cmd["kind"] not in ("decision_response", "brain_stop", "brain_resume"), "Use the dedicated decision or brain checkpoint lifecycle")
             require(cmd["status"] == "processing", "Command is not in flight")
             cmd.update(status="completed" if success else "rejected", result=result)
             self.put(db, "commands", command_id, cmd)
@@ -491,6 +521,8 @@ class Ledger:
             meta = self.authorize(db, token)
             w = self.get(db, "workers", wid)
             if action == "acquire":
+                from .brain_control import stopped
+                require(not stopped(meta), "Brain stop requested; no new acceptance run may start")
                 require(meta["runner"] is None and w["status"] == "awaiting_acceptance", "Runner unavailable or worker not ready")
                 meta["runner"] = {"workerId": wid, "since": time.time(), "observation": observation}
                 w["status"] = "accepting"
@@ -567,6 +599,8 @@ class Ledger:
             result["delivery"] = delivery_metrics(result["workers"], result["repositories"], history, result["serverTime"])
             from .observations import snapshot
             result["observations"] = snapshot(db)
+            from .continuation import project
+            result["continuations"] = project(result, self.all(db, "continuations"))
             from .decisions import workflow
             result["workflow"] = workflow(result)
             db.commit()
