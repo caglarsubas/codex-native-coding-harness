@@ -15,6 +15,7 @@ function assistantConnectionChanged(){
   $('assistant-context').disabled=!connected||assistantPending;
   document.querySelectorAll('[data-question]').forEach(b=>b.disabled=assistantPending);
   refreshAssistantActions();
+  if(typeof updateWorkspaceSelector==='function')updateWorkspaceSelector();
 }
 function assistantStatus(text,error=false){$('assistant-status').textContent=text;$('assistant-status').dataset.error=String(error);}
 function chatTurn(role,content){
@@ -75,7 +76,7 @@ function assistantActionPreview(item,proposal){
   const controls=el('div',null,'assistant-actions'),confirm=el('button',null,'primary'),dismiss=el('button','Dismiss preview');
   confirm.type=dismiss.type='button';controls.append(dismiss,confirm);section.append(status,controls);
   const route=dashboardRoute(preview.href);
-  if(route){const link=el('a','Review in workspace →');link.href=preview.href;link.onclick=e=>{e.preventDefault();navigateView(route.view,route.id);};section.append(link);}
+  if(route){const link=el('a','Review in workspace →');link.href=workspaceHref(route.view,route.id);link.onclick=e=>{e.preventDefault();navigateView(route.view,route.id);};section.append(link);}
   const action={proposal,element:section,status,confirm,dismiss,sending:false,cancelled:false,uncertain:false,receipt:null};
   assistantActions.set(doc.command.id,action);
   dismiss.onclick=()=>{action.cancelled=true;refreshAssistantActions();};
@@ -103,7 +104,7 @@ async function sendAssistant(event){
   const userTurn=chatTurn('user',question);assistantScroll();
   try{
     const messages=assistantMessages(assistantHistory,question);
-    const result=await api('/api/assistant',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({view,messages})});
+    const result=await api('/api/assistant',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({view:view==='workspaces'?'overview':view,messages})});
     assistantHistory=[...messages,{role:'assistant',content:result.answer}];
     const item=chatTurn('assistant',result.answer),links=el('div',null,'assistant-links');
     const caution=el('p','AI draft — may be wrong. Verify advice in the linked views.','chat-caution');
@@ -112,7 +113,7 @@ async function sendAssistant(event){
     for(const link of result.links){
       // Defense in depth: even server-built links may only navigate known inert views.
       const route=dashboardRoute(link.href);if(!route)continue;
-      const a=el('a',link.label+' →');a.href=link.href;
+      const a=el('a',link.label+' →');a.href=workspaceHref(route.view,route.id);
       a.addEventListener('click',e=>{if(e.ctrlKey||e.metaKey||e.shiftKey||e.altKey)return;e.preventDefault();navigateView(route.view,route.id);});links.append(a);
     }
     item.append(links);
@@ -145,8 +146,8 @@ function initAssistant(){
     $('assistant-usage').textContent='Actions need your confirmation. Recorded requests remain in the ledger after clearing chat.';assistantStatus('Chat cleared from this tab. Recorded controls are unchanged.');assistantConnectionChanged();
   };
   $('assistant-context').onclick=async()=>{
-    try{const data=await api('/api/assistant/context?view='+encodeURIComponent(view));$('assistant-context-preview').textContent=JSON.stringify(data,null,2);$('assistant-context-preview').hidden=false;}
-    catch(error){assistantStatus(error.message,true);}
+    try{const data=await api('/api/assistant/context?view='+encodeURIComponent(view==='workspaces'?'overview':view));$('assistant-context-preview').textContent=JSON.stringify(data,null,2);$('assistant-context-preview').hidden=false;}
+    catch(error){if(!error.workspaceChanged)assistantStatus(error.message,true);}
   };
   assistantConnectionChanged();
 }

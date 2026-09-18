@@ -33,6 +33,10 @@ controller authority: an exact owner confirmation is required for submission.
   awareness and expiring, state-bound, owner-confirmed action previews.
 - Three collapsible panes, draggable/keyboard splitters and remembered layout;
   focused single-pane navigation on narrow screens.
+- Private development workspaces with isolated ledgers, scoped assistant/actions,
+  versioned project introductions and an All workspaces comparison. See
+  [workspace setup and current limits](docs/WORKSPACES.md); continuous phase
+  autopilot remains tracked separately, not implied by registration.
 
 Use the top **Navigation / Workspace / AI assistant** controls to show or collapse
 panes. Drag either divider, or focus it and use Left/Right (Shift for larger
@@ -132,6 +136,14 @@ Never blindly retry a `starting` worker or `processing` native action. Reconcile
 its unique dispatch/request identity against actual native state first.
 
 ## Reuse with another project
+
+The planned [development workspaces and phase-bounded autopilot](docs/WORKSPACES-AUTOPILOT.md)
+will bring separate portfolios into one dashboard with executive project introductions,
+workspace brains, configurable packet approval and phase checkpoints. Brains will
+choose tasks and execution settings within user-defined concurrency/budget limits;
+Play continues development and Pause reaches safe worker/brain checkpoints.
+This is an implementation plan, not an available feature. The current
+separate-directory workflow follows.
 
 The Harness portfolio is a private configuration, not hard-coded into this repo.
 For another portfolio, create a separate private configuration and state directory:

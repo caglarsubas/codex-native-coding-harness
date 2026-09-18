@@ -17,6 +17,13 @@ installation location and starts the CLI; it never invokes a shell. Read
 If the installation or native tools are unavailable, report that boundary; do not
 substitute private app APIs, background agents, cron, or another model service.
 
+When a workspace registry is configured, select the exact workspace explicitly:
+`scripts/run.py --platform <private-registry> --workspace <id> inbox`. Never infer
+it from the current directory, browser selection or a different brain's context.
+Use `workspace-list` to discover registered IDs, then confirm the selected ledger's
+brain ID matches this task before any controller operation. Registry registration
+is not onboarding authority, packet approval or permission to start development.
+
 For first-drive preparation or readiness questions, use the Readiness section of
 `references/operations.md`. Diagnostics and synthetic rehearsal do not authorize
 a native task or satisfy the real pilot requirement.
