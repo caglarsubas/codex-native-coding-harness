@@ -89,6 +89,8 @@ class Handler(BaseHTTPRequestHandler):
         static["/readiness.js"] = ("readiness.js", "text/javascript; charset=utf-8")
         static["/provenance.js"] = ("provenance.js", "text/javascript; charset=utf-8")
         static["/activity.js"] = ("activity.js", "text/javascript; charset=utf-8")
+        static["/decisions.js"] = ("decisions.js", "text/javascript; charset=utf-8")
+        static["/decisions.css"] = ("decisions.css", "text/css; charset=utf-8")
         if path in static:
             file, mime = static[path]
             return self.respond(200, (WEB / file).read_bytes(), mime)

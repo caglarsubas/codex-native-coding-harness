@@ -21,7 +21,7 @@ from urllib.parse import urlsplit
 VERSION = 1
 AXES = ("source", "ci", "merge", "artifact", "deployment", "runtime", "assurance", "tenant")
 ACTIVE = ("reserved", "starting", "running", "awaiting_acceptance", "accepting", "verifying", "blocked")
-COMMANDS = {"approve", "hold", "prioritize", "pause", "resume", "reconcile", "checkpoint", "archive"}
+COMMANDS = {"approve", "hold", "prioritize", "pause", "resume", "reconcile", "checkpoint", "archive", "decision_response", "listening"}
 PREFLIGHT_CHECKS = {"packetCurrent", "baseCurrent", "predecessorsVerified", "locksVerified", "noActiveDuplicate",
     "setupSafe", "policyReviewed", "runnerAvailable", "scopeApproved"}
 SHA = re.compile(r"^[a-f0-9]{64}$")
@@ -129,6 +129,7 @@ class Ledger:
               data TEXT NOT NULL, UNIQUE(repo,packet));
             CREATE TABLE IF NOT EXISTS workers (id TEXT PRIMARY KEY, queue_id TEXT NOT NULL UNIQUE, data TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS commands (id TEXT PRIMARY KEY, data TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS decisions (id TEXT PRIMARY KEY, data TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS events (seq INTEGER PRIMARY KEY AUTOINCREMENT, at REAL NOT NULL,
               kind TEXT NOT NULL, data TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS snapshots (id TEXT PRIMARY KEY, kind TEXT NOT NULL, data TEXT NOT NULL);
@@ -218,7 +219,7 @@ class Ledger:
         require(status in ("ACTIVE", "PAUSED"), "Invalid heartbeat status")
         with self.tx() as db:
             meta = self.get(db, "meta", 1)
-            meta["heartbeat"] = {"id": automation_id, "status": status}
+            meta["heartbeat"] = {"id": automation_id, "status": status, "observedAt": time.time()}
             self.put(db, "meta", 1, meta)
             self.event(db, "heartbeat", meta["heartbeat"])
 
@@ -297,10 +298,19 @@ class Ledger:
             kind, p = command["kind"], command["payload"]
             fields = {"approve": {"queueId", "seedHash", "packetDigest"}, "hold": {"queueId", "held"},
                 "prioritize": {"queueId", "priority"}, "checkpoint": {"workerId"},
-                "archive": {"workerId"}, "pause": set(), "resume": set(), "reconcile": set()}
+                "archive": {"workerId"}, "pause": set(), "resume": set(), "reconcile": set(),
+                "listening": {"enabled"}, "decision_response": {"decisionId", "decisionHash", "optionId", "note", "confirmed"}}
             require(set(p) == fields[kind], "Unexpected command payload")
             record = {**command, "fingerprint": fingerprint, "actor": actor, "status": "queued", "createdAt": time.time(), "result": None}
-            if kind in ("approve", "hold", "prioritize"):
+            if kind == "decision_response":
+                from .decisions import answer
+                answer(self, db, command)
+            elif kind == "listening":
+                require(type(p["enabled"]) is bool, "enabled must be boolean")
+                meta["decisionListener"] = {"enabled": p["enabled"], "at": time.time()}
+                self.put(db, "meta", 1, meta)
+                record.update(status="completed", result="Listener preference saved. Native schedule status is separate; worker dispatch is unchanged.")
+            elif kind in ("approve", "hold", "prioritize"):
                 q = self.get(db, "queue", p["queueId"])
                 require(q["status"] in ("proposed", "approved"), "Packet is already dispatched")
                 if kind == "approve":
@@ -337,12 +347,20 @@ class Ledger:
     def process(self, token):
         """Handle local requests; return native actions without executing them."""
         with self.tx() as db:
-            self.authorize(db, token)
+            meta = self.authorize(db, token)
+            owner = meta["controller"]["owner"]
+            if meta["brainId"] and (owner == meta["brainId"] or owner.startswith(meta["brainId"] + ":")):
+                meta["inboxCheckedAt"] = time.time()
+                self.put(db, "meta", 1, meta)
             actions = []
             for cmd in self.all(db, "commands"):
                 if cmd["status"] != "queued":
                     continue
-                if cmd["kind"] in ("resume", "reconcile"):
+                if cmd["kind"] == "decision_response":
+                    from .decisions import authorize_brain, receive
+                    authorize_brain(self, db, token)
+                    actions.append(receive(self, db, cmd))
+                elif cmd["kind"] in ("resume", "reconcile"):
                     if cmd["kind"] == "resume":
                         meta = self.get(db, "meta", 1)
                         meta["paused"] = False
@@ -364,6 +382,7 @@ class Ledger:
         with self.tx() as db:
             self.authorize(db, token)
             cmd = self.get(db, "commands", command_id)
+            require(cmd["kind"] != "decision_response", "Use decision-resolve with retained result artifacts")
             require(cmd["status"] == "processing", "Command is not in flight")
             cmd.update(status="completed" if success else "rejected", result=result)
             self.put(db, "commands", command_id, cmd)
@@ -542,11 +561,14 @@ class Ledger:
                 for r in db.execute("SELECT * FROM events WHERE seq>? ORDER BY seq DESC LIMIT 100", (after,))]
             result = {"meta": meta, "repositories": self.all(db, "repos"), "queue": self.all(db, "queue"),
                 "workers": self.all(db, "workers"), "commands": self.all(db, "commands"),
+                "decisions": sorted(self.all(db, "decisions"), key=lambda d: d["createdAt"], reverse=True),
                 "metrics": self.all(db, "metrics"), "events": events, "serverTime": time.time()}
             history = [{"at": r["at"], "kind": r["kind"], "data": json.loads(r["data"])} for r in db.execute("SELECT at,kind,data FROM events ORDER BY seq")]
             result["delivery"] = delivery_metrics(result["workers"], result["repositories"], history, result["serverTime"])
             from .observations import snapshot
             result["observations"] = snapshot(db)
+            from .decisions import workflow
+            result["workflow"] = workflow(result)
             db.commit()
             return result
 

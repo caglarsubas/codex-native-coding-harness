@@ -8,10 +8,30 @@
   "properties": {
     "id": {"type": "string", "minLength": 8, "maxLength": 128},
     "expectedRevision": {"type": "integer", "minimum": 0},
-    "kind": {"enum": ["approve", "hold", "prioritize", "pause", "resume", "reconcile", "checkpoint", "archive"]},
+    "kind": {"enum": ["approve", "hold", "prioritize", "pause", "resume", "reconcile", "checkpoint", "archive", "listening", "decision_response"]},
     "payload": {"type": "object"}
   },
   "oneOf": [
+    {
+      "properties": {
+        "kind": {"const": "listening"},
+        "payload": {"type":"object","additionalProperties":false,"required":["enabled"],"properties":{"enabled":{"type":"boolean"}}}
+      }
+    },
+    {
+      "properties": {
+        "kind": {"const": "decision_response"},
+        "payload": {
+          "type":"object","additionalProperties":false,
+          "required":["decisionId","decisionHash","optionId","note","confirmed"],
+          "properties": {
+            "decisionId":{"$ref":"#/$defs/sha256"},"decisionHash":{"$ref":"#/$defs/sha256"},
+            "optionId":{"type":"string","minLength":1,"maxLength":64},
+            "note":{"type":"string","maxLength":4000},"confirmed":{"const":true}
+          }
+        }
+      }
+    },
     {
       "properties": {
         "kind": {"const": "approve"},

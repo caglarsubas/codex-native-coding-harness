@@ -64,6 +64,31 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(status,200); self.assertEqual(json.loads(raw)["status"],"queued")
         self.assertTrue(self.ledger.snapshot()["meta"]["paused"])
 
+    def test_decision_http_receipt_and_brain_resolution(self):
+        from test_decisions import fixture, envelope
+        from orchestrator.decisions import publish, resolve
+        spec=fixture(self.ledger)
+        token=self.ledger.acquire("brain-fixture:http-test")
+        d=publish(self.ledger,token,spec)
+        request=envelope(self.ledger,d)
+        self.assertEqual(self.request("/api/commands",request)[0],403)
+        auth=self.login()
+        status,_,raw=self.request("/api/commands",request,auth)
+        self.assertEqual(status,200)
+        cmd=json.loads(raw);self.assertEqual(cmd["status"],"queued")
+        self.assertEqual(self.request("/api/commands",request,auth)[0],200)
+        self.ledger.process(token)
+        resolve(self.ledger,token,d["id"],{"commandId":cmd["id"],"outcome":"blocked","summary":"Fixture needs additional input; no execution.","artifactIds":spec["artifactIds"]})
+        status,_,raw=self.request("/api/state",headers=auth)
+        state=json.loads(raw)
+        self.assertEqual(state["decisions"][0]["status"],"blocked")
+        self.assertTrue(state["meta"]["paused"])
+        self.assertEqual(state["workers"],[])
+        self.assertNotIn(token.encode(),raw)
+        self.assertEqual(self.request("/api/decision-publish",spec,auth)[0],404)
+        for path in ("/decisions.js","/decisions.css"):
+            self.assertEqual(self.request(path)[0],200)
+
     def test_artifact_preview_is_authenticated_json_and_download_is_inert(self):
         with self.ledger.tx() as db:
             document = capture(db,"fixture",b"<script>alert('x')</script>",{"name":"page.html","references":[],"orderAt":1,"repository":"fixture"})
