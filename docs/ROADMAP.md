@@ -20,7 +20,7 @@ acceptance authority. Items change through reviewed repository edits.
 - [x] Observe worktrees, branches, commits and explicit GitHub status
 - [x] Preserve and read artifact versions across scoped tasks
 - [x] Show versioned roadmap checklist sources
-- [ ] Verify importer, security, lifecycle and dashboard regressions
+- [x] Verify importer, security, lifecycle and dashboard regressions
 - [ ] Publish and merge the observability extension
 
 ## Next increments — not yet authorized implementation packets

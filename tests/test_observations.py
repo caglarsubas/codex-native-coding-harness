@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 from orchestrator.core import Ledger, Refusal
 from orchestrator.observations import (artifact, capture, capture_artifacts, git_observation,
-    ingest_rollout, parse_checklist, read_regular, refresh_observations, usage_summary)
+    first_status_table, ingest_rollout, parse_checklist, read_regular, refresh_observations, usage_summary)
 
 
 def usage(n):
@@ -147,6 +147,7 @@ class ObservationTest(unittest.TestCase):
         self.assertRaises(OSError,read_regular,directory_link / "test.md",self.repo,30)
         self.assertRaises(Refusal,read_regular,source,self.root / "elsewhere",30)
         self.assertRaises(Refusal,read_regular,source,folder,2)
+        self.assertRaises(Refusal,read_regular,folder / ".." / "reports" / "test.md",folder,30)
 
     def test_linked_artifact_and_later_task_reference(self):
         artifact_path = self.repo / "plan.md"; artifact_path.write_text("# plan")
@@ -183,6 +184,31 @@ class ObservationTest(unittest.TestCase):
         repo = {"id":"fixture","path":None,"ref":"HEAD"}
         result = git_observation(repo,True)
         self.assertEqual(result["status"],"unavailable")
+
+    def test_status_table_keeps_first_checkpoint_without_guessing_checkmarks(self):
+        text = "# Status\n| Phase | Status |\n|---|---|\n| v1 | DONE_SOURCE |\n\n# Old\n| Phase | Status |\n|---|---|\n| v1 | WAITING |"
+        table = first_status_table(text)
+        self.assertEqual(table["rows"], [["v1", "DONE_SOURCE"]])
+        self.assertEqual(parse_checklist(text), [])
+
+    def test_remote_branch_comparison_does_not_mistake_base_upstream_for_push(self):
+        repo = {"id":"fixture", "path":str(self.repo), "ref":"HEAD"}
+        local_sha = "a" * 40
+        def fake_git(path, *args, **kwargs):
+            if args[:2] == ("worktree","list"): return ""
+            if args[0] == "for-each-ref": return "codex/new\t" + local_sha + "\torigin/main\t\t."
+            if args[:2] == ("remote","get-url"): return "git@github.com:example/project.git"
+            raise AssertionError(args)
+        pulls = [{"number":1,"html_url":"https://github.com/example/project/pull/1","title":"Closed, not merged","state":"closed","head":{"ref":"old","sha":local_sha},"base":{"ref":"main"},"merged_at":None}]
+        responses = [subprocess.CompletedProcess([],0,json.dumps(pulls).encode()), subprocess.CompletedProcess([],0,json.dumps([{"name":"main","commit":{"sha":local_sha}}]).encode())]
+        with patch("orchestrator.observations.head",return_value=local_sha), patch("orchestrator.observations.git",side_effect=fake_git), patch("orchestrator.observations.subprocess.run",side_effect=responses) as runner:
+            observed = git_observation(repo,True)
+        self.assertEqual(observed["branches"][0]["pushStatus"],"not_in_remote_page")
+        self.assertEqual(observed["pullRequests"][0]["state"],"closed")
+        self.assertIsNone(observed["pullRequests"][0]["mergeCommit"])
+        for call in runner.call_args_list:
+            self.assertEqual(call.args[0][:4],["gh","api","--method","GET"])
+            self.assertNotIn("shell",call.kwargs)
 
 
 if __name__ == "__main__": unittest.main()

@@ -40,6 +40,8 @@ def stamp(value):
 
 def contained(path, root):
     try:
+        if ".." in Path(path).parts or ".." in Path(root).parts:
+            return False
         Path(path).absolute().relative_to(Path(root).absolute())
         return True
     except (ValueError, TypeError):
@@ -93,6 +95,8 @@ def token_vector(value):
     if not isinstance(value, dict) or not all(type(value.get(k)) is int and value[k] >= 0 for k in TOKENS):
         return None
     if value["cached_input_tokens"] > value["input_tokens"] or value["reasoning_output_tokens"] > value["output_tokens"]:
+        return None
+    if value["total_tokens"] != value["input_tokens"] + value["output_tokens"]:
         return None
     return {k: value[k] for k in TOKENS}
 
@@ -354,9 +358,9 @@ def git_observation(repo, remote=False):
                 "mergedAt": p.get("merged_at"), "mergeCommit": p.get("merge_commit_sha") if p.get("merged_at") else None} for p in pulls]
             remote_branches = {b["name"]: b["commit"]["sha"] for b in gh("branches?per_page=100")}
             for branch in result["branches"]:
-                remote_name = branch["upstream"][7:] if (branch["upstream"] or "").startswith("origin/") else branch["branch"]
+                remote_name = branch["branch"]
                 observed = remote_branches.get(remote_name)
-                branch.update(remoteCommit=observed, pushStatus="matches_remote" if observed == branch["commit"] else "differs_remote" if observed else "not_in_remote_page")
+                branch.update(remoteRef="refs/heads/" + remote_name, remoteCommit=observed, pushStatus="matches_remote" if observed == branch["commit"] else "differs_remote" if observed else "not_in_remote_page")
             result.update(remoteStatus="observed", remoteAt=time.time(), remoteLimit=100)
     except (Refusal, OSError, subprocess.SubprocessError, ValueError, KeyError) as error:
         result["reason"] = str(error)[:300]

@@ -78,9 +78,9 @@ function usage(root) {
   }
   const sum = key => rows.reduce((n, r) => n + r[key], 0);
   root.append(section("Token and conversation totals", "Cached input and reasoning are subsets, not extra tokens."));
-  root.append(table(["Input", "Cached input", "Cache hit rate", "Output", "Reasoning output", "Total"], [[
-    num(sum("input_tokens")), num(sum("cached_input_tokens")), ratio(sum("cached_input_tokens"), sum("input_tokens")),
-    num(sum("output_tokens")), num(sum("reasoning_output_tokens")), num(sum("total_tokens"))]]));
+  root.append(table(["Total", "Input", "Cached input", "Cache hit rate", "Output", "Reasoning output"], [[
+    num(sum("total_tokens")), num(sum("input_tokens")), num(sum("cached_input_tokens")), ratio(sum("cached_input_tokens"), sum("input_tokens")),
+    num(sum("output_tokens")), num(sum("reasoning_output_tokens"))]]));
   const sessions = usage.sessions.filter(s => observationRepo === "all" || s.repositories.includes(observationRepo));
   root.append(el("p", `${num(sessions.length)} observed tasks · ${num(sessions.filter(s => !s.agent).length)} user tasks · ${num(sessions.filter(s => s.agent).length)} agent tasks · ${num(sum("userMessages"))} user messages · ${num(sum("assistantMessages"))} assistant messages`, "metric-note"));
   root.append(section("Repository distribution"));
@@ -112,6 +112,8 @@ function gitStatus(root) {
   const records = state.observations.git.filter(inRepo);
   if (!records.length) { root.append(empty("No Git observations yet", "Refresh to read registered worktrees, branches and commits. GitHub status is an explicit read-only request.")); return; }
   root.append(callout("Commit, push and merge are separate", "Local tracking refs can be stale. A remote SHA match proves the remote contains that branch tip, not who pushed it. A merged PR does not prove CI, deployment or tenant acceptance. GitHub lists are bounded to the 100 most recently updated PRs and first 100 branches per repo."));
+  root.append(section("Repository observations"));
+  root.append(table(["Repository", "Local state", "Worktrees", "Branches", "GitHub", "Remote observed"], records.map(r => [r.repository,badge(r.status),num(r.worktrees.length),num(r.branches.length),textCell(r.remoteStatus === "not_requested" ? r.previousRemote?.remoteStatus || "not_requested" : r.remoteStatus,r.reason),when(r.remoteAt || r.previousRemote?.remoteAt)])));
   root.append(section("Worktrees"));
   root.append(table(["Repository / observed", "Worktree", "Branch", "Commit", "Working tree"], records.flatMap(r => r.worktrees.length ? r.worktrees.map(w => [textCell(r.repository, when(r.at)), w.path, w.branch, w.commit?.slice(0,12) || "—", badge(w.status)]) : [[r.repository, r.reason || "Unavailable", "—", "—", badge("unavailable")]])));
   root.append(section("Branches & push observations"));
@@ -154,8 +156,10 @@ function artifacts(root) {
   const controls = el("div", null, "observation-toolbar"); controls.append(search, filter); root.append(controls);
   const rows = state.observations.artifacts.filter(inRepo).filter(a => !artifactQuery || (a.name + " " + a.references.map(r => r.session).join(" ")).toLowerCase().includes(artifactQuery.toLowerCase()));
   root.append(section("Creation / reference order", rows.length + " retained versions · oldest first"));
-  paginated(root, rows, ["Artifact / repository", "Version", "Order date / basis", "Captured", "Task references", "Read"], a => [
-    textCell(a.name, a.repository), "v" + a.version, textCell(when(a.orderAt), a.createdAt ? "Supplied creation time" : a.references.length ? "First retained reference" : "First observed"), when(a.observedAt), a.references.map(r => r.session).filter(Boolean).join(", ") || "Not linked", button("Read v" + a.version, () => { selected=a.id; render(); })]);
+  paginated(root, rows, ["Artifact / repository", "Version", "Order date / basis", "Captured", "Task references"], a => {
+    const name = textCell(a.name, a.repository); name.append(button("Read v" + a.version, () => { selected=a.id; render(); }));
+    return [name, "v" + a.version, textCell(when(a.orderAt), a.createdAt ? "Supplied creation time" : a.references.length ? "First retained reference" : "First observed"), when(a.observedAt), [...new Set(a.references.map(r => r.session).filter(Boolean))].join(", ") || "Not linked"];
+  });
   if (selected) artifactReader(root, selected);
 }
 
