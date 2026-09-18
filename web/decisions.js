@@ -1,5 +1,5 @@
 "use strict";
-Object.assign(titles, {decisions:["Decision inbox", "Choose a direction here. The brain continues within the recorded scope."]});
+Object.assign(titles, {decisions:["Decision inbox", "Choose a suggestion or write your own answer. The brain continues within the recorded scope."]});
 const decisionDrafts = new Map();
 const decisionDetailsOpen = new Set();
 const decisionLabels = {open:"Needs your decision", answered:"Answer recorded", received:"Received by brain", applied:"Applied to design", blocked:"Needs follow-up", superseded:"Superseded"};
@@ -47,7 +47,7 @@ function decisionArtifacts(root, ids) {
 
 async function submitDecision(d, draft, submit) {
   if(busy||!connected) {showNotice("Wait for the current request or refresh the connection.",true);return;}
-  const payload={decisionId:d.id,decisionHash:d.decisionHash,optionId:draft.optionId,note:draft.note,confirmed:draft.confirmed};
+  const payload={decisionId:d.id,decisionHash:d.decisionHash,optionId:draft.optionId||null,note:draft.note,confirmed:draft.confirmed};
   // Retain the exact envelope after an uncertain network response; retry is not a second answer.
   if(!draft.request||JSON.stringify(draft.request.payload)!==JSON.stringify(payload))
     draft.request={id:crypto.randomUUID(),kind:"decision_response",expectedRevision:state.meta.revision,payload};
@@ -76,26 +76,41 @@ function decisionCard(d, root) {
   if(d.status==='open') {
     let draft=decisionDrafts.get(d.id);
     if(!draft){draft={optionId:"",note:"",confirmed:false,request:null};decisionDrafts.set(d.id,draft);}
-    const form=el("form",null,"decision-form"),choices=el("fieldset");choices.append(el("legend","Choose a direction"));
+    const form=el("form",null,"decision-form"),choices=el("fieldset");choices.append(el("legend","Suggested options · optional"));
+    const intro=el("p","You can answer in your own words below without selecting an option.","muted");
     s.options.forEach(option=>{
       const label=el("label",null,"decision-option"),radio=el("input"),copy=el("span");
-      radio.type="radio";radio.name="decision-"+d.id;radio.value=option.id;radio.checked=draft.optionId===option.id;radio.required=true;
+      radio.type="radio";radio.name="decision-"+d.id;radio.value=option.id;radio.checked=draft.optionId===option.id;
       copy.append(el("strong",option.label+(option.id===s.recommendedOptionId?" · Recommended":"")),el("span",option.implications,"subline"));
       label.append(radio,copy);choices.append(label);
-      radio.onchange=()=>{draft.optionId=option.id;draft.confirmed=false;check.checked=false;note.required=option.requiresNote;};
+      radio.onchange=()=>{draft.optionId=option.id;draft.confirmed=false;check.checked=false;updateAnswerMode();};
     });
-    const noteLabel=el("label", "Your note or requested information"),note=el("textarea");note.rows=4;note.maxLength=4000;note.value=draft.note;
-    note.placeholder="No credentials or secrets. This note is input for review, not permission to execute commands.";
-    note.required=s.options.find(o=>o.id===draft.optionId)?.requiresNote||false;
-    note.oninput=()=>{draft.note=note.value;draft.confirmed=false;check.checked=false;};noteLabel.append(note);
+    const ownAnswer=button("Use my own answer instead",()=>{
+      draft.optionId="";draft.confirmed=false;check.checked=false;
+      choices.querySelectorAll('input[type=radio]').forEach(radio=>{radio.checked=false;});
+      updateAnswerMode();note.focus();
+    });
+    const noteLabel=el("label"),noteTitle=el("span"),note=el("textarea");note.rows=5;note.maxLength=4000;note.value=draft.note;
+    const hint=el("p","Up to 4,000 characters. No credentials or secrets. Your answer is input for review, not permission to execute work.","muted");
+    hint.id="decision-answer-hint-"+d.id;note.setAttribute("aria-describedby",hint.id);
+    function updateAnswerMode() {
+      const option=s.options.find(o=>o.id===draft.optionId);
+      noteTitle.textContent=option?"Your note or requested information":"Your answer · in your own words";
+      note.placeholder=option?"Add context or the information requested by this option.":"Write your answer here. You do not need to select an option above.";
+      note.required=!option||option.requiresNote;
+      note.setCustomValidity(note.required&&!note.value.trim()?"Write your answer or provide the information requested by your selected option.":"");
+      ownAnswer.hidden=!option;
+    }
+    note.oninput=()=>{draft.note=note.value;draft.confirmed=false;check.checked=false;updateAnswerMode();};noteLabel.append(noteTitle,note);
     const confirmation=el("label",null,"decision-confirmation"),check=el("input");check.type="checkbox";check.required=true;check.checked=draft.confirmed;
-    check.onchange=()=>{draft.confirmed=check.checked;};confirmation.append(check,el("span","I confirm this direction and note for this version. This is not approval to implement, access targets or merge."));
+    check.onchange=()=>{draft.confirmed=check.checked;};confirmation.append(check,el("span","I confirm this answer for this version. This is not approval to implement, access targets or merge."));
     const submit=button("Record decision",()=>{},"primary");submit.type="submit";
     form.onsubmit=e=>{e.preventDefault();if(form.reportValidity())submitDecision(d,draft,submit);};
-    form.append(choices,noteLabel,confirmation,submit);card.append(form);
+    updateAnswerMode();
+    form.append(intro,choices,ownAnswer,noteLabel,hint,confirmation,submit);card.append(form);
   } else if(d.response) {
     const option=s.options.find(o=>o.id===d.response.optionId);
-    card.append(el("p","Your answer: "+option.label),el("p",d.response.note||"No additional note.","decision-note"),el("p","Recorded "+when(d.response.at),"muted"));
+    card.append(el("p",d.response.optionId===null?"Your answer · in your own words":"Your answer: "+(option?.label||d.response.optionId)),el("p",d.response.note||"No additional note.","decision-note"),el("p","Recorded "+when(d.response.at),"muted"));
     if(d.receivedAt)card.append(el("p","Received by brain "+when(d.receivedAt),"muted"));
   }
   if(d.resolution){card.append(el("h3","Brain outcome"),el("p",d.resolution.summary),el("p",when(d.resolution.at),"muted"));decisionArtifacts(card,d.resolution.artifactIds);}

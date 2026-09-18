@@ -73,10 +73,11 @@ This maintainer implementation does not qualify as the real native-worker pilot.
 
 - [x] Versioned decision inbox with immutable artifact links and explicit scope
 - [x] Authenticated owner answers, one-time receipt and artifact-bound outcomes
+- [x] Standalone free-text answers without choosing a suggestion; exact text retained
 - [x] Preserve duplicate, superseded and interrupted response states
 - [x] Separate idle decision listening from implementation dispatch authority
 - [x] Compact inbox CLI and native-brain continuation procedure
-- [x] Verify full regression suite and rendered decision interactions (128 tests)
+- [x] Verify full regression suite and rendered decision interactions (133 tests)
 - [x] Install updated skill and activate the existing native listener
 - [x] Verify a real brain-published decision in the dashboard
 - [ ] Complete a real dashboard-approved implementation-worker pilot

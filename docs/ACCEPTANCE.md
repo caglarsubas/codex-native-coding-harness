@@ -50,6 +50,13 @@ independent listening/dispatch state. For rendered interaction checks,
 `scripts/bootstrap_fixture.py` creates a labeled temporary fixture; never submit
 test answers into the live portfolio. Synthetic checks do not qualify as a pilot.
 
+For free-text UI regression, submit an answer with no option selected and verify
+its exact text through receipt and artifact-bound history. Reject blank and
+whitespace-only answers. Select an option, then use **Use my own answer instead**:
+text must survive, all options must clear and confirmation must reset. In-page
+Refresh must retain a draft. Also verify an option with no required note still
+submits, required notes are enforced, and HTML-looking answer text renders inert.
+
 Before enabling dispatch, verify in the actual designated brain:
 
 1. Installed skill loads and the private workspace resolves.

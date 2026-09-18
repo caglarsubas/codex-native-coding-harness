@@ -26,9 +26,11 @@
           "required":["decisionId","decisionHash","optionId","note","confirmed"],
           "properties": {
             "decisionId":{"$ref":"#/$defs/sha256"},"decisionHash":{"$ref":"#/$defs/sha256"},
-            "optionId":{"type":"string","minLength":1,"maxLength":64},
+            "optionId":{"type":["string","null"],"minLength":1,"maxLength":64},
             "note":{"type":"string","maxLength":4000},"confirmed":{"const":true}
-          }
+          },
+          "if":{"properties":{"optionId":{"type":"null"}}},
+          "then":{"properties":{"note":{"pattern":"\\S"}}}
         }
       }
     },

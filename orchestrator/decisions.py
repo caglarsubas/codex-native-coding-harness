@@ -74,16 +74,22 @@ def publish(ledger, token, spec):
 def answer(ledger, db, command):
     p = command["payload"]
     require(set(p) == {"decisionId", "decisionHash", "optionId", "note", "confirmed"}, "Invalid decision response fields")
-    for name in ("decisionId", "decisionHash", "optionId"):
+    for name in ("decisionId", "decisionHash"):
         text(p[name], name, 128)
+    if p["optionId"] is not None:
+        text(p["optionId"], "option ID", 64)
     text(p["note"], "decision note", 4000, empty=True)
     require(p["confirmed"] is True, "Explicit decision confirmation required")
     d = ledger.get(db, "decisions", p["decisionId"])
     require(d["status"] == "open" and d["decisionHash"] == p["decisionHash"], "Decision changed or already answered; review its current version")
-    option = next((o for o in d["spec"]["options"] if o["id"] == p["optionId"]), None)
-    require(option is not None, "Unknown decision option")
-    require(not option["requiresNote"] or bool(p["note"].strip()), "This option needs the requested information in your note")
-    d.update(status="answered", response={"commandId": command["id"], "optionId": p["optionId"], "note": p["note"], "at": time.time()})
+    if p["optionId"] is None:
+        require(bool(p["note"].strip()), "Write your answer or choose a suggested option")
+    else:
+        option = next((o for o in d["spec"]["options"] if o["id"] == p["optionId"]), None)
+        require(option is not None, "Unknown decision option")
+        require(not option["requiresNote"] or bool(p["note"].strip()), "This option needs the requested information in your note")
+    d.update(status="answered", response={"commandId": command["id"], "answerKind": "free_text" if p["optionId"] is None else "option",
+                                         "optionId": p["optionId"], "note": p["note"], "at": time.time()})
     ledger.put(db, "decisions", d["id"], d)
 
 

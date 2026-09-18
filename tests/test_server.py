@@ -105,6 +105,34 @@ class ServerTest(unittest.TestCase):
         self.assertTrue(headers["Content-Disposition"].startswith("attachment;"))
         self.assertNotEqual(self.request("/api/artifacts/../../ledger.sqlite3",headers=auth)[0],200)
 
+    def test_free_text_http_response_without_selecting_option(self):
+        from test_decisions import fixture, envelope
+        from orchestrator.decisions import publish
+        spec=fixture(self.ledger)
+        token=self.ledger.acquire("brain-fixture:free-text-test")
+        d=publish(self.ledger,token,spec)
+        auth=self.login()
+        blank=envelope(self.ledger,d,optionId=None,note=" \n ")
+        self.assertEqual(self.request("/api/commands",blank,auth)[0],409)
+        note="Neither option: <script>alert('fixture')</script>\nExact free-text input."
+        request=envelope(self.ledger,d,optionId=None,note=note)
+        self.assertEqual(self.request("/api/commands",request)[0],403)
+        self.assertEqual(self.request("/api/commands",request,{**auth,"X-CSRF-Token":"wrong"})[0],403)
+        status,_,raw=self.request("/api/commands",request,auth)
+        self.assertEqual(status,200)
+        self.assertEqual(json.loads(raw)["payload"]["note"],note)
+        self.assertEqual(self.request("/api/commands",request,auth)[0],200)
+        self.ledger.process(token)
+        status,_,raw=self.request("/api/state",headers=auth)
+        state=json.loads(raw)
+        response=state["decisions"][0]["response"]
+        self.assertEqual(response["answerKind"],"free_text")
+        self.assertIsNone(response["optionId"])
+        self.assertEqual(response["note"],note)
+        self.assertTrue(state["meta"]["paused"])
+        self.assertEqual(state["queue"],[])
+        self.assertEqual(state["workers"],[])
+
     def test_observation_refresh_requires_csrf_and_fixed_shape(self):
         auth = self.login()
         self.assertEqual(self.request("/api/observe",{"remote":False},{"Origin":self.server.origin})[0],403)

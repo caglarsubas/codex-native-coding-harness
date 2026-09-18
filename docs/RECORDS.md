@@ -72,6 +72,11 @@ acquire the controller token, prepare packets, preflight, dispatch or certify wo
 
 ## Versioned design decisions
 
+For `decision_response`, `optionId: null` denotes a standalone nonblank free-text
+answer in `note`. A non-null ID must match a published option. The response stores
+the exact text and a server-derived `answerKind`; existing option responses without
+that additive field remain readable. Neither answer type grants execution authority.
+
 The additive `decisions` table stores immutable version-bound questions with
 mutable receipt/outcome state. Matching `snapshots` retain the original question
 document. `meta.decisionListener` is an explicit owner preference (absent=false);

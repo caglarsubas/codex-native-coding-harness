@@ -65,7 +65,67 @@ class DecisionTest(unittest.TestCase):
         for key in ("queue","workers"):
             self.assertEqual(after[key],before[key])
         self.assertEqual(after["commands"][0]["status"],"completed")
+        self.assertEqual(after["decisions"][0]["response"]["answerKind"],"option")
         self.assertNotIn(self.token,json.dumps(after))
+
+    def test_free_text_is_preserved_without_inferred_option_through_resolution(self):
+        before=self.ledger.snapshot()
+        note="  Neither option fits.\nPlease record these non-secret asset labels: örnek.  "
+        request=envelope(self.ledger,self.d,optionId=None,note=note)
+        cmd=self.ledger.submit(request)
+        self.assertEqual(self.ledger.submit(request),cmd)
+        restarted=Ledger(self.ledger.root)
+        action=restarted.process(self.token)[0]
+        response=action["decision"]["response"]
+        self.assertEqual(response["answerKind"],"free_text")
+        self.assertIsNone(response["optionId"])
+        self.assertEqual(response["note"],note)
+        self.assertEqual(restarted.document(self.d["decisionHash"])["spec"],self.spec)
+        self.assertEqual(restarted.process(self.token),[])
+        resolve(restarted,self.token,self.d["id"],self.result(cmd,"blocked"))
+        after=Ledger(self.ledger.root).snapshot()
+        self.assertEqual(after["decisions"][0]["response"],response)
+        self.assertEqual(after["decisions"][0]["status"],"blocked")
+        for key in ("paused","concurrency","pilotPassed","heartbeat","runner"):
+            self.assertEqual(after["meta"][key],before["meta"][key])
+        for key in ("queue","workers"):
+            self.assertEqual(after[key],before[key])
+
+    def test_free_text_rejects_blank_invalid_unconfirmed_or_forged_responses(self):
+        for change in ({"note":""},{"note":" \t\n\u2003"},{"note":None},{"note":"x"*4001},
+                       {"confirmed":False},{"confirmed":1},{"optionId":""},{"optionId":[]},
+                       {"optionId":False},{"optionId":"missing"},{"answerKind":"option"}):
+            with self.subTest(change=str(change)[:60]),self.assertRaises(Refusal):
+                self.ledger.submit(envelope(self.ledger,self.d,**{"optionId":None,"note":"My own answer",**change}))
+        state=self.ledger.snapshot()
+        self.assertEqual(state["decisions"][0]["status"],"open")
+        self.assertEqual(state["commands"],[])
+
+    def test_free_text_still_requires_current_version_and_exact_retry(self):
+        request=envelope(self.ledger,self.d,optionId=None,note="My own answer")
+        self.ledger.heartbeat("fixture-heartbeat","PAUSED")
+        with self.assertRaises(Refusal):self.ledger.submit(request)
+        with self.assertRaises(Refusal):
+            self.ledger.submit(envelope(self.ledger,self.d,optionId=None,note="My own answer",decisionHash="f"*64))
+        request=envelope(self.ledger,self.d,optionId=None,note="My own answer")
+        self.ledger.submit(request)
+        conflict=copy.deepcopy(request);conflict["payload"]["optionId"]="bounded"
+        with self.assertRaises(Refusal):self.ledger.submit(conflict)
+        revised=copy.deepcopy(self.spec);revised["context"]="Changed constraints"
+        publish(self.ledger,self.token,revised)
+        self.assertEqual(self.ledger.process(self.token),[])
+        self.assertEqual(self.ledger.snapshot()["commands"][0]["status"],"rejected")
+
+    def test_legacy_option_response_without_answer_kind_still_resolves(self):
+        cmd=self.ledger.submit(envelope(self.ledger,self.d))
+        with self.ledger.tx() as db:
+            d=self.ledger.get(db,"decisions",self.d["id"])
+            d["response"].pop("answerKind")
+            self.ledger.put(db,"decisions",d["id"],d)
+        self.ledger.process(self.token)
+        result=resolve(self.ledger,self.token,self.d["id"],self.result(cmd))
+        self.assertEqual(result["status"],"applied")
+        self.assertEqual(result["response"]["optionId"],"bounded")
 
     def test_replay_idempotency_and_conflicting_duplicate(self):
         request=envelope(self.ledger,self.d)
