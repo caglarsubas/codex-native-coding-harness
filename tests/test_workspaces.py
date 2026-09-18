@@ -173,3 +173,13 @@ class WorkspaceTest(unittest.TestCase):
         summary = self.registry.summary()
         self.assertEqual(summary["aggregate"]["uniqueArtifactVersions"], 3)
         self.assertEqual([a["version"] for a in summary["artifacts"]], [1, 2, 3])
+
+    def test_summary_handles_repository_without_local_checkout(self):
+        self.registry.register("a", "A", self.a.root)
+        with self.a.tx() as db:
+            self.a.put(db, "repos", "missing", {"id": "missing", "path": None, "ref": "main", "projectId": None,
+                "mergePolicy": "manual", "policyProfile": "standard"})
+        summary = self.registry.summary()
+        self.assertEqual(summary["workspaces"][0]["repositories"], 1)
+        self.assertEqual(summary["aggregate"]["measuredRepositories"], 0)
+        self.assertIsNone(summary["aggregate"]["lines"])

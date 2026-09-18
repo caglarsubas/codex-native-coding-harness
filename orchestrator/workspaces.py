@@ -250,7 +250,7 @@ class Registry:
                 continue
             summary = aggregate(state)
             usage = state["observations"].get("usage") or {}
-            repo_paths = {r["id"]: str(Path(r["path"]).resolve()) for r in state["repositories"]}
+            repo_paths = {r["id"]: str(Path(r["path"]).resolve()) for r in state["repositories"] if r.get("path")}
             for metric in summary["repositories"]:
                 key = repo_paths.get(metric["repository"], wid + ":" + metric["repository"])
                 if key not in repositories or metric["at"] > repositories[key]["at"]:
