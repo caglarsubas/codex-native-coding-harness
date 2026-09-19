@@ -98,8 +98,8 @@ def assess(source, platform, now):
           "Reduce or explicitly partition the candidate set before activation integration.", "queue", "brain_operator")
     packets = [assess_packet(q, source, phase, now) for q in source["queue"]]
     for code, detail, action, view in (
-        ("run_activation", "Owner-bound run generations and effect/continuation fences are not implemented.", "Implement exact run activation and recovery without reusing configuration review as permission.", "mission"),
-        ("phase_release", "Delegated packet authorization and mandatory phase release are not implemented.", "Implement phase-scoped approval and owner-bound checkpoint release.", "mission"),
+        ("run_activation", "The internal run-authority kernel is not connected to native admission/effect boundaries; Play remains unavailable.", "Integrate exact run activation and recovery; internal authority receipts alone cannot authorize effects.", "mission"),
+        ("phase_release", "Internal phase/task approvals and checkpoint release are not available through the dashboard or enforced on native effects.", "Connect version-bound approvals and checkpoint releases to the run adapter before enabling Play.", "mission"),
         ("native_admission", "Capacity/token reservations and reconciled legacy ownership are not connected to native effects.", "Integrate transactional claims, cumulative usage, ownership recovery and native receipts.", "workers"),
         ("task_policy", "Task declarations can bind operations and requested settings, but owner-approved adaptive policy and native-effect enforcement are not implemented.", "Inspect each packet declaration; integrate exact settings policy and effect checks before launch.", "queue"),
         ("native_pilot", "A real supervised two-workspace Play/Pause pilot has not been accepted by this feature.", "Qualify live behavior only after the preceding controls are implemented and separately authorized.", "readiness")):
