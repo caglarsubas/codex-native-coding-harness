@@ -28,7 +28,7 @@ class DispatchAdmissionTest(unittest.TestCase):
         self.run = self.fx.authorize(); self.approval = self.fx.approve(self.run)
         self.grant = self.ledger.document(self.run["runHash"])
         self.store = AdmissionStore(self.registry.root, policy=POLICY)
-        self.binding = dispatch.phase_allocation(self.grant, {"a": [KEY]})
+        self.binding = dispatch.phase_allocation(self.grant, {"a": [KEY]}, getattr(self, "runners", ()))
         spec = self.binding["spec"]
         self.store.open_allocation(self.binding["id"], workspace_id="a", binding_hash=spec["bindingHash"],
             limits=spec["limits"], repositories=spec["repositories"], runners=spec["runners"])
@@ -64,7 +64,7 @@ class DispatchAdmissionTest(unittest.TestCase):
     def claim(self): return self.store.snapshot()["claims"][0]
     def begin(self, wid=None): return self.bridge.begin_creation(self.token, wid or self.worker()["id"])
 
-    def second_workspace(self, resource_key):
+    def second_workspace(self, resource_key, runners=()):
         ledger = Ledger(self.registry.root.parent / "second")
         ledger.initialize({"schemaVersion": 1, "brainId": "brain-b", "repositories": [
             {"id": "a", "path": "/fixture/b", "projectId": "project-b", "ref": "origin/main",
@@ -84,9 +84,9 @@ class DispatchAdmissionTest(unittest.TestCase):
             checkpointHash=None, expiresAt=time.time()+3600, settingsPolicy="native_defaults", confirmed=True), actor="dashboard_owner")
         approval = runs.approve_task(ledger, request(runHash=run["runHash"], queueId=q["id"], contractHash=contract["contractHash"],
             scopeAssessment="Isolated second workspace fixture", confirmed=True), actor="dashboard_owner")
-        binding = dispatch.phase_allocation(ledger.document(run["runHash"]), {"a": [resource_key]}); spec = binding["spec"]
+        binding = dispatch.phase_allocation(ledger.document(run["runHash"]), {"a": [resource_key]}, runners); spec = binding["spec"]
         self.store.open_allocation(binding["id"], workspace_id="b", binding_hash=spec["bindingHash"], limits=spec["limits"],
-            repositories=spec["repositories"])
+            repositories=spec["repositories"], runners=spec["runners"])
         self.store.observe_usage(binding["id"], {"observedAt": time.time(), "evidenceHash": "b"*64, "counters": ZERO,
             "coverage": ["brain", "workers", "reviews"], "settledClaimIds": []})
         ledger.preflight(token, q["id"], {"seedHash": q["seedHash"], "packetDigest": q["packetDigest"], "baseSHA": "c"*40,

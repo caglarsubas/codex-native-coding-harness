@@ -12,7 +12,7 @@ import time
 
 from . import run_authority as runs
 from .admission import HELD, exact, identifier, integer, sha, timestamp
-from .core import canonical, digest, require
+from .core import Refusal, canonical, digest, require
 
 OBSERVATION = {"outcome", "hostId", "threadId", "clientThreadId", "activity", "observedAt", "evidenceHash"}
 CONTINUATION = {"operation", "instructionArtifactId", "estimates"}
@@ -24,7 +24,11 @@ def request_shape(request, fields):
     exact(request, {"id", "expectedHash", *fields})
     identifier(request["id"])
     if request["expectedHash"] is not None: sha(request["expectedHash"])
-    require(len(canonical(request).encode()) <= 16000, "Native lifecycle request exceeds its bound")
+    try:
+        size = len(canonical(request).encode())
+    except (TypeError, ValueError, RecursionError) as error:
+        raise Refusal("Native lifecycle request must be bounded finite JSON") from error
+    require(size <= 16000, "Native lifecycle request exceeds its bound")
 
 
 def table_exists(db):
@@ -42,11 +46,40 @@ def client(state):
 
 
 def claim_status(state):
+    if state.get("runner") and state["runner"]["status"] not in ("reserved", "released"):
+        return "starting"  # In-flight acceptance remains capacity-owned.
     creation, continuation = state["creation"], state["continuation"]
     if continuation and continuation["status"] in INFLIGHT: return "starting"
     if creation["outcome"] == "pending": return "starting"
     if creation["outcome"] == "uncertain": return "blocked" if native(state) else "uncertain"
     return "running"  # Ownership/lifecycle, not a claim of currently running activity.
+
+
+def runner_binding(state):
+    runner = state.get("runner")
+    return {k: runner[k] for k in ("key", "reservationId", "at", "status")} if runner else None
+
+
+def runner_owner(worker_id, binding):
+    if not binding or binding["status"] == "released": return None
+    return {"workerId": worker_id, "key": binding["key"], "reservationId": binding["reservationId"], "since": binding["at"]}
+
+
+def worker_status(claim, state):
+    runner = state.get("runner")
+    if runner and runner["status"] != "released":
+        return "awaiting_acceptance" if runner["status"] == "reserved" else "accepting"
+    return "starting" if claim["status"] == "uncertain" else claim["status"]
+
+
+def require_runner_clear(state):
+    require(not state.get("runner") or state["runner"]["status"] == "released", "Runner still owned; use runner coordination")
+
+
+def lifecycle_stage(state):
+    if state.get("runner") and state["runner"]["status"] != "released": return "runner_" + state["runner"]["status"]
+    continuation = state["continuation"]
+    return "continuation_inflight" if continuation and continuation["status"] in INFLIGHT else "native_observed"
 
 
 class NativeLifecycle:
@@ -83,6 +116,7 @@ class NativeLifecycle:
                 require(previous["version"]+1 == record["version"], "Native journal version chain changed")
             require(claim["native"] == native(state) and claim.get("clientNative") == client(state) and
                     claim["status"] == claim_status(state) and
+                    claim.get("runnerBinding") == runner_binding(state) and
                     claim.get("continuationReservedTokens", 0) == state["reservedTokens"], "Shared native state diverged from its journal")
         else:
             require(not table_exists(kernel) or not kernel.execute("SELECT 1 FROM native_records WHERE claim=?", (claim["id"],)).fetchone(),
@@ -108,6 +142,8 @@ class NativeLifecycle:
         latest = (state["creation"] or {}).get("observedAt", claim["startedAt"])
         if state["continuation"]:
             latest = max(latest, state["continuation"].get("observedAt", state["continuation"]["at"]))
+        if state.get("runner"):
+            latest = max(latest, state["runner"].get("observedAt", 0), state["runner"].get("launchAt", 0), state["runner"]["at"])
         require(observed_at >= claim["startedAt"] and observed_at > latest, "Native observation is not newer than retained evidence")
 
     def unique_identity(self, kernel, worker_id, observation):
@@ -140,6 +176,7 @@ class NativeLifecycle:
         kernel.execute("INSERT INTO native_records VALUES(?,?,?,?)", (key, claim["id"], request["id"], canonical(record)))
         claim.update(nativeLifecycleHash=key, native=native(state), clientNative=client(state), status=claim_status(state),
                      continuationReservedTokens=state["reservedTokens"], estimatedTokens=sum(intent["estimates"].values())+state["reservedTokens"])
+        if state.get("runner"): claim["runnerBinding"] = runner_binding(state)
         self.store.put(kernel, "claims", claim["id"], claim)
         self.store.event(kernel, "native_"+kind, id=claim["id"], recordHash=key)
         return record
@@ -153,6 +190,15 @@ class NativeLifecycle:
         require(not (worker.get("threadId") or worker.get("clientThreadId")) or worker["hostId"] == creation["hostId"],
                 "Local native host diverged; explicit recovery required")
         marker = worker.get("nativeContinuationIntentHash")
+        launch_marker = worker.get("runnerLaunchIntentHash")
+        if launch_marker or (state.get("runner") or {}).get("intentHash"):
+            local = runs.document(db, launch_marker, "runner_launch_intent")
+            require(local["workerId"] == worker["id"] and local["intentHash"] == worker["dispatchAdmission"]["intentHash"],
+                    "Local runner launch binding changed")
+        if launch_marker and launch_marker != (state.get("runner") or {}).get("intentHash"):
+            require(worker["status"] == "accepting" and worker["dispatchAdmission"]["stage"] == "runner_launch_pending",
+                    "Unmatched runner launch lost its in-flight marker; explicit recovery required")
+            return self.receipt(worker, record)
         if marker and (not continuation or continuation["intentHash"] != marker):
             # A local intent may have committed without a shared journal entry.
             # Copying older native state must never clear its in-flight marker.
@@ -160,17 +206,31 @@ class NativeLifecycle:
                     "Unmatched continuation lost its in-flight marker; explicit recovery required")
             return self.receipt(worker, record)
         key = digest(record)
+        meta = self.ledger.get(db, "meta", 1)
+        if state.get("runner") or worker.get("runnerBinding"):
+            old_owner = runner_owner(worker["id"], worker.get("runnerBinding"))
+            new_owner = runner_owner(worker["id"], runner_binding(state))
+            require(meta["runner"] == old_owner if old_owner or new_owner else
+                    not meta["runner"] or meta["runner"].get("workerId") != worker["id"],
+                    "Local runner ownership diverged; explicit recovery required")
         if worker.get("nativeLifecycleHash") == key:
             require(worker["threadId"] == creation["threadId"] and worker["clientThreadId"] == creation["clientThreadId"] and
-                    worker["status"] == ("starting" if claim["status"] == "uncertain" else claim["status"]) and
+                    worker["status"] == worker_status(claim, state) and
+                    worker.get("runnerBinding") == runner_binding(state) and
+                    (not state.get("runner") or worker["dispatchAdmission"]["stage"] == lifecycle_stage(state)) and
                     worker["noProgressCycles"] == state["noProgress"] and worker["dispatchAdmission"]["claimHash"] == digest(claim),
                     "Local native receipt diverged; explicit recovery required")
             return self.receipt(worker, record)
         worker.update(nativeLifecycleHash=key, threadId=creation["threadId"], clientThreadId=creation["clientThreadId"],
-                      hostId=creation["hostId"], status="starting" if claim["status"] == "uncertain" else claim["status"],
+                      hostId=creation["hostId"], status=worker_status(claim, state),
                       nativeActivity={k: creation[k] for k in ("activity", "observedAt", "evidenceHash")},
                       noProgressCycles=state["noProgress"], updatedAt=time.time())
-        stage = "continuation_inflight" if continuation and continuation["status"] in INFLIGHT else "native_observed"
+        stage = lifecycle_stage(state)
+        if state.get("runner"):
+            worker["runnerBinding"] = runner_binding(state)
+            if old_owner or new_owner:
+                meta["runner"] = new_owner
+                self.ledger.put(db, "meta", 1, meta)
         worker["dispatchAdmission"].update(stage=stage, claimHash=digest(claim))
         runs.retain(db, "native_lifecycle", record)
         self.ledger.put(db, "workers", worker["id"], worker)
@@ -183,6 +243,8 @@ class NativeLifecycle:
                 "currentHash": digest(record), "attachedHash": worker.get("nativeLifecycleHash"),
                 "stage": worker["dispatchAdmission"]["stage"], "executionAuthorized": False,
                 "nativeCallMade": False, "ownershipReleased": False,
+                **({"runnerStatus": record["state"]["runner"]["status"],
+                    "runnerResourceReleased": record["state"]["runner"]["status"] == "released"} if record["state"].get("runner") else {}),
                 "trustBoundary": "caller_supplied_external_evidence_not_native_attestation"}
 
     def observe(self, token, worker_id, request):
@@ -204,6 +266,7 @@ class NativeLifecycle:
                 if not prior:
                     require(request["expectedHash"] == claim.get("nativeLifecycleHash"), "Native journal changed; inspect before recording")
                     self.no_unmatched_intent(worker, state)
+                    require_runner_clear(state)
                     self.fresh(kernel, request["observedAt"], claim, state)
                     old = state["creation"]
                     if old:
@@ -217,12 +280,16 @@ class NativeLifecycle:
 
     @staticmethod
     def no_unmatched_intent(worker, state):
+        launch_marker = worker.get("runnerLaunchIntentHash")
+        require(not launch_marker or launch_marker == (state.get("runner") or {}).get("intentHash"),
+                "Unmatched local runner launch intent; retain ownership for explicit recovery")
         marker = worker.get("nativeContinuationIntentHash")
         continuation = state["continuation"]
         require(not marker or continuation and continuation["intentHash"] == marker,
                 "Unmatched local continuation intent; retain in-flight ownership for explicit recovery")
 
     def continuation_checks(self, db, meta, kernel, worker, intent, claim, state, request):
+        require_runner_clear(state)
         self.bridge.task_in(db, meta, intent["runHash"], intent["queueId"], intent["approvalHash"], worker["id"])
         runs.check_task_in(self.ledger, db, run_hash=intent["runHash"], queue_id=intent["queueId"],
                            approval_hash=intent["approvalHash"], operation="edit")
@@ -307,6 +374,7 @@ class NativeLifecycle:
                     require(request["expectedHash"] == claim.get("nativeLifecycleHash"), "Native journal changed; inspect before recording")
                     self.no_unmatched_intent(worker, state)
                     continuation = state["continuation"]
+                    require_runner_clear(state)
                     require(continuation and continuation["intentHash"] == request["continuationHash"] and
                             continuation["status"] in INFLIGHT, "Exact in-flight continuation required")
                     require(claim["native"] == {k: request[k] for k in ("hostId", "threadId")}, "Continuation result belongs to a different task")

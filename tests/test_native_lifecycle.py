@@ -19,7 +19,9 @@ ESTIMATES = {"workTokens": 1000, "reviewTokens": 100, "handoffTokens": 50}
 
 class NativeLifecycleTest(unittest.TestCase):
     def setUp(self):
-        self.fx = test_dispatch_admission.DispatchAdmissionTest(); self.fx.setUp()
+        self.fx = test_dispatch_admission.DispatchAdmissionTest()
+        self.fx.runners = getattr(self, "runners", ())
+        self.fx.setUp()
         self.ledger, self.token, self.store = self.fx.ledger, self.fx.token, self.fx.store
         self.api = native_lifecycle.NativeLifecycle(self.fx.bridge)
         self.fx.reserve(); self.fx.begin(); self.wid = self.fx.worker()["id"]

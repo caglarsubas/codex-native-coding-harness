@@ -150,3 +150,16 @@ maintenance fences, native identities, task attempts and actual usage including
 overruns. Settled workers are not accepted/complete or eligible for archival;
 keep their packet held for separate result review. No not-created recovery,
 runner execution, native transport, public Play or live migration is authorized.
+
+WSP-04C3b adds internal standard-policy shared runner coordination. See
+docs/RUNNER-COORDINATION.md. Acquisition, local-first launch intent, process exit
+and cleanup release are separate facts. Either launch marker prohibits retries;
+unknown delivery never means unlaunched. Release only the exact runner key after
+fresh idle/full-process-tree cleanup evidence; retain repository and token holds
+until separate terminal settlement. One reservation per worker, including cancelled
+reservations; no implicit retry allowance. Test authority, immutable execution,
+retained instructions and fresh admission are required at both launch boundaries.
+Harness acquisition is refused until its trusted launcher/isolation and packet
+attempt contract are integrated. Preserve maintenance/Pause fences and newer
+owners during receipt recovery. External observations are assertions, not native
+attestation. No process commands, transport, live installation or Play activation.

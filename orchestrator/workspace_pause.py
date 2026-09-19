@@ -19,6 +19,7 @@ def worker_binding(worker):
     binding = {k: worker.get(k) for k in ("id", "repository", "status", "hostId", "threadId", "clientThreadId")}
     if "dispatchAdmission" in worker:
         binding.update({k: worker.get(k) for k in ("nativeLifecycleHash", "nativeContinuationIntentHash", "ownershipSettlementHash")})
+        if "runnerLaunchIntentHash" in worker: binding["runnerLaunchIntentHash"] = worker["runnerLaunchIntentHash"]
     return binding
 
 

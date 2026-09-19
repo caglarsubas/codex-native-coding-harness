@@ -166,8 +166,14 @@ The [terminal settlement coordinator](docs/OWNERSHIP-SETTLEMENT.md) can release 
 internally managed confirmed task's reservation after complete, fresh terminal
 reconciliation and preserve its actual usage. Crash recovery attaches the exact
 receipt without releasing a newer owner. Settlement is not packet acceptance;
-runner/not-created coordination, independently verified native evidence and Play
-activation remain separate gates. No live state is changed by a source upgrade.
+not-created coordination, independently verified native evidence and Play
+activation remain separate gates.
+The [shared runner coordinator](docs/RUNNER-COORDINATION.md) adds standard-policy
+reservation, one-shot launch intent, process observations and cleanup release.
+An uncertain launch keeps its owner; runner release keeps repository/token holds
+for terminal settlement. It runs no commands, permits no automatic retry, and
+refuses Harness acceptance until its trusted launcher and attempt policy are
+integrated. No live state is changed by a source upgrade.
 The 15-minute heartbeat remains a
 recovery fallback while enabled. Delivery is not receipt: unavailable, ambiguous
 and overdue states keep the answer and explain the next action. Keep the computer

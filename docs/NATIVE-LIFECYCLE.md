@@ -127,8 +127,8 @@ checkpoint/descendant/idle evidence required by workspace Pause.
 
 Only the original current run may start a correction. A new generation cannot
 reuse old task approval; explicit reauthorization of an already-owned task is
-still future work. Next: coordinated runner/settlement and reconciled ownership
-release, destination/resource evidence, new-generation continuation approval,
+still future work. Next: independently verified destination/resource evidence,
+unresolved-creation recovery, separate result review, new-generation continuation approval,
 native transport, then exact owner-facing Play and a separately authorized pilot.
 
 See [verification evidence](NATIVE-LIFECYCLE-VERIFICATION.md). No live installation,
@@ -139,3 +139,11 @@ separate internal coordinator. Once its shared settlement commits, native writes
 and lifecycle recovery refuse rather than reopening the claim. Use settlement
 receipt recovery instead. Pending/uncertain/not-created claims and unresolved
 correction sends still cannot release; no native transport or Play is added.
+
+WSP-04C3b extends the same journal with [standard-policy runner coordination](RUNNER-COORDINATION.md).
+An owned runner blocks generic native observations/corrections and settlement;
+use the runner-specific process/cleanup observations until its resource is released.
+Runner launch markers also bind Pause inventory. After release, correction and
+terminal settlement retain runner history and cumulative tokens. Recovery attaches
+the exact local runner receipt without releasing shared resources again or
+clearing another worker's newer ownership. No commands or automatic retries run.
