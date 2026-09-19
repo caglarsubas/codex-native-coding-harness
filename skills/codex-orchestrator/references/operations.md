@@ -23,6 +23,34 @@ cross-workspace concurrency requires the adoption/run gates in docs/ADMISSION.md
 
 ## Manual cycle
 
+### Maintenance enrollment (WSP-04B1)
+
+Read docs/ENROLLMENT.md in the installed tool checkout before any explicitly
+requested enrollment or recovery. This is a platform-wide maintenance fence, not
+Play; this version has no unfence command. Never run it as routine onboarding,
+an upgrade side effect or a way to fix a stale dashboard. All mutating runtimes
+must understand the fence; a merge does not upgrade an already-running process.
+
+`--platform <registry> platform-enrollment-preview` and
+`platform-enrollment-status` inspect exact scope and retained stages/owners.
+Owner-confirmed `platform-enroll <private-preview.json> --id <stable-id> --confirm`
+requires a fresh unchanged preview, paused dispatch and released controllers in
+all registered workspaces. Interrupted staging remains fenced where applied;
+retrying the submission only reads its receipt. For an explicit owner recovery,
+`platform-enrollment-recover <exact-id> --confirm` continues matching stages and
+retains ownership. Never clear a controller, delete a fence, change identities or
+edit SQL to make recovery pass. Both commands omit `--workspace`.
+
+When `inbox.admission.dispatchBlocked` is true, do not create tasks, resume
+implementation, retry work, acquire acceptance, merge or open fresh budgets.
+Observe and bind already-created tasks, preserve checkpoints, record independent
+completion evidence and release an existing runner only after observed exit and
+cleanup. The inventory preserves old owners even when current rows disappear or
+complete. Enrollment does not independently observe native inactivity or release
+kernel claims. Keep the usual safe-stop/heartbeat supervision for existing owners.
+
+### Controller cycle
+
 1. `inbox` returns compact cycle inputs; use `status` for private configuration, revision, queue, workers, command inbox,
    runner and checkpoint. Check the configured brain ID matches this task.
 2. `acquire <brain-id:turn-id>` returns a private controller token. Supply it as

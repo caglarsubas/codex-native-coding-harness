@@ -40,7 +40,8 @@ def catalog(state, links):
         reason="Worker dispatch is already paused." if meta["paused"] else None)
     add("dispatch_resume", "Resume worker dispatch", "resume", {},
         "Request enabling dispatch of already-approved packets after the brain checks current gates. This can start eligible workers; it is not packet approval.",
-        reason=brain_missing or ("Resume the brain first." if stopped else "Worker dispatch is already enabled." if not meta["paused"] else None))
+        reason=state.get("admission", {}).get("reason") if state.get("admission", {}).get("dispatchBlocked") else
+            brain_missing or ("Resume the brain first." if stopped else "Worker dispatch is already enabled." if not meta["paused"] else None))
     add("reconcile", "Request brain reconciliation", "reconcile", {},
         "Ask the designated brain to reconcile recorded controls, ownership and evidence. No new packet approval. Saved until explicit resume if the brain is stopped.",
         reason=brain_missing)

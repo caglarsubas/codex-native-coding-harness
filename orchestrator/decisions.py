@@ -136,7 +136,7 @@ def workflow(state):
               and observed is not None and 0 <= now - observed <= 35 * 60)
     pending = [c for c in state["commands"] if c["status"] in ("queued", "processing") or c.get("needsBrainReceipt")]
     active = any(w["status"] in ACTIVE for w in state["workers"])
-    approved = not m["paused"] and any(q["status"] == "approved" and not q["held"] for q in state["queue"])
+    approved = not m["paused"] and not state.get("admission", {}).get("dispatchBlocked") and any(q["status"] == "approved" and not q["held"] for q in state["queue"])
     continuations = state.get("continuations", [])
     unplanned = sum(c["status"] in ("needs_proposal", "needs_revision") for c in continuations)
     reasons = []
@@ -165,6 +165,7 @@ def workflow(state):
 def inbox(state):
     """Compact native-cycle input: no token logs, artifact bodies or event history."""
     return {"meta":state["meta"], "workflow":state["workflow"], "continuations": state.get("continuations", []),
+            "admission": state.get("admission"),
             "missionConfiguration": {k: state.get("mission", {}).get(k) for k in ("version", "effectiveStatus", "documentHash", "activation", "executionAuthority")},
             "decisions":[d for d in state["decisions"] if d["status"] in ("open", "answered", "received")],
             "commands":[c for c in state["commands"] if c["status"] in ("queued", "processing") or c.get("needsBrainReceipt")],

@@ -35,6 +35,12 @@ For an explicitly requested cross-workspace conflict audit, read the Shared
 resource audit section in `references/operations.md`; never initialize live
 allocations or infer unused capacity from an empty kernel store.
 
+Check `inbox.admission` before effects. An enrollment fence blocks new dispatch
+even through legacy `--state` routing. It is not a stopped native task or a free
+runner: supervise/checkpoint existing work and reconcile identities/evidence only.
+Do not enroll or recover live state as an upgrade side effect. Read the Maintenance
+enrollment section in the operations reference for an explicit owner request.
+
 For first-drive preparation or readiness questions, use the Readiness section of
 `references/operations.md`. Diagnostics and synthetic rehearsal do not authorize
 a native task or satisfy the real pilot requirement.

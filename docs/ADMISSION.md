@@ -5,8 +5,14 @@ explicit read-only cross-workspace resource audit. **Not implemented: connection
 of this kernel to native dispatch, run activation or autonomous Play.** This is
 the dependency below those controls, not a second scheduler.
 
-Existing exact packet approval, legacy worker limits, brain controls, live state
-and installed skill are unchanged. A reviewed mission remains inactive. No
+Follow-up WSP-04B1 adds [explicit maintenance enrollment and legacy dispatch
+fences](ENROLLMENT.md). It journals existing owners and prevents upgraded legacy
+callers from reopening dispatch, including after partial setup. It does not yet
+adopt these owners as kernel claims or provide an activation/unfence path.
+
+Existing exact packet approval, legacy worker limits and brain controls remain
+intact; only explicit maintenance enrollment adds the dispatch fence above. Live
+state and the installed skill are unchanged. A reviewed mission remains inactive. No
 server route or CLI command opens allocations, changes budgets, records usage,
 reserves capacity or invokes native operations through this kernel. Its Python
 interface is for the future trusted run controller and isolated tests only.
