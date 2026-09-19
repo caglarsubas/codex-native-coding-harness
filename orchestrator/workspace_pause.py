@@ -27,6 +27,8 @@ def worker_binding(worker):
         binding.update({k: worker.get(k) for k in ("nativeLifecycleHash", "nativeContinuationIntentHash", "ownershipSettlementHash")})
         if "runnerLaunchIntentHash" in worker: binding["runnerLaunchIntentHash"] = worker["runnerLaunchIntentHash"]
         if "resultReviewHash" in worker: binding["resultReviewHash"] = worker["resultReviewHash"]
+        for key in ("nativeHandoffHash", "nativeHandoffCheckHash"):
+            if key in worker: binding[key] = worker[key]
         if worker["status"] == "complete": binding["requiresNativeSupervision"] = True
     return binding
 
