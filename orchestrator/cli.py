@@ -37,6 +37,11 @@ def main():
     p.add_argument("preview", type=Path); p.add_argument("--id", required=True); p.add_argument("--confirm", action="store_true")
     p = sub.add_parser("platform-adoption-recover", help="Recover the exact quarantined ownership import")
     p.add_argument("id"); p.add_argument("--confirm", action="store_true")
+    p = sub.add_parser("platform-reconciliation-preview", help="Compare external observations with retained ownership; no state change")
+    p.add_argument("evidence", type=Path)
+    p = sub.add_parser("platform-reconciliation-record", help="Owner-reviewed evidence receipt; no release or activation")
+    p.add_argument("preview", type=Path); p.add_argument("--id", required=True); p.add_argument("--confirm", action="store_true")
+    sub.add_parser("platform-reconciliation-status", help="Inspect historical review and current evidence freshness")
     p = sub.add_parser("workspace-register"); p.add_argument("id"); p.add_argument("name"); p.add_argument("state_root", type=Path)
     p.add_argument("--apply", action="store_true", help="Register in place after a verified SQLite backup; default is preview")
     p = sub.add_parser("workspace-profile-set"); p.add_argument("profile", type=Path); p.add_argument("--version", type=int, required=True)
@@ -78,6 +83,20 @@ def main():
     if args.state and (args.workspace or args.platform):
         raise Refusal("Choose a registered workspace or --state, not both")
     registry = Registry(args.platform, create=args.action == "workspace-register") if args.platform else None
+    if args.action.startswith("platform-reconciliation-"):
+        if not registry or args.workspace:
+            raise Refusal("Reconciliation is platform-wide: supply --platform and omit --workspace")
+        from . import reconciliation
+        def evidence_input(path):
+            with path.open("rb") as handle: raw = handle.read(3_000_001)
+            if len(raw) > 3_000_000: raise Refusal("Evidence review exceeds its bound")
+            return json.loads(raw)
+        if args.action == "platform-reconciliation-preview": out = reconciliation.preview(registry, evidence_input(args.evidence))
+        elif args.action == "platform-reconciliation-status": out = reconciliation.status(registry)
+        else:
+            if not args.confirm: raise Refusal("Explicit --confirm required; evidence review does not activate a run")
+            out = reconciliation.record(registry, {"id": args.id, "confirmed": True, "preview": evidence_input(args.preview)})
+        print(json.dumps(out, ensure_ascii=False, indent=2)); return
     if args.action in ("platform-adoption-preview", "platform-adoption-status", "platform-adopt", "platform-adoption-recover"):
         if not registry or args.workspace:
             raise Refusal("Ownership adoption is platform-wide: supply --platform and omit --workspace")

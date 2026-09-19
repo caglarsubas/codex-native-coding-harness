@@ -151,10 +151,12 @@ brain restart and observation updates cannot remove the fence or reset budgets.
 ## Remaining integration gates
 
 This delivers ownership import and cross-database receipt recovery, **not all of
-WSP-04 or autonomous Play**. The next integration must independently reconcile
-native identities and terminal/runner observations, verify canonical mappings and
-account identity/usage coverage, bind retained usage to exact authorized baselines,
-then implement run/phase authority and native-operation receipt bridges. Reviewed
+WSP-04 or autonomous Play**. Follow-up [WSP-04B3](ADMISSION-RECONCILIATION.md)
+validates externally supplied identity, quiescence, runner, mapping and usage
+assertions and retains versioned reviews/baselines. It does not independently
+collect native observations or release imported ownership. Trusted observation
+collection, exact authorized run/phase baselines and native-operation receipt
+bridges remain required. Reviewed
 mission configuration must not activate on merge, upgrade, enrollment or adoption.
 New effect/continuation boundaries must recheck Pause, revocation, checkpoints,
 scope, model/effort policy and budget headroom before native work is possible.

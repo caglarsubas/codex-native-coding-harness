@@ -154,6 +154,13 @@ service remains separate from Codex account usage.
 
 ## Integration gates still open — WSP-04B and WSP-03B/C
 
+WSP-04B3 adds [versioned admission-evidence reviews](ADMISSION-RECONCILIATION.md)
+and continuity-checked cumulative usage baselines. These validate caller-supplied
+observations, not their native provenance. A consistent historical receipt is
+neither free capacity nor execution authority; all imported ownership and fences
+remain intact. Actual observation collection and the controller gates below are
+still required.
+
 Do not wire a successful capacity reservation directly to native task creation.
 The remaining controller work must:
 

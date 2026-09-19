@@ -47,6 +47,10 @@ controller authority: an exact owner confirmation is required for submission.
 - Owner-reviewed [retained ownership adoption](docs/OWNERSHIP-ADOPTION.md) imports
   historical tasks/runners into shared admission as quarantined claims, preserving
   conflicts, unknown usage and interrupted-import receipts. It does not enable Play.
+- [Admission-evidence reviews](docs/ADMISSION-RECONCILIATION.md) compare bounded
+  external observations with retained owners and preserve account/task usage
+  baselines across versions. Freshness, coverage and counter resets stay explicit;
+  no native collection, ownership release or activation is implied.
 
 Use the top **Navigation / Workspace / AI assistant** controls to show or collapse
 panes. Drag either divider, or focus it and use Left/Right (Shift for larger
