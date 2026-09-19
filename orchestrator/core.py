@@ -523,6 +523,7 @@ class Ledger:
         with self.tx() as db:
             self.authorize(db, token)
             w = self.get(db, "workers", wid)
+            require("dispatchAdmission" not in w, "Admission-managed worker requires the native result adapter")
             require(w["status"] == "starting", "Worker is not starting")
             if thread_id:
                 require(not any(x.get("threadId") == thread_id for x in self.all(db, "workers")), "Task already bound")
@@ -542,6 +543,7 @@ class Ledger:
         with self.tx() as db:
             meta = self.authorize(db, token)
             w = self.get(db, "workers", wid)
+            require("dispatchAdmission" not in w, "Admission-managed worker requires the continuation adapter")
             require(status in allowed.get(w["status"], set()), "Invalid worker transition")
             require(not meta["runner"] or meta["runner"]["workerId"] != wid, "Release runner only after observed process exit")
             w["noProgressCycles"] = 0 if progress else w["noProgressCycles"] + 1
@@ -554,6 +556,7 @@ class Ledger:
         with self.tx() as db:
             meta = self.authorize(db, token)
             w = self.get(db, "workers", wid)
+            require("dispatchAdmission" not in w, "Admission-managed worker requires shared runner coordination")
             if action == "acquire":
                 from .enrollment import require_legacy_unfenced
                 require_legacy_unfenced(self, meta)
@@ -583,6 +586,7 @@ class Ledger:
         with self.tx() as db:
             meta = self.authorize(db, token)
             w = self.get(db, "workers", wid)
+            require("dispatchAdmission" not in w, "Admission-managed worker requires shared completion coordination")
             require(w["status"] == "verifying", "Worker not ready for completion")
             require(not meta["runner"] or meta["runner"]["workerId"] != wid, "Runner still owned")
             seed = self.get(db, "snapshots", w["seedHash"])

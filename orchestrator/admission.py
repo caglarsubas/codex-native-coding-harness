@@ -278,7 +278,14 @@ class AdmissionStore:
         self.fresh(allocation["usage"]["observedAt"], policy)
         require(budget["remainingForNewWork"] >= extra, "Phase token headroom exhausted; checkpoint reserve protected")
 
-    def reserve(self, claim_id, allocation_id, *, repositories, estimates, role="worker"):
+    def reserve(self, claim_id, allocation_id, *, repositories, estimates, role="worker", binding_hash=None):
+        with self.tx() as db:
+            return self.reserve_in(db, claim_id, allocation_id, repositories=repositories, estimates=estimates,
+                                   role=role, binding_hash=binding_hash)
+
+    def reserve_in(self, db, claim_id, allocation_id, *, repositories, estimates, role="worker", binding_hash=None):
+        """Coordinator seam: caller must hold this store's transaction."""
+        require(db.in_transaction, "Admission transaction required")
         identifier(claim_id)
         require(role in ("worker", "reviewer", "nested"), "Unsupported task role")
         require(isinstance(repositories, list) and 1 <= len(repositories) <= 20, "Repository scope required")
@@ -289,48 +296,53 @@ class AdmissionStore:
         for amount in estimates.values():
             integer(amount, 1, 1_000_000_000)
         spec = {"allocationId": allocation_id, "repositories": sorted(repositories), "estimates": estimates, "role": role}
+        if binding_hash is not None:
+            spec["bindingHash"] = sha(binding_hash)
         fingerprint = digest(spec)
-        with self.tx() as db:
-            from .admission_legacy import require_open
-            require_open(self.root, self.get(db, "meta", 1))
-            prior = db.execute("SELECT data FROM claims WHERE id=?", (claim_id,)).fetchone()
-            if prior:
-                result = json.loads(prior[0])
-                require(result["fingerprint"] == fingerprint, "Claim ID reused with different content")
-                return result  # Replay never reacquires resources or permits another native call.
-            allocation = self.get(db, "allocations", allocation_id)
-            estimated = sum(estimates.values())
-            self.check_budget(db, allocation, estimated)
-            claims = self.rows(db, "claims")
-            held = [c for c in claims if c["status"] in HELD]
-            limits = allocation["spec"]["limits"]
-            require(len(held) < self.get(db, "meta", 1)["policy"]["maxParallelTasks"], "Global task slots exhausted")
-            require(sum(c["allocationId"] == allocation_id for c in held) < limits["maxParallelTasks"], "Workspace task slots exhausted")
-            require(sum(c["allocationId"] == allocation_id for c in claims) < limits["maxTasks"], "Phase task-attempt limit exhausted")
-            keys = set()
-            for repo in repositories:
-                require(repo in allocation["spec"]["repositories"], "Repository is outside allocation")
-                keys.update(allocation["spec"]["repositories"][repo])
-            for key in sorted(keys):
-                require(not db.execute("SELECT 1 FROM resources WHERE id=?", (key,)).fetchone(), "Repository resource already owned")
-            result = {"id": claim_id, **spec, "fingerprint": fingerprint, "estimatedTokens": estimated,
-                      "status": "reserved", "createdAt": self.clock(), "native": None, "actual": None, "settledAt": None}
-            db.execute("INSERT INTO claims VALUES(?,?,?)", (claim_id, allocation_id, canonical(result)))
-            for key in sorted(keys):
-                db.execute("INSERT INTO resources VALUES(?,?,?)", (key, claim_id, self.clock()))
-            self.event(db, "capacity_reserved", id=claim_id)
-            return result
+        from .admission_legacy import require_open
+        require_open(self.root, self.get(db, "meta", 1))
+        prior = db.execute("SELECT data FROM claims WHERE id=?", (claim_id,)).fetchone()
+        if prior:
+            result = json.loads(prior[0])
+            require(result["fingerprint"] == fingerprint, "Claim ID reused with different content")
+            return result  # Replay never reacquires resources or permits another native call.
+        allocation = self.get(db, "allocations", allocation_id)
+        estimated = sum(estimates.values())
+        self.check_budget(db, allocation, estimated)
+        claims = self.rows(db, "claims")
+        held = [c for c in claims if c["status"] in HELD]
+        limits = allocation["spec"]["limits"]
+        require(len(held) < self.get(db, "meta", 1)["policy"]["maxParallelTasks"], "Global task slots exhausted")
+        require(sum(c["allocationId"] == allocation_id for c in held) < limits["maxParallelTasks"], "Workspace task slots exhausted")
+        require(sum(c["allocationId"] == allocation_id for c in claims) < limits["maxTasks"], "Phase task-attempt limit exhausted")
+        keys = set()
+        for repo in repositories:
+            require(repo in allocation["spec"]["repositories"], "Repository is outside allocation")
+            keys.update(allocation["spec"]["repositories"][repo])
+        for key in sorted(keys):
+            require(not db.execute("SELECT 1 FROM resources WHERE id=?", (key,)).fetchone(), "Repository resource already owned")
+        result = {"id": claim_id, **spec, "fingerprint": fingerprint, "estimatedTokens": estimated,
+                  "status": "reserved", "createdAt": self.clock(), "native": None, "actual": None, "settledAt": None}
+        db.execute("INSERT INTO claims VALUES(?,?,?)", (claim_id, allocation_id, canonical(result)))
+        for key in sorted(keys):
+            db.execute("INSERT INTO resources VALUES(?,?,?)", (key, claim_id, self.clock()))
+        self.event(db, "capacity_reserved", id=claim_id)
+        return result
 
     def begin(self, claim_id):
         """One-shot durable boundary; caller still needs independent execution authority."""
         with self.tx() as db:
-            claim = self.get(db, "claims", claim_id)
-            require(claim["status"] == "reserved", "Creation already attempted; reconcile, never blindly retry")
-            self.check_budget(db, self.get(db, "allocations", claim["allocationId"]))
-            claim.update(status="starting", startedAt=self.clock())
-            self.put(db, "claims", claim_id, claim)
-            self.event(db, "creation_boundary", id=claim_id)
-            return claim
+            return self.begin_in(db, claim_id)
+
+    def begin_in(self, db, claim_id):
+        require(db.in_transaction, "Admission transaction required")
+        claim = self.get(db, "claims", claim_id)
+        require(claim["status"] == "reserved", "Creation already attempted; reconcile, never blindly retry")
+        self.check_budget(db, self.get(db, "allocations", claim["allocationId"]))
+        claim.update(status="starting", startedAt=self.clock())
+        self.put(db, "claims", claim_id, claim)
+        self.event(db, "creation_boundary", id=claim_id)
+        return claim
 
     def bind(self, claim_id, *, host_id, thread_id):
         identifier(host_id); identifier(thread_id)
