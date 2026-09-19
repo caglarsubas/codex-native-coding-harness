@@ -69,6 +69,11 @@ ownership release, native result binding and continuation are not exposed here.
 
 ## Internal methods
 
+WSP-04C2 now provides [native lifecycle coordination](NATIVE-LIFECYCLE.md): result
+observations and same-run correction-intent receipts. Native transport, ownership
+release and activation remain unimplemented. Use that coordinator once a claim
+has native observations; creation-only recovery refuses rather than rewinding it.
+
 | Method | Retained effect; never native execution |
 | --- | --- |
 | `phase_allocation` | Pure deterministic allocation specification; no store writes or identity attestation |
@@ -92,7 +97,8 @@ No existing worker can be silently replaced with a new run, approval or estimate
 Legacy native binding, transition, runner and completion methods explicitly refuse
 admission-managed workers so their local record cannot diverge from shared ownership.
 
-See [verification evidence](DISPATCH-ADMISSION-VERIFICATION.md). Next delivery must
-connect native result/continuation and reconciliation, then exact owner activation
-and a separately authorized real pilot. No browser acceptance or live rollout is
-claimed by this backend increment.
+See [verification evidence](DISPATCH-ADMISSION-VERIFICATION.md). WSP-04C2 adds
+result/same-run correction coordination. Ownership settlement/release, independent
+resource observations, new-generation continuation approval and native transport
+remain before exact owner activation and a separately authorized real pilot.
+No browser acceptance or live rollout is claimed by these backend increments.
