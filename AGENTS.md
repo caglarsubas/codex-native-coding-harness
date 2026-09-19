@@ -73,3 +73,12 @@ A consistent report is not independently authenticated native evidence, an owner
 release, a budget grant or run activation. Never fabricate coverage/cleanup flags,
 refresh observation timestamps on read or reset an account/task counter epoch to
 hide usage. Do not collect or record a live baseline merely to upgrade the tooling.
+
+WSP-03B1 workspace Pause is cooperative safety coordination, not autonomous Play
+or mission activation. Retain the exact stop's worker set and every subsequently
+observed descendant. No early Resume, guessed idle state, disappearing owner,
+forged coverage or read-refreshed evidence timestamp. Only the designated brain
+may retain native pause observations and park with their exact current hash.
+Keep checkpoint retention, current native inactivity and ownership release
+separate. Do not reinstall the skill or alter a live brain/schedule just to ship
+source changes. See docs/WORKSPACE-PAUSE.md for rollout and legacy boundaries.

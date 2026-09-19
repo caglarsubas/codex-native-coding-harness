@@ -120,6 +120,16 @@ wake arrives. Resume only for a newer explicit `brain_resume`; recover retained
 state and restore the existing heartbeat according to saved listening/supervision
 policy. Resume brain never implicitly enables worker dispatch.
 
+For `meta.brainControl.protocol == workspace_pause_v1`, use the workspace Pause
+branch of the checkpoint procedure: retain every worker captured at the request
+and every observed nested/review task, save fresh per-task checkpoint artifacts,
+then `brain-stop-observe` and park with its exact `pauseEvidenceHash`. Read
+`inbox.workspacePause.blockers`; incomplete coverage is not an empty inventory.
+No Resume is accepted before parking. A newer Pause may supersede a pending
+Resume. Never use legacy worker-only observations for a workspace pause, resume
+worker work merely because the brain woke, or claim a retained checkpoint proves
+current inactivity. Source upgrades do not authorize live installation or control.
+
 The dashboard persists pause/approval/hold/priority/listening changes immediately
 and notifies the brain for a receipt and schedule reconciliation. `process`
 clears `needsBrainReceipt` without replaying older policy; use latest state. Resume,

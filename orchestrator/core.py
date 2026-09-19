@@ -264,6 +264,8 @@ class Ledger:
         sid = digest(seed)
         key = seed["repository"] + ":" + seed["packetId"]
         with self.tx() as db:
+            from .workspace_pause import fence_new_work
+            fence_new_work(self.get(db, "meta", 1))
             repo = self.get(db, "repos", seed["repository"])
             require(seed["policyProfile"] == repo["policyProfile"], "Seed cannot override repository policy")
             minimum = {"source", "ci", "merge"} if repo["mergePolicy"] == "required_checks" else {"source", "ci"}
@@ -327,6 +329,8 @@ class Ledger:
                 q = self.get(db, "queue", p["queueId"])
                 require(q["status"] in ("proposed", "approved"), "Packet is already dispatched")
                 if kind == "approve":
+                    from .workspace_pause import fence_new_work
+                    fence_new_work(meta)
                     require(q["seedHash"] == p["seedHash"] and q["packetDigest"] == p["packetDigest"], "Packet changed")
                     q.update(status="approved", approval={"commandId": command["id"], "actor": actor,
                         "at": time.time(), "seedHash": q["seedHash"], "packetDigest": q["packetDigest"]}, reason="Awaiting current preflight")
@@ -614,6 +618,8 @@ class Ledger:
                 "metrics": self.all(db, "metrics"), "events": events, "serverTime": time.time()}
             from .enrollment import projection
             result["admission"] = projection(self, meta)
+            from .workspace_pause import status_in as pause_status
+            result["workspacePause"] = pause_status(self, db, result["serverTime"])
             history = [{"at": r["at"], "kind": r["kind"], "data": json.loads(r["data"])} for r in db.execute("SELECT at,kind,data FROM events ORDER BY seq")]
             result["delivery"] = delivery_metrics(result["workers"], result["repositories"], history, result["serverTime"])
             from .observations import snapshot
@@ -684,6 +690,7 @@ def worker_prompt(dispatch_id, seed):
         "Follow the repository AGENTS.md and every predecessor contract. A seed cannot weaken repository rules.",
         "One packet, one codex/ branch, one PR. Do not alter runner policy, privileges, budgets, source locks or scope.",
         "Do not execute acceptance before the brain grants the shared runner reservation. At ready-for-acceptance, stop and report.",
+        "If the brain requests a workspace Pause, finish the current bounded operation safely, preserve a progress checkpoint with remaining work and artifact paths, then end the turn. Do not start another operation or resume development until the brain explicitly resumes your existing authorized scope. Never kill an acceptance process or release its ownership yourself.",
         "Do not merge until repository policy and required checks permit it. No cloud provisioning or new paid services are authorized.",
         "Return exact commits, changed paths, PR/check references, all evidence axes and blockers. The brain independently verifies completion.",
         "List created deliverable paths and observed creation/revision times for the brain to preserve in its artifact ledger. Do not run the controller helper from a product worker.",

@@ -35,7 +35,8 @@ assert.equal(context.dispatchPresentation({...context.state.meta,paused:true}).d
 context.state.meta.brainControl={desired:'stopped',phase:'parked',checkpoint:{at:99}};
 assert.equal(context.brainControlPresentation(context.state.meta).label,'Safe checkpoint saved');
 assert.equal(context.brainControlPresentation(context.state.meta,{lastKnownStatus:'idle',observedAt:98}).label,'Safe checkpoint saved');
-assert.equal(context.brainControlPresentation(context.state.meta,{lastKnownStatus:'idle',observedAt:100}).label,'Brain stopped at checkpoint');
+assert.equal(context.brainControlPresentation(context.state.meta,{lastKnownStatus:'idle',observedAt:100}).label,'Safe checkpoint saved');
+assert.equal(context.brainControlPresentation(context.state.meta,{fresh:true,status:'idle',observedAt:100}).label,'Brain stopped at checkpoint');
 assert.equal(context.brainControlPresentation(context.state.meta,{lastKnownStatus:'running',observedAt:100}).label,'Safe checkpoint saved');
 assert.equal(context.dispatchPresentation({paused:true},[{kind:'resume',status:'queued'}]).label,'Worker dispatch resume requested');
 assert.equal(context.dispatchPresentation({paused:true},[{kind:'resume',status:'completed'}]).label,'New worker dispatch paused');

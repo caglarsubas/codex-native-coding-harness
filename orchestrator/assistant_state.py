@@ -28,6 +28,8 @@ def extend_context(state, facts, view="overview"):
         "runner": {"owned": bool(meta.get("runner")), "since": (meta.get("runner") or {}).get("since")},
         "brainControlRecorded": bool(meta.get("brainControl")),
         "safeCheckpoint": fields((meta.get("brainControl") or {}).get("checkpoint"), "at"),
+        "workspacePause": {**fields(state.get("workspacePause"), "status requestedAt checkpointAt validUntil retainedWorkers observedTasks canResumeBrain"),
+                           "blockers": [fields(i, "code detail") for i in (state.get("workspacePause") or {}).get("blockers", [])[:12]]},
         "readiness": fields(readiness, "status checkedAt localObservedAt nativeObservedAt localFresh nativeFresh launchAuthorized"),
         "runtime": {**fields(provenance, "status localFresh remoteFresh restartRecommended startupMatchesRemote checkoutMatchesRemote"),
                     **{k: fields(provenance.get(k), "status at commit dirty") for k in ("startup", "current", "remote")}},

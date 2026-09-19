@@ -172,7 +172,7 @@ class Handler(BaseHTTPRequestHandler):
         static["/activity.js"] = ("activity.js", "text/javascript; charset=utf-8")
         static["/decisions.js"] = ("decisions.js", "text/javascript; charset=utf-8")
         static["/decisions.css"] = ("decisions.css", "text/css; charset=utf-8")
-        for file in ("panes.js", "assistant.js", "routing.js", "workspaces.js", "missions.js", "panes.css"):
+        for file in ("panes.js", "assistant.js", "routing.js", "workspaces.js", "missions.js", "workspace-pause.js", "panes.css"):
             static["/" + file] = (file, "text/javascript; charset=utf-8" if file.endswith(".js") else "text/css; charset=utf-8")
         if path in static:
             file, mime = static[path]

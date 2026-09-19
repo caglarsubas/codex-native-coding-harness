@@ -53,6 +53,8 @@ def main():
     p = sub.add_parser("decision-resolve"); p.add_argument("id"); p.add_argument("result", type=Path)
     p = sub.add_parser("continuation-publish"); p.add_argument("id"); p.add_argument("spec", type=Path)
     p = sub.add_parser("brain-park"); p.add_argument("id"); p.add_argument("checkpoint", type=Path)
+    p = sub.add_parser("brain-stop-observe", help="Retain bounded worker/descendant evidence for the current workspace Pause")
+    p.add_argument("id"); p.add_argument("evidence", type=Path)
     p = sub.add_parser("executive-summary"); p.add_argument("--force", action="store_true")
     p = sub.add_parser("observe"); p.add_argument("--remote", action="store_true")
     p = sub.add_parser("artifact-add"); p.add_argument("path", type=Path); p.add_argument("--repo", required=True); p.add_argument("--session"); p.add_argument("--created-at", type=float)
@@ -187,6 +189,11 @@ def main():
     elif action == "brain-park":
         from .brain_control import park
         out = park(ledger, token, args.id, read(args.checkpoint))
+    elif action == "brain-stop-observe":
+        from .workspace_pause import observe
+        with args.evidence.open("rb") as handle: raw = handle.read(512_001)
+        if len(raw) > 512_000: raise Refusal("Pause evidence exceeds its bound")
+        out = observe(ledger, token, args.id, json.loads(raw))
     elif action == "mission-state":
         from .missions import read as read_mission
         out = read_mission(ledger)

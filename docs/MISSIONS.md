@@ -24,8 +24,9 @@ token reservation. No configuration operation sends a brain notification.
    review; it does not stop a running task or alter an existing packet approval.
 
 The screen explains why Play is unavailable. WSP-03B/C and WSP-04 must implement
-run generations, delegated packet admission, mandatory phase release, cooperative
-workspace pause and shared resource/budget safeguards before activation. Future
+run generations, delegated packet admission, mandatory phase release and shared
+resource/budget safeguards before activation. Cooperative workspace Pause is
+implemented separately in [WSP-03B1](WORKSPACE-PAUSE.md), without Play. Future
 activation must require a **new explicit owner action** bound to the exact contract;
 upgrading must not turn any existing `reviewed` configuration into a running mission.
 Model/effort/speed choices are deliberately not simulated by this form.
