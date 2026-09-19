@@ -130,3 +130,48 @@ class WorkspaceServerTest(unittest.TestCase):
                 chat.assert_not_called()
         finally:
             a.inference_lock.release()
+
+    def test_mission_owner_review_is_scoped_and_never_notifies_or_dispatches(self):
+        from test_missions import request, specification
+        for wid, ledger in self.ledgers.items():
+            ledger.initialize({"schemaVersion": 1, "brainId": "brain-" + wid, "repositories": [
+                {"id": "fixture", "path": "/fixture/" + wid, "projectId": "project-" + wid,
+                 "ref": "origin/main", "mergePolicy": "manual", "policyProfile": "standard"}]})
+        body = request(spec=specification("fixture", "phase_delegated"))
+        path = "/api/workspaces/a/mission"
+        self.assertEqual(self.request(path)[0], 401)
+        auth = self.auth("a"); other_auth = self.auth("b", auth)
+        self.assertEqual(self.request(path, body, other_auth)[0], 403)
+        runtime = self.server.runtime_for("a")
+        with patch.object(runtime.notifier, "notify") as notify:
+            status, _, raw = self.request(path, body, auth)
+            self.assertEqual(status, 200, raw)
+            current = json.loads(raw)["current"]
+            review = request("review", 1, documentHash=current["documentHash"], confirmed=True)
+            self.assertEqual(self.request("/api/workspaces/b/mission", review, other_auth)[0], 409)
+            status, _, raw = self.request(path, review, auth)
+            self.assertEqual(status, 200, raw)
+            self.assertFalse(json.loads(raw)["receipt"]["executionAuthorized"])
+            self.assertEqual(self.request(path, review, auth)[0], 200)
+            notify.assert_not_called()
+        status, _, raw = self.request("/api/workspaces/a/assistant/context?view=mission", headers=auth)
+        self.assertEqual(status, 200, raw)
+        context = json.loads(raw)
+        mission = next(f["data"] for f in context["facts"] if f["id"] == "F31")
+        self.assertEqual(mission["status"], "reviewed")
+        self.assertFalse(mission["activation"]["available"])
+        self.assertNotIn(b"/fixture/a", raw)
+        for ledger in self.ledgers.values():
+            self.assertEqual(ledger.snapshot()["commands"], [])
+            self.assertEqual(ledger.snapshot()["workers"], [])
+        _, _, raw = self.request("/api/workspaces/b/mission", headers=other_auth)
+        self.assertEqual(json.loads(raw)["version"], 0)
+
+    def test_mission_closed_schema_and_activation_routes_fail_closed(self):
+        auth = self.auth("a")
+        for body in ({"operation": "play"}, {"operation": "review", "confirmed": True}, [],
+                     {"operation": "save", "id": "test-id-123", "expectedRevision": True, "spec": {}}):
+            self.assertEqual(self.request("/api/workspaces/a/mission", body, auth)[0], 409)
+        for path in ("/api/workspaces/a/mission/play", "/api/workspaces/a/mission/activate"):
+            self.assertEqual(self.request(path, {}, auth)[0], 404)
+        self.assertEqual(self.ledgers["a"].snapshot()["commands"], [])

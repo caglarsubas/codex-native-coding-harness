@@ -35,3 +35,17 @@ uncertain delivery. All worker operations and authority remain with the brain.
 
 Dispatch defaults to paused. Queue authorization must identify exact packet and
 seed hashes. A request to build this controller is not product packet approval.
+
+Workspace mission/phase authority records are configuration-only in WSP-03A.
+Owner review is not packet approval, delegation, enforced budget or activation.
+The brain can propose drafts under its controller but cannot review/revoke them.
+Do not read `reviewed` as executable authority or auto-activate on upgrade. See
+docs/MISSIONS.md; resource/budget admission and run/checkpoint gates must ship
+before a separate exact owner-bound activation can enable autonomous Play.
+
+WSP-04A's admission kernel is capacity accounting, not execution authority. It
+has no production write route or native-dispatch integration. Do not initialize
+live allocations, auto-adopt owners or change legacy dispatch during an upgrade.
+The explicit platform-resources command is read-only, bounded metadata inspection;
+its snapshot is not a lock. WSP-04B must implement legacy-owner adoption, authority
+fences and cross-database recovery before using the kernel for native operations.

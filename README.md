@@ -37,6 +37,10 @@ controller authority: an exact owner confirmation is required for submission.
   versioned project introductions and an All workspaces comparison. See
   [workspace setup and current limits](docs/WORKSPACES.md); continuous phase
   autopilot remains tracked separately, not implied by registration.
+- Mission/phase configuration and exact owner review, deliberately inactive. A
+  [shared admission foundation](docs/ADMISSION.md) adds a tested internal capacity
+  kernel and explicit read-only `platform-resources` audit; native dispatch and
+  autonomous Play are not yet connected to it.
 
 Use the top **Navigation / Workspace / AI assistant** controls to show or collapse
 panes. Drag either divider, or focus it and use Left/Right (Shift for larger

@@ -612,8 +612,23 @@ delegated packet authority. Cross-workspace concurrent mutation is not enabled.
 
 ### WSP-03 — delegated phase authority and truthful Play/Pause
 
+WSP-03 is split into reviewable increments. **WSP-03A** is configuration-only:
+immutable mission/phase/authority drafts, authenticated owner review/revocation,
+policy validation and the dashboard editor. It grants no execution authority.
+**WSP-03B/C** add actual delegation, phase release and run/control state machines,
+and cannot activate before WSP-04 resource/budget admission is enforced. This
+dependency prevents a reviewed numeric allowance from posing as an enforced limit.
+See [implemented mission configuration](MISSIONS.md). Existing `reviewed` records
+must never activate automatically on upgrade; activation requires a new exact
+owner-bound action.
+
+- [x] WSP-03A: versioned mission, phase, repository scope, owner checkpoint and proposed authority limits.
+- [x] WSP-03A: explicit exact-hash owner review/revocation, stale-write and policy-change checks.
+- [x] WSP-03A: workspace editor, immutable history, retained drafts and truthful inactive state.
+- [x] WSP-03A: designated-brain draft-only procedure and bounded assistant awareness.
+- [x] WSP-03A: isolated tests for empty scope, Harness/manual merge, retries and workspace isolation.
 - [ ] Implement the selected configurable authority model in tooling/skill contracts.
-- [ ] Workspace authority editor: packet approval, checkpoints, task and token limits.
+- [ ] Activate workspace authority with enforced packet, checkpoint, task and token admission.
 - [ ] Mission/phase review, delegated packet approval/revocation and exact version checks.
 - [ ] Phase report, independent verification and owner-bound checkpoint release.
 - [ ] Durable workspace-run intent, immediate notification, receipt and recovery states.
@@ -623,6 +638,18 @@ delegated packet authority. Cross-workspace concurrent mutation is not enabled.
 
 ### WSP-04 — shared resources and adaptive routing
 
+**WSP-04A** implements the private atomic capacity kernel and read-only resource
+audit, with synthetic contention/recovery/accounting tests. It is not connected
+to native dispatch. **WSP-04B** must adopt legacy owners, connect authority and
+run fences, verify observation coverage and handle cross-database recovery before
+the full admission items below can be checked. See [the implemented contract and
+remaining integration gates](ADMISSION.md). Do not activate a reviewed mission
+or initialize live allocations as an upgrade side effect.
+
+- [x] WSP-04A: common-directory/conventional-origin identity observation and explicit platform-wide owner/alias audit.
+- [x] WSP-04A: atomic multi-resource, global/workspace slot and token reservations in an isolated capacity kernel.
+- [x] WSP-04A: fresh account/phase observation checks, checkpoint headroom and conservative settlement accounting.
+- [x] WSP-04A: two-process contention, transaction rollback, restart and uncertain-creation retention fixtures.
 - [ ] Canonical repository/runner identity and transactional platform reservations.
 - [ ] Brain-owned new/continue/handle/wait decisions with reason and immutable task seed.
 - [ ] Explicit model/effort/speed policy and requested/applied/observed decision records.

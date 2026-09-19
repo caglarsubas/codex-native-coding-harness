@@ -127,7 +127,7 @@ This maintainer implementation does not qualify as the real native-worker pilot.
 - [x] Receipt-aware action cards; no automatic retry or optimistic completion
 - [x] Regression and fixture/browser verification, including stale previews and stopped-brain answers
 - [x] Live richer-context SSE reply and exact brain-stop preview verified; no live control submitted
-- [ ] Publish the integrated PR #11 baseline and v11 increment to main
+- [x] Publish the integrated PR #11 baseline and v11 increment to main (PR #12)
 
 ## Development workspaces and phase-bounded autopilot — planned v12+
 
@@ -138,6 +138,8 @@ These are planned tooling increments, not live mission or product authorization.
 - [x] WSP-01: private workspace registry, isolated state and verified in-place migration
 - [x] WSP-02 foundation: workspace selection, executive project introduction, recorded aggregates and scoped assistant
 - [ ] WSP-02 scale qualification and WSP-04 canonical clone/worktree deduplication
+- [x] WSP-03A: versioned mission/phase authority configuration, exact owner review/revocation and policy-safe editor (inactive)
+- [x] WSP-04A: isolated shared-capacity kernel, conservative token accounting and explicit read-only resource audit (not connected to native dispatch)
 - [ ] WSP-03: configurable brain authority, phase checkpoint releases and safe Play/Pause
 - [ ] WSP-04: brain-owned task/model/effort/speed choices, parallel limits and token admission
 - [ ] WSP-05: continuous phase-scoped development, inheritance and preserved task archival
