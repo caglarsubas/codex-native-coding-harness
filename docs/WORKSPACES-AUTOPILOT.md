@@ -705,6 +705,14 @@ to a later review. It does not establish source semantics, CI, remote delivery o
 preservation. Trusted native/CI/remote collection and Harness acceptance remain
 unimplemented. Completion does not enable legacy pilot or archival paths.
 
+**WSP-04D1** adds the [brain-owned creation handoff](NATIVE-CREATION-HANDOFF.md):
+a designated-brain CLI emits exact native task arguments for an already admitted
+standard-policy reservation, consumes a current send check once, and binds actual
+native result projections through the existing journal. The brain still performs
+the app tool call. Local saved-project identity, exact base SHA, owner task
+approval and native defaults are required. This is fixture-qualified integration,
+not a live pilot, installed skill change, automatic dispatcher or Play activation.
+
 - [x] WSP-04A: common-directory/conventional-origin identity observation and explicit platform-wide owner/alias audit.
 - [x] WSP-04A: atomic multi-resource, global/workspace slot and token reservations in an isolated capacity kernel.
 - [x] WSP-04A: fresh account/phase observation checks, checkpoint headroom and conservative settlement accounting.
@@ -716,6 +724,7 @@ unimplemented. Completion does not enable legacy pilot or archival paths.
 - [x] WSP-04B3: explicit evidence coverage/freshness diagnostics, exact owner-reviewed versions and non-resetting account/task cumulative baseline anchors.
 - [x] WSP-04B3: read-only current re-evaluation, source/version concurrency checks, crash replay and retained ownership/fences.
 - [x] WSP-04C3e: bounded standard-policy local commit/ancestry/branch/diff observation, retained collector/request proof and no timestamp refresh on review/replay.
+- [x] WSP-04D1: one-use native creation handoff/check and CLI return-path fixtures; exact project/base/defaults, Pause races and conservative result recovery.
 - [ ] Trusted native/operator observation collection and live evidence qualification; supplied assertions are not independent attestation.
 - [ ] Canonical repository/runner identity and transactional platform reservations.
 - [ ] Brain-owned new/continue/handle/wait decisions with reason and immutable task seed.

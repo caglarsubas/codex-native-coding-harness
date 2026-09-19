@@ -231,9 +231,12 @@ class DispatchAdmission:
                 require(claim["status"] == "reserved", "Creation intent already retained; recover receipts only")
             return self.attach_in(db, worker, claim)
 
-    def begin_creation(self, token, worker_id):
+    def begin_creation(self, token, worker_id, *, expected_revision=None):
         """One-shot journal boundary only. No native call or reusable permit."""
+        if expected_revision is not None: integer(expected_revision)
         with self.locked(token, effects=True) as (db, meta):
+            require(expected_revision is None or meta["revision"] == expected_revision,
+                    "Workspace changed before the creation boundary")
             worker, intent = self.intent_in(db, worker_id)
             require(worker["dispatchAdmission"]["stage"] == "reserved" and worker["status"] == "reserved",
                     "Reservation receipt required; never retry creation intent")

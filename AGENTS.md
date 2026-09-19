@@ -197,3 +197,15 @@ retention; exact replay never recollects or refreshes time. Source structure is
 not semantic correctness, CI, preservation or acceptance. Collector proofs need
 their exact journal and request receipt; older supplied evidence remains explicitly
 caller-supplied. No new public route, live collection, skill update or Play rollout.
+
+WSP-04D1 adds a designated-brain CLI handoff for an already admitted standard-policy,
+exact owner-approved task. See docs/NATIVE-CREATION-HANDOFF.md. The helper emits
+native creation arguments once and consumes a fresh pre-send check once; the brain,
+not Python, calls the current native tool. Bind the actual selected local Git project
+and exact seed base through the isolated read-only view. Omit model/effort/speed
+overrides. Never reissue after a creation boundary, lost response or consumed check;
+retain pending client IDs separately and uncertainty as owned capacity. Late result
+recording and receipt-only recovery may proceed after Pause, never resume it.
+The check-to-native-call gap is cooperative in-flight work, not atomic cancellation.
+No live allocations, approval/activation route, native task, installed skill update,
+schedule change or maintenance-fence release is authorized by source delivery.

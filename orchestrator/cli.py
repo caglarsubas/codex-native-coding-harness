@@ -51,6 +51,11 @@ def main():
     p.add_argument("spec", type=Path); p.add_argument("--revision", type=int, required=True); p.add_argument("--id", required=True)
     p = sub.add_parser("task-contract-state", help="Read current binding and immutable declaration history")
     p.add_argument("queue_id")
+    for name in ("native-create-begin", "native-create-record", "native-create-check", "native-create-state", "native-create-recover"):
+        p = sub.add_parser(name, help="Designated-brain one-use native handoff; no transport or run activation")
+        p.add_argument("worker_id")
+        if name in ("native-create-begin", "native-create-record"): p.add_argument("request", type=Path)
+        if name == "native-create-check": p.add_argument("handoff_hash")
     p = sub.add_parser("mission-draft", help="Designated brain proposes a version; owner reviews in the dashboard")
     p.add_argument("spec", type=Path); p.add_argument("--revision", type=int, required=True); p.add_argument("--id", required=True)
     p = sub.add_parser("native-observe"); p.add_argument("observation", type=Path)
@@ -89,7 +94,7 @@ def main():
         raise Refusal("--workspace requires --platform")
     if args.state and (args.workspace or args.platform):
         raise Refusal("Choose a registered workspace or --state, not both")
-    if (args.action == "run-readiness" or args.action.startswith("task-contract-")) and not (args.platform and args.workspace):
+    if (args.action == "run-readiness" or args.action.startswith(("task-contract-", "native-create-"))) and not (args.platform and args.workspace):
         raise Refusal("This operation requires an explicit registered workspace")
     registry = Registry(args.platform, create=args.action == "workspace-register") if args.platform else None
     if args.action.startswith("platform-reconciliation-"):
@@ -204,6 +209,18 @@ def main():
     elif action == "mission-state":
         from .missions import read as read_mission
         out = read_mission(ledger)
+    elif action.startswith("native-create-"):
+        from .admission import AdmissionStore
+        from .dispatch_admission import DispatchAdmission
+        from .native_creation import NativeCreation
+        from .observations import read_regular
+        api = NativeCreation(DispatchAdmission(registry, args.workspace, AdmissionStore(registry.root)))
+        if action in ("native-create-begin", "native-create-record"):
+            path = args.request.absolute()
+            request = json.loads(read_regular(path, path.parent, 16000))
+            out = getattr(api, action.removeprefix("native-create-"))(token, args.worker_id, request)
+        elif action == "native-create-check": out = api.check(token, args.worker_id, args.handoff_hash)
+        else: out = getattr(api, action.removeprefix("native-create-"))(token, args.worker_id)
     elif action == "task-contract-propose":
         from .task_contracts import propose
         with args.spec.open("rb") as handle: raw = handle.read(16001)
