@@ -42,6 +42,9 @@ def request(ledger, db, command, meta):
             meta["workspacePauseId"] = workspace_id
             meta["brainControl"].update(protocol=PROTOCOL, workspaceId=workspace_id,
                 retainedWorkers=[worker_binding(w) for w in ledger.all(db, "workers") if w["status"] != "complete"])
+        from .run_authority import fence_in
+        reason = "brain_stop" if command.get("actor") == "designated_brain" else "owner_pause"
+        fence_in(ledger, db, meta, reason, command["id"])
     ledger.put(db, "meta", 1, meta)
 
 
@@ -138,6 +141,8 @@ def park(ledger, token, command_id, checkpoint):
         current.update(phase="parked", checkpoint=saved)
         meta["brainControl"] = current
         meta["paused"] = True
+        from .run_authority import checkpoint_in
+        checkpoint_in(ledger, db, meta, command_id, identity)
         ledger.put(db, "meta", 1, meta)
         command.update(status="completed", result="Safe checkpoint saved; automatic brain work is stopped. Native turn completion is observed separately.")
         ledger.put(db, "commands", command_id, command)

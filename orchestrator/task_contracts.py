@@ -175,7 +175,7 @@ def propose(ledger, token, request):
         sid = digest(doc)
         # Atomic with the first declaration: older v1-only helpers must refuse
         # reopening instead of treating this queue item as a legacy seed.
-        meta["schemaVersion"] = 2
+        meta["schemaVersion"] = max(meta["schemaVersion"], 2)
         ledger.put(db, "meta", 1, meta)
         db.execute("INSERT INTO snapshots VALUES(?,?,?)", (sid, "task_contract", canonical(doc)))
         q.update(taskContract={"hash": sid, "version": version}, status="proposed", approval=None, preflight=None,

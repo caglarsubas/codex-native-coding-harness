@@ -14,9 +14,9 @@ from .core import canonical, digest, require, safe_relative
 MODES = ("prepare_only", "exact_owner", "phase_delegated")
 OPERATIONS = ("edit", "test", "commit", "push", "open_pr", "merge")
 BLOCKERS = [
-    "Version-bound workspace runs and autonomous Play are not implemented; workspace Pause is separate.",
+    "Internal run-authority records are not native activation; owner-facing autonomous Play is not implemented.",
     "Shared capacity checks are not connected to native task creation; fresh usage and reconciliation of existing owners are still required.",
-    "Delegated packet approval and mandatory phase checkpoint release are not implemented.",
+    "Internal version-bound approvals/checkpoint releases are not connected to native effects or owner-facing Play.",
 ]
 
 
@@ -205,6 +205,8 @@ def change(ledger, request, actor="dashboard_owner", token=None):
         db.execute("INSERT INTO snapshots VALUES(?,?,?)", (receipt_hash, "mission_receipt", canonical(receipt)))
         updated["receiptHash"] = receipt_hash
         meta["missionConfiguration"] = updated
+        from .run_authority import fence_in
+        fence_in(ledger, db, meta, "mission_" + operation)
         ledger.put(db, "meta", 1, meta)
         db.execute("INSERT INTO snapshots VALUES(?,?,?)", (request_hash, "mission_request", canonical({"fingerprint": fingerprint, "result": receipt})))
         ledger.event(db, "mission_configuration_" + operation, {**updated, "actor": actor})

@@ -19,7 +19,7 @@ import uuid
 from urllib.parse import urlsplit
 
 VERSION = 1
-LEDGER_VERSIONS = (1, 2)  # v2 retains phase-bound task declarations; seeds stay v1.
+LEDGER_VERSIONS = (1, 2, 3)  # v2 task declarations; v3 internal run authority. Seeds stay v1.
 AXES = ("source", "ci", "merge", "artifact", "deployment", "runtime", "assurance", "tenant")
 ACTIVE = ("reserved", "starting", "running", "awaiting_acceptance", "accepting", "verifying", "blocked")
 COMMANDS = {"approve", "hold", "prioritize", "pause", "resume", "reconcile", "checkpoint", "archive", "decision_response", "listening", "brain_stop", "brain_resume"}
@@ -258,6 +258,8 @@ class Ledger:
             meta = self.get(db, "meta", 1)
             require(meta["controller"] and meta["controller"]["owner"] == expected_owner, "Controller changed")
             meta.update(controller=None, paused=True)
+            from .run_authority import fence_in
+            fence_in(self, db, meta, "controller_recovery")
             self.put(db, "meta", 1, meta)
             self.event(db, "controller_recovered_paused", {"observation": observation})
 
@@ -277,6 +279,7 @@ class Ledger:
             if old:
                 item = json.loads(old["data"])
                 if "taskContract" in item: retained_contract["taskContract"] = item["taskContract"]
+                if "phaseApprovalHash" in item: retained_contract["phaseApprovalHash"] = item["phaseApprovalHash"]
                 require(not db.execute("SELECT 1 FROM workers WHERE queue_id=?", (key,)).fetchone(), "Packet already owns a task; reconcile it, do not replace")
                 if item["seedHash"] == sid:
                     return item
@@ -336,6 +339,8 @@ class Ledger:
                 q = self.get(db, "queue", p["queueId"])
                 require(q["status"] in ("proposed", "approved"), "Packet is already dispatched")
                 if kind == "approve":
+                    from .run_authority import managed
+                    require(not managed(meta), "Run-managed workspace requires exact run-aware task approval")
                     require("taskContract" not in q, "Phase-bound packet requires run-aware approval; legacy seed-only approval is insufficient")
                     from .workspace_pause import fence_new_work
                     fence_new_work(meta)
@@ -352,6 +357,8 @@ class Ledger:
                 record.update(status="completed", result="Ledger updated; this does not create a native task.")
             elif kind == "pause":
                 meta["paused"] = True
+                from .run_authority import fence_in
+                fence_in(self, db, meta, "dispatch_pause")
                 self.put(db, "meta", 1, meta)
                 for older in self.all(db, "commands"):
                     if older["kind"] == "resume" and older["status"] == "queued":

@@ -31,15 +31,21 @@ def fence_exists(root):
 def projection(ledger, meta):
     binding = meta.get("admissionBinding")
     blocked = "admissionBinding" in meta or fence_exists(ledger.root)
+    from .run_authority import managed
+    run_managed = managed(meta)
+    reason = REASON if blocked else "Legacy exact-owner workflow; shared admission is not connected."
+    if run_managed and not blocked:
+        reason = "Run-managed workspace cannot use legacy dispatch; native run admission is not connected."
     return {"state": "fenced" if isinstance(binding, dict) else "fencing" if blocked else "not_enrolled",
-            "dispatchBlocked": blocked, "activationAvailable": False,
+            "dispatchBlocked": blocked or run_managed, "activationAvailable": False,
             "enrollmentId": binding.get("enrollmentId") if isinstance(binding, dict) else None,
             "workspaceId": binding.get("workspaceId") if isinstance(binding, dict) else None,
-            "reason": REASON if blocked else "Legacy exact-owner workflow; shared admission is not connected."}
+            "reason": reason}
 
 
 def require_legacy_unfenced(ledger, meta):
-    require(not projection(ledger, meta)["dispatchBlocked"], REASON)
+    state = projection(ledger, meta)
+    require(not state["dispatchBlocked"], state["reason"])
 
 
 def record_in(db):

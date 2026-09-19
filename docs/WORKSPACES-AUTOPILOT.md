@@ -639,6 +639,12 @@ requested settings, estimates, rationale and immutable proposal history. These
 packets are fenced out of legacy seed-only approval/dispatch. This is the task
 contract prerequisite, not delegated approval, native settings application or Play.
 
+**WSP-03B4** adds the internal [run-authority kernel](RUN-AUTHORITY.md): exact
+owner-confirmed generations, expiring intent, exact/delegated task approvals,
+atomic Pause/mission/recovery fences and exact checkpoint release. Brain stop
+boundaries require a newly reviewed scope. No public activation route or native
+admission adapter is enabled; neither a generation nor approval is a native permit.
+
 - [x] WSP-03A: versioned mission, phase, repository scope, owner checkpoint and proposed authority limits.
 - [x] WSP-03A: explicit exact-hash owner review/revocation, stale-write and policy-change checks.
 - [x] WSP-03A: workspace editor, immutable history, retained drafts and truthful inactive state.
@@ -648,6 +654,7 @@ contract prerequisite, not delegated approval, native settings application or Pl
 - [x] WSP-03B1: prohibit early resume, preserve ownership across retries and distinguish saved checkpoints from current inactivity.
 - [x] WSP-03B2: read-only exact mission/review binding, conservative packet-scope assessment and platform-baseline diagnostics with workspace-scoped reports.
 - [x] WSP-03B3: closed phase/task declarations, bounded estimates/requested settings, immutable brain proposal history and no legacy dispatch downgrade.
+- [x] WSP-03B4: internal run/approval/checkpoint lifecycle kernel, stop races and legacy bypass fences; no public Play or native effect integration.
 - [ ] Implement the selected configurable authority model in tooling/skill contracts.
 - [ ] Activate workspace authority with enforced packet, checkpoint, task and token admission.
 - [ ] Mission/phase review, delegated packet approval/revocation and exact version checks.

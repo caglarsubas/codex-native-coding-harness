@@ -53,6 +53,8 @@ that another approval alone can resolve missing implementation.
 Phase-bound task declarations are preparation, not delegated approval. Legacy
 seed-only approval cannot approve them. Requested execution settings are not
 applied, observed, supported or owner-authorized settings; no automatic fallback.
+Internal run-authority records are not native activation or an available Play
+control. They do not prove reservations, worker creation or budget enforcement.
 Only decisions marked needsOwnerInput=true await a new answer. A blocked historical
 decision can already have an owner answer and follow-up; do not call it open or
 unanswered. No dependency graph or artifact contents are supplied: never invent

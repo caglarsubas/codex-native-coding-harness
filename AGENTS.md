@@ -101,3 +101,16 @@ live use, stop and upgrade all older processes and back up private state. Do not
 downgrade the schema marker or run an older cached helper against that ledger.
 See docs/TASK-CONTRACTS.md; no installation or live schema change is part of source
 delivery. Existing v1 seeds and untouched legacy packets retain their contracts.
+
+WSP-03B4 is an internal run-authority kernel, not an activated native controller.
+No CLI, HTTP, assistant or installed-skill activation path exists. Do not call it
+on live state as part of an upgrade. Exact owner run intent, generation-bound task
+approval and an authority check are not capacity reservations or native permits.
+The future adapter must enforce both authority and shared admission at effect and
+continuation boundaries. Keep Pause/recovery/mission-change fences atomic; ordinary
+Resume cannot re-arm an old generation. Phase/budget/plan boundaries require a
+newly reviewed mission or bounded correction scope and exact checkpoint release.
+Run generations never reset token usage, task-attempt counts or resource ownership.
+First internal authorization upgrades metadata to v3; old cached processes must
+be stopped/upgraded first. Preserve all schema markers, declarations and history.
+See docs/RUN-AUTHORITY.md. No live activation or mixed-version rollout is authorized.
