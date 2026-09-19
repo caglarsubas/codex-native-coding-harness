@@ -44,6 +44,9 @@ controller authority: an exact owner confirmation is required for submission.
 - Explicit [maintenance enrollment and interrupted-setup recovery](docs/ENROLLMENT.md)
   preserve existing ownership and fence upgraded legacy launch paths. This is not
   automatic migration or Play; no live enrollment should be inferred from an upgrade.
+- Owner-reviewed [retained ownership adoption](docs/OWNERSHIP-ADOPTION.md) imports
+  historical tasks/runners into shared admission as quarantined claims, preserving
+  conflicts, unknown usage and interrupted-import receipts. It does not enable Play.
 
 Use the top **Navigation / Workspace / AI assistant** controls to show or collapse
 panes. Drag either divider, or focus it and use Left/Right (Shift for larger

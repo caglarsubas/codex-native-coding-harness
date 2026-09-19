@@ -30,6 +30,13 @@ def main():
     p.add_argument("preview", type=Path); p.add_argument("--id", required=True); p.add_argument("--confirm", action="store_true")
     p = sub.add_parser("platform-enrollment-recover", help="Continue the exact enrollment fence without releasing owners")
     p.add_argument("id"); p.add_argument("--confirm", action="store_true")
+    p = sub.add_parser("platform-adoption-preview", help="Review retained ownership and explicit canonical mappings; no import")
+    p.add_argument("configuration", type=Path)
+    sub.add_parser("platform-adoption-status", help="Inspect the historical ownership import receipt; not native activity")
+    p = sub.add_parser("platform-adopt", help="Owner-confirmed quarantined ownership import; no activation or budgets")
+    p.add_argument("preview", type=Path); p.add_argument("--id", required=True); p.add_argument("--confirm", action="store_true")
+    p = sub.add_parser("platform-adoption-recover", help="Recover the exact quarantined ownership import")
+    p.add_argument("id"); p.add_argument("--confirm", action="store_true")
     p = sub.add_parser("workspace-register"); p.add_argument("id"); p.add_argument("name"); p.add_argument("state_root", type=Path)
     p.add_argument("--apply", action="store_true", help="Register in place after a verified SQLite backup; default is preview")
     p = sub.add_parser("workspace-profile-set"); p.add_argument("profile", type=Path); p.add_argument("--version", type=int, required=True)
@@ -71,6 +78,22 @@ def main():
     if args.state and (args.workspace or args.platform):
         raise Refusal("Choose a registered workspace or --state, not both")
     registry = Registry(args.platform, create=args.action == "workspace-register") if args.platform else None
+    if args.action in ("platform-adoption-preview", "platform-adoption-status", "platform-adopt", "platform-adoption-recover"):
+        if not registry or args.workspace:
+            raise Refusal("Ownership adoption is platform-wide: supply --platform and omit --workspace")
+        from . import adoption
+        def private_input(path):
+            with path.open("rb") as handle:
+                raw = handle.read(2_000_001)
+            if len(raw) > 2_000_000: raise Refusal("Adoption input is too large")
+            return json.loads(raw)
+        if args.action == "platform-adoption-preview": out = adoption.preview(registry, private_input(args.configuration))
+        elif args.action == "platform-adoption-status": out = adoption.status(registry)
+        elif args.action == "platform-adoption-recover": out = adoption.recover(registry, args.id, confirmed=args.confirm)
+        else:
+            if not args.confirm: raise Refusal("Explicit --confirm required; ownership import remains quarantined")
+            out = adoption.apply(registry, {"id": args.id, "confirmed": True, "preview": private_input(args.preview)})
+        print(json.dumps(out, ensure_ascii=False, indent=2)); return
     if args.action in ("platform-enrollment-preview", "platform-enrollment-status", "platform-enroll", "platform-enrollment-recover"):
         if not registry or args.workspace:
             raise Refusal("Enrollment is platform-wide: supply --platform and omit --workspace")
