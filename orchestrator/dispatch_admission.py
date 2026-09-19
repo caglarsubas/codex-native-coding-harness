@@ -87,7 +87,7 @@ class DispatchAdmission:
         self.store.check_budget(kernel, allocation)
         return allocation
 
-    def task_in(self, db, meta, run_hash, queue_id, approval_hash, worker_id):
+    def task_in(self, db, meta, run_hash, queue_id, approval_hash, worker_id, *, runner_owner=None):
         approval = runs.document(db, approval_hash, "run_task_approval")
         contract = runs.document(db, approval["contractHash"], "task_contract")
         for operation in contract["spec"]["operations"]:
@@ -106,7 +106,8 @@ class DispatchAdmission:
         limit = min(meta["concurrency"], meta["maximumConcurrency"], 1 if not meta["pilotPassed"] else 16)
         require(len(others) < limit, "Local worker capacity exhausted")
         require(not any(w["repository"] == q["repository"] for w in others), "Local repository already owned")
-        require(meta["runner"] is None, "Local runner ownership must be reconciled first")
+        require(meta["runner"] is None or runner_owner == worker_id == meta["runner"].get("workerId"),
+                "Local runner ownership must be reconciled first")
         return q, contract
 
     def intent_in(self, db, worker_id):
@@ -132,9 +133,11 @@ class DispatchAdmission:
         """Exact ownership binding shared by creation and native lifecycle code."""
         claim = self.bound_claim_in(kernel, intent)
         require(claim["status"] in HELD, "Shared claim no longer retains ownership")
-        keys = intent["resourceKeys"]
+        keys = list(intent["resourceKeys"])
+        runner = claim.get("runnerBinding")
+        if runner and runner["status"] != "released": keys.append(resource(runner["key"], "runner"))
         owned = sorted(r[0] for r in kernel.execute("SELECT id FROM resources WHERE claim=?", (claim["id"],)))
-        require(owned == keys, "Shared resource ownership changed; explicit recovery required")
+        require(owned == sorted(keys), "Shared resource ownership changed; explicit recovery required")
         return claim
 
     def bound_claim_in(self, kernel, intent):

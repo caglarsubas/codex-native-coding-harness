@@ -26,7 +26,8 @@ def observation(row):
 
 def local_binding(worker):
     return {k: copy.deepcopy(worker.get(k)) for k in ("status", "hostId", "threadId", "clientThreadId",
-            "nativeLifecycleHash", "nativeContinuationIntentHash", "noProgressCycles", "dispatchAdmission")}
+            "nativeLifecycleHash", "nativeContinuationIntentHash", "noProgressCycles", "dispatchAdmission")} | {
+            k: copy.deepcopy(worker[k]) for k in ("runnerLaunchIntentHash", "runnerBinding") if k in worker}
 
 
 def validate(request):

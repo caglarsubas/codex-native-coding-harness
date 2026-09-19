@@ -148,8 +148,14 @@ it never parks or resumes the brain. Both worker and queue still require separat
 packet-result/acceptance review before any `complete` or pilot claim. No worktree
 is deleted, no task archived and no source committed/pushed/merged by this module.
 
+WSP-04C3b now adds [standard-policy runner coordination](RUNNER-COORDINATION.md).
+It releases only the runner after explicit cleanup; this settlement coordinator
+still requires complete terminal reconciliation to release repository/slot/token
+ownership. It retains runner history and cumulative estimates in the terminal
+record without changing historical no-runner receipt shapes.
+
 Next increments retain independently verified destination/resource observations,
-runner acquisition/exit/cleanup coordination, not-created recovery, separate
+trusted Harness runner integration, not-created recovery, separate
 acceptance/result coordination, new-generation continuation approval, native
 transport, maintenance migration and exact owner Play activation. A separately
 authorized real pilot remains required. See [verification](OWNERSHIP-SETTLEMENT-VERIFICATION.md).

@@ -684,6 +684,15 @@ the full admission items below can be checked. See [the implemented contract and
 remaining integration gates](ADMISSION.md). Do not activate a reviewed mission
 or initialize live allocations as an upgrade side effect.
 
+**WSP-04C1–C3b** now connect internal run authority to shared reservation,
+native-result/correction journals, terminal settlement and
+[standard-policy runner coordination](RUNNER-COORDINATION.md). These are tested
+internal records, not native transport, trusted operator observations or Play.
+The runner lifecycle is one-shot, holds resources through uncertainty, and
+separates cleanup release from repository/token settlement. Harness acceptance
+remains blocked until trusted execution and packet-specific attempt limits are
+integrated. The full live admission/activation items below remain unchecked.
+
 - [x] WSP-04A: common-directory/conventional-origin identity observation and explicit platform-wide owner/alias audit.
 - [x] WSP-04A: atomic multi-resource, global/workspace slot and token reservations in an isolated capacity kernel.
 - [x] WSP-04A: fresh account/phase observation checks, checkpoint headroom and conservative settlement accounting.
