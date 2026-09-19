@@ -179,6 +179,13 @@ evidence-axis and independent-review artifact bindings. It leaves shared usage a
 ownership unchanged. Acceptance is not deployment, pilot qualification or archival;
 accepted tasks remain covered by safe Pause. This is internal source functionality,
 not external evidence collection, a Harness acceptance adapter or live Play.
+The [local source observer](docs/SOURCE-OBSERVATION.md) now supplies an optional
+measured structural proof for that review: exact local commits, ancestry, branch
+tip and complete changed paths, with out-of-scope findings and retained provenance.
+It uses an isolated read-only Git view and never fetches, reads worktree contents,
+runs tests or marks a packet accepted. CI/remote/preservation/semantic evidence
+remain separate. It is internal standard-policy tooling, not a Harness adapter
+or a new dashboard/Play control.
 The [non-creation recovery coordinator](docs/CREATION-RECOVERY.md) can close a
 failed creation attempt only after explicit final absence, cleanup and zero-task-
 usage evidence. It retains attempt counts and pending IDs, keeps the packet held,

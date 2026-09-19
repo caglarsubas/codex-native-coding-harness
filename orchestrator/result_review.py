@@ -137,9 +137,13 @@ def evidence_in(db, intent, settlement, request):
         require(settlement["priorClaim"]["startedAt"] <= proof["observedAt"] <= result["observedAt"],
                 "Evidence observation is outside the result interval")
         if proof["artifactId"] is not None:
-            info, _ = artifact_in(db, proof["artifactId"], intent, subject, result["commit"])
+            info, raw = artifact_in(db, proof["artifactId"], intent, subject, result["commit"])
             require(settlement["priorClaim"]["startedAt"] <= info["observedAt"] <= proof["observedAt"],
                     "Proof bytes must be retained before their review observation")
+            if subject == "source":
+                from .source_observation import validate_source_proof
+                collected_at = validate_source_proof(db, info, raw, intent, settlement, result)
+                if collected_at is not None: times.append(collected_at)
         times.append(proof["observedAt"])
     ci = result["ci"]; checks = {c["name"]: c for c in ci["checks"]}
     require(all(c["headSHA"] == result["commit"] for c in checks.values()), "CI check belongs to a different commit")

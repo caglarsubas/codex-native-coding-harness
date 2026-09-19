@@ -186,3 +186,14 @@ Reviews are atomic local outcomes; never change shared usage/owners or reopen th
 closed attempt. Accepted admitted tasks remain in safe-Pause supervision; legacy
 archive/pilot shortcuts are fenced. No rereview, native transport, public write
 route, live upgrade or autonomous Play activation is authorized by source delivery.
+
+WSP-04C3e adds explicit internal local source-structure collection for settled
+standard-policy tasks. See docs/SOURCE-OBSERVATION.md. Derive paths/base/branch
+from the approved task and require its pinned local common-directory identity.
+Use only the configuration-isolated, bounded read-only Git view; no fetch, source
+worktree read, tests, hooks, filters or remote observation. Harness must refuse
+before filesystem inspection. Recheck authority after I/O before atomic artifact
+retention; exact replay never recollects or refreshes time. Source structure is
+not semantic correctness, CI, preservation or acceptance. Collector proofs need
+their exact journal and request receipt; older supplied evidence remains explicitly
+caller-supplied. No new public route, live collection, skill update or Play rollout.
