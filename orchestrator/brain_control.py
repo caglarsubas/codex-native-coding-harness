@@ -20,6 +20,8 @@ def request(ledger, db, command, meta):
         require(not stopped(meta), "A brain stop is already requested or checkpointed")
     else:
         require(previous["phase"] != "resume_requested", "Brain resume already requested")
+        from .workspace_pause import active
+        require(not active(meta) or previous["phase"] == "parked", "Workspace Pause is still reaching a safe checkpoint; resume is available after parking")
     for older in ledger.all(db, "commands"):
         supersede = older["kind"] in ("brain_stop", "brain_resume") or (stopping and older["kind"] == "resume")
         if supersede and older["status"] in ("queued", "processing"):
@@ -33,6 +35,13 @@ def request(ledger, db, command, meta):
         # Close new worker creation now, but never kill a task/process or release
         # ownership. Resume brain does not silently reopen worker dispatch.
         meta["paused"] = True
+        workspace_id = getattr(ledger, "workspace_id", None) or meta.get("workspacePauseId")
+        if workspace_id:
+            from .workspace_pause import PROTOCOL, worker_binding
+            require(meta.get("workspacePauseId", workspace_id) == workspace_id, "Workspace pause identity changed")
+            meta["workspacePauseId"] = workspace_id
+            meta["brainControl"].update(protocol=PROTOCOL, workspaceId=workspace_id,
+                retainedWorkers=[worker_binding(w) for w in ledger.all(db, "workers") if w["status"] != "complete"])
     ledger.put(db, "meta", 1, meta)
 
 
@@ -55,12 +64,14 @@ def receive_stop(ledger, db, token):
 
 
 def park(ledger, token, command_id, checkpoint):
-    require(isinstance(checkpoint, dict) and set(checkpoint) == {"summary", "artifactIds", "workerObservations"}, "Invalid brain checkpoint fields")
+    legacy_fields = {"summary", "artifactIds", "workerObservations"}
+    workspace_fields = {"summary", "artifactIds", "pauseEvidenceHash"}
+    require(isinstance(checkpoint, dict) and set(checkpoint) in (legacy_fields, workspace_fields), "Invalid brain checkpoint fields")
     text(checkpoint["summary"], "checkpoint summary")
     ids = checkpoint["artifactIds"]
     require(isinstance(ids, list) and 1 <= len(ids) <= 8 and all(isinstance(i, str) and SHA.fullmatch(i) for i in ids), "Retain 1–8 checkpoint artifacts first")
     require(len(set(ids)) == len(ids), "Duplicate checkpoint artifact")
-    observations = checkpoint["workerObservations"]
+    observations = checkpoint.get("workerObservations", [])
     require(isinstance(observations, list), "Worker observations must be a list")
     now = time.time()
     with ledger.tx() as db:
@@ -72,6 +83,18 @@ def park(ledger, token, command_id, checkpoint):
         if current["phase"] == "parked":
             require(current["checkpoint"]["fingerprint"] == fingerprint, "Checkpoint retry changed")
             return current["checkpoint"]
+        from .workspace_pause import active, inspect, retained_in
+        workspace_pause = active(meta)
+        require(set(checkpoint) == (workspace_fields if workspace_pause else legacy_fields),
+                "Workspace Pause requires the exact retained pauseEvidenceHash; legacy observations are insufficient")
+        if workspace_pause:
+            require(checkpoint["pauseEvidenceHash"] == current.get("pauseEvidenceHash") and current.get("pauseEvidenceHash"), "Current pause evidence hash required")
+            retained = retained_in(ledger, db, current)
+            _, issues, _ = inspect(ledger, db, meta, retained, now)
+            require(not issues, issues[0]["detail"] if issues else "")
+            observations = [{"workerId": t["workerId"], "threadId": t["threadId"], "status": t["status"],
+                             "observedAt": t["observedAt"], "reference": checkpoint["pauseEvidenceHash"]}
+                            for t in retained["document"]["tasks"] if t["workerId"]]
         require(command["kind"] == "brain_stop" and command["status"] == "processing", "Receive the exact stop before parking")
         require(meta["runner"] is None, "Acceptance runner still owned; observe exit and release it first")
         hb = meta["heartbeat"]
@@ -87,6 +110,10 @@ def park(ledger, token, command_id, checkpoint):
         workers = [w for w in ledger.all(db, "workers") if w["status"] != "complete"]
         require(all(w["status"] not in ("starting", "accepting") for w in workers), "Reconcile in-flight native creation/acceptance before parking")
         required = {w["id"]: w for w in workers if w["status"] != "reserved"}
+        if workspace_pause:
+            # The stronger inventory also covers workers completed after Pause;
+            # these have already been checked against retained ownership above.
+            observations = [o for o in observations if o["workerId"] in required]
         seen = set()
         for item in observations:
             require(isinstance(item, dict) and set(item) == {"workerId", "threadId", "status", "observedAt", "reference"}, "Invalid worker checkpoint observation")

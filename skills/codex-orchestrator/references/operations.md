@@ -114,6 +114,13 @@ the compact inbox cooperatively between bounded steps to notice a stop sooner.
    interrupt workers. A reserved worker with no creation attempt stays reserved.
    If safety cannot yet be established, retain `checkpointing`, preserve the
    blocker and continue only required supervision; never claim the brain stopped.
+   For `workspace_pause_v1`, also retain the exact request's `retainedWorkers`
+   (even if since completed) and every observed descendant/review task. Resolve
+   host/task identities and ancestry through supported native tools; a missing
+   coverage capability means incomplete inventory, never guessed completeness.
+   Each native task must save post-request continuation evidence before a fresh
+   idle observation. Register its artifact with the exact session reference and
+   owned repository. Queued messaging alone is not a checkpoint or idle proof.
 4. Retain a NEW checkpoint artifact after this stop (`artifact-add`). Include
    current command ID, work completed, unfinished work, next step, worker/runner
    observations, pending decisions and authority boundaries. At least one retained
@@ -122,7 +129,19 @@ the compact inbox cooperatively between bounded steps to notice a stop sooner.
    Resume brain, do not park it; recover the latest request. Otherwise pause the
    existing heartbeat using `automation_update` with all other fields preserved,
    then record `heartbeat <id> PAUSED` from the actual result. No new automation.
-6. Call `brain-park <stop-command-id> <checkpoint.json>`. The closed JSON schema is
+6. For a registered `workspace_pause_v1` stop, first call
+   `brain-stop-observe <stop-command-id> <evidence.json>` using explicit platform /
+   workspace routing. Use the closed schema in `docs/WORKSPACE-PAUSE.md`:
+   exact workspace/request/brain identity, retained native evidence hash, honest
+   complete/descendant coverage and per-task host, task, owner, parent, activity,
+   observation time and checkpoint artifact. Read `inbox.workspacePause.blockers`;
+   partial evidence can record progress but cannot park. Preserve every observed
+   task in later reports, even after completion. Re-observe after ownership changes;
+   retries must not refresh timestamps or hide stale/missing/unknown evidence.
+   Call `brain-park <stop-command-id> <checkpoint.json>` with only
+   `{summary, artifactIds, pauseEvidenceHash}`, using the latest retained hash.
+   The helper rechecks coverage, ancestry, artifacts and ownership transactionally.
+   For a legacy stop without that protocol, the closed schema remains
    `{summary, artifactIds, workerObservations}`. Each worker observation has
    `{workerId, threadId, status: "idle", observedAt, reference}`; use actual native
    evidence after the stop and no older than 120 seconds. Configured heartbeat
@@ -137,6 +156,10 @@ the compact inbox cooperatively between bounded steps to notice a stop sooner.
 
 While parked, save answers/ordinary controls without waking or executing them.
 An explicit newer `brain_resume` wakes this same task even with heartbeat PAUSED.
+For workspace Pause, this is accepted only after parking; never bypass this
+by switching to raw `--state`, clearing control metadata or fabricating evidence.
+A newer Pause still supersedes a pending Resume. Earlier legacy stops retain
+their previous resume behavior and do not prove descendant coverage.
 Read its retained checkpoint, acquire and `process`, reconcile unfinished effects
 without replay, restore the existing heartbeat if saved listener/supervision
 policy requires, record the observed schedule, then drain authorized inputs.
@@ -144,7 +167,8 @@ Worker dispatch remains paused until a separate explicit `resume` command. If a
 resume races with heartbeat pause, re-read latest intent and restore scheduling
 accordingly; do not overwrite the newer request. No automatic worker task reset.
 
-See `docs/BRAIN_CONTROL.md` in the installed workspace for UI meanings and limits.
+See `docs/BRAIN_CONTROL.md` and `docs/WORKSPACE-PAUSE.md` in the installed workspace
+for UI meanings, trust limits and the separate supported-native observation step.
 
 ## Decision inbox
 

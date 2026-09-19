@@ -7,7 +7,7 @@ function activityLabel(activity) {
 function brainControlPresentation(meta, activity) {
   const c=meta.brainControl || {desired:"running",phase:"ready"};
   const labels={stop_requested:"Stop requested",checkpointing:"Preparing safe checkpoint",parked:"Safe checkpoint saved",resume_requested:"Brain resume requested",ready:"Brain available"};
-  const idleAfterCheckpoint=c.phase==='parked' && activity?.lastKnownStatus==='idle' && activity.observedAt>=c.checkpoint?.at;
+  const idleAfterCheckpoint=c.phase==='parked' && activity?.fresh && activity.status==='idle' && activity.observedAt>=c.checkpoint?.at;
   return {phase:c.phase,stopped:c.desired==='stopped',label:idleAfterCheckpoint?"Brain stopped at checkpoint":labels[c.phase]||"Brain control not observed",
     detail:c.phase==='parked'?"Automatic brain work is stopped. "+(idleAfterCheckpoint?"A later native idle observation confirms the turn finished.":"Native turn completion has not yet been observed after this checkpoint.")+" Saved answers wait for Resume brain."
       :c.desired==='stopped'?"New worker dispatch is paused now. The brain must finish its current bounded step, reconcile workers and acceptance, save a checkpoint and pause its heartbeat. Running tools are not interrupted."
@@ -47,10 +47,10 @@ function brainActivity(root, history=false) {
   const control=brainControlPresentation(m,a),controls=el("div",null,"inline-actions");
   panel.append(callout(control.label,control.detail));
   const resume=button(control.phase==='resume_requested'?"Brain resume requested":control.stopped?"Resume brain":"Wake brain now",()=>command("brain_resume"),"primary");
-  resume.disabled=!connected||busy||control.phase==='resume_requested';
+  resume.disabled=!connected||busy||control.phase==='resume_requested'||(state.workspacePause?.status==='pausing');
   const stop=button("Stop brain at safe checkpoint",()=>command("brain_stop"));
   stop.disabled=!connected||busy||control.stopped;
-  controls.append(resume,stop);panel.append(controls);
+  controls.append(resume,stop);if(!state.workspace)panel.append(controls);
   if(m.brainControl?.checkpoint) {
     const cp=m.brainControl.checkpoint;
     panel.append(el("p","Retained safe checkpoint · "+when(cp.at)+" · "+cp.summary,"brain-note"));

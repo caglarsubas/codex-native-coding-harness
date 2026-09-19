@@ -1,6 +1,11 @@
 # Brain controls and safe checkpoints
 
-Use **Overview → Designated brain** to wake/resume the existing brain or request
+Registered workspaces use **Overview → Pause workspace** and its progress panel.
+See [workspace Pause](WORKSPACE-PAUSE.md) for the stronger retained-worker and
+descendant evidence contract, and post-checkpoint-only Resume. Dispatch-only
+controls are under **Advanced: worker dispatch only**. Autonomous Play is not enabled.
+
+On a legacy single-ledger dashboard, use **Overview → Designated brain** to wake/resume the existing brain or request
 **Stop brain at safe checkpoint**. These are separate from **Resume worker
 dispatch / Pause new workers** at the top of the page.
 
@@ -30,21 +35,26 @@ It retains desired state, phase, commandId, requestedAt and the last checkpoint.
 | resume_requested | Resume intent saved, not yet received |
 | stop_requested | New dispatch fenced, stop not yet received |
 | checkpointing | Brain received stop; safety work is unfinished |
-| parked | Safe checkpoint recorded; automatic brain work is stopped |
+| parked | Safe checkpoint recorded; automatic work forbidden; actual native inactivity observed separately |
 
 Stopping supersedes older pending brain controls and worker-dispatch resumes.
-An explicit newer Resume brain supersedes an unfinished stop. It does not enable
+For legacy stops only, an explicit newer Resume brain supersedes an unfinished
+stop. Workspace Pause must finish parking before Resume is accepted; a newer
+Pause can still supersede a pending Resume. Resume does not enable
 worker dispatch. Other answers and controls remain durable while stopped and
 are received after resume. Controller, worker and runner ownership never expires
 merely because a browser, server or brain stopped. No archive/delete/reset occurs.
 
-Only the designated brain controller can call `brain-park`. Its closed input is
+Only the designated brain controller can call `brain-park`. For legacy stops its closed input is
 `summary`, 1–8 retained `artifactIds` (at least one new version observed after
 the stop), and exact `workerObservations`. Each active native worker requires
 `workerId`, matching `threadId`, `status: "idle"`, `observedAt` and `reference`.
 Observation time must follow this stop and be within 120 seconds. A configured
 heartbeat needs the same fresh post-stop PAUSED evidence. An unconfigured
 heartbeat is allowed. Reserved/unstarted workers keep their reservations.
+For workspace stops, replace `workerObservations` with the current retained
+`pauseEvidenceHash`; worker-only assertions are refused. The workspace evidence
+step validates all retained workers, nested tasks and per-task artifacts.
 In-flight creation/acceptance, owned runner or processing worker controls refuse
 parking. Unresolved design responses can be checkpointed without fabricated
 outcomes; they remain in the inbox for recovery.
@@ -74,5 +84,8 @@ The existing heartbeat remains a fallback until safely parked.
 Ledger intent and native scheduling are not one transaction. Re-read intent
 before pausing the heartbeat and before parking. A newer resume refuses a late
 park and requires schedule restoration according to saved listener policy. A
-crash after native pause leaves a visible unfinished stop; Resume brain can wake
-the same task without that schedule. All native operations remain in the brain.
+crash after native pause leaves a visible unfinished stop. For workspace Pause,
+open the existing brain to continue safety-only supervision until parking;
+do not bypass the unfinished stop using Resume. A parked brain can then be
+resumed without that schedule. Legacy stop recovery keeps its earlier explicit
+Resume behavior. All native operations remain in the brain.

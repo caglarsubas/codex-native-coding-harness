@@ -125,6 +125,7 @@ state. Keep the computer and Codex app running for local scheduled work.
 | Archive completed task | Save after preservation checks; notify brain | Brain verifies inactivity and uses native archive |
 | Wake / Resume brain | Save intent and notify the same native task | Recover retained state; worker dispatch unchanged |
 | Stop brain at safe checkpoint | Pause new dispatch immediately; notify brain | Reconcile workers/runner, retain checkpoint, pause heartbeat, then end turn |
+| Pause workspace (registered workspace) | Fence new preparation/approval/dispatch; retain the worker set; notify brain | Evidence-bound worker and descendant checkpoints, runner cleanup and paused schedule; resume only after parking |
 | Answer a decision | Save the version-bound answer; notify the existing brain if enabled | Idle pickup immediately, or native queue behind an active turn; brain records receipt and scoped outcome |
 | Use event-driven waiting / enable periodic idle checks | Save preference; notify brain | Brain pauses idle scheduling or enables explicit idle checks; active work remains supervised |
 
@@ -135,6 +136,10 @@ or grant execution authority. [Brain controls](docs/BRAIN_CONTROL.md) distinguis
 stop intent, safe checkpoint and native turn completion. While stopped, ordinary
 inputs are saved until explicit Resume brain, which can wake the task even with
 its heartbeat paused. The brain then restores scheduling per saved policy.
+Registered workspaces use **Pause workspace** as the primary Overview control.
+[Workspace Pause](docs/WORKSPACE-PAUSE.md) shows the outstanding checks and keeps
+dispatch-only controls in a separate disclosure. **Resume brain from checkpoint**
+does not enable autonomous Play or authorize new worker work.
 The 15-minute heartbeat remains a
 recovery fallback while enabled. Delivery is not receipt: unavailable, ambiguous
 and overdue states keep the answer and explain the next action. Keep the computer

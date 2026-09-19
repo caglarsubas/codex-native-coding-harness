@@ -46,13 +46,14 @@ async function refresh() {try{state=await api("/api/state");connected=true;$('co
 function overview(root) {
  const m=state.meta,active=state.workers.filter(w=>!['complete'].includes(w.status));
  projectIntroduction(root);
+ workspacePausePanel(root);
  missionSummary(root);
  workflowSummary(root);
  brainActivity(root);
  readinessSummary(root);
  runtimeSummary(root);
  executiveSummary(root);
- if(m.paused)root.append(callout("Dispatch is paused", "No new implementation tasks will be created. Existing work is not cancelled. Approve exact queue items, then request resume when their prerequisites are verified."));
+ if(m.paused&&!state.workspace)root.append(callout("Dispatch is paused", "No new implementation tasks will be created. Existing work is not cancelled. Approve exact queue items, then request resume when their prerequisites are verified."));
  if(!m.lastReconciled||Date.now()/1000-m.lastReconciled>1800)root.append(callout("Saved checkpoint is old", "Checkpoint age is not live task status. Check Brain activity above and open the Codex task before requesting another reconciliation."));
  const strip=el("div",null,"summary-strip");[[active.length+" / "+m.concurrency,"worker slots"],[state.queue.filter(q=>q.status==='approved').length,"approved packets"],[state.repositories.length,"repositories"],[m.runner?"Reserved":"Unreserved","managed runner"]].forEach(([v,l])=>{const s=el("div");s.append(el("strong",v),el("span",l));strip.append(s);});root.append(strip);
  root.append(section("Repository readiness","Missing mappings never become automatic approvals."));
@@ -90,9 +91,21 @@ function metrics(root) {
  root.append(section("Usage & cost coverage"),el("p",state.summary.usage.reason,"muted"),el("p","Subscription charges are not inferred from API token prices. Model/effort comparisons remain observational.","subline"));
  if(state.metrics.length>state.summary.repositories.length){root.append(section("Snapshot history"));root.append(table(["Repository","Captured","Commit","Lines"],[...state.metrics].sort((a,b)=>b.at-a.at).slice(0,50).map(m=>[m.repository,when(m.at),m.commit?.slice(0,12)||"—",m.status==='measured'?num(m.lines):"—"])));}
 }
-function render() {if(!state)return;document.querySelector(".page-actions").hidden=['workspaces','mission'].includes(view);const m=state.meta,dispatch=dispatchPresentation(m,state.commands);$('mode').textContent=dispatch.label+" · Brain: "+activityLabel(state.brainActivity)+" · Checkpoint: "+age(m.lastReconciled)+" · Heartbeat (recorded): "+m.heartbeat.status;$('pause').textContent=dispatch.button;$('pause').disabled=!connected||busy||dispatch.disabled;$('reconcile').disabled=!connected||busy;$('title').textContent=titles[view][0];$('subtitle').textContent=titles[view][1];const root=$('content');root.replaceChildren();({overview,decisions,queue,workers,knowledge,metrics,usage,gitStatus,artifacts,roadmap,readiness,mission:missionView,workspaces:allWorkspaces})[view](root);if(!['workspaces','mission'].includes(view)&&state.commands.length){root.append(section("Control requests","Delivery, brain receipt and completion are separate."));root.append(table(["Request","Status","Result"],[...state.commands].reverse().slice(0,8).map(c=>{const delivery=commandPresentation(c);return [textCell(c.kind,when(c.createdAt)),badge(delivery.label),delivery.detail];})));}}
+function render() {
+ if(!state)return;
+ document.querySelector(".page-actions").hidden=['workspaces','mission'].includes(view);
+ const m=state.meta,dispatch=dispatchPresentation(m,state.commands),primary=state.workspace?workspacePausePresentation(state):dispatch;
+ $('mode').textContent=dispatch.label+" · Brain: "+activityLabel(state.brainActivity)+" · Checkpoint: "+age(m.lastReconciled)+" · Heartbeat (recorded): "+m.heartbeat.status;
+ $('pause').textContent=primary.button;$('pause').disabled=!connected||busy||primary.disabled;
+ $('pause').title=state.workspace?primary.detail:"Change new worker dispatch only";
+ $('pause').classList.toggle('primary',!!state.workspace);$('reconcile').classList.toggle('primary',!state.workspace);
+ $('reconcile').disabled=!connected||busy;$('title').textContent=titles[view][0];$('subtitle').textContent=titles[view][1];
+ const root=$('content');root.replaceChildren();
+ ({overview,decisions,queue,workers,knowledge,metrics,usage,gitStatus,artifacts,roadmap,readiness,mission:missionView,workspaces:allWorkspaces})[view](root);
+ if(!['workspaces','mission'].includes(view)&&state.commands.length){root.append(section("Control requests","Delivery, brain receipt and completion are separate."));root.append(table(["Request","Status","Result"],[...state.commands].reverse().slice(0,8).map(c=>{const delivery=commandPresentation(c);return [textCell(c.kind,when(c.createdAt)),badge(delivery.label),delivery.detail];})));}
+}
 document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>navigateView(b.dataset.view)));
-$('pause').onclick=()=>command(state.meta.paused?'resume':'pause');$('reconcile').onclick=()=>command('reconcile');$('refresh').onclick=refresh;
+$('pause').onclick=()=>command(state.workspace?workspacePausePresentation(state).kind:state.meta.paused?'resume':'pause');$('reconcile').onclick=()=>command('reconcile');$('refresh').onclick=refresh;
 const initialTheme=localStorage.getItem('orchestrator-theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.dataset.theme=initialTheme;$('theme').onclick=()=>{const next=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=next;localStorage.setItem('orchestrator-theme',next);};
 async function start(){try{const token=new URLSearchParams(location.hash.slice(1)).get('token');if(token){history.replaceState(null,'',location.pathname);csrf=(await api('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})})).csrf;}else csrf=(await api('/api/session',{global:true})).csrf;await initializeWorkspaces();await refresh();applyDashboardRoute(false);setInterval(()=>{const editing=document.activeElement?.matches('input,select,textarea');if(!busy&&!selected&&!editing&&document.visibilityState==='visible')refresh();},5000);}catch(e){showNotice(e.message,true);$('connection').textContent='Authentication required';$('pause').disabled=true;$('reconcile').disabled=true;}}
 // All deferred view modules must be ready before the first authenticated render.

@@ -28,12 +28,14 @@ def catalog(state, links):
                        "href": "#/" + view, "details": details or {}, "kind": kind, "payload": payload}
 
     brain_missing = None if meta.get("brainId") else "No designated brain is configured."
-    add("brain_stop", "Stop brain at a safe checkpoint", "brain_stop", {},
+    workspace_pause = control.get("protocol") == "workspace_pause_v1" and stopped
+    add("brain_stop", "Pause workspace at a safe checkpoint" if state.get("workspace") else "Stop brain at a safe checkpoint", "brain_stop", {},
         "Pause new worker dispatch immediately. Ask the brain to preserve evidence and reconcile workers/runner before parking. This does not kill or interrupt tasks.",
         reason=brain_missing or ("The brain is already stopping or stopped." if stopped else None))
     add("brain_resume", "Resume / wake the brain", "brain_resume", {},
-        "Notify the existing brain to continue from its recorded state after any active turn. This supersedes a pending stop. Worker dispatch stays unchanged; no packet is approved.",
-        reason=brain_missing or ("Brain resume is already requested." if control.get("phase") == "resume_requested" else None),
+        "Notify the existing brain to continue from its recorded state after any active turn. Workspace Pause must reach its checkpoint first. Worker dispatch stays unchanged; this is not autonomous Play or packet approval.",
+        reason=brain_missing or ("Wait for the workspace safe checkpoint before resuming." if workspace_pause and control.get("phase") != "parked" else
+                                "Brain resume is already requested." if control.get("phase") == "resume_requested" else None),
         details={"recordedBrainPhase": control.get("phase"), "checkpointAt": (control.get("checkpoint") or {}).get("at")})
     add("dispatch_pause", "Pause worker dispatch", "pause", {},
         "Prevent new worker launches. Existing work continues; the brain is not stopped.",

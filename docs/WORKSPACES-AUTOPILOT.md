@@ -622,17 +622,25 @@ See [implemented mission configuration](MISSIONS.md). Existing `reviewed` record
 must never activate automatically on upgrade; activation requires a new exact
 owner-bound action.
 
+**WSP-03B1** implements the cooperative Pause portion independently of activation:
+the selected workspace's primary control, exact retained worker/descendant
+evidence, checkpoint blockers and explicit brain resume after parking. See
+[workspace Pause](WORKSPACE-PAUSE.md). It does not implement Play, run generations,
+phase release, native inventory collection or worker continuation authorization.
+
 - [x] WSP-03A: versioned mission, phase, repository scope, owner checkpoint and proposed authority limits.
 - [x] WSP-03A: explicit exact-hash owner review/revocation, stale-write and policy-change checks.
 - [x] WSP-03A: workspace editor, immutable history, retained drafts and truthful inactive state.
 - [x] WSP-03A: designated-brain draft-only procedure and bounded assistant awareness.
 - [x] WSP-03A: isolated tests for empty scope, Harness/manual merge, retries and workspace isolation.
+- [x] WSP-03B1: primary workspace Pause, evidence-bound worker/descendant checkpointing and visible progress.
+- [x] WSP-03B1: prohibit early resume, preserve ownership across retries and distinguish saved checkpoints from current inactivity.
 - [ ] Implement the selected configurable authority model in tooling/skill contracts.
 - [ ] Activate workspace authority with enforced packet, checkpoint, task and token admission.
 - [ ] Mission/phase review, delegated packet approval/revocation and exact version checks.
 - [ ] Phase report, independent verification and owner-bound checkpoint release.
 - [ ] Durable workspace-run intent, immediate notification, receipt and recovery states.
-- [ ] Composite Play and full-workspace Pause; reject duplicates and pause/play races.
+- [ ] Autonomous Play integrated with workspace Pause and run generations; reject duplicate activation and pause/play races.
 - [ ] Brain-initiated safe stops for phase completion, material plan changes and budget revisions.
 - [ ] Empty scope, unavailable brain, manual merge and strict Harness policy tests.
 

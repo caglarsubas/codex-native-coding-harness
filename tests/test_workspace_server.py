@@ -202,3 +202,25 @@ class WorkspaceServerTest(unittest.TestCase):
         for path in ("/api/workspaces/a/mission/play", "/api/workspaces/a/mission/activate"):
             self.assertEqual(self.request(path, {}, auth)[0], 404)
         self.assertEqual(self.ledgers["a"].snapshot()["commands"], [])
+
+    def test_workspace_pause_is_scoped_and_early_resume_is_refused_before_notification(self):
+        from orchestrator.assistant_actions import catalog
+        from orchestrator.decisions import inbox
+        auth = self.auth("a"); runtime = self.server.runtime_for("a")
+        body = {"id": "workspace-pause-test", "kind": "brain_stop", "payload": {}, "expectedRevision": 1}
+        with patch.object(runtime.notifier, "notify", side_effect=lambda cid: {"id": cid}):
+            status, _, raw = self.request("/api/workspaces/a/commands", body, auth)
+            self.assertEqual(status, 200, raw)
+        _, _, raw = self.request("/api/workspaces/a/state", headers=auth)
+        state = json.loads(raw)
+        self.assertEqual(state["workspacePause"]["status"], "pausing")
+        self.assertFalse(catalog(state, {})["brain_resume"]["available"])
+        self.assertEqual(inbox(state)["workspacePause"]["commandId"], body["id"])
+        resume = {"id": "early-pause-resume", "kind": "brain_resume", "payload": {}, "expectedRevision": state["meta"]["revision"]}
+        with patch.object(runtime.notifier, "notify") as notify:
+            self.assertEqual(self.request("/api/workspaces/a/commands", resume, auth)[0], 409)
+            notify.assert_not_called()
+        self.assertEqual(self.ledgers["b"].snapshot()["workspacePause"]["status"], "not_requested")
+        self.assertEqual(self.ledgers["b"].snapshot()["commands"], [])
+        _, _, raw = self.request("/api/workspaces/a/assistant/context", headers=auth)
+        self.assertIn(b"inventory_missing", raw)
