@@ -47,6 +47,10 @@ def main():
     p = sub.add_parser("workspace-profile-set"); p.add_argument("profile", type=Path); p.add_argument("--version", type=int, required=True)
     sub.add_parser("mission-state", help="Read workspace mission configuration; not execution authority")
     sub.add_parser("run-readiness", help="Read-only mission/packet/platform preflight; never activation")
+    p = sub.add_parser("task-contract-propose", help="Brain-only phase-bound task declaration; invalidates legacy approval, not activation")
+    p.add_argument("spec", type=Path); p.add_argument("--revision", type=int, required=True); p.add_argument("--id", required=True)
+    p = sub.add_parser("task-contract-state", help="Read current binding and immutable declaration history")
+    p.add_argument("queue_id")
     p = sub.add_parser("mission-draft", help="Designated brain proposes a version; owner reviews in the dashboard")
     p.add_argument("spec", type=Path); p.add_argument("--revision", type=int, required=True); p.add_argument("--id", required=True)
     p = sub.add_parser("native-observe"); p.add_argument("observation", type=Path)
@@ -85,8 +89,8 @@ def main():
         raise Refusal("--workspace requires --platform")
     if args.state and (args.workspace or args.platform):
         raise Refusal("Choose a registered workspace or --state, not both")
-    if args.action == "run-readiness" and not (args.platform and args.workspace):
-        raise Refusal("Run readiness requires an explicit registered workspace")
+    if (args.action == "run-readiness" or args.action.startswith("task-contract-")) and not (args.platform and args.workspace):
+        raise Refusal("This operation requires an explicit registered workspace")
     registry = Registry(args.platform, create=args.action == "workspace-register") if args.platform else None
     if args.action.startswith("platform-reconciliation-"):
         if not registry or args.workspace:
@@ -200,6 +204,14 @@ def main():
     elif action == "mission-state":
         from .missions import read as read_mission
         out = read_mission(ledger)
+    elif action == "task-contract-propose":
+        from .task_contracts import propose
+        with args.spec.open("rb") as handle: raw = handle.read(16001)
+        if len(raw) > 16000: raise Refusal("Task contract spec exceeds 16 KiB")
+        out = propose(ledger, token, {"id": args.id, "expectedRevision": args.revision, "spec": json.loads(raw)})
+    elif action == "task-contract-state":
+        from .task_contracts import read as read_task_contract
+        out = read_task_contract(ledger, args.queue_id)
     elif action == "run-readiness":
         from .run_readiness import inspect
         if not registry or not args.workspace: raise Refusal("Run readiness requires an explicit registered workspace")

@@ -145,6 +145,10 @@ exact review, prepared packet scope and retained platform inventory/usage eviden
 It separates owner setup, evidence gaps and missing software controls, with a
 downloadable JSON report. [Run readiness](docs/RUN-READINESS.md) is read-only;
 neither a satisfied check nor its diagnostic candidate hash grants execution.
+The brain can now prepare a [phase-bound task declaration](docs/TASK-CONTRACTS.md)
+with exact operations, requested settings and a token estimate. Inspect it from
+the packet's queue review or Run readiness. Declaration-bound packets cannot use
+the old seed-only approval path; run-aware activation remains unimplemented.
 The 15-minute heartbeat remains a
 recovery fallback while enabled. Delivery is not receipt: unavailable, ambiguous
 and overdue states keep the answer and explain the next action. Keep the computer

@@ -11,7 +11,7 @@ import sqlite3
 import time
 import uuid
 
-from .core import Ledger, Refusal, canonical, digest, require
+from .core import LEDGER_VERSIONS, Ledger, Refusal, canonical, digest, require
 
 IDENTITY = re.compile(r"[a-z][a-z0-9-]{0,47}\Z")
 PROFILE_KEYS = {"goal", "successCriteria", "architecture", "techStack", "roadmap", "references"}
@@ -45,7 +45,7 @@ def inspect_ledger(root):
             row = db.execute("SELECT data FROM meta WHERE id=1").fetchone()
             require(row is not None, "Ledger metadata missing")
             meta = json.loads(row[0])
-            require(meta.get("schemaVersion") == 1, "Unsupported ledger schema")
+            require(meta.get("schemaVersion") in LEDGER_VERSIONS, "Unsupported ledger schema")
             brain = meta.get("brainId")
             require(isinstance(brain, str) and 0 < len(brain) <= 200, "Configure the existing workspace brain first")
             repos = [json.loads(r[0]) for r in db.execute("SELECT data FROM repos ORDER BY id")]

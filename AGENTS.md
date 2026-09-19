@@ -89,3 +89,15 @@ Do not activate from a configuration review, infer operation permissions from
 path containment, or treat retained platform assertions as native attestation.
 Keep owner setup, evidence gaps and unimplemented controls distinct. Reads must
 not initialize admission, release owners, notify tasks or update evidence clocks.
+
+WSP-03B3 task contracts are immutable designated-brain proposals, not packet or
+run authority. Only a current exact reviewed phase can bind a declaration. Keep
+requested settings separate from applied/observed facts; no opaque setting ID
+proves host support or owner policy. Contract-bearing packets cannot use legacy
+approval/reservation/creation, even after reprepare. Preserve invalid/stale pointers
+for recovery; never remove them to regain legacy dispatch. The first explicit
+proposal atomically marks that ledger v2; ordinary reads/upgrades do not. Before
+live use, stop and upgrade all older processes and back up private state. Do not
+downgrade the schema marker or run an older cached helper against that ledger.
+See docs/TASK-CONTRACTS.md; no installation or live schema change is part of source
+delivery. Existing v1 seeds and untouched legacy packets retain their contracts.

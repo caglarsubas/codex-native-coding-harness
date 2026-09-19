@@ -42,6 +42,7 @@ function runReadinessView(root){
   if(!report.packets.length)root.append(el('p','No prepared candidates were recorded. An empty queue is not a readiness or native-idle claim.'));
   for(const packet of report.packets){
     const body=el('div');body.append(el('p',`Path scope: ${packet.pathScope.replaceAll('_',' ')} · Legacy eligibility: ${packet.legacyEligibility.replaceAll('_',' ')}`));
+    taskContractSummary(body,packet.taskContract);
     const issues=el('ul');for(const issue of packet.issues)issues.append(el('li',issue.detail));body.append(issues,button('Review approved queue',()=>navigateView('queue')));
     runInspectionDisclosure(root,'packet:'+packet.id,packet.repository+' / '+packet.packetId,body);
   }

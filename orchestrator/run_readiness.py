@@ -1,36 +1,16 @@
 """Explicit, read-only mission/packet/admission preflight. Never execution authority."""
 import contextlib
-import fnmatch
 import json
 import sqlite3
 import time
 from collections import Counter
 
-from . import missions, reconciliation
-from .core import Refusal, digest, eligibility_issues, require, safe_relative, validate_seed
+from . import missions, reconciliation, task_contracts
+from .core import Refusal, digest, eligibility_issues, require, validate_seed
+from .phase_scope import contained_path
 
 MAX_PACKETS = 100
 MAX_SEED_BYTES = 512_000
-
-
-def contained_path(candidate, scopes):
-    """Conservative containment for existing fnmatch paths; never infer glob subsets."""
-    def valid(path):
-        try:
-            safe_relative(path)
-            return len(path) <= 1000 and not any(p in ("", ".", "..") for p in path.split("/"))
-        except ValueError:
-            return False
-    if not valid(candidate): return False
-    literal = not any(c in candidate for c in "*?[")
-    for scope in scopes:
-        if not valid(scope): continue
-        if candidate == scope or (literal and fnmatch.fnmatchcase(candidate, scope)): return True
-        # Only a literal directory prefix with unrestricted recursive suffix is
-        # safely comparable without a full glob-language inclusion proof.
-        if scope.endswith("/**") and not any(c in scope[:-3] for c in "*?[") and candidate.startswith(scope[:-2]):
-            return True
-    return False
 
 
 def selected_source(ledger):
@@ -44,12 +24,14 @@ def selected_source(ledger):
         workers = sorted(ledger.all(db, "workers"), key=lambda w: w["id"])
         queue = sorted(ledger.all(db, "queue"), key=lambda q: q["id"])
         candidates = [q for q in queue if q["status"] in ("proposed", "approved")]
-        seeds = {}
+        seeds, contracts = {}, {}
         for q in candidates[:MAX_PACKETS]:
             row = db.execute("SELECT data FROM snapshots WHERE id=? AND length(CAST(data AS BLOB))<=?",
                              (q["seedHash"], MAX_SEED_BYTES)).fetchone()
             try: seeds[q["id"]] = json.loads(row[0]) if row else None
             except ValueError: seeds[q["id"]] = None
+            pointer = q.get("taskContract")
+            contracts[q["id"]] = task_contracts.document_in(db, pointer.get("hash") if isinstance(pointer, dict) else None, "task_contract")
         receipt = None
         if mission.get("receiptHash"):
             row = db.execute("SELECT data FROM snapshots WHERE id=?", (mission["receiptHash"],)).fetchone()
@@ -57,10 +39,10 @@ def selected_source(ledger):
         # All binding inputs stay private. Only the digest and narrow projections
         # leave this module; never return raw repository paths or controller tokens.
         source_hash = digest({"meta": meta, "mission": mission, "receipt": receipt,
-                              "repos": repos, "queue": queue, "workers": workers, "seeds": seeds})
+                              "repos": repos, "queue": queue, "workers": workers, "seeds": seeds, "contracts": contracts})
     return {"workspaceId": wid, "meta": meta, "mission": mission, "receipt": receipt,
             "repos": repos, "workers": workers, "queue": candidates[:MAX_PACKETS], "seeds": seeds,
-            "candidateCount": len(candidates), "sourceHash": source_hash}
+            "contracts": contracts, "candidateCount": len(candidates), "sourceHash": source_hash}
 
 
 def assess(source, platform, now):
@@ -119,7 +101,7 @@ def assess(source, platform, now):
         ("run_activation", "Owner-bound run generations and effect/continuation fences are not implemented.", "Implement exact run activation and recovery without reusing configuration review as permission.", "mission"),
         ("phase_release", "Delegated packet authorization and mandatory phase release are not implemented.", "Implement phase-scoped approval and owner-bound checkpoint release.", "mission"),
         ("native_admission", "Capacity/token reservations and reconciled legacy ownership are not connected to native effects.", "Integrate transactional claims, cumulative usage, ownership recovery and native receipts.", "workers"),
-        ("task_policy", "Version-bound operation declarations and requested/applied/observed model, effort and speed policies are not implemented.", "Bind task effects and supported execution settings to the reviewed phase before launch.", "queue"),
+        ("task_policy", "Task declarations can bind operations and requested settings, but owner-approved adaptive policy and native-effect enforcement are not implemented.", "Inspect each packet declaration; integrate exact settings policy and effect checks before launch.", "queue"),
         ("native_pilot", "A real supervised two-workspace Play/Pause pilot has not been accepted by this feature.", "Qualify live behavior only after the preceding controls are implemented and separately authorized.", "readiness")):
         check(code, "implementation", False, detail, action, view, "platform_development", "not_implemented")
     candidate = None
@@ -152,6 +134,8 @@ def assess(source, platform, now):
 
 def assess_packet(q, source, phase, now):
     result = {k: q[k] for k in ("id", "repository", "packetId", "seedHash", "packetDigest", "status", "held")}
+    declaration = task_contracts.evaluate(q, source, source.get("contracts", {}).get(q["id"]))
+    result["taskContract"] = declaration
     issues = []
     seed = source["seeds"].get(q["id"])
     repo = next((r for r in source["repos"] if r["id"] == q["repository"]), None)
@@ -171,7 +155,13 @@ def assess_packet(q, source, phase, now):
     except (ValueError, TypeError, KeyError, AttributeError):
         legacy = [{"code": "invalid_record", "detail": "Recorded packet preflight or worker evidence is invalid; reconcile it explicitly."}]
     issues.extend({"code": "legacy_" + i["code"], "detail": i["detail"]} for i in legacy)
-    issues.append({"code": "operation_contract_missing", "detail": "The v1 seed does not bind requested operations/settings to a phase; path containment alone is not permission."})
+    if declaration["status"] == "not_declared":
+        issues.append({"code": "operation_contract_missing", "detail": "Propose a phase-bound task declaration; the v1 seed alone does not bind operations/settings to a phase."})
+    elif declaration["status"] != "bound":
+        issues.append({"code": "task_contract_" + declaration["status"], "detail": declaration["issue"]})
+    else:
+        issues.extend([{"code": "run_authority_missing", "detail": "Declaration is bound, but run-aware activation, approval and admission are not implemented."},
+                       {"code": "execution_settings_unverified", "detail": "Requested settings are not owner-authorized, capability-verified, applied or observed."}])
     return {**result, "pathScope": "contained" if covered else "not_proven", "legacyEligibility": "recorded_checks_satisfied" if not legacy else "blocked",
             "executionAuthorized": False, "issues": issues}
 

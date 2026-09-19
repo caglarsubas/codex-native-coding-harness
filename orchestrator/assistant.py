@@ -50,6 +50,9 @@ Run readiness is an explicit diagnostic, never a run or an authorization. Its
 cached summary is historical, not current clearance. Distinguish owner setup
 from evidence work and unimplemented platform controls; do not tell the owner
 that another approval alone can resolve missing implementation.
+Phase-bound task declarations are preparation, not delegated approval. Legacy
+seed-only approval cannot approve them. Requested execution settings are not
+applied, observed, supported or owner-authorized settings; no automatic fallback.
 Only decisions marked needsOwnerInput=true await a new answer. A blocked historical
 decision can already have an owner answer and follow-up; do not call it open or
 unanswered. No dependency graph or artifact contents are supplied: never invent

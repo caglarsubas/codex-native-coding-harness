@@ -89,9 +89,14 @@ identity and policy profile. Path containment is deliberately conservative:
 At most 100 prepared packets, 80 paths per seed, 1,000 characters per compared
 path and 512,000 UTF-8 bytes per seed are inspected. Omitted packets are counted
 and block coverage. No seed bodies, repository source or command argv are returned.
-The v1 seed does not bind operations or model/effort/speed policy to a phase;
-therefore path containment and even satisfied legacy checks cannot grant phase
-authority. Exact operation declarations/enforcement remain an implementation gate.
+The v1 seed alone does not bind operations or model/effort/speed policy to a phase.
+WSP-03B3 adds a separately hashed [task declaration](TASK-CONTRACTS.md), inspected
+here for exact current binding. Declared operations, token estimates and requested
+settings are shown separately from legacy eligibility and execution authority.
+Missing/stale declarations remain visible. Even a bound declaration cannot grant
+phase authority: run-aware approval, adaptive policy and native-effect enforcement
+remain implementation gates. Declaration documents participate in the source
+drift hash, but their free-text rationale is not copied into this report.
 
 Platform diagnostics reuse the existing reconciliation status, which re-evaluates
 retained evidence and source bindings without collecting native state. Only a
@@ -114,8 +119,8 @@ process is changed by implementing this feature. No model service is invoked by
 inspection. Deploy helper and matching web assets together when separately
 authorized; the installed brain skill needs no change for this read-only view.
 
-Autonomous Play remains unavailable. Next implementation work must bind declared
-packet operations/settings to a reviewed phase, introduce exact run generations
+Autonomous Play remains unavailable. Next implementation work must enforce the
+declared packet operations/settings at effect boundaries, introduce exact run generations
 and owner activation, and enforce that authority together with shared admission
 at every native effect and continuation boundary. Configuration review, diagnostic
 hashes and a local test result cannot substitute for those controls or a real pilot.
