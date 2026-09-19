@@ -123,5 +123,18 @@ intent alone prohibits retries; retain it as in-flight even if shared advancemen
 failed. Receipt recovery must not create a claim, reset counters, release resources
 or unpause a workspace. Existing enrollment/adoption fences have no bypass. Never
 use legacy bind/transition/runner/completion for an admission-managed worker.
-Native result binding, continuation and ownership release require their own future
-coordinator. No live kernel setup or activation is authorized by source delivery.
+Native result binding and same-run correction receipts use WSP-04C2 below;
+ownership release still requires its future coordinator. No live kernel setup or
+activation is authorized by source delivery.
+
+WSP-04C2 adds internal native-result observations and same-run edit-correction
+continuation receipts. See docs/NATIVE-LIFECYCLE.md. Pending client IDs are not
+confirmed tasks; acknowledgment is not a finished turn or acceptance. Never resend
+an uncertain or locally retained continuation, erase a native binding, or release
+tokens/resources on idle/finished observations. Fresh authority, preflight and
+admission plus a retained scoped instruction artifact are required before a new
+correction intent. Two consecutive no-progress corrections block further work.
+Observations/recovery may retain facts after Pause but do not resume execution.
+Keep the kernel journal and local receipts consistent, and invalidate old Pause
+inventory when the native lifecycle changes. No native transport, live setup,
+new-generation continuation approval, maintenance release or public Play is shipped.

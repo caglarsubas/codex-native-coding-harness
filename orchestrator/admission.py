@@ -349,6 +349,7 @@ class AdmissionStore:
         native = {"hostId": host_id, "threadId": thread_id}
         with self.tx() as db:
             claim = self.get(db, "claims", claim_id)
+            require(not claim.get("bindingHash"), "Bound dispatch requires the native lifecycle coordinator")
             require(claim["status"] in ("starting", "uncertain", "blocked", "running"), "Task is not awaiting binding")
             if claim["native"]:
                 require(claim["native"] == native, "Native identity already bound")
@@ -363,6 +364,7 @@ class AdmissionStore:
         sha(evidence_hash)
         with self.tx() as db:
             claim = self.get(db, "claims", claim_id)
+            require(not claim.get("bindingHash"), "Bound dispatch requires the native lifecycle coordinator")
             require(claim["status"] in ("starting", "running", "uncertain", "blocked"), "Claim has no attempted creation")
             claim["status"] = "blocked" if claim["native"] else "uncertain"
             self.put(db, "claims", claim_id, claim)
@@ -373,6 +375,7 @@ class AdmissionStore:
         require(operation in ("acquire", "release"), "Unknown runner operation")
         with self.tx() as db:
             claim = self.get(db, "claims", claim_id)
+            require(not claim.get("bindingHash"), "Bound dispatch requires shared runner coordination")
             self.fresh(observed_at, self.get(db, "meta", 1)["policy"])
             require(observed_at >= claim.get("startedAt", claim["createdAt"]), "Runner observation predates claim")
             allocation = self.get(db, "allocations", claim["allocationId"])
@@ -395,6 +398,7 @@ class AdmissionStore:
         proof = {"actual": actual, "evidenceHash": evidence_hash, "observedAt": observed_at, "outcome": outcome}
         with self.tx() as db:
             claim = self.get(db, "claims", claim_id)
+            require(not claim.get("bindingHash"), "Bound dispatch requires coordinated ownership settlement")
             if claim["status"] == "settled":
                 require(claim["settlement"] == proof, "Settlement already recorded with different evidence")
                 return claim

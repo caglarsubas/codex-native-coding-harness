@@ -121,14 +121,23 @@ class DispatchAdmission:
         return worker, intent
 
     def claim_in(self, kernel, intent):
+        claim = self.owned_claim_in(kernel, intent)
+        require(claim["status"] in ("reserved", "starting") and not claim.get("nativeLifecycleHash"),
+                "Shared claim needs native reconciliation, not admission retry")
+        require(claim["native"] is None, "Native ownership requires the result coordinator")
+        return claim
+
+    def owned_claim_in(self, kernel, intent):
+        """Exact ownership binding shared by creation and native lifecycle code."""
         claim = self.store.get(kernel, "claims", intent["workerId"])
+        extra = claim.get("continuationReservedTokens", 0)
+        integer(extra)
         spec = {"allocationId": intent["allocationId"], "repositories": [intent["repository"]],
                 "estimates": intent["estimates"], "role": "worker", "bindingHash": digest(intent)}
         require(claim["id"] == intent["workerId"] and claim["fingerprint"] == digest(spec) and
                 all(claim[k] == v for k, v in spec.items()) and
-                claim["estimatedTokens"] == sum(intent["estimates"].values()), "Shared claim binding changed")
-        require(claim["status"] in ("reserved", "starting"), "Shared claim needs native reconciliation, not admission retry")
-        require(claim["native"] is None, "Native ownership requires the future result adapter")
+                claim["estimatedTokens"] == sum(intent["estimates"].values()) + extra, "Shared claim binding changed")
+        require(claim["status"] in HELD, "Shared claim no longer retains ownership")
         keys = intent["resourceKeys"]
         owned = sorted(r[0] for r in kernel.execute("SELECT id FROM resources WHERE claim=?", (claim["id"],)))
         require(owned == keys, "Shared resource ownership changed; explicit recovery required")

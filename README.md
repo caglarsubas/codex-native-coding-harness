@@ -158,6 +158,10 @@ those approvals to shared reservations and a recoverable one-shot creation-inten
 journal. It preserves phase budgets across run generations and refuses duplicate
 creation after interrupted commits. It still makes no native calls, cannot release
 maintenance fences and has no public Play route.
+The [native lifecycle coordinator](docs/NATIVE-LIFECYCLE.md) adds pending/confirmed
+task bindings, uncertain-result recovery and budgeted same-task correction intents.
+Delivery acknowledgment and finished-turn evidence remain separate. These are
+internal records, not native transport or live activation; idle never frees ownership.
 The 15-minute heartbeat remains a
 recovery fallback while enabled. Delivery is not receipt: unavailable, ambiguous
 and overdue states keep the answer and explain the next action. Keep the computer

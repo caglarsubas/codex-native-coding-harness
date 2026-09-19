@@ -16,7 +16,10 @@ def active(meta):
 
 
 def worker_binding(worker):
-    return {k: worker.get(k) for k in ("id", "repository", "status", "hostId", "threadId", "clientThreadId")}
+    binding = {k: worker.get(k) for k in ("id", "repository", "status", "hostId", "threadId", "clientThreadId")}
+    if "dispatchAdmission" in worker:
+        binding.update({k: worker.get(k) for k in ("nativeLifecycleHash", "nativeContinuationIntentHash")})
+    return binding
 
 
 def fence_new_work(meta):
