@@ -154,8 +154,13 @@ still requires complete terminal reconciliation to release repository/slot/token
 ownership. It retains runner history and cumulative estimates in the terminal
 record without changing historical no-runner receipt shapes.
 
+WSP-04C3c adds [reconciled non-creation closure](CREATION-RECOVERY.md) through a
+separate coordinator using this same terminal journal, with a distinct record
+kind. Exact outcomes cannot be substituted. It requires final absence and explicit
+zero-task-usage evidence, keeps failed attempts closed and never authorizes retry.
+
 Next increments retain independently verified destination/resource observations,
-trusted Harness runner integration, not-created recovery, separate
+trusted Harness runner integration, separate
 acceptance/result coordination, new-generation continuation approval, native
 transport, maintenance migration and exact owner Play activation. A separately
 authorized real pilot remains required. See [verification](OWNERSHIP-SETTLEMENT-VERIFICATION.md).

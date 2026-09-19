@@ -102,3 +102,9 @@ result/same-run correction coordination. Ownership settlement/release, independe
 resource observations, new-generation continuation approval and native transport
 remain before exact owner activation and a separately authorized real pilot.
 No browser acceptance or live rollout is claimed by these backend increments.
+
+WSP-04C3c now supports [reconciled non-creation closure](CREATION-RECOVERY.md),
+including a local-first creation boundary whose shared claim remains reserved.
+Only explicit final attempt/absence/cleanup/zero-usage evidence can close it;
+the interrupted journal alone proves neither no send nor safe retry. The same
+attempt remains permanently sealed after release; no reserve/begin retry opens it.

@@ -163,3 +163,15 @@ Harness acquisition is refused until its trusted launcher/isolation and packet
 attempt contract are integrated. Preserve maintenance/Pause fences and newer
 owners during receipt recovery. External observations are assertions, not native
 attestation. No process commands, transport, live installation or Play activation.
+
+WSP-04C3c adds internal reconciled non-creation accounting in the existing terminal
+journal. See docs/CREATION-RECOVERY.md. Never infer absence from an empty list,
+missing ID, timeout or unknown outcome. Require a final exact creation result,
+complete attempt/descendant/effect reconciliation, retained attempt-scoped bytes,
+fresh cleanup and explicit zero task counters. Known native work, continuations,
+runners or contrary Pause history cannot use this outcome. Close the old attempt
+permanently, preserve pending IDs/task counts/cumulative usage, keep the packet
+held and never retry automatically. Pause may omit a nonexistent task checkpoint
+only with the exact retained non-creation receipt and artifact; fresh complete
+Pause inventory and all other checkpoint gates remain required. No live rollout,
+transport, maintenance-fence release or Play activation is authorized.
