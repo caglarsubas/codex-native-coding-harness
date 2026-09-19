@@ -65,6 +65,14 @@ class NativeLifecycle:
 
     def state_in(self, kernel, intent):
         claim = self.bridge.owned_claim_in(kernel, intent)
+        return self.journal_in(kernel, intent, claim)
+
+    def journal_in(self, kernel, intent, claim):
+        """Validate retained native history, including a sealed pre-settlement claim.
+
+        This does not verify current resource ownership or authorize a write;
+        active lifecycle callers must continue to use state_in.
+        """
         key = claim.get("nativeLifecycleHash")
         if key:
             record = self.record_in(kernel, key, intent); state = record["state"]
@@ -111,7 +119,7 @@ class NativeLifecycle:
             require(not any(row[0] in ids for row in db.execute("SELECT brain FROM workspaces")), "Native identity belongs to a registered brain")
         for other in self.store.rows(kernel, "claims"):
             if other["id"] == worker_id: continue
-            for binding in (other.get("native"), other.get("clientNative")):
+            for binding in (other.get("native"), other.get("clientNative"), *other.get("settledNativeIdentities", [])):
                 require(not binding or binding["hostId"] != host or not ids.intersection(binding.values()),
                         "Native identity already belongs to another shared claim")
         if kernel.execute("SELECT 1 FROM sqlite_master WHERE name='legacy_claims'").fetchone():

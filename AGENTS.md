@@ -124,7 +124,7 @@ failed. Receipt recovery must not create a claim, reset counters, release resour
 or unpause a workspace. Existing enrollment/adoption fences have no bypass. Never
 use legacy bind/transition/runner/completion for an admission-managed worker.
 Native result binding and same-run correction receipts use WSP-04C2 below;
-ownership release still requires its future coordinator. No live kernel setup or
+terminal ownership release uses WSP-04C3a below. No live kernel setup or
 activation is authorized by source delivery.
 
 WSP-04C2 adds internal native-result observations and same-run edit-correction
@@ -138,3 +138,15 @@ Observations/recovery may retain facts after Pause but do not resume execution.
 Keep the kernel journal and local receipts consistent, and invalidate old Pause
 inventory when the native lifecycle changes. No native transport, live setup,
 new-generation continuation approval, maintenance release or public Play is shipped.
+
+WSP-04C3a provides internal confirmed-terminal settlement only. See
+docs/OWNERSHIP-SETTLEMENT.md. Never equate idle, a worker final message or a complete
+evidence shape with independently verified terminal facts. Require fresh complete
+task/descendant inactivity, retained task-scoped handoff bytes, final cumulative
+usage and exact resource cleanup; refuse unresolved sends, controls and runners.
+Shared release commits before its local receipt. Recover only that receipt after
+interruption, never a second release or erasure of a newer owner. Preserve all
+maintenance fences, native identities, task attempts and actual usage including
+overruns. Settled workers are not accepted/complete or eligible for archival;
+keep their packet held for separate result review. No not-created recovery,
+runner execution, native transport, public Play or live migration is authorized.

@@ -290,13 +290,15 @@ class Registry:
                 "paused": state["meta"]["paused"], "lastReconciled": state["meta"]["lastReconciled"],
                 "repositories": len(state["repositories"]), "metrics": summary["aggregate"],
                 "usage": usage.get("aggregate") if usage.get("status") == "measured" else None,
-                "activeWorkers": sum(w["status"] != "complete" for w in state["workers"]),
+                "activeWorkers": sum(w["status"] not in ("complete", "settled") for w in state["workers"]),
+                "settledWorkers": sum(w["status"] == "settled" for w in state["workers"]),
                 "artifacts": len(state["observations"].get("artifacts", []))})
         measured = [m for m in repositories.values() if m["status"] == "measured"]
         included = [value for key, value in sessions.items() if key not in conflicts and value["samples"]]
         totals = {key: sum(m[key] for m in measured) if measured else None for key in ("lines", "characters", "files")}
         totals.update(uniqueRepositorySnapshots=len(repositories), measuredRepositories=len(measured),
             managedTasks=len(workers), completedTasks=sum(all(s == "complete" for s in statuses) for statuses in workers.values()),
+            settledTasks=sum(all(s == "settled" for s in statuses) for statuses in workers.values()),
             distinctObservedSessions=len(sessions), conflictingSessionsExcluded=len(conflicts),
             tokens=sum(s["total_tokens"] for s in included) if included else None,
             cachedInput=sum(s["cached_input_tokens"] for s in included) if included else None,

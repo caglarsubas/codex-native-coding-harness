@@ -133,3 +133,9 @@ native transport, then exact owner-facing Play and a separately authorized pilot
 
 See [verification evidence](NATIVE-LIFECYCLE-VERIFICATION.md). No live installation,
 native task, schedule, product scope, credentials or private state was changed.
+
+WSP-04C3a now adds [confirmed-terminal settlement](OWNERSHIP-SETTLEMENT.md) as a
+separate internal coordinator. Once its shared settlement commits, native writes
+and lifecycle recovery refuse rather than reopening the claim. Use settlement
+receipt recovery instead. Pending/uncertain/not-created claims and unresolved
+correction sends still cannot release; no native transport or Play is added.

@@ -55,7 +55,7 @@ class DispatchAdmission:
         self.ledger_id = inspect_ledger(self.ledger.root)["databaseIdentity"]
 
     @contextlib.contextmanager
-    def locked(self, token, *, effects=False):
+    def locked(self, token, *, effects=False, ownership_change=False):
         require(enrollment.registry_identity(self.registry) == self.registry_id, "Registry identity changed")
         with self.registry.tx() as registry_db:
             row = registry_db.execute("SELECT root,brain,data FROM workspaces WHERE id=?", (self.workspace_id,)).fetchone()
@@ -63,15 +63,16 @@ class DispatchAdmission:
             inspected = inspect_ledger(self.ledger.root)
             require(inspected["databaseIdentity"] == self.ledger_id == json.loads(row["data"])["databaseIdentity"]
                     and inspected["brainId"] == row["brain"], "Workspace database or brain identity changed")
-            if effects:
+            if effects or ownership_change:
                 enrollment.require_registration_open(registry_db)
                 require(not inspected["admissionFenced"], "Workspace maintenance fence remains in force")
             with self.ledger.tx() as db:
                 meta = authorize_brain(self.ledger, db, token)
                 require(meta["brainId"] == row["brain"], "Workspace brain identity changed")
-                if effects:
+                if effects or ownership_change:
                     require("admissionBinding" not in meta and not enrollment.fence_exists(self.ledger.root),
                             "Workspace maintenance fence remains in force")
+                if effects:
                     require(meta["paused"] is False, "Dispatch paused; run intent is not activation")
                 yield db, meta
 
@@ -129,6 +130,15 @@ class DispatchAdmission:
 
     def owned_claim_in(self, kernel, intent):
         """Exact ownership binding shared by creation and native lifecycle code."""
+        claim = self.bound_claim_in(kernel, intent)
+        require(claim["status"] in HELD, "Shared claim no longer retains ownership")
+        keys = intent["resourceKeys"]
+        owned = sorted(r[0] for r in kernel.execute("SELECT id FROM resources WHERE claim=?", (claim["id"],)))
+        require(owned == keys, "Shared resource ownership changed; explicit recovery required")
+        return claim
+
+    def bound_claim_in(self, kernel, intent):
+        """Immutable claim binding, also usable for terminal receipt recovery."""
         claim = self.store.get(kernel, "claims", intent["workerId"])
         extra = claim.get("continuationReservedTokens", 0)
         integer(extra)
@@ -137,10 +147,6 @@ class DispatchAdmission:
         require(claim["id"] == intent["workerId"] and claim["fingerprint"] == digest(spec) and
                 all(claim[k] == v for k, v in spec.items()) and
                 claim["estimatedTokens"] == sum(intent["estimates"].values()) + extra, "Shared claim binding changed")
-        require(claim["status"] in HELD, "Shared claim no longer retains ownership")
-        keys = intent["resourceKeys"]
-        owned = sorted(r[0] for r in kernel.execute("SELECT id FROM resources WHERE claim=?", (claim["id"],)))
-        require(owned == keys, "Shared resource ownership changed; explicit recovery required")
         return claim
 
     def attach_in(self, db, worker, claim):
