@@ -684,7 +684,7 @@ the full admission items below can be checked. See [the implemented contract and
 remaining integration gates](ADMISSION.md). Do not activate a reviewed mission
 or initialize live allocations as an upgrade side effect.
 
-**WSP-04C1–C3d** now connect internal run authority to shared reservation,
+**WSP-04C1–C3e** now connect internal run authority to shared reservation,
 native-result/correction journals, terminal settlement and
 [standard-policy runner coordination](RUNNER-COORDINATION.md). These are tested
 internal records, not native transport, trusted operator observations or Play.
@@ -698,8 +698,12 @@ and attempts without retry. This does not collect independent native evidence.
 [Separate result review](RESULT-REVIEW.md) now records exact standard-policy
 acceptance or rejection after terminal settlement, preserving all evidence axes,
 closed attempts and safe-Pause supervision. It validates retained proof bindings,
-not their independent external truth; trusted collection and Harness acceptance
-remain unimplemented. Completion does not enable legacy pilot or archival paths.
+not their independent external truth. An optional
+[local source observer](SOURCE-OBSERVATION.md) now measures exact local Git
+structure under pinned identity, retains provenance and binds the complete diff
+to a later review. It does not establish source semantics, CI, remote delivery or
+preservation. Trusted native/CI/remote collection and Harness acceptance remain
+unimplemented. Completion does not enable legacy pilot or archival paths.
 
 - [x] WSP-04A: common-directory/conventional-origin identity observation and explicit platform-wide owner/alias audit.
 - [x] WSP-04A: atomic multi-resource, global/workspace slot and token reservations in an isolated capacity kernel.
@@ -711,6 +715,7 @@ remain unimplemented. Completion does not enable legacy pilot or archival paths.
 - [x] WSP-04B2: durable platform fence and kernel inode pin, atomic import, interrupted cross-database receipt recovery and cached-client admission fences.
 - [x] WSP-04B3: explicit evidence coverage/freshness diagnostics, exact owner-reviewed versions and non-resetting account/task cumulative baseline anchors.
 - [x] WSP-04B3: read-only current re-evaluation, source/version concurrency checks, crash replay and retained ownership/fences.
+- [x] WSP-04C3e: bounded standard-policy local commit/ancestry/branch/diff observation, retained collector/request proof and no timestamp refresh on review/replay.
 - [ ] Trusted native/operator observation collection and live evidence qualification; supplied assertions are not independent attestation.
 - [ ] Canonical repository/runner identity and transactional platform reservations.
 - [ ] Brain-owned new/continue/handle/wait decisions with reason and immutable task seed.

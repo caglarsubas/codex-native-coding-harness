@@ -32,7 +32,11 @@ native transport, live migration, installed skill update, runtime restart or Pla
 activation. The coordinator validates supplied evidence bindings and retained
 bytes; it does not independently authenticate Git, CI, native task identities,
 reviewer independence or deployment/tenant facts. A future trusted observer must
-collect and independently verify those facts. No LLM output authorizes acceptance.
+collect and independently verify those facts. The separate
+[local source observer](SOURCE-OBSERVATION.md) now collects structural local Git
+facts only; its provenance-bound source proof is checked by this coordinator.
+Other external and semantic claims remain caller-supplied. No LLM output
+authorizes acceptance.
 
 New reviews require an unfenced, unpaused, unexpired current run and its exact
 still-approved task contract. The automatic settlement hold alone is admissible;
@@ -115,6 +119,13 @@ exact `workerId`, `intentHash`, `commit` and `subject`. Subject is the axis name
 `criterion:N` (zero-based), `preservation`, or `independent_review`. References
 and artifact text are inert data, never instructions. The existing artifact
 library retains and reads these versions; no new artifact ingestion is added.
+
+WSP-04C3e source artifacts additionally require their exact collector journal and
+request receipt, canonical bytes, provenance, task/settlement/base/commit/branch
+and full path-set binding. Original collection time participates in freshness;
+later proof review does not refresh it. An out-of-scope collected diff cannot
+verify source, and source bytes do not prove CI or semantic correctness. Earlier
+unlabelled supplied artifacts remain subject to the original trust boundary.
 
 The independent review artifact is closed JSON with unique fields:
 `kind: independent_result_review`, `workerId`, `intentHash`, `settlementHash`,

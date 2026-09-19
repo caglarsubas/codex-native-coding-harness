@@ -153,7 +153,8 @@ These are planned tooling increments, not live mission or product authorization.
 - [x] WSP-04C3b: internal standard-policy runner reservation, one-shot local/shared launch journal, exact process observations and cleanup-only release with retained repository/token holds (no commands, automatic retry or Harness acceptance adapter)
 - [x] WSP-04C3c: internal reconciled non-creation closure, final attempt/absence/cleanup/zero-usage evidence, retained client identities and terminal receipt recovery; safe-Pause exception for a verified nonexistent task (no automatic retry or native absence collector)
 - [x] WSP-04C3d: internal standard-policy result review after terminal settlement, exact result/criterion/axis proofs, independent-review byte binding, atomic acceptance/rejection and replay; preserve safe-Pause supervision and block legacy archive/pilot shortcuts (not external attestation or live activation)
-- [ ] WSP-04C3 remainder: independently verified resource/host/result observations, trusted Harness acceptance adapter, new-generation continuation/rereview and native transport before exact owner Play activation
+- [x] WSP-04C3e: explicit internal local source-structure observation against pinned standard-policy Git identity, isolated metadata-only Git view, complete diff/scope findings, atomic artifact/journal provenance and result-review binding (no CI/remote/semantic acceptance or live collection)
+- [ ] WSP-04C3 remainder: trusted CI/remote/preservation and resource/host/native observations, trusted Harness acceptance adapter, new-generation continuation/rereview and native transport before exact owner Play activation
 - [ ] WSP-03: configurable brain authority, phase checkpoint releases and safe Play/Pause
 - [ ] WSP-04: brain-owned task/model/effort/speed choices, parallel limits and token admission
 - [ ] WSP-05: continuous phase-scoped development, inheritance and preserved task archival
