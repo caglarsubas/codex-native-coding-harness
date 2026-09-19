@@ -154,6 +154,9 @@ def context(state, view):
         rows.append({"link": key, "name": short(artifact["name"], 160), "version": artifact["version"], "orderAt": artifact.get("orderAt")})
     facts.append({"id": "F11", "label": "Eight newest artifact versions by recorded creation/reference order; contents NOT supplied", "data": rows})
     extend_context(state, facts, view)
+    if state.get("admission"):
+        facts.append({"id": "F32", "label": "Workspace enrollment fence; not native activity or run activation",
+                      "data": {k: state["admission"].get(k) for k in ("state", "dispatchBlocked", "activationAvailable", "reason")}})
     # The service sees aliases, not native/ledger IDs, filesystem paths or routes.
     data = {"schemaVersion": 2, "observedAt": time.time(), "snapshotTimeUTC": datetime.now(timezone.utc).isoformat(), "currentView": VIEWS[view], "facts": facts,
             "links": {k: v["label"] for k, v in links.items()},

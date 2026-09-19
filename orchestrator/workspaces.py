@@ -53,7 +53,9 @@ def inspect_ledger(root):
         raise Refusal("Workspace ledger is unavailable or invalid") from error
     stat = path.stat()
     return {"brainId": brain, "revision": meta["revision"], "repositories": repos,
-            "databaseIdentity": [stat.st_dev, stat.st_ino]}
+            "databaseIdentity": [stat.st_dev, stat.st_ino],
+            "admissionFenced": "admissionBinding" in meta or (root / "admission-fence.json").exists()
+                or (root / "admission-fence.json").is_symlink()}
 
 
 def fingerprint(db):
@@ -130,7 +132,10 @@ class Registry:
         identity(workspace_id)
         require(isinstance(name, str) and 0 < len(name.strip()) <= 100, "Workspace name required (1–100 characters)")
         inspected = inspect_ledger(root)
+        require(not inspected["admissionFenced"], "Fenced workspace belongs to an enrollment; explicit migration required")
         with self.tx() as db:
+            from .enrollment import require_registration_open
+            require_registration_open(db)
             rows = list(db.execute("SELECT * FROM workspaces"))
         for row in rows:
             require(row["id"] != workspace_id and row["root"] != str(Path(root).absolute()) and
@@ -167,6 +172,9 @@ class Registry:
         try:
             with self.tx() as db:
                 # Recheck overlap inside the write transaction, including concurrent registrations.
+                from .enrollment import require_registration_open
+                require_registration_open(db)
+                require(not inspect_ledger(root)["admissionFenced"], "Workspace enrollment changed during registration")
                 for row in db.execute("SELECT root FROM workspaces"):
                     other = Path(row[0])
                     require(not root.is_relative_to(other) and not other.is_relative_to(root), "Workspace state roots must not overlap")

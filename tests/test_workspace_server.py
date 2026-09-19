@@ -131,6 +131,33 @@ class WorkspaceServerTest(unittest.TestCase):
         finally:
             a.inference_lock.release()
 
+    def test_enrollment_blocks_http_resume_and_stale_assistant_preview_before_notification(self):
+        from orchestrator import enrollment
+        from orchestrator.assistant_actions import catalog
+        auth = self.auth("a")
+        runtime = self.server.runtime_for("a")
+        state = runtime.snapshot()
+        proposal = runtime.assistant_proposals.prepare(catalog(state, {})["dispatch_resume"], state, auth["X-CSRF-Token"])
+        enrollment.apply(self.registry, {"id": "http-fixture-enrollment", "confirmed": True,
+                                         "preview": enrollment.preview(self.registry)})
+        with patch.object(runtime.notifier, "notify") as notify:
+            body = {"id": "fenced-http-resume", "kind": "resume", "payload": {},
+                    "expectedRevision": self.ledgers["a"].snapshot()["meta"]["revision"]}
+            status, _, raw = self.request("/api/workspaces/a/commands", body, auth)
+            self.assertEqual(status, 409, raw)
+            self.assertIn(b"enrollment fences", raw)
+            status, _, raw = self.request("/api/workspaces/a/assistant/confirm", {"proposal": proposal, "confirmed": True}, auth)
+            self.assertEqual(status, 409, raw)
+            notify.assert_not_called()
+        self.assertEqual(self.ledgers["a"].snapshot()["commands"], [])
+        _, _, raw = self.request("/api/workspaces/a/state", headers=auth)
+        self.assertTrue(json.loads(raw)["admission"]["dispatchBlocked"])
+        for path in ("/api/platform/enroll", "/api/workspaces/a/enroll", "/api/workspaces/a/play"):
+            code, _, raw = self.request(path, {}, auth)
+            self.assertIn(code, (400, 404, 409))
+            self.assertIn("error", json.loads(raw))
+        self.assertEqual(self.ledgers["a"].snapshot()["commands"], [])
+
     def test_mission_owner_review_is_scoped_and_never_notifies_or_dispatches(self):
         from test_missions import request, specification
         for wid, ledger in self.ledgers.items():

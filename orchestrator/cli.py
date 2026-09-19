@@ -24,6 +24,12 @@ def main():
     for name in ("workspace-list", "workspace-verify-backup", "workspace-profile"):
         sub.add_parser(name)
     sub.add_parser("platform-resources", help="Explicit read-only repository identity and ownership audit; not admission")
+    sub.add_parser("platform-enrollment-preview", help="Review exact workspace enrollment scope; no writes or activation")
+    sub.add_parser("platform-enrollment-status", help="Inspect retained enrollment stages and owners")
+    p = sub.add_parser("platform-enroll", help="Explicit owner operation: fence legacy dispatch, never activate Play")
+    p.add_argument("preview", type=Path); p.add_argument("--id", required=True); p.add_argument("--confirm", action="store_true")
+    p = sub.add_parser("platform-enrollment-recover", help="Continue the exact enrollment fence without releasing owners")
+    p.add_argument("id"); p.add_argument("--confirm", action="store_true")
     p = sub.add_parser("workspace-register"); p.add_argument("id"); p.add_argument("name"); p.add_argument("state_root", type=Path)
     p.add_argument("--apply", action="store_true", help="Register in place after a verified SQLite backup; default is preview")
     p = sub.add_parser("workspace-profile-set"); p.add_argument("profile", type=Path); p.add_argument("--version", type=int, required=True)
@@ -65,6 +71,20 @@ def main():
     if args.state and (args.workspace or args.platform):
         raise Refusal("Choose a registered workspace or --state, not both")
     registry = Registry(args.platform, create=args.action == "workspace-register") if args.platform else None
+    if args.action in ("platform-enrollment-preview", "platform-enrollment-status", "platform-enroll", "platform-enrollment-recover"):
+        if not registry or args.workspace:
+            raise Refusal("Enrollment is platform-wide: supply --platform and omit --workspace")
+        from . import enrollment
+        if args.action == "platform-enrollment-preview": out = enrollment.preview(registry)
+        elif args.action == "platform-enrollment-status": out = enrollment.status(registry)
+        elif args.action == "platform-enrollment-recover": out = enrollment.recover(registry, args.id, confirmed=args.confirm)
+        else:
+            if not args.confirm:
+                raise Refusal("Explicit --confirm is required; enrollment fences dispatch and does not activate Play")
+            if args.preview.stat().st_size > 2_000_000:
+                raise Refusal("Enrollment preview is too large")
+            out = enrollment.apply(registry, {"id": args.id, "confirmed": args.confirm, "preview": json.loads(args.preview.read_text())})
+        print(json.dumps(out, ensure_ascii=False, indent=2)); return
     if args.action == "platform-resources":
         if not registry or args.workspace:
             raise Refusal("platform-resources requires --platform and audits all workspaces; omit --workspace")

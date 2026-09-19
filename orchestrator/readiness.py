@@ -76,6 +76,7 @@ def collect(ledger):
 def diagnose(ledger, state=None):
     state = state or ledger.snapshot()
     meta, obs, now = state["meta"], state["observations"], time.time()
+    admission = state.get("admission", {})
     local, native = obs.get("readiness") or {}, obs.get("native") or {}
     def fresh(at):
         return bool(at) and 0 <= now - at <= FRESH_SECONDS
@@ -109,6 +110,8 @@ def diagnose(ledger, state=None):
                     [{"code": "owned", "detail": "Already dispatched; reconcile its existing owner, never create a duplicate."}]})
             continue
         issues = eligibility_issues(q, repo, ledger.document(q["seedHash"]), state["workers"], now)
+        if admission.get("dispatchBlocked"):
+            issues.append({"code": "platform_enrollment", "detail": admission["reason"]})
         if meta["paused"]: issues.append({"code": "paused", "detail": "Dispatch paused; any resume request must be processed by the designated brain."})
         if len(active) >= meta["concurrency"]: issues.append({"code": "capacity", "detail": "Worker capacity is reserved."})
         if any(w["repository"] == q["repository"] for w in active): issues.append({"code": "repository_owned", "detail": "Repository is owned by an existing worker."})
@@ -122,7 +125,8 @@ def diagnose(ledger, state=None):
         "repositories": rows, "packets": packets, "pendingControls": len(pending), "uncertainControls": sum(c["status"] == "processing" for c in pending),
         "activeWorkers": len(active), "pilotPassed": meta["pilotPassed"], "concurrency": meta["concurrency"],
         "heartbeat": {**meta["heartbeat"], "source": "recorded_ledger_state_not_live_poll"}, "rehearsal": obs.get("rehearsal"),
-        "nextAction": "Reconcile existing ownership and pending native actions." if active or pending else
+        "admission": admission,
+        "nextAction": admission["reason"] if admission.get("dispatchBlocked") else "Reconcile existing ownership and pending native actions." if active or pending else
             "Ask the brain to reverify the exact approved scope and current external gates. Resume remains a separate request." if status == "brain_check_required" else
             "Prepare one bounded next scope and review its exact inheritance before approval. Pilot acceptance does not authorize more work." if meta["pilotPassed"] else
             "Select one bounded pilot scope, review its inheritance and approve its exact hashes. No blanket roadmap execution.",

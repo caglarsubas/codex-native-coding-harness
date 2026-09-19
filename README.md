@@ -41,6 +41,9 @@ controller authority: an exact owner confirmation is required for submission.
   [shared admission foundation](docs/ADMISSION.md) adds a tested internal capacity
   kernel and explicit read-only `platform-resources` audit; native dispatch and
   autonomous Play are not yet connected to it.
+- Explicit [maintenance enrollment and interrupted-setup recovery](docs/ENROLLMENT.md)
+  preserve existing ownership and fence upgraded legacy launch paths. This is not
+  automatic migration or Play; no live enrollment should be inferred from an upgrade.
 
 Use the top **Navigation / Workspace / AI assistant** controls to show or collapse
 panes. Drag either divider, or focus it and use Left/Right (Shift for larger

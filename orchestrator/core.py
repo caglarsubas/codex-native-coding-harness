@@ -195,6 +195,8 @@ class Ledger:
         require(config.get("schemaVersion") == 1 and config.get("brainId"), "Invalid portfolio configuration")
         with self.tx() as db:
             meta = self.get(db, "meta", 1)
+            from .enrollment import require_legacy_unfenced
+            require_legacy_unfenced(self, meta)
             require(meta["brainId"] in (None, config["brainId"]), "Brain reassignment needs explicit migration")
             meta["brainId"] = config["brainId"]
             self.put(db, "meta", 1, meta)
@@ -308,6 +310,8 @@ class Ledger:
             if kind in ("resume", "reconcile"):
                 require(not any(c["kind"] == kind and c["status"] in ("queued", "processing") for c in self.all(db, "commands")), "Equivalent request already pending")
             if kind == "resume":
+                from .enrollment import require_legacy_unfenced
+                require_legacy_unfenced(self, meta)
                 require(not stopped(meta), "Resume the brain before enabling worker dispatch")
             if kind in ("brain_stop", "brain_resume"):
                 brain_request(self, db, record, meta)
@@ -393,6 +397,13 @@ class Ledger:
                 elif cmd["kind"] in ("resume", "reconcile"):
                     if cmd["kind"] == "resume":
                         meta = self.get(db, "meta", 1)
+                        from .enrollment import projection
+                        fence = projection(self, meta)
+                        if fence["dispatchBlocked"]:
+                            cmd.update(status="rejected", result=fence["reason"])
+                            self.put(db, "commands", cmd["id"], cmd)
+                            self.event(db, "command_processed", {"id": cmd["id"], "status": cmd["status"]})
+                            continue
                         meta["paused"] = False
                         self.put(db, "meta", 1, meta)
                     cmd.update(status="completed", result="Processed by controller; eligibility still gates dispatch.")
@@ -449,6 +460,8 @@ class Ledger:
     def reserve(self, token, key):
         with self.tx() as db:
             meta = self.authorize(db, token)
+            from .enrollment import require_legacy_unfenced
+            require_legacy_unfenced(self, meta)
             require(not meta["paused"], "Dispatch paused")
             q = self.get(db, "queue", key)
             self.eligible(db, q)
@@ -470,6 +483,8 @@ class Ledger:
     def begin_creation(self, token, wid):
         with self.tx() as db:
             meta = self.authorize(db, token)
+            from .enrollment import require_legacy_unfenced
+            require_legacy_unfenced(self, meta)
             require(not meta["paused"], "Dispatch paused before creation boundary")
             w = self.get(db, "workers", wid)
             require(w["status"] == "reserved", "Creation already attempted; reconcile native tasks, never retry blindly")
@@ -521,6 +536,8 @@ class Ledger:
             meta = self.authorize(db, token)
             w = self.get(db, "workers", wid)
             if action == "acquire":
+                from .enrollment import require_legacy_unfenced
+                require_legacy_unfenced(self, meta)
                 from .brain_control import stopped
                 require(not stopped(meta), "Brain stop requested; no new acceptance run may start")
                 require(meta["runner"] is None and w["status"] == "awaiting_acceptance", "Runner unavailable or worker not ready")
@@ -595,6 +612,8 @@ class Ledger:
                 "workers": self.all(db, "workers"), "commands": self.all(db, "commands"),
                 "decisions": sorted(self.all(db, "decisions"), key=lambda d: d["createdAt"], reverse=True),
                 "metrics": self.all(db, "metrics"), "events": events, "serverTime": time.time()}
+            from .enrollment import projection
+            result["admission"] = projection(self, meta)
             history = [{"at": r["at"], "kind": r["kind"], "data": json.loads(r["data"])} for r in db.execute("SELECT at,kind,data FROM events ORDER BY seq")]
             result["delivery"] = delivery_metrics(result["workers"], result["repositories"], history, result["serverTime"])
             from .observations import snapshot

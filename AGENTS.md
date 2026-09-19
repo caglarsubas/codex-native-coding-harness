@@ -49,3 +49,11 @@ live allocations, auto-adopt owners or change legacy dispatch during an upgrade.
 The explicit platform-resources command is read-only, bounded metadata inspection;
 its snapshot is not a lock. WSP-04B must implement legacy-owner adoption, authority
 fences and cross-database recovery before using the kernel for native operations.
+
+WSP-04B1 enrollment is an explicit maintenance fence, not activation. Do not run
+platform-enroll or its recovery on live state merely because tooling is upgraded.
+It has no unfence path in this version. Retain both the private file and SQLite
+fence; never delete them to bypass a refusal. Updated legacy --state commands
+must honor either signal. Only safe-stop supervision and reconciliation of
+existing native work may continue; no new tasks, acceptance, retries or merges.
+See docs/ENROLLMENT.md for exact scope, recovery and remaining activation gates.

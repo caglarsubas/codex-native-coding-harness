@@ -140,6 +140,7 @@ These are planned tooling increments, not live mission or product authorization.
 - [ ] WSP-02 scale qualification and WSP-04 canonical clone/worktree deduplication
 - [x] WSP-03A: versioned mission/phase authority configuration, exact owner review/revocation and policy-safe editor (inactive)
 - [x] WSP-04A: isolated shared-capacity kernel, conservative token accounting and explicit read-only resource audit (not connected to native dispatch)
+- [x] WSP-04B1: explicit maintenance enrollment, durable legacy dispatch fences, retained-owner journal and interrupted-staging recovery (no activation/unfence)
 - [ ] WSP-03: configurable brain authority, phase checkpoint releases and safe Play/Pause
 - [ ] WSP-04: brain-owned task/model/effort/speed choices, parallel limits and token admission
 - [ ] WSP-05: continuous phase-scoped development, inheritance and preserved task archival

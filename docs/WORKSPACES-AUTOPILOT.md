@@ -640,7 +640,10 @@ owner-bound action.
 
 **WSP-04A** implements the private atomic capacity kernel and read-only resource
 audit, with synthetic contention/recovery/accounting tests. It is not connected
-to native dispatch. **WSP-04B** must adopt legacy owners, connect authority and
+to native dispatch. **WSP-04B1** implements explicit maintenance enrollment,
+durable fences on upgraded legacy routes and retained-owner recovery; it does not
+activate runs or populate the kernel. See [the enrollment contract](ENROLLMENT.md).
+**WSP-04B2** must adopt retained legacy owners into verified claims, connect authority and
 run fences, verify observation coverage and handle cross-database recovery before
 the full admission items below can be checked. See [the implemented contract and
 remaining integration gates](ADMISSION.md). Do not activate a reviewed mission
@@ -650,6 +653,8 @@ or initialize live allocations as an upgrade side effect.
 - [x] WSP-04A: atomic multi-resource, global/workspace slot and token reservations in an isolated capacity kernel.
 - [x] WSP-04A: fresh account/phase observation checks, checkpoint headroom and conservative settlement accounting.
 - [x] WSP-04A: two-process contention, transaction rollback, restart and uncertain-creation retention fixtures.
+- [x] WSP-04B1: exact owner-reviewed enrollment scope, journal-before-fence ordering and explicit recovery after partial setup.
+- [x] WSP-04B1: legacy CLI/HTTP Resume, creation and acceptance-acquisition fences; no time-based release of retained owners.
 - [ ] Canonical repository/runner identity and transactional platform reservations.
 - [ ] Brain-owned new/continue/handle/wait decisions with reason and immutable task seed.
 - [ ] Explicit model/effort/speed policy and requested/applied/observed decision records.
