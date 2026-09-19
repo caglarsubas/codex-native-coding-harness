@@ -684,7 +684,7 @@ the full admission items below can be checked. See [the implemented contract and
 remaining integration gates](ADMISSION.md). Do not activate a reviewed mission
 or initialize live allocations as an upgrade side effect.
 
-**WSP-04C1–C3c** now connect internal run authority to shared reservation,
+**WSP-04C1–C3d** now connect internal run authority to shared reservation,
 native-result/correction journals, terminal settlement and
 [standard-policy runner coordination](RUNNER-COORDINATION.md). These are tested
 internal records, not native transport, trusted operator observations or Play.
@@ -695,6 +695,11 @@ integrated. The full live admission/activation items below remain unchecked.
 [Reconciled non-creation closure](CREATION-RECOVERY.md) now seals failed attempts
 with explicit finality/absence/cleanup/zero-usage evidence, preserving identities
 and attempts without retry. This does not collect independent native evidence.
+[Separate result review](RESULT-REVIEW.md) now records exact standard-policy
+acceptance or rejection after terminal settlement, preserving all evidence axes,
+closed attempts and safe-Pause supervision. It validates retained proof bindings,
+not their independent external truth; trusted collection and Harness acceptance
+remain unimplemented. Completion does not enable legacy pilot or archival paths.
 
 - [x] WSP-04A: common-directory/conventional-origin identity observation and explicit platform-wide owner/alias audit.
 - [x] WSP-04A: atomic multi-resource, global/workspace slot and token reservations in an isolated capacity kernel.

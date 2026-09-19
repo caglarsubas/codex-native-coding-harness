@@ -41,3 +41,10 @@ assert.equal(context.brainControlPresentation(context.state.meta,{lastKnownStatu
 assert.equal(context.dispatchPresentation({paused:true},[{kind:'resume',status:'queued'}]).label,'Worker dispatch resume requested');
 assert.equal(context.dispatchPresentation({paused:true},[{kind:'resume',status:'completed'}]).label,'New worker dispatch paused');
 console.log('Decision, brain control and activity presentation checks passed');
+const app=fs.readFileSync('web/app.js','utf8');
+vm.runInContext(app.match(/function canArchiveWorker\(w\) \{[^\n]+\}/)[0],context);
+const completeWorker={status:'complete',preserved:true,archived:false};
+assert.equal(context.canArchiveWorker(completeWorker),true);
+assert.equal(context.canArchiveWorker({...completeWorker,dispatchAdmission:{stage:'settled'}}),false);
+assert.equal(context.canArchiveWorker({...completeWorker,status:'settled'}),false);
+assert(app.includes('if(selected===w.id&&canArchiveWorker(w))'));

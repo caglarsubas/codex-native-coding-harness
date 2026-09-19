@@ -369,6 +369,7 @@ class Ledger:
                 worker = self.get(db, "workers", p["workerId"])
                 require(worker.get("threadId"), "Native task identity is not resolved")
                 if kind == "archive":
+                    require("dispatchAdmission" not in worker, "Admission-managed archival requires its own verified native adapter")
                     require(worker["status"] == "complete" and worker.get("preserved") is True, "Verify completion, pushed commits and preserved evidence first")
                     require(not worker.get("archived"), "Already archived")
                 require(not any(c["kind"] == kind and c["payload"] == p and c["status"] in ("queued", "processing") for c in self.all(db, "commands")), "Equivalent native request already pending")
@@ -428,7 +429,9 @@ class Ledger:
                     cmd.update(status="completed", result="Processed by controller; eligibility still gates dispatch.")
                 else:
                     worker = self.get(db, "workers", cmd["payload"]["workerId"])
-                    if cmd["kind"] == "archive" and not (worker["status"] == "complete" and worker.get("preserved")):
+                    if cmd["kind"] == "archive" and "dispatchAdmission" in worker:
+                        cmd.update(status="rejected", result="Admission-managed archival requires its own verified native adapter")
+                    elif cmd["kind"] == "archive" and not (worker["status"] == "complete" and worker.get("preserved")):
                         cmd.update(status="rejected", result="Completion or preservation no longer verified")
                     else:
                         cmd["status"] = "processing"
@@ -444,6 +447,9 @@ class Ledger:
             cmd = self.get(db, "commands", command_id)
             require(cmd["kind"] not in ("decision_response", "brain_stop", "brain_resume"), "Use the dedicated decision or brain checkpoint lifecycle")
             require(cmd["status"] == "processing", "Command is not in flight")
+            if cmd["kind"] == "archive":
+                require("dispatchAdmission" not in self.get(db, "workers", cmd["payload"]["workerId"]),
+                        "Admission-managed archival requires its own verified native adapter")
             cmd.update(status="completed" if success else "rejected", result=result)
             self.put(db, "commands", command_id, cmd)
             if success and cmd["kind"] == "archive":
@@ -611,6 +617,7 @@ class Ledger:
         with self.tx() as db:
             meta = self.authorize(db, token)
             w = self.get(db, "workers", wid)
+            require("dispatchAdmission" not in w, "Admission-managed pilot requires separate supervised qualification")
             require(w["status"] == "complete" and w["preserved"], "Verified complete and preserved pilot required")
             meta.update(pilotPassed=True, concurrency=2)
             self.put(db, "meta", 1, meta)

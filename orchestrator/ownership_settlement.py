@@ -143,7 +143,8 @@ class OwnershipSettlement:
                     cursor = pair(parent) if parent else None
         return known
 
-    def artifact_in(self, db, intent, task, lower):
+    @staticmethod
+    def artifact_in(db, intent, task, lower):
         row = db.execute("SELECT data,CASE WHEN length(content)<=16000 THEN content ELSE NULL END FROM artifact_versions WHERE id=?",
                          (task["checkpointArtifactId"],)).fetchone()
         require(row is not None, "Retained task handoff artifact required")
@@ -220,6 +221,11 @@ class OwnershipSettlement:
 
     def attach_in(self, db, worker, claim, record):
         key = digest(record)
+        if worker.get("resultReviewHash"):
+            require(self.kind == "ownership_settlement", "Non-creation cannot acquire packet acceptance")
+            from .result_review import reviewed_worker_in
+            reviewed_worker_in(db, worker, claim, record)
+            return self.receipt(worker, record)  # Historical settlement, not current acceptance.
         if worker.get("ownershipSettlementHash") == key:
             expected = copy.deepcopy(record["localBinding"])
             expected["status"] = "settled"
