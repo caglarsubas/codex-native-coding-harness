@@ -162,6 +162,12 @@ The [native lifecycle coordinator](docs/NATIVE-LIFECYCLE.md) adds pending/confir
 task bindings, uncertain-result recovery and budgeted same-task correction intents.
 Delivery acknowledgment and finished-turn evidence remain separate. These are
 internal records, not native transport or live activation; idle never frees ownership.
+The [terminal settlement coordinator](docs/OWNERSHIP-SETTLEMENT.md) can release an
+internally managed confirmed task's reservation after complete, fresh terminal
+reconciliation and preserve its actual usage. Crash recovery attaches the exact
+receipt without releasing a newer owner. Settlement is not packet acceptance;
+runner/not-created coordination, independently verified native evidence and Play
+activation remain separate gates. No live state is changed by a source upgrade.
 The 15-minute heartbeat remains a
 recovery fallback while enabled. Delivery is not receipt: unavailable, ambiguous
 and overdue states keep the answer and explain the next action. Keep the computer

@@ -18,7 +18,7 @@ def active(meta):
 def worker_binding(worker):
     binding = {k: worker.get(k) for k in ("id", "repository", "status", "hostId", "threadId", "clientThreadId")}
     if "dispatchAdmission" in worker:
-        binding.update({k: worker.get(k) for k in ("nativeLifecycleHash", "nativeContinuationIntentHash")})
+        binding.update({k: worker.get(k) for k in ("nativeLifecycleHash", "nativeContinuationIntentHash", "ownershipSettlementHash")})
     return binding
 
 
