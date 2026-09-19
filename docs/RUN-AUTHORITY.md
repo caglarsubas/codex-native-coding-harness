@@ -128,6 +128,11 @@ treat a new run hash as permission to reset any budget or retry ceiling.
 
 ## Required next integration
 
+WSP-04C1 now supplies the internal reservation/creation-intent journal described
+in [DISPATCH-ADMISSION.md](DISPATCH-ADMISSION.md), including same-phase budget
+continuity and cross-store receipt recovery. It does not implement the native
+adapter, continuation, maintenance-fence release or owner-facing activation below.
+
 Before public Play, implement and verify the cross-store/native coordinator:
 
 1. Resolve reconciled ownership, exact repository/runner identities and fresh

@@ -114,3 +114,14 @@ Run generations never reset token usage, task-attempt counts or resource ownersh
 First internal authorization upgrades metadata to v3; old cached processes must
 be stopped/upgraded first. Preserve all schema markers, declarations and history.
 See docs/RUN-AUTHORITY.md. No live activation or mixed-version rollout is authorized.
+
+WSP-04C1 connects internal run authority to shared reservation and a recoverable
+creation-intent journal; it is NOT a native adapter or Play activation. See
+docs/DISPATCH-ADMISSION.md. Keep registry -> workspace -> admission lock order,
+stable same-phase accounting and deterministic task ownership. A local creation
+intent alone prohibits retries; retain it as in-flight even if shared advancement
+failed. Receipt recovery must not create a claim, reset counters, release resources
+or unpause a workspace. Existing enrollment/adoption fences have no bypass. Never
+use legacy bind/transition/runner/completion for an admission-managed worker.
+Native result binding, continuation and ownership release require their own future
+coordinator. No live kernel setup or activation is authorized by source delivery.

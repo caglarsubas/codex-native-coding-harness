@@ -147,6 +147,8 @@ These are planned tooling increments, not live mission or product authorization.
 - [x] WSP-03B2: explicit run-readiness inspection binding current mission review, conservative packet path scope and retained platform evidence; scoped dashboard/report/assistant diagnostics (no run activation)
 - [x] WSP-03B3: immutable brain-proposed phase/task operation declarations, requested-settings/estimate binding, version history and legacy bypass fences (no delegated approval, adaptive policy or native activation)
 - [x] WSP-03B4: internal owner-bound run generations, exact/delegated task approval, atomic stop fences and checkpoint release kernel (no public activation route or native admission adapter)
+- [x] WSP-04C1: internal authority/admission bridge, cumulative phase binding, recoverable shared reservations and one-shot creation-intent journal (no native calls, maintenance-fence release or public Play)
+- [ ] WSP-04C2: native result/continuation coordination, verified resource/host observations and explicit reconciled ownership release before exact owner Play activation
 - [ ] WSP-03: configurable brain authority, phase checkpoint releases and safe Play/Pause
 - [ ] WSP-04: brain-owned task/model/effort/speed choices, parallel limits and token admission
 - [ ] WSP-05: continuous phase-scoped development, inheritance and preserved task archival

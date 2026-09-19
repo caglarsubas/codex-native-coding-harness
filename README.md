@@ -153,6 +153,11 @@ An [internal run-authority kernel](docs/RUN-AUTHORITY.md) now retains exact owne
 intent, generation-bound task approvals and checkpoint release, with atomic stop
 fences. It has no public activation route; native admission/effect integration is
 still required before Play is available.
+The [internal dispatch-admission bridge](docs/DISPATCH-ADMISSION.md) now couples
+those approvals to shared reservations and a recoverable one-shot creation-intent
+journal. It preserves phase budgets across run generations and refuses duplicate
+creation after interrupted commits. It still makes no native calls, cannot release
+maintenance fences and has no public Play route.
 The 15-minute heartbeat remains a
 recovery fallback while enabled. Delivery is not receipt: unavailable, ambiguous
 and overdue states keep the answer and explain the next action. Keep the computer
