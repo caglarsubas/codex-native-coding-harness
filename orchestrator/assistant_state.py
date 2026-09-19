@@ -67,6 +67,7 @@ def extend_context(state, facts, view="overview"):
     fact(14, "Prepared packet states and recorded eligibility, not approval or live preflight", bounded([
         {"alias": "Q"+str(i), **fields(q, "repository packetId status held priority"),
          "reason": short(q.get("reason")), "approved": bool(q.get("approval")),
+         "phaseContractDeclared": "taskContract" in q, "legacyApprovalBlocked": "taskContract" in q,
          "preflightAt": (q.get("preflight") or {}).get("at"),
          "gateIssues": [short(s.get("detail")) for s in gates.get(q["id"], {}).get("issues", [])[:5]]}
         for i, q in enumerate(sorted(state["queue"], key=lambda q: q["id"])[:20], 1)], len(state["queue"])))

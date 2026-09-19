@@ -21,5 +21,7 @@
 .run-inspection,.run-checks{display:grid;gap:16px}.run-inspection>button,.run-check>button{justify-self:start}
 .run-inspection{margin-bottom:16px}
 .run-proof{min-width:0;overflow-wrap:anywhere}
+.task-contract{display:grid;gap:16px;margin-block:24px;min-width:0;overflow-wrap:anywhere}.task-contract .badge{justify-self:start}.task-contract p{max-width:72ch}
+.task-contract-panel{display:grid;gap:16px;min-width:0}.task-review{overflow-wrap:anywhere}
 .run-check{display:grid;gap:8px;padding:16px 0;border-bottom:1px solid var(--rule)}.run-check .badge{justify-self:start}
 .run-check p,.run-inspection p{max-width:72ch}.run-checks+.section-heading{margin-top:40px}

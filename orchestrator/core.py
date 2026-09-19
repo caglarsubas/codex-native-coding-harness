@@ -19,6 +19,7 @@ import uuid
 from urllib.parse import urlsplit
 
 VERSION = 1
+LEDGER_VERSIONS = (1, 2)  # v2 retains phase-bound task declarations; seeds stay v1.
 AXES = ("source", "ci", "merge", "artifact", "deployment", "runtime", "assurance", "tenant")
 ACTIVE = ("reserved", "starting", "running", "awaiting_acceptance", "accepting", "verifying", "blocked")
 COMMANDS = {"approve", "hold", "prioritize", "pause", "resume", "reconcile", "checkpoint", "archive", "decision_response", "listening", "brain_stop", "brain_resume"}
@@ -59,6 +60,7 @@ def eligibility_issues(q, repo, seed, workers, now=None):
     def check(ok, code, detail):
         if not ok:
             issues.append({"code": code, "detail": detail})
+    check("taskContract" not in q, "phase_contract_fence", "Phase-bound task requires run-aware approval/admission; legacy dispatch cannot ignore its declaration")
     check(q["status"] == "approved" and not q["held"], "approval", "Packet not approved or held")
     approval = q.get("approval") or {}
     check(approval.get("seedHash") == q["seedHash"] and approval.get("packetDigest") == q["packetDigest"],
@@ -144,7 +146,7 @@ class Ledger:
                     "heartbeat": {"id": None, "status": "not_configured"}, "controller": None,
                     "runner": None, "lastReconciled": None, "checkpoint": "Not onboarded."})
             else:
-                require(self.get(db, "meta", 1).get("schemaVersion") == VERSION, "Unsupported ledger version; explicit migration required")
+                require(self.get(db, "meta", 1).get("schemaVersion") in LEDGER_VERSIONS, "Unsupported ledger version; explicit migration required")
         os.chmod(self.db, 0o600)
 
     def connect(self):
@@ -271,8 +273,10 @@ class Ledger:
             minimum = {"source", "ci", "merge"} if repo["mergePolicy"] == "required_checks" else {"source", "ci"}
             require(minimum <= set(seed["completionAxes"]), "Completion axes cannot weaken repository policy")
             old = db.execute("SELECT data FROM queue WHERE id=?", (key,)).fetchone()
+            retained_contract = {}
             if old:
                 item = json.loads(old["data"])
+                if "taskContract" in item: retained_contract["taskContract"] = item["taskContract"]
                 require(not db.execute("SELECT 1 FROM workers WHERE queue_id=?", (key,)).fetchone(), "Packet already owns a task; reconcile it, do not replace")
                 if item["seedHash"] == sid:
                     return item
@@ -281,6 +285,9 @@ class Ledger:
                 "packetDigest": seed["packetDigest"], "seedHash": sid, "status": "proposed",
                 "priority": 100, "held": False, "approval": None, "createdAt": now,
                 "preflight": None, "reason": "Explicit digest-bound approval required"}
+            item.update(retained_contract)
+            if retained_contract:
+                item["reason"] = "Phase-bound declaration retained after seed change; rebind it before future run-aware approval."
             db.execute("INSERT INTO snapshots VALUES (?,?,?) ON CONFLICT(id) DO NOTHING", (sid, "seed", canonical(seed)))
             db.execute("INSERT INTO queue VALUES (?,?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data", (key, seed["repository"], seed["packetId"], canonical(item)))
             self.event(db, "packet_prepared", {"id": key, "seedHash": sid})
@@ -329,6 +336,7 @@ class Ledger:
                 q = self.get(db, "queue", p["queueId"])
                 require(q["status"] in ("proposed", "approved"), "Packet is already dispatched")
                 if kind == "approve":
+                    require("taskContract" not in q, "Phase-bound packet requires run-aware approval; legacy seed-only approval is insufficient")
                     from .workspace_pause import fence_new_work
                     fence_new_work(meta)
                     require(q["seedHash"] == p["seedHash"] and q["packetDigest"] == p["packetDigest"], "Packet changed")

@@ -85,6 +85,25 @@ class WorkspaceServerTest(unittest.TestCase):
         with runtime.run_readiness_lock:
             self.assertEqual(self.request("/api/workspaces/a/run-readiness", headers=auth)[0], 409)
 
+    def test_task_contract_read_is_authenticated_scoped_and_no_write_route(self):
+        from test_core import seed
+        auth = self.auth("a")
+        for wid in ("a", "b"):
+            self.ledgers[wid].initialize({"schemaVersion": 1, "brainId": "brain-"+wid, "repositories": [
+                {"id": "a", "path": "/fixture/a", "projectId": "project-a", "ref": "origin/main", "policyProfile": "standard", "mergePolicy": "manual"}]})
+            self.ledgers[wid].prepare(seed(profile="standard"))
+        route = "/api/workspaces/a/task-contract?queueId=a%3ATEST-001"
+        self.assertEqual(self.request(route)[0], 401)
+        status, _, raw = self.request(route, headers=auth)
+        self.assertEqual(status, 200); self.assertEqual(json.loads(raw)["status"], "not_declared")
+        with patch("orchestrator.task_contracts.read", return_value={"status": "fixture"}) as read:
+            self.assertEqual(self.request("/api/workspaces/b/task-contract?queueId=a%3ATEST-001", headers=auth)[0], 200)
+            self.assertEqual(read.call_args.args[0].workspace_id, "b")
+        for suffix in ("", "?queueId=a&queueId=b", "?queueId=a&activate=true"):
+            self.assertEqual(self.request("/api/workspaces/a/task-contract"+suffix, headers=auth)[0], 400)
+        self.assertEqual(self.request(route, {"approve": True}, auth)[0], 404)
+        self.assertEqual(self.request("/api/task-contract?queueId=a", headers=auth)[0], 400)
+
     def test_commands_scope_csrf_and_colliding_ids(self):
         auth_a = self.auth("a")
         auth_b = self.auth("b", auth_a)

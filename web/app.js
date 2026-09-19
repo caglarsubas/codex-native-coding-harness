@@ -66,7 +66,19 @@ function queue(root) {
  const actions=el("div",null,"inline-actions");actions.append(button("Review",()=>{selected=q.id;render();}));if(['proposed','approved'].includes(q.status)){actions.append(button(q.held?"Release hold":"Hold",()=>command("hold",{queueId:q.id,held:!q.held})));const input=el("input");input.type="number";input.min="0";input.max="999";input.value=q.priority;input.setAttribute("aria-label","Priority for "+q.packetId);actions.append(input,button("Set",()=>command("prioritize",{queueId:q.id,priority:Number(input.value)})));}
  return[textCell(q.packetId,q.repository),textCell(q.held?'held':q.status,q.reason),num(q.priority),el("span",q.seedHash.slice(0,12),"mono"),actions];
  })));
- if(selected){const q=state.queue.find(x=>x.id===selected);if(!q)return;const d=el("section",null,"detail");d.append(el("h3","Review "+q.packetId),el("p","Packet SHA-256: "+q.packetDigest,"mono"),el("p","Inheritance SHA-256: "+q.seedHash,"mono"));const pre=el("pre","Loading immutable seed…");d.append(pre);let loaded=false,approve=null,check=null;api('/api/documents/'+q.seedHash).then(doc=>{pre.textContent=JSON.stringify(doc,null,2);loaded=true;if(approve)approve.disabled=!check.checked;}).catch(e=>{pre.textContent=e.message;});if(q.status==='proposed'){const label=el("label");check=el("input");check.type="checkbox";label.append(check,el("span","I authorize creation of one Codex implementation task for this exact packet, inheritance seed and scope. This does not authorize additional work or policy changes."));approve=button("Approve this exact scope",()=>command("approve",{queueId:q.id,seedHash:q.seedHash,packetDigest:q.packetDigest}),"primary");approve.disabled=true;check.onchange=()=>{approve.disabled=!check.checked||!loaded;};d.append(label,approve);}d.append(button("Close review",()=>{selected=null;render();}));root.append(d);}
+ if(selected){
+  const q=state.queue.find(x=>x.id===selected);if(!q)return;
+  const d=el("section",null,"detail task-review");d.append(el("h3","Review "+q.packetId));taskContractPanel(d,q);
+  d.append(el("p","Packet SHA-256: "+q.packetDigest,"mono"),el("p","Inheritance SHA-256: "+q.seedHash,"mono"));
+  const pre=el("pre","Loading immutable seed…");d.append(pre);let loaded=false,approve=null,check=null;
+  api('/api/documents/'+q.seedHash).then(doc=>{pre.textContent=JSON.stringify(doc,null,2);loaded=true;if(approve)approve.disabled=!check.checked;}).catch(e=>{pre.textContent=e.message;});
+  if(canLegacyApprove(q)){
+   const label=el("label");check=el("input");check.type="checkbox";label.append(check,el("span","I authorize creation of one Codex implementation task for this exact packet, inheritance seed and scope. This does not authorize additional work or policy changes."));
+   approve=button("Approve this exact scope",()=>command("approve",{queueId:q.id,seedHash:q.seedHash,packetDigest:q.packetDigest}),"primary");approve.disabled=true;
+   check.onchange=()=>{approve.disabled=!check.checked||!loaded;};d.append(label,approve);
+  }
+  d.append(button("Close review",()=>{selected=null;render();}));root.append(d);
+ }
 }
 function workers(root) {
  if(!state.workers.length){root.append(empty("No implementation workers yet", "The designated brain is separate from implementation workers. It may be planning or reconciling while this list is empty. After approval and preflight, new workers appear here."),button("View brain activity",()=>navigateView("overview")));return;}

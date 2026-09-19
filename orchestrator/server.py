@@ -176,7 +176,7 @@ class Handler(BaseHTTPRequestHandler):
         static["/activity.js"] = ("activity.js", "text/javascript; charset=utf-8")
         static["/decisions.js"] = ("decisions.js", "text/javascript; charset=utf-8")
         static["/decisions.css"] = ("decisions.css", "text/css; charset=utf-8")
-        for file in ("panes.js", "assistant.js", "routing.js", "workspaces.js", "missions.js", "workspace-pause.js", "run-readiness.js", "panes.css"):
+        for file in ("panes.js", "assistant.js", "routing.js", "workspaces.js", "missions.js", "workspace-pause.js", "run-readiness.js", "task-contracts.js", "panes.css"):
             static["/" + file] = (file, "text/javascript; charset=utf-8" if file.endswith(".js") else "text/css; charset=utf-8")
         if path in static:
             file, mime = static[path]
@@ -201,6 +201,12 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/mission" and workspace_id:
                 from .missions import read
                 return self.respond(200, read(runtime.ledger))
+            if path == "/api/task-contract" and workspace_id:
+                from .task_contracts import read
+                query = parse_qs(urlsplit(self.path).query)
+                if set(query) != {"queueId"} or len(query["queueId"]) != 1 or len(query["queueId"][0]) > 200:
+                    return self.respond(400, {"error": "Expected one bounded queueId"})
+                return self.respond(200, read(runtime.ledger, query["queueId"][0]))
             if path == "/api/run-readiness" and workspace_id:
                 from .run_readiness import inspect
                 if not runtime.run_readiness_lock.acquire(blocking=False):
