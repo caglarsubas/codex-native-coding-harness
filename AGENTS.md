@@ -175,3 +175,14 @@ held and never retry automatically. Pause may omit a nonexistent task checkpoint
 only with the exact retained non-creation receipt and artifact; fresh complete
 Pause inventory and all other checkpoint gates remain required. No live rollout,
 transport, maintenance-fence release or Play activation is authorized.
+
+WSP-04C3d adds internal standard-policy result review after confirmed settlement.
+See docs/RESULT-REVIEW.md. Require exact current run/task authority, retained
+result/criterion/axis proofs and a separately bound reviewer report; no worker or
+descendant self-review. Byte/hash/ID checks validate supplied assertions, not
+independent Git/CI/native attestation. Never fabricate evidence or promote other
+axes from source/CI/merge. Harness requires its future trusted acceptance adapter.
+Reviews are atomic local outcomes; never change shared usage/owners or reopen the
+closed attempt. Accepted admitted tasks remain in safe-Pause supervision; legacy
+archive/pilot shortcuts are fenced. No rereview, native transport, public write
+route, live upgrade or autonomous Play activation is authorized by source delivery.

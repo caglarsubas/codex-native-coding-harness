@@ -159,8 +159,12 @@ separate coordinator using this same terminal journal, with a distinct record
 kind. Exact outcomes cannot be substituted. It requires final absence and explicit
 zero-task-usage evidence, keeps failed attempts closed and never authorizes retry.
 
-Next increments retain independently verified destination/resource observations,
-trusted Harness runner integration, separate
-acceptance/result coordination, new-generation continuation approval, native
+WSP-04C3d now adds [separate standard-policy result review](RESULT-REVIEW.md).
+An accepted result can mark the packet complete without altering this shared
+settlement. Recovery validates the later review and returns this historical
+settlement receipt without undoing completion or treating it as archival authority.
+
+Next increments retain independently verified destination/resource/result observations,
+trusted Harness runner integration, new-generation continuation/rereview approval, native
 transport, maintenance migration and exact owner Play activation. A separately
 authorized real pilot remains required. See [verification](OWNERSHIP-SETTLEMENT-VERIFICATION.md).

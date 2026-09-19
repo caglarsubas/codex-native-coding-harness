@@ -67,7 +67,8 @@ def catalog(state, links):
             "workers", None if w.get("threadId") else "Native task identity is unresolved.", target)
         add("archive_W" + str(i), "Archive completed worker", "archive", {"workerId": w["id"]},
             "Ask the brain to archive this verified, evidence-preserved worker task. No files or branches are deleted.",
-            "workers", None if w.get("threadId") and w["status"] == "complete" and w.get("preserved") and not w.get("archived") else
+            "workers", "Admission-managed archival requires its own verified native adapter." if "dispatchAdmission" in w else
+            None if w.get("threadId") and w["status"] == "complete" and w.get("preserved") and not w.get("archived") else
             "Requires a resolved, completed, preserved and not-yet-archived worker.", target)
     for alias, link in links.items():
         if not alias.startswith("D"):

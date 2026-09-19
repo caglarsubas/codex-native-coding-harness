@@ -15,11 +15,19 @@ def active(meta):
     return control.get("protocol") == PROTOCOL and control.get("desired") == "stopped"
 
 
+def needs_supervision(worker):
+    # Result acceptance is not native archival/inactivity. Keep admitted tasks
+    # in future safe-stop inventories even after their packet is complete.
+    return worker["status"] != "complete" or "dispatchAdmission" in worker
+
+
 def worker_binding(worker):
     binding = {k: worker.get(k) for k in ("id", "repository", "status", "hostId", "threadId", "clientThreadId")}
     if "dispatchAdmission" in worker:
         binding.update({k: worker.get(k) for k in ("nativeLifecycleHash", "nativeContinuationIntentHash", "ownershipSettlementHash")})
         if "runnerLaunchIntentHash" in worker: binding["runnerLaunchIntentHash"] = worker["runnerLaunchIntentHash"]
+        if "resultReviewHash" in worker: binding["resultReviewHash"] = worker["resultReviewHash"]
+        if worker["status"] == "complete": binding["requiresNativeSupervision"] = True
     return binding
 
 
@@ -66,7 +74,7 @@ def source(ledger, db, control):
         if local_absence_receipt(db, worker): binding["creationOutcome"] = "not_created"
         workers[worker["id"]] = binding
     required = {w["id"]: w for w in control.get("retainedWorkers", [])}
-    required.update({wid: w for wid, w in workers.items() if w["status"] != "complete"})
+    required.update({wid: w for wid, w in workers.items() if w["status"] != "complete" or w.get("requiresNativeSupervision")})
     # A completed or missing row after Pause cannot erase the captured owner.
     for wid in set(required) & set(workers): required[wid] = workers[wid]
     meta = ledger.get(db, "meta", 1)

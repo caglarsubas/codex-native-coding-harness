@@ -173,6 +173,12 @@ An uncertain launch keeps its owner; runner release keeps repository/token holds
 for terminal settlement. It runs no commands, permits no automatic retry, and
 refuses Harness acceptance until its trusted launcher and attempt policy are
 integrated. No live state is changed by a source upgrade.
+The [separate result-review coordinator](docs/RESULT-REVIEW.md) records acceptance
+or rejection of a settled standard-policy packet only with exact result, criteria,
+evidence-axis and independent-review artifact bindings. It leaves shared usage and
+ownership unchanged. Acceptance is not deployment, pilot qualification or archival;
+accepted tasks remain covered by safe Pause. This is internal source functionality,
+not external evidence collection, a Harness acceptance adapter or live Play.
 The [non-creation recovery coordinator](docs/CREATION-RECOVERY.md) can close a
 failed creation attempt only after explicit final absence, cleanup and zero-task-
 usage evidence. It retains attempt counts and pending IDs, keeps the packet held,

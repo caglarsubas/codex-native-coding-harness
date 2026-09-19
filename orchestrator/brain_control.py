@@ -37,11 +37,11 @@ def request(ledger, db, command, meta):
         meta["paused"] = True
         workspace_id = getattr(ledger, "workspace_id", None) or meta.get("workspacePauseId")
         if workspace_id:
-            from .workspace_pause import PROTOCOL, worker_binding
+            from .workspace_pause import PROTOCOL, worker_binding, needs_supervision
             require(meta.get("workspacePauseId", workspace_id) == workspace_id, "Workspace pause identity changed")
             meta["workspacePauseId"] = workspace_id
             meta["brainControl"].update(protocol=PROTOCOL, workspaceId=workspace_id,
-                retainedWorkers=[worker_binding(w) for w in ledger.all(db, "workers") if w["status"] != "complete"])
+                retainedWorkers=[worker_binding(w) for w in ledger.all(db, "workers") if needs_supervision(w)])
         from .run_authority import fence_in
         reason = "brain_stop" if command.get("actor") == "designated_brain" else "owner_pause"
         fence_in(ledger, db, meta, reason, command["id"])
@@ -110,7 +110,8 @@ def park(ledger, token, command_id, checkpoint):
             ledger.get(db, "repos", artifact["repository"])
             artifacts.append(artifact)
         require(any(current["requestedAt"] <= a.get("observedAt", 0) <= now for a in artifacts), "Retain a new checkpoint artifact after this stop request")
-        workers = [w for w in ledger.all(db, "workers") if w["status"] != "complete"]
+        from .workspace_pause import needs_supervision
+        workers = [w for w in ledger.all(db, "workers") if needs_supervision(w)]
         require(all(w["status"] not in ("starting", "accepting") for w in workers), "Reconcile in-flight native creation/acceptance before parking")
         required = {w["id"]: w for w in workers if w["status"] != "reserved"}
         if workspace_pause:
