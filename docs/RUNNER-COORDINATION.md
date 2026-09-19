@@ -151,6 +151,7 @@ Receipts keep `executionAuthorized: false`, `nativeCallMade: false` and
 `runnerStatus` and `runnerResourceReleased` describe only the runner's journal
 and resource-key accounting. No independent native/host attestation is implied.
 
-See [verification](RUNNER-COORDINATION-VERIFICATION.md). Next gates remain
-not-created recovery, independent result review, trusted host/native adapters,
+See [verification](RUNNER-COORDINATION-VERIFICATION.md). WSP-04C3c separately adds
+[non-creation recovery](CREATION-RECOVERY.md), which cannot settle any runner send.
+Next gates remain independent result review, trusted host/native adapters,
 new-generation continuation approval, migration and exact owner Play activation.

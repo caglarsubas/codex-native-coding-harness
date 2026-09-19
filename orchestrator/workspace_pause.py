@@ -59,7 +59,12 @@ def validate(document):
 
 
 def source(ledger, db, control):
-    workers = {w["id"]: worker_binding(w) for w in ledger.all(db, "workers")}
+    from .creation_recovery import local_absence_receipt
+    workers = {}
+    for worker in ledger.all(db, "workers"):
+        binding = worker_binding(worker)
+        if local_absence_receipt(db, worker): binding["creationOutcome"] = "not_created"
+        workers[worker["id"]] = binding
     required = {w["id"]: w for w in control.get("retainedWorkers", [])}
     required.update({wid: w for wid, w in workers.items() if w["status"] != "complete"})
     # A completed or missing row after Pause cannot erase the captured owner.
@@ -104,6 +109,10 @@ def inspect(ledger, db, meta, retained, now):
     by_worker = {t["workerId"]: t for t in document["tasks"] if t["workerId"]}
     required = {w["id"]: w for w in current["workers"]}
     for wid, worker in required.items():
+        if worker.get("creationOutcome") == "not_created":
+            if wid in by_worker:
+                issue("creation_recovery_conflict", "Observed task contradicts the retained non-creation outcome; reconcile it explicitly.", workerId=wid, view="workers")
+            continue  # Hash-verified terminal receipt, not an absent-ID assumption.
         if worker["status"] == "reserved" and not worker["threadId"] and not worker["clientThreadId"]:
             continue  # No creation attempt; retain the reservation.
         task = by_worker.get(wid)
@@ -118,6 +127,9 @@ def inspect(ledger, db, meta, retained, now):
         issue("retained_native_missing", "A native binding captured at Pause is absent from the inventory.", threadId=key[1], view="workers")
     for key, task in tasks.items():
         scope = {"threadId": key[1], "hostId": key[0], "view": "workers"}
+        if any(w.get("creationOutcome") == "not_created" and w.get("clientThreadId") and
+               key == (w["hostId"], w["clientThreadId"]) for w in required.values()):
+            issue("creation_recovery_conflict", "A resolved pending client ID appeared as a task; reconcile the contradiction.", **scope)
         if task["status"] != "idle": issue("task_not_idle", "Task is running or its activity is unknown.", **scope)
         if not fresh(task["observedAt"]) or task["observedAt"] > document["observedAt"]:
             issue("task_observation_stale", "A fresh native observation after the checkpoint is required.", **scope)

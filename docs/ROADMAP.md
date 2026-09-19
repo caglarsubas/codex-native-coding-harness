@@ -151,7 +151,8 @@ These are planned tooling increments, not live mission or product authorization.
 - [x] WSP-04C2: internal pending/confirmed/uncertain native-result bindings and same-run edit-correction journal, cumulative correction reservations, delivery-versus-finished evidence and receipt recovery (no native transport or release)
 - [x] WSP-04C3a: internal confirmed-terminal ownership settlement, complete handoff/descendant/cleanup/usage evidence checks, conservative actual-token accounting and cross-store receipt recovery (not packet acceptance or native attestation)
 - [x] WSP-04C3b: internal standard-policy runner reservation, one-shot local/shared launch journal, exact process observations and cleanup-only release with retained repository/token holds (no commands, automatic retry or Harness acceptance adapter)
-- [ ] WSP-04C3 remainder: independently verified resource/host observations, trusted Harness acceptance adapter, not-created recovery and separate result acceptance; new-generation continuation approval and native transport before exact owner Play activation
+- [x] WSP-04C3c: internal reconciled non-creation closure, final attempt/absence/cleanup/zero-usage evidence, retained client identities and terminal receipt recovery; safe-Pause exception for a verified nonexistent task (no automatic retry or native absence collector)
+- [ ] WSP-04C3 remainder: independently verified resource/host observations, trusted Harness acceptance adapter and separate result acceptance; new-generation continuation approval and native transport before exact owner Play activation
 - [ ] WSP-03: configurable brain authority, phase checkpoint releases and safe Play/Pause
 - [ ] WSP-04: brain-owned task/model/effort/speed choices, parallel limits and token admission
 - [ ] WSP-05: continuous phase-scoped development, inheritance and preserved task archival

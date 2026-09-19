@@ -78,6 +78,10 @@ def validate(request):
 
 
 class OwnershipSettlement:
+    kind = "ownership_settlement"
+    queue_reason = "Native ownership settled; packet acceptance requires separate result review"
+    validate = staticmethod(validate)
+
     def __init__(self, bridge):
         self.bridge, self.ledger, self.store = bridge, bridge.ledger, bridge.store
         self.lifecycle = NativeLifecycle(bridge)
@@ -93,13 +97,17 @@ class OwnershipSettlement:
         record = json.loads(row[1])
         require(digest(record) == row[0] == claim.get("settlementHash") and record["intentHash"] == digest(intent),
                 "Settlement journal integrity or binding changed")
+        require(record["kind"] == self.kind, "Use the exact terminal outcome coordinator for this receipt")
         expected = self.settled_claim(record)
         require(claim == expected, "Shared settlement diverged from its journal")
         require(not kernel.execute("SELECT 1 FROM resources WHERE claim=?", (claim["id"],)).fetchone(), "Settled claim still owns resources")
         # Receipt recovery must not hide removal/corruption of native history.
-        _, native_record, _ = self.lifecycle.journal_in(kernel, intent, record["priorClaim"])
+        _, native_record, _ = self.history_in(kernel, intent, record["priorClaim"])
         require(native_record == record["nativeRecord"], "Terminal native history changed")
         return claim, record
+
+    def history_in(self, kernel, intent, claim):
+        return self.lifecycle.journal_in(kernel, intent, claim)
 
     @staticmethod
     def settled_claim(record):
@@ -216,17 +224,17 @@ class OwnershipSettlement:
             expected = copy.deepcopy(record["localBinding"])
             expected["status"] = "settled"
             expected["dispatchAdmission"].update(stage="settled", claimHash=digest(claim))
-            require(local_binding(worker) == expected and runs.document(db, key, "ownership_settlement") == record,
+            require(local_binding(worker) == expected and runs.document(db, key, self.kind) == record,
                     "Local settlement receipt diverged")
             return self.receipt(worker, record)
         require(not worker.get("ownershipSettlementHash") and local_binding(worker) == record["localBinding"],
                 "Local owner changed; explicit settlement recovery required")
-        runs.retain(db, "ownership_settlement", record)
+        runs.retain(db, self.kind, record)
         worker.update(status="settled", ownershipSettlementHash=key, settledAt=record["at"], updatedAt=time.time())
         worker["dispatchAdmission"].update(stage="settled", claimHash=digest(claim))
         self.ledger.put(db, "workers", worker["id"], worker)
         q = self.ledger.get(db, "queue", worker["queueId"])
-        q.update(status="blocked", held=True, reason="Native ownership settled; packet acceptance requires separate result review")
+        q.update(status="blocked", held=True, reason=self.queue_reason)
         self.ledger.put(db, "queue", q["id"], q)
         self.ledger.event(db, "ownership_settlement_attached", {"workerId": worker["id"], "settlementHash": key})
         return self.receipt(worker, record)
@@ -239,7 +247,7 @@ class OwnershipSettlement:
                 "trustBoundary": "caller_supplied_external_evidence_not_native_attestation"}
 
     def settle(self, token, worker_id, request):
-        validate(request)
+        self.validate(request)
         with self.bridge.locked(token, ownership_change=True) as (db, meta):
             worker, intent = self.bridge.intent_in(db, worker_id)
             with self.store.tx() as kernel:
@@ -248,7 +256,7 @@ class OwnershipSettlement:
                     require(record["request"] == request, "Settlement already recorded with different evidence")
                 else:
                     claim, native_record, actual = self.check_in(db, meta, kernel, worker, intent, request)
-                    record = {"kind": "ownership_settlement", "schemaVersion": 1, "workerId": worker_id,
+                    record = {"kind": self.kind, "schemaVersion": 1, "workerId": worker_id,
                               "intentHash": digest(intent), "request": copy.deepcopy(request), "priorClaim": claim,
                               "nativeRecord": native_record, "localBinding": local_binding(worker), "actual": actual, "at": self.store.clock()}
                     claim = self.commit_in(kernel, record)
