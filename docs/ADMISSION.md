@@ -9,13 +9,18 @@ Follow-up WSP-04B1 adds [explicit maintenance enrollment and legacy dispatch
 fences](ENROLLMENT.md). It journals existing owners and prevents upgraded legacy
 callers from reopening dispatch, including after partial setup. It does not yet
 adopt these owners as kernel claims or provide an activation/unfence path.
+WSP-04B2 now adds [owner-reviewed quarantined ownership import](OWNERSHIP-ADOPTION.md),
+preserving conflicts and unknown usage inside this store. Imported claims are not
+verified native activity or phase allocations; no release/activation path exists.
 
 Existing exact packet approval, legacy worker limits and brain controls remain
 intact; only explicit maintenance enrollment adds the dispatch fence above. Live
 state and the installed skill are unchanged. A reviewed mission remains inactive. No
 server route or CLI command opens allocations, changes budgets, records usage,
 reserves capacity or invokes native operations through this kernel. Its Python
-interface is for the future trusted run controller and isolated tests only.
+interface is for the future trusted run controller and isolated tests only. The
+explicit maintenance adoption CLI may initialize its exact reviewed policy and
+quarantined inventory; it does not open allocations or reserve new work.
 
 ## Read-only resource audit available now
 
@@ -79,6 +84,14 @@ The internal API provides:
 | `runner` | Exclusively acquire a pinned shared runner or release after fresh exit evidence |
 | `settle` | Reconcile terminal task or confirmed non-creation, record actual usage, release repository ownership |
 | `close_allocation` | Close only after every claim is settled; retain the complete history |
+
+After explicit WSP-04B2 adoption, the `legacy` snapshot retains grouped historical
+owners, resource/native conflicts and unknown usage separately from phase claims.
+Every logical workspace/worker owner conservatively retains a slot, including
+runner-only records. Either platform sidecar or the metadata binding blocks new
+allocation, reservation, creation boundaries and runner acquisition. Even zero
+recorded legacy owners remains quarantined pending external inventory/baseline
+reconciliation. These slots are not added to an arbitrary phase token budget.
 
 All repositories in one reservation commit or none do. `reserved`, `starting`,
 `running`, `uncertain` and `blocked` claims consume capacity. Worker, reviewer and
@@ -147,10 +160,11 @@ The remaining controller work must:
 1. Require a new exact owner-bound run activation and valid phase authority,
    packet/seed approval, policies, checkpoint destination, task settings and
    approved numeric limits. The opaque binding hash is not an authority verifier.
-2. Adopt every existing workspace/legacy worker and runner, including uncertain
-   native creation, before enabling cross-workspace dispatch. Detect alternate
-   legacy `--state` access and prohibit bypass. Do not auto-seed an empty global
-   store and assume existing owners disappeared.
+2. Reconcile WSP-04B2 imported workspace/legacy workers and runners, including
+   uncertain native creation and conflicting histories, against actual native
+   inventory before enabling cross-workspace dispatch. Preserve WSP-04B1 legacy
+   `--state` fences. Do not assume an empty recorded inventory establishes free
+   global capacity or silently settle missing owners.
 3. Verify canonical repository and operator runner mappings, actual native
    inventory, account identity, allocation baseline and complete token coverage.
    Closing/reopening an allocation must not become an unapproved budget reset.

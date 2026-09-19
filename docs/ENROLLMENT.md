@@ -128,7 +128,9 @@ edit private tables to make the UI look ready.
 
 ## What follows
 
-WSP-04B2 must verify/adopt retained canonical resource identities, actual native
+WSP-04B2 now provides [quarantined ownership adoption](OWNERSHIP-ADOPTION.md),
+including retained-owner conflicts and crash-safe kernel/registry receipts.
+WSP-04B3 must verify retained canonical resource identities, actual native
 inventory, account/baseline coverage and budget claims; bridge creation/binding/
 runner/settlement receipts without cross-database replay. WSP-03B/C then adds exact
 owner-bound run activation, packet/phase authority and composite Play/Pause fences.

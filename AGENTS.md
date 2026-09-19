@@ -44,7 +44,7 @@ docs/MISSIONS.md; resource/budget admission and run/checkpoint gates must ship
 before a separate exact owner-bound activation can enable autonomous Play.
 
 WSP-04A's admission kernel is capacity accounting, not execution authority. It
-has no production write route or native-dispatch integration. Do not initialize
+has no allocation/dispatch write route or native-dispatch integration. Do not initialize
 live allocations, auto-adopt owners or change legacy dispatch during an upgrade.
 The explicit platform-resources command is read-only, bounded metadata inspection;
 its snapshot is not a lock. WSP-04B must implement legacy-owner adoption, authority
@@ -57,3 +57,12 @@ fence; never delete them to bypass a refusal. Updated legacy --state commands
 must honor either signal. Only safe-stop supervision and reconciliation of
 existing native work may continue; no new tasks, acceptance, retries or merges.
 See docs/ENROLLMENT.md for exact scope, recovery and remaining activation gates.
+
+WSP-04B2 provides explicit owner-confirmed quarantined ownership import only.
+See docs/OWNERSHIP-ADOPTION.md. No automatic live adoption, guessed resource
+identity, zero-usage assumption or implicit budget grant. Preserve every owner
+version and both platform sidecars; do not delete a fence or pin to recover.
+Imported ownership is not verified native inventory or executable run authority.
+An empty recorded inventory is not proof of free global capacity. Kernel policy
+initialization is allowed only by this exact maintenance review or isolated tests;
+new allocations remain unavailable through public routes.

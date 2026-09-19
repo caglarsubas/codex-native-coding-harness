@@ -643,8 +643,12 @@ audit, with synthetic contention/recovery/accounting tests. It is not connected
 to native dispatch. **WSP-04B1** implements explicit maintenance enrollment,
 durable fences on upgraded legacy routes and retained-owner recovery; it does not
 activate runs or populate the kernel. See [the enrollment contract](ENROLLMENT.md).
-**WSP-04B2** must adopt retained legacy owners into verified claims, connect authority and
-run fences, verify observation coverage and handle cross-database recovery before
+**WSP-04B2** imports retained legacy owners as quarantined claims, preserving
+unknown mappings/usage and conflicts with durable kernel identity and cross-database
+receipt recovery. It does not independently verify native activity or grant capacity;
+see [ownership adoption](OWNERSHIP-ADOPTION.md). **WSP-04B3** must reconcile native
+inventory, canonical mappings and exact account/usage baselines, then connect authority,
+run fences and native-effect receipts before
 the full admission items below can be checked. See [the implemented contract and
 remaining integration gates](ADMISSION.md). Do not activate a reviewed mission
 or initialize live allocations as an upgrade side effect.
@@ -655,6 +659,8 @@ or initialize live allocations as an upgrade side effect.
 - [x] WSP-04A: two-process contention, transaction rollback, restart and uncertain-creation retention fixtures.
 - [x] WSP-04B1: exact owner-reviewed enrollment scope, journal-before-fence ordering and explicit recovery after partial setup.
 - [x] WSP-04B1: legacy CLI/HTTP Resume, creation and acceptance-acquisition fences; no time-based release of retained owners.
+- [x] WSP-04B2: exact owner-reviewed retained-owner import into quarantined shared claims, including unknown/duplicate native identities and runner-only owners.
+- [x] WSP-04B2: durable platform fence and kernel inode pin, atomic import, interrupted cross-database receipt recovery and cached-client admission fences.
 - [ ] Canonical repository/runner identity and transactional platform reservations.
 - [ ] Brain-owned new/continue/handle/wait decisions with reason and immutable task seed.
 - [ ] Explicit model/effort/speed policy and requested/applied/observed decision records.

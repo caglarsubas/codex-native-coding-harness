@@ -159,15 +159,16 @@ def read_fence(path):
     return raw
 
 
-def durable_fence(root, binding):
+def durable_fence(root, binding, *, filename=FENCE_FILE):
     """Publish without overwrite; any surviving file fences all launch paths.
 
     A linked staging file may remain after a crash. Its matching final fence is
     sufficient; recovery never deletes an operator file or releases ownership.
     """
-    path = root / FENCE_FILE
+    require(filename in (FENCE_FILE, "adoption-fence.json", "adoption-kernel.json"), "Unsupported maintenance fence")
+    path = root / filename
     raw = canonical(binding).encode()
-    if fence_exists(root):
+    if path.exists() or path.is_symlink():
         require(read_fence(path) == raw, "Enrollment fence identity changed; explicit recovery required")
         return
     name = None

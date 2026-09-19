@@ -71,12 +71,18 @@ class AdmissionStore:
     Policy and allocation bindings are immutable; no silent budget revision.
     """
 
-    def __init__(self, root, *, policy=None, clock=time.time):
+    def __init__(self, root, *, policy=None, clock=time.time, legacy_bundle=None, expected_identity=None):
         self.root = private_path(root, existing=True)
         self.db = self.root / "admission.sqlite3"
         self.clock = clock
+        if legacy_bundle is not None:
+            from .admission_legacy import require_import_fences, validate
+            validate(legacy_bundle)
+            require(policy == legacy_bundle["policy"], "Exact reviewed adoption policy required")
+            require_import_fences(self.root, legacy_bundle, expected_identity)
         require(not self.db.is_symlink(), "Admission database symlink refused")
         if not self.db.exists():
+            require(expected_identity is None, "Pinned admission database is missing; explicit recovery required")
             require(policy is not None, "Admission store is not initialized")
             self.validate_policy(policy)
             os.close(os.open(self.db, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600))
@@ -84,6 +90,8 @@ class AdmissionStore:
         require(self.db.is_file() and stat.st_uid == os.getuid() and stat.st_mode & 0o077 == 0 and stat.st_nlink == 1,
                 "Admission database must be private and regular")
         self.database_identity = (stat.st_dev, stat.st_ino)
+        require(expected_identity is None or tuple(expected_identity) == self.database_identity,
+                "Expected admission database identity changed")
         with self.tx() as db:
             if policy is not None:
                 self.validate_policy(policy)
@@ -101,6 +109,9 @@ class AdmissionStore:
             require(meta["schemaVersion"] == 1, "Unsupported admission schema")
             if policy is not None:
                 require(meta["policy"] == policy, "Admission policy is immutable; explicit migration required")
+            if legacy_bundle is not None:
+                from .admission_legacy import install
+                install(self, db, legacy_bundle)
 
     @staticmethod
     def validate_policy(policy):
@@ -169,6 +180,8 @@ class AdmissionStore:
                 "repositories": clean_repos, "runners": sorted({resource(key, "runner") for key in runners})}
         fingerprint = digest(spec)
         with self.tx() as db:
+            from .admission_legacy import require_open
+            require_open(self.root, self.get(db, "meta", 1))
             prior = db.execute("SELECT data FROM allocations WHERE id=?", (allocation_id,)).fetchone()
             if prior:
                 value = json.loads(prior[0])
@@ -250,6 +263,8 @@ class AdmissionStore:
                 "usageKnown": usage is not None and set(usage["coverage"]) == COVERAGE}
 
     def check_budget(self, db, allocation, extra=0):
+        from .admission_legacy import require_open
+        require_open(self.root, self.get(db, "meta", 1))
         require(not allocation["closed"], "Allocation is closed")
         meta = self.get(db, "meta", 1)
         account, policy = meta["account"], meta["policy"]
@@ -276,6 +291,8 @@ class AdmissionStore:
         spec = {"allocationId": allocation_id, "repositories": sorted(repositories), "estimates": estimates, "role": role}
         fingerprint = digest(spec)
         with self.tx() as db:
+            from .admission_legacy import require_open
+            require_open(self.root, self.get(db, "meta", 1))
             prior = db.execute("SELECT data FROM claims WHERE id=?", (claim_id,)).fetchone()
             if prior:
                 result = json.loads(prior[0])
@@ -350,6 +367,8 @@ class AdmissionStore:
             require(key in allocation["spec"]["runners"], "Runner identity is outside allocation")
             owner = db.execute("SELECT claim,since FROM resources WHERE id=?", (key,)).fetchone()
             if operation == "acquire":
+                from .admission_legacy import require_open
+                require_open(self.root, self.get(db, "meta", 1))
                 require(claim["status"] == "running" and owner is None, "Runner unavailable or task is not running")
                 db.execute("INSERT INTO resources VALUES(?,?,?)", (key, claim_id, self.clock()))
             else:
@@ -395,7 +414,9 @@ class AdmissionStore:
     def snapshot(self):
         with self.tx() as db:
             allocations = self.rows(db, "allocations")
+            from .admission_legacy import projection
             return {"schemaVersion": 1, "executionAuthorized": False, "dispatchIntegrated": False,
+                    "legacy": projection(self, db),
                     "meta": self.get(db, "meta", 1), "claims": self.rows(db, "claims"),
                     "allocations": [{**a, "budget": self.budget(db, a)} for a in allocations],
                     "resources": [{"key": r[0], "claimId": r[1], "since": r[2]}
