@@ -646,9 +646,12 @@ activate runs or populate the kernel. See [the enrollment contract](ENROLLMENT.m
 **WSP-04B2** imports retained legacy owners as quarantined claims, preserving
 unknown mappings/usage and conflicts with durable kernel identity and cross-database
 receipt recovery. It does not independently verify native activity or grant capacity;
-see [ownership adoption](OWNERSHIP-ADOPTION.md). **WSP-04B3** must reconcile native
-inventory, canonical mappings and exact account/usage baselines, then connect authority,
-run fences and native-effect receipts before
+see [ownership adoption](OWNERSHIP-ADOPTION.md). **WSP-04B3** validates bounded
+operator-supplied inventory, mapping and account/usage assertions and retains
+versioned review/baseline receipts; see [evidence reconciliation](ADMISSION-RECONCILIATION.md).
+It does not collect or independently attest native observations, release owners
+or activate runs. Trusted observation collection, exact authority, run fences
+and native-effect receipt integration remain required before
 the full admission items below can be checked. See [the implemented contract and
 remaining integration gates](ADMISSION.md). Do not activate a reviewed mission
 or initialize live allocations as an upgrade side effect.
@@ -661,6 +664,9 @@ or initialize live allocations as an upgrade side effect.
 - [x] WSP-04B1: legacy CLI/HTTP Resume, creation and acceptance-acquisition fences; no time-based release of retained owners.
 - [x] WSP-04B2: exact owner-reviewed retained-owner import into quarantined shared claims, including unknown/duplicate native identities and runner-only owners.
 - [x] WSP-04B2: durable platform fence and kernel inode pin, atomic import, interrupted cross-database receipt recovery and cached-client admission fences.
+- [x] WSP-04B3: explicit evidence coverage/freshness diagnostics, exact owner-reviewed versions and non-resetting account/task cumulative baseline anchors.
+- [x] WSP-04B3: read-only current re-evaluation, source/version concurrency checks, crash replay and retained ownership/fences.
+- [ ] Trusted native/operator observation collection and live evidence qualification; supplied assertions are not independent attestation.
 - [ ] Canonical repository/runner identity and transactional platform reservations.
 - [ ] Brain-owned new/continue/handle/wait decisions with reason and immutable task seed.
 - [ ] Explicit model/effort/speed policy and requested/applied/observed decision records.

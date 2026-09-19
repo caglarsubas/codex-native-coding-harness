@@ -66,3 +66,10 @@ Imported ownership is not verified native inventory or executable run authority.
 An empty recorded inventory is not proof of free global capacity. Kernel policy
 initialization is allowed only by this exact maintenance review or isolated tests;
 new allocations remain unavailable through public routes.
+
+WSP-04B3 validates externally supplied evidence and retains exact owner-reviewed
+versions and cumulative usage baselines. See docs/ADMISSION-RECONCILIATION.md.
+A consistent report is not independently authenticated native evidence, an owner
+release, a budget grant or run activation. Never fabricate coverage/cleanup flags,
+refresh observation timestamps on read or reset an account/task counter epoch to
+hide usage. Do not collect or record a live baseline merely to upgrade the tooling.
