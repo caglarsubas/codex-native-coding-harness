@@ -638,6 +638,18 @@ owner-bound action.
 
 ### WSP-04 — shared resources and adaptive routing
 
+**WSP-04A** implements the private atomic capacity kernel and read-only resource
+audit, with synthetic contention/recovery/accounting tests. It is not connected
+to native dispatch. **WSP-04B** must adopt legacy owners, connect authority and
+run fences, verify observation coverage and handle cross-database recovery before
+the full admission items below can be checked. See [the implemented contract and
+remaining integration gates](ADMISSION.md). Do not activate a reviewed mission
+or initialize live allocations as an upgrade side effect.
+
+- [x] WSP-04A: common-directory/conventional-origin identity observation and explicit platform-wide owner/alias audit.
+- [x] WSP-04A: atomic multi-resource, global/workspace slot and token reservations in an isolated capacity kernel.
+- [x] WSP-04A: fresh account/phase observation checks, checkpoint headroom and conservative settlement accounting.
+- [x] WSP-04A: two-process contention, transaction rollback, restart and uncertain-creation retention fixtures.
 - [ ] Canonical repository/runner identity and transactional platform reservations.
 - [ ] Brain-owned new/continue/handle/wait decisions with reason and immutable task seed.
 - [ ] Explicit model/effort/speed policy and requested/applied/observed decision records.

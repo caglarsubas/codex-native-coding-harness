@@ -23,6 +23,7 @@ def main():
         sub.add_parser(name)
     for name in ("workspace-list", "workspace-verify-backup", "workspace-profile"):
         sub.add_parser(name)
+    sub.add_parser("platform-resources", help="Explicit read-only repository identity and ownership audit; not admission")
     p = sub.add_parser("workspace-register"); p.add_argument("id"); p.add_argument("name"); p.add_argument("state_root", type=Path)
     p.add_argument("--apply", action="store_true", help="Register in place after a verified SQLite backup; default is preview")
     p = sub.add_parser("workspace-profile-set"); p.add_argument("profile", type=Path); p.add_argument("--version", type=int, required=True)
@@ -64,6 +65,11 @@ def main():
     if args.state and (args.workspace or args.platform):
         raise Refusal("Choose a registered workspace or --state, not both")
     registry = Registry(args.platform, create=args.action == "workspace-register") if args.platform else None
+    if args.action == "platform-resources":
+        if not registry or args.workspace:
+            raise Refusal("platform-resources requires --platform and audits all workspaces; omit --workspace")
+        from .resources import audit
+        print(json.dumps(audit(registry), ensure_ascii=False, indent=2)); return
     if args.action.startswith("workspace-"):
         if not registry:
             raise Refusal("Workspace operations require --platform")

@@ -29,6 +29,12 @@ limits and owner review; even `reviewed` grants no execution authority. If asked
 to prepare a phase proposal, read the Mission configuration section in
 `references/operations.md`. Never replace exact packet approval with this record.
 
+The WSP-04A shared admission kernel is not connected to native dispatch. Its
+capacity records are not approvals or permission to bypass existing limits.
+For an explicitly requested cross-workspace conflict audit, read the Shared
+resource audit section in `references/operations.md`; never initialize live
+allocations or infer unused capacity from an empty kernel store.
+
 For first-drive preparation or readiness questions, use the Readiness section of
 `references/operations.md`. Diagnostics and synthetic rehearsal do not authorize
 a native task or satisfy the real pilot requirement.

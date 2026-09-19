@@ -4,6 +4,23 @@ Use `python3 <installed-skill>/scripts/run.py --help` for exact argument names.
 Commands return JSON; refusals exit 2. The installation file selects the real
 workspace and Python interpreter. No provider API credentials are needed.
 
+## Shared resource audit (WSP-04A)
+
+For an explicitly requested platform-wide ownership check, use
+`scripts/run.py --platform <private-registry> platform-resources` without
+`--workspace`. This inspects bounded local Git metadata and recorded active
+owners across registered workspaces. It reports common-checkout/worktree aliases,
+conventional origin aliases, conflicting owners, unknown identity and unverified
+global runner identity. It does not fetch, read product source, run acceptance,
+change a ledger or make a reservation. Do not run it as automatic dashboard polling.
+
+Results are not an atomic platform snapshot. Missing/unmanaged tasks, SSH aliases,
+URL rewrites and external runner occupancy remain unverified. Unknown is not free
+capacity. The separate admission kernel has no production write route or native
+integration yet: never initialize live allocations, auto-import owners, grant a
+budget or infer approval from it. Keep using existing exact approvals and limits;
+cross-workspace concurrency requires the adoption/run gates in docs/ADMISSION.md.
+
 ## Manual cycle
 
 1. `inbox` returns compact cycle inputs; use `status` for private configuration, revision, queue, workers, command inbox,

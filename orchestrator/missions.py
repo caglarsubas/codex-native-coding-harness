@@ -15,7 +15,7 @@ MODES = ("prepare_only", "exact_owner", "phase_delegated")
 OPERATIONS = ("edit", "test", "commit", "push", "open_pr", "merge")
 BLOCKERS = [
     "Version-bound workspace runs and composite Play/Pause are not implemented.",
-    "Shared repository/runner reservations and fresh token-budget admission are not implemented.",
+    "Shared capacity checks are not connected to native task creation; fresh usage and reconciliation of existing owners are still required.",
     "Delegated packet approval and mandatory phase checkpoint release are not implemented.",
 ]
 
