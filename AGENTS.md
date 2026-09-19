@@ -82,3 +82,10 @@ may retain native pause observations and park with their exact current hash.
 Keep checkpoint retention, current native inactivity and ownership release
 separate. Do not reinstall the skill or alter a live brain/schedule just to ship
 source changes. See docs/WORKSPACE-PAUSE.md for rollout and legacy boundaries.
+
+WSP-03B2 Run readiness is an explicit read-only inspection, not a run controller.
+Candidate/report hashes are diagnostic bindings, never authority or reservations.
+Do not activate from a configuration review, infer operation permissions from
+path containment, or treat retained platform assertions as native attestation.
+Keep owner setup, evidence gaps and unimplemented controls distinct. Reads must
+not initialize admission, release owners, notify tasks or update evidence clocks.

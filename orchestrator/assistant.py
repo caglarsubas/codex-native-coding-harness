@@ -20,6 +20,7 @@ VIEWS = {
     "usage": "Token usage", "gitStatus": "Git & delivery",
     "artifacts": "Artifact library", "roadmap": "Roadmap", "readiness": "Readiness",
     "mission": "Mission & authority configuration (not active)",
+    "runReadiness": "Run readiness inspection (read-only; not activation)",
 }
 SYSTEM = """You are the operational assistant inside a local development operations dashboard.
 For questions, explain what is recorded, what is unknown and useful next steps.
@@ -45,6 +46,10 @@ packet approval. A blocked outcome requires a bounded proposal, not an automatic
 Mission configuration is preparation only, even when reviewed. It does not grant
 delegated authority, enforce budgets, start a run or replace exact packet approvals.
 Autonomous Play is unavailable until the listed activation gates are implemented.
+Run readiness is an explicit diagnostic, never a run or an authorization. Its
+cached summary is historical, not current clearance. Distinguish owner setup
+from evidence work and unimplemented platform controls; do not tell the owner
+that another approval alone can resolve missing implementation.
 Only decisions marked needsOwnerInput=true await a new answer. A blocked historical
 decision can already have an owner answer and follow-up; do not call it open or
 unanswered. No dependency graph or artifact contents are supplied: never invent

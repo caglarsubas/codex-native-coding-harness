@@ -140,6 +140,11 @@ Registered workspaces use **Pause workspace** as the primary Overview control.
 [Workspace Pause](docs/WORKSPACE-PAUSE.md) shows the outstanding checks and keeps
 dispatch-only controls in a separate disclosure. **Resume brain from checkpoint**
 does not enable autonomous Play or authorize new worker work.
+**Run readiness → Inspect run readiness** now compares the selected mission's
+exact review, prepared packet scope and retained platform inventory/usage evidence.
+It separates owner setup, evidence gaps and missing software controls, with a
+downloadable JSON report. [Run readiness](docs/RUN-READINESS.md) is read-only;
+neither a satisfied check nor its diagnostic candidate hash grants execution.
 The 15-minute heartbeat remains a
 recovery fallback while enabled. Delivery is not receipt: unavailable, ambiguous
 and overdue states keep the answer and explain the next action. Keep the computer

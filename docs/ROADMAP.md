@@ -144,6 +144,7 @@ These are planned tooling increments, not live mission or product authorization.
 - [x] WSP-04B2: owner-reviewed quarantined ownership import, conservative conflict/slot inventory, durable kernel identity and cross-database receipt recovery (no native reconciliation/activation)
 - [x] WSP-04B3: bounded external-evidence reconciliation, versioned exact owner reviews and cumulative usage-baseline continuity (no native collector, ownership release or activation)
 - [x] WSP-03B1: selected-workspace safe Pause, retained worker/descendant checkpoint evidence, progress blockers and explicit post-checkpoint brain resume (no autonomous Play)
+- [x] WSP-03B2: explicit run-readiness inspection binding current mission review, conservative packet path scope and retained platform evidence; scoped dashboard/report/assistant diagnostics (no run activation)
 - [ ] WSP-03: configurable brain authority, phase checkpoint releases and safe Play/Pause
 - [ ] WSP-04: brain-owned task/model/effort/speed choices, parallel limits and token admission
 - [ ] WSP-05: continuous phase-scoped development, inheritance and preserved task archival

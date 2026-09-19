@@ -9,7 +9,8 @@ function missionSummary(root){
   const m=state.mission,panel=el('section',null,'mission-summary');
   panel.append(el('p','MISSION SETUP · NOT ACTIVE','eyebrow'),el('h2',m.document?m.document.spec.phase.title:'Define what Play should deliver'));
   panel.append(el('p',m.document?`Configuration v${m.version} · ${m.effectiveStatus.replaceAll('_',' ')}. Autonomous Play is not available yet.`:'Set the phase, permitted repositories, owner checkpoint and proposed task/token limits. Existing dispatch controls remain separate.','muted'));
-  panel.append(button(m.document?'Review mission & authority':'Configure mission & authority',()=>navigateView('mission')));root.append(panel);
+  panel.append(button(m.document?'Review mission & authority':'Configure mission & authority',()=>navigateView('mission')),
+    button('Inspect run readiness',()=>navigateView('runReadiness')));root.append(panel);
 }
 function missionDocument(parent,hash,label){
   const details=el('details',null,'mission-document'),pre=el('pre','Open to read the immutable document.');

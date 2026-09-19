@@ -18,3 +18,8 @@
 .workspace-pause>button{justify-self:start}.workspace-pause .coverage-details{margin:0}
 .workspace-pause details p{margin-bottom:12px}.pause-blockers{display:grid;gap:12px;padding-left:20px;margin:0;max-width:74ch;font-size:13px}
 .pause-blockers .subline{overflow-wrap:anywhere}.workspace-pause h2{overflow-wrap:anywhere}
+.run-inspection,.run-checks{display:grid;gap:16px}.run-inspection>button,.run-check>button{justify-self:start}
+.run-inspection{margin-bottom:16px}
+.run-proof{min-width:0;overflow-wrap:anywhere}
+.run-check{display:grid;gap:8px;padding:16px 0;border-bottom:1px solid var(--rule)}.run-check .badge{justify-self:start}
+.run-check p,.run-inspection p{max-width:72ch}.run-checks+.section-heading{margin-top:40px}

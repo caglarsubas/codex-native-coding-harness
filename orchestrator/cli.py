@@ -46,6 +46,7 @@ def main():
     p.add_argument("--apply", action="store_true", help="Register in place after a verified SQLite backup; default is preview")
     p = sub.add_parser("workspace-profile-set"); p.add_argument("profile", type=Path); p.add_argument("--version", type=int, required=True)
     sub.add_parser("mission-state", help="Read workspace mission configuration; not execution authority")
+    sub.add_parser("run-readiness", help="Read-only mission/packet/platform preflight; never activation")
     p = sub.add_parser("mission-draft", help="Designated brain proposes a version; owner reviews in the dashboard")
     p.add_argument("spec", type=Path); p.add_argument("--revision", type=int, required=True); p.add_argument("--id", required=True)
     p = sub.add_parser("native-observe"); p.add_argument("observation", type=Path)
@@ -84,6 +85,8 @@ def main():
         raise Refusal("--workspace requires --platform")
     if args.state and (args.workspace or args.platform):
         raise Refusal("Choose a registered workspace or --state, not both")
+    if args.action == "run-readiness" and not (args.platform and args.workspace):
+        raise Refusal("Run readiness requires an explicit registered workspace")
     registry = Registry(args.platform, create=args.action == "workspace-register") if args.platform else None
     if args.action.startswith("platform-reconciliation-"):
         if not registry or args.workspace:
@@ -197,6 +200,10 @@ def main():
     elif action == "mission-state":
         from .missions import read as read_mission
         out = read_mission(ledger)
+    elif action == "run-readiness":
+        from .run_readiness import inspect
+        if not registry or not args.workspace: raise Refusal("Run readiness requires an explicit registered workspace")
+        out = inspect(registry, ledger)
     elif action == "mission-draft":
         from .missions import change
         out = change(ledger, {"id": args.id, "operation": "save", "expectedRevision": args.revision,
