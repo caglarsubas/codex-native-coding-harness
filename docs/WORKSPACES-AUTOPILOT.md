@@ -628,6 +628,11 @@ evidence, checkpoint blockers and explicit brain resume after parking. See
 [workspace Pause](WORKSPACE-PAUSE.md). It does not implement Play, run generations,
 phase release, native inventory collection or worker continuation authorization.
 
+**WSP-03B2** adds an explicit [run-readiness inspection](RUN-READINESS.md) joining
+the current mission/review, prepared packet path containment and retained platform
+evidence. It separates owner setup from evidence gaps and unimplemented controls.
+Its candidate hash is diagnostic, not a run generation, activation or reservation.
+
 - [x] WSP-03A: versioned mission, phase, repository scope, owner checkpoint and proposed authority limits.
 - [x] WSP-03A: explicit exact-hash owner review/revocation, stale-write and policy-change checks.
 - [x] WSP-03A: workspace editor, immutable history, retained drafts and truthful inactive state.
@@ -635,6 +640,7 @@ phase release, native inventory collection or worker continuation authorization.
 - [x] WSP-03A: isolated tests for empty scope, Harness/manual merge, retries and workspace isolation.
 - [x] WSP-03B1: primary workspace Pause, evidence-bound worker/descendant checkpointing and visible progress.
 - [x] WSP-03B1: prohibit early resume, preserve ownership across retries and distinguish saved checkpoints from current inactivity.
+- [x] WSP-03B2: read-only exact mission/review binding, conservative packet-scope assessment and platform-baseline diagnostics with workspace-scoped reports.
 - [ ] Implement the selected configurable authority model in tooling/skill contracts.
 - [ ] Activate workspace authority with enforced packet, checkpoint, task and token admission.
 - [ ] Mission/phase review, delegated packet approval/revocation and exact version checks.

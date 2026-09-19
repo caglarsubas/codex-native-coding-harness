@@ -141,7 +141,8 @@ class AssistantActionsTest(unittest.TestCase):
         self.assertEqual(data["facts"][11]["data"]["activity"]["status"], "unknown")
         self.assertFalse(data["facts"][11]["data"]["activity"]["fresh"])
         self.assertIsNone(data["facts"][8]["data"]["brainDesired"])
-        self.assertEqual(len(data["capabilities"]), 11)
+        self.assertEqual(len(data["capabilities"]), 12)
+        self.assertIn("runReadiness", {c["view"] for c in data["capabilities"]})
         for value in ("secret event body", "private-owner", "private bridge", self.decision["id"], self.token, "/fixture"):
             self.assertNotIn(value, canonical(data))
         self.assertTrue(any(a["key"] == "brain_stop" for a in data["actions"]))

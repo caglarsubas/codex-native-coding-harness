@@ -57,6 +57,34 @@ class WorkspaceServerTest(unittest.TestCase):
         _, _, raw = self.request("/api/workspaces", headers=auth)
         self.assertEqual(len(json.loads(raw)["workspaces"]), 2)
 
+    def test_run_readiness_is_explicit_scoped_read_only_and_assistant_history(self):
+        from orchestrator import run_readiness
+        from orchestrator.workspaces import fingerprint
+        auth = self.auth("a")
+        self.assertEqual(self.request("/api/workspaces/a/run-readiness")[0], 401)
+        with patch.object(run_readiness, "inspect", wraps=run_readiness.inspect) as inspect:
+            _, _, raw = self.request("/api/workspaces/a/state", headers=auth)
+            self.assertEqual(json.loads(raw)["runReadiness"]["status"], "not_inspected")
+            inspect.assert_not_called()
+        with self.ledgers["a"].tx() as db: before = fingerprint(db)
+        status, _, raw = self.request("/api/workspaces/a/run-readiness", headers=auth)
+        self.assertEqual(status, 200)
+        report = json.loads(raw); self.assertEqual(report["workspaceId"], "a")
+        self.assertFalse(report["executionAuthorized"])
+        with self.ledgers["a"].tx() as db: self.assertEqual(before, fingerprint(db))
+        _, _, raw = self.request("/api/workspaces/a/assistant/context?view=runReadiness", headers=auth)
+        self.assertIn(b"historical_inspection", raw)
+        self.assertNotIn(report["reportHash"].encode(), raw)
+        _, _, raw = self.request("/api/workspaces/b/state", headers=auth)
+        self.assertEqual(json.loads(raw)["runReadiness"]["status"], "not_inspected")
+        self.assertEqual(self.request("/api/workspaces/a/run-readiness", {"activate": True}, auth)[0], 404)
+        self.assertEqual(self.request("/api/run-readiness", headers=auth)[0], 400)
+
+    def test_run_readiness_rejects_overlapping_inspections(self):
+        auth = self.auth("a"); runtime = self.server.runtime_for("a")
+        with runtime.run_readiness_lock:
+            self.assertEqual(self.request("/api/workspaces/a/run-readiness", headers=auth)[0], 409)
+
     def test_commands_scope_csrf_and_colliding_ids(self):
         auth_a = self.auth("a")
         auth_b = self.auth("b", auth_a)

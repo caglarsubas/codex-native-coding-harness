@@ -27,6 +27,8 @@ def extend_context(state, facts, view="overview"):
         "controller": {"owned": bool(meta.get("controller")), "since": (meta.get("controller") or {}).get("since")},
         "runner": {"owned": bool(meta.get("runner")), "since": (meta.get("runner") or {}).get("since")},
         "brainControlRecorded": bool(meta.get("brainControl")),
+        "runReadiness": {**fields(state.get("runReadiness"), "status generatedAt workspaceRevision blockerCount executionAuthorized activationAvailable"),
+                         "blockers": [fields(c, "code group owner view") for c in (state.get("runReadiness") or {}).get("blockers", [])[:16]]},
         "safeCheckpoint": fields((meta.get("brainControl") or {}).get("checkpoint"), "at"),
         "workspacePause": {**fields(state.get("workspacePause"), "status requestedAt checkpointAt validUntil retainedWorkers observedTasks canResumeBrain"),
                            "blockers": [fields(i, "code detail") for i in (state.get("workspacePause") or {}).get("blockers", [])[:12]]},
@@ -123,6 +125,7 @@ CAPABILITIES = [
     {"view": "artifacts", "capability": "Read/download retained cross-task artifacts in creation/reference order and versions; coverage is bounded"},
     {"view": "roadmap", "capability": "Inspect plan source checklists and progress; checkmarks do not authorize execution or prove acceptance"},
     {"view": "readiness", "capability": "Local readiness inspection, isolated rehearsal and runtime/GitHub provenance checks; no fetch, deployment or runtime restart"},
+    {"view": "runReadiness", "capability": "Explicit read-only mission, prepared-packet scope and retained platform-evidence inspection; not activation, fresh native collection or a reservation"},
 ]
 
 BOUNDARIES = [

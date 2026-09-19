@@ -93,7 +93,7 @@ function metrics(root) {
 }
 function render() {
  if(!state)return;
- document.querySelector(".page-actions").hidden=['workspaces','mission'].includes(view);
+ document.querySelector(".page-actions").hidden=['workspaces','mission','runReadiness'].includes(view);
  const m=state.meta,dispatch=dispatchPresentation(m,state.commands),primary=state.workspace?workspacePausePresentation(state):dispatch;
  $('mode').textContent=dispatch.label+" · Brain: "+activityLabel(state.brainActivity)+" · Checkpoint: "+age(m.lastReconciled)+" · Heartbeat (recorded): "+m.heartbeat.status;
  $('pause').textContent=primary.button;$('pause').disabled=!connected||busy||primary.disabled;
@@ -101,8 +101,8 @@ function render() {
  $('pause').classList.toggle('primary',!!state.workspace);$('reconcile').classList.toggle('primary',!state.workspace);
  $('reconcile').disabled=!connected||busy;$('title').textContent=titles[view][0];$('subtitle').textContent=titles[view][1];
  const root=$('content');root.replaceChildren();
- ({overview,decisions,queue,workers,knowledge,metrics,usage,gitStatus,artifacts,roadmap,readiness,mission:missionView,workspaces:allWorkspaces})[view](root);
- if(!['workspaces','mission'].includes(view)&&state.commands.length){root.append(section("Control requests","Delivery, brain receipt and completion are separate."));root.append(table(["Request","Status","Result"],[...state.commands].reverse().slice(0,8).map(c=>{const delivery=commandPresentation(c);return [textCell(c.kind,when(c.createdAt)),badge(delivery.label),delivery.detail];})));}
+ ({overview,decisions,queue,workers,knowledge,metrics,usage,gitStatus,artifacts,roadmap,readiness,mission:missionView,runReadiness:runReadinessView,workspaces:allWorkspaces})[view](root);
+ if(!['workspaces','mission','runReadiness'].includes(view)&&state.commands.length){root.append(section("Control requests","Delivery, brain receipt and completion are separate."));root.append(table(["Request","Status","Result"],[...state.commands].reverse().slice(0,8).map(c=>{const delivery=commandPresentation(c);return [textCell(c.kind,when(c.createdAt)),badge(delivery.label),delivery.detail];})));}
 }
 document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>navigateView(b.dataset.view)));
 $('pause').onclick=()=>command(state.workspace?workspacePausePresentation(state).kind:state.meta.paused?'resume':'pause');$('reconcile').onclick=()=>command('reconcile');$('refresh').onclick=refresh;

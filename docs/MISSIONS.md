@@ -31,6 +31,11 @@ activation must require a **new explicit owner action** bound to the exact contr
 upgrading must not turn any existing `reviewed` configuration into a running mission.
 Model/effort/speed choices are deliberately not simulated by this form.
 
+Use **Run readiness → Inspect run readiness** to inspect the current exact review,
+prepared packet paths and retained platform evidence together. The diagnostic
+separates actions for the owner, brain/operator and platform developer. A satisfied
+check or candidate binding is not authority; see [the inspection contract](RUN-READINESS.md).
+
 Unsubmitted edits are kept separately per workspace in the current browser tab.
 Switching or navigating away and back retains them; reloading the page clears them.
 Saved versions and receipts persist privately in the workspace ledger. Polling does

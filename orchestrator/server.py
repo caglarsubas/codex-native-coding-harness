@@ -43,6 +43,8 @@ class WorkspaceRuntime:
         self.notifier = BrainNotifier(ledger, notification_cli)
         from .assistant_actions import ActionProposals
         self.assistant_proposals = ActionProposals()
+        self.run_readiness_report = None
+        self.run_readiness_lock = threading.Lock()
 
     def snapshot(self):
         """Same evidence for workspace and assistant; no model-triggered scans or refresh."""
@@ -58,6 +60,8 @@ class WorkspaceRuntime:
         state["provenance"]["job"] = self.provenance_job.copy()
         state["brainActivity"] = self.brain_activity.snapshot(state)
         state["brainNotification"] = self.notifier.status(state["meta"]["brainId"])
+        from .run_readiness import assistant_summary
+        state["runReadiness"] = assistant_summary(self.run_readiness_report)
         if self.registry:
             state["workspace"] = {"id": self.workspace_id,
                 "name": next(w["name"] for w in self.registry.list() if w["id"] == self.workspace_id),
@@ -172,7 +176,7 @@ class Handler(BaseHTTPRequestHandler):
         static["/activity.js"] = ("activity.js", "text/javascript; charset=utf-8")
         static["/decisions.js"] = ("decisions.js", "text/javascript; charset=utf-8")
         static["/decisions.css"] = ("decisions.css", "text/css; charset=utf-8")
-        for file in ("panes.js", "assistant.js", "routing.js", "workspaces.js", "missions.js", "workspace-pause.js", "panes.css"):
+        for file in ("panes.js", "assistant.js", "routing.js", "workspaces.js", "missions.js", "workspace-pause.js", "run-readiness.js", "panes.css"):
             static["/" + file] = (file, "text/javascript; charset=utf-8" if file.endswith(".js") else "text/css; charset=utf-8")
         if path in static:
             file, mime = static[path]
@@ -197,6 +201,15 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/mission" and workspace_id:
                 from .missions import read
                 return self.respond(200, read(runtime.ledger))
+            if path == "/api/run-readiness" and workspace_id:
+                from .run_readiness import inspect
+                if not runtime.run_readiness_lock.acquire(blocking=False):
+                    return self.respond(409, {"error": "Run inspection is already in progress for this workspace."})
+                try:
+                    runtime.run_readiness_report = inspect(self.server.registry, runtime.ledger)
+                    return self.respond(200, runtime.run_readiness_report)
+                finally:
+                    runtime.run_readiness_lock.release()
             if path == "/api/assistant/context":
                 from .assistant import context
                 query = parse_qs(urlsplit(self.path).query)
