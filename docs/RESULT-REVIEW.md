@@ -35,7 +35,9 @@ reviewer independence or deployment/tenant facts. A future trusted observer must
 collect and independently verify those facts. The separate
 [local source observer](SOURCE-OBSERVATION.md) now collects structural local Git
 facts only; its provenance-bound source proof is checked by this coordinator.
-Other external and semantic claims remain caller-supplied. No LLM output
+The optional [GitHub observer](GITHUB-EVIDENCE.md) now collects exact PR/required-
+check metadata and binds its CI/merge proof here. Other external and semantic
+claims remain caller-supplied. No LLM output
 authorizes acceptance.
 
 New reviews require an unfenced, unpaused, unexpired current run and its exact
@@ -90,15 +92,17 @@ failure evidence; this never approves those edits or authorizes their repair.
 match the reviewed result. Only merged PRs have a merge commit; only a merged PR
 may carry verified merge evidence. An accepted result must have an open or merged
 PR. Observing a PR or merge is not permission to push or merge, and manual-merge
-policy remains intact. The URL is a supplied reference, not a fetched repository
-attestation.
+policy remains intact. Without collector provenance the URL is only a supplied
+reference, not a fetched repository attestation.
 
 `ci` contains exact `headSHA`, boolean `complete`, up to 80 unique
 `requiredChecks` names and up to 80 `checks`. Each check has `name`, exact
 `headSHA` and `status` (`passed`, `failed`, `pending`). Verified CI requires
 complete coverage of a nonempty required-check set, all passing on this commit.
 An empty check list is not green CI. Discovering the actual required-check policy
-is the future observer's responsibility, not an arbitrary list from a worker.
+is the observer's responsibility, not an arbitrary list from a worker. The optional
+GitHub collector binds policy to the exact repository and base branch; unsupported
+or inaccessible coverage remains unverified.
 
 `evidence` always has all eight axes: source, CI, merge, artifact, deployment,
 runtime, assurance and tenant (lowercase contract keys). Each proof is exactly
@@ -126,6 +130,13 @@ and full path-set binding. Original collection time participates in freshness;
 later proof review does not refresh it. An out-of-scope collected diff cannot
 verify source, and source bytes do not prove CI or semantic correctness. Earlier
 unlabelled supplied artifacts remain subject to the original trust boundary.
+
+WSP-04C3f GitHub artifacts likewise require their exact journal, request receipt,
+canonical bytes and task/settlement binding. Both PR and CI projections must match
+the retained observation, even when used only for one of those axes. The original
+collection start participates in freshness; review timestamps cannot renew it.
+Unknown/failed CI cannot be promoted, and merge can be verified only when actually
+observed merged. These artifacts cannot prove other axes or acceptance criteria.
 
 The independent review artifact is closed JSON with unique fields:
 `kind: independent_result_review`, `workerId`, `intentHash`, `settlementHash`,

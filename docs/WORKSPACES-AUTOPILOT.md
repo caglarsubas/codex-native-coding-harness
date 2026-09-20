@@ -684,7 +684,7 @@ the full admission items below can be checked. See [the implemented contract and
 remaining integration gates](ADMISSION.md). Do not activate a reviewed mission
 or initialize live allocations as an upgrade side effect.
 
-**WSP-04C1–C3e** now connect internal run authority to shared reservation,
+**WSP-04C1–C3f** now connect internal run authority to shared reservation,
 native-result/correction journals, terminal settlement and
 [standard-policy runner coordination](RUNNER-COORDINATION.md). These are tested
 internal records, not native transport, trusted operator observations or Play.
@@ -702,8 +702,12 @@ not their independent external truth. An optional
 [local source observer](SOURCE-OBSERVATION.md) now measures exact local Git
 structure under pinned identity, retains provenance and binds the complete diff
 to a later review. It does not establish source semantics, CI, remote delivery or
-preservation. Trusted native/CI/remote collection and Harness acceptance remain
-unimplemented. Completion does not enable legacy pilot or archival paths.
+preservation. The optional [GitHub observer](GITHUB-EVIDENCE.md) now collects exact
+remote PR and required-check metadata through bounded read-only requests, retaining
+provider identity, unknown coverage, drift checks and original-time provenance.
+It does not prove workflow trust, semantic correctness or merge authority. Broader
+native/host/preservation qualification and Harness acceptance remain unimplemented.
+Completion does not enable legacy pilot or archival paths.
 
 **WSP-04D1** adds the [brain-owned creation handoff](NATIVE-CREATION-HANDOFF.md):
 a designated-brain CLI emits exact native task arguments for an already admitted
@@ -747,6 +751,7 @@ trusted host collector, installed operator upgrade or live activation.
 - [x] WSP-04B3: explicit evidence coverage/freshness diagnostics, exact owner-reviewed versions and non-resetting account/task cumulative baseline anchors.
 - [x] WSP-04B3: read-only current re-evaluation, source/version concurrency checks, crash replay and retained ownership/fences.
 - [x] WSP-04C3e: bounded standard-policy local commit/ancestry/branch/diff observation, retained collector/request proof and no timestamp refresh on review/replay.
+- [x] WSP-04C3f: bounded exact GitHub PR/required-check observation, conservative policy/provider coverage, drift checks and retained CI/merge proof; no remote mutation or live workspace write.
 - [x] WSP-04D1: one-use native creation handoff/check and CLI return-path fixtures; exact project/base/defaults, Pause races and conservative result recovery.
 - [x] WSP-04D2: exact native task/account observation CLI, safe status/limit projections, current-evidence admission fences and replay/Pause/privacy fixtures.
 - [x] WSP-04D3: cumulative phase/session accounting, baseline/epoch continuity, settlement incorporation and effect-context checks; supplied evidence only, no live collector.
