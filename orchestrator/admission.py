@@ -229,6 +229,8 @@ class AdmissionStore:
         require(len(included) == len(set(included)), "Duplicate settled-claim coverage")
         with self.tx() as db:
             allocation = self.get(db, "allocations", allocation_id)
+            from .phase_usage import current_in
+            require(current_in(db, allocation) is None, "Use phase usage recording; legacy updates cannot bypass its journal")
             prior = allocation["usage"]
             if prior == observation:
                 return
@@ -271,6 +273,8 @@ class AdmissionStore:
         meta = self.get(db, "meta", 1)
         from .native_limits import enforce
         enforce(self, db)
+        from .phase_usage import enforce as enforce_phase
+        enforce_phase(self, db, allocation)
         account, policy = meta["account"], meta["policy"]
         require(account is not None, "Account usage is unknown")
         self.fresh(account["observedAt"], policy)

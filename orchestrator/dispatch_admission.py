@@ -84,6 +84,8 @@ class DispatchAdmission:
         expected = phase_allocation(grant, spec["repositories"], spec["runners"])
         require(allocation["id"] == expected["id"] and spec == expected["spec"] and
                 allocation["fingerprint"] == digest(spec), "Phase allocation binding changed; explicit migration required")
+        from .phase_usage import enforce_context
+        enforce_context(self, db, kernel, allocation)
         self.store.check_budget(kernel, allocation)
         return allocation
 
