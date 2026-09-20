@@ -218,6 +218,12 @@ standard-policy task to a single-use acceptance message. The brain consumes the
 launch check and calls the native tool; the helper separately records delivery,
 process exit and cleanup. Uncertain sends retain ownership and never retry.
 This does not execute tests, qualify host evidence or activate live automation.
+The [result handoff CLI](docs/RESULT-HANDOFF.md) connects a settled owner-approved
+standard-policy task to explicit source/GitHub collection, task-bound proof
+retention and separate acceptance or rejection. Measured facts and supplied
+review claims stay distinct; historical reads/replay cannot renew old evidence.
+No worker response automatically completes a packet, and acceptance does not
+merge, archive, retry or advance the roadmap. Live activation remains separate.
 The [non-creation recovery coordinator](docs/CREATION-RECOVERY.md) can close a
 failed creation attempt only after explicit final absence, cleanup and zero-task-
 usage evidence. It retains attempt counts and pending IDs, keeps the packet held,

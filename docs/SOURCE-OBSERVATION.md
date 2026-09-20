@@ -35,9 +35,11 @@ The local Git executable/filesystem are trusted; this is not an OS sandbox or a
 defense against a malicious process rewriting objects concurrently. Read intervals
 are observed and rechecked, not an external repository lock or signature.
 
-Internal designated-brain source calls and isolated fixtures only. No CLI, HTTP,
-assistant action, installed skill update, live collection/migration, product
-repository inspection, schedule change, native transport or Play activation.
+The WSP-04C3e kernel initially provided internal designated-brain calls only.
+The later [result handoff](RESULT-HANDOFF.md) exposes a stricter owner-approved
+standard-policy CLI. No HTTP/assistant action or native transport is added. Source
+delivery includes no installed skill update, live collection/migration, product
+repository inspection, schedule change or Play activation.
 Harness is refused before filesystem inspection; its clean-room/trusted-runner
 rules cannot be implemented by a generic Git observer. No live state is touched
 merely to deliver this source change.
@@ -45,8 +47,9 @@ merely to deliver this source change.
 ## Internal API and authority
 
 Construct `SourceObserver` from an existing `DispatchAdmission` instance and call
-`observe(controller_token, worker_id, request)`. This is not exposed by the CLI,
-dashboard or assistant. Do not invoke it against live state to upgrade tooling.
+`observe(controller_token, worker_id, request)`. The result-handoff CLI now wraps
+it; there is no dashboard/assistant route. Do not collect live state to upgrade
+tooling.
 
 The request has exactly four fields:
 

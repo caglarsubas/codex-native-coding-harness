@@ -740,6 +740,14 @@ still calls the native messaging tool. Delivery does not prove process execution
 CI or acceptance; uncertain sends never retry. Standard policy only, with no
 trusted host collector, installed operator upgrade or live activation.
 
+**WSP-04D5** adds the [brain-owned result handoff](RESULT-HANDOFF.md): a settled,
+exact owner-approved standard-policy task can collect measured source/GitHub
+evidence, retain bounded supplemental proof, inspect its original provenance/time
+and receive one separate acceptance/rejection. The brain still performs semantic,
+criterion and preservation review; no worker claim or LLM output auto-accepts a
+result. Historical receipts never refresh evidence. This closes the result CLI
+integration seam, not live native/host qualification, continuation or archival.
+
 - [x] WSP-04A: common-directory/conventional-origin identity observation and explicit platform-wide owner/alias audit.
 - [x] WSP-04A: atomic multi-resource, global/workspace slot and token reservations in an isolated capacity kernel.
 - [x] WSP-04A: fresh account/phase observation checks, checkpoint headroom and conservative settlement accounting.
@@ -756,6 +764,7 @@ trusted host collector, installed operator upgrade or live activation.
 - [x] WSP-04D2: exact native task/account observation CLI, safe status/limit projections, current-evidence admission fences and replay/Pause/privacy fixtures.
 - [x] WSP-04D3: cumulative phase/session accounting, baseline/epoch continuity, settlement incorporation and effect-context checks; supplied evidence only, no live collector.
 - [x] WSP-04D4: exact standard-policy runner message handoff and separate delivery/process/cleanup CLI with one-shot send and Pause/crash fixtures; no native transport or live execution.
+- [x] WSP-04D5: exact-owner standard-policy result CLI, source/GitHub collector composition, supplemental proof journal and separate review with historical reads; no automatic acceptance or live activation.
 - [ ] Trusted native/operator observation collection and live evidence qualification; supplied assertions are not independent attestation.
 - [ ] Canonical repository/runner identity and transactional platform reservations.
 - [ ] Brain-owned new/continue/handle/wait decisions with reason and immutable task seed.

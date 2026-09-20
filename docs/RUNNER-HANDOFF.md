@@ -130,5 +130,8 @@ only attaches the latest retained receipt, and does not refresh source timestamp
 Quiesce older controller/helper writers before any explicitly approved rollout.
 No mixed-version writer/downgrade compatibility or live migration is claimed.
 See [verification](RUNNER-HANDOFF-VERIFICATION.md). Remaining gates include trusted
-host/native inventory and live counters, result evidence collection, owner setup,
-a low-risk standard-policy pilot and subsequent two-workspace acceptance.
+host/native inventory and live counters, preservation qualification, owner setup,
+a low-risk standard-policy pilot and subsequent two-workspace acceptance. The
+later [result handoff](RESULT-HANDOFF.md) now connects settled standard-policy
+tasks to measured source/GitHub evidence and a separate review outcome; it does
+not settle native work or infer acceptance from runner exit.
