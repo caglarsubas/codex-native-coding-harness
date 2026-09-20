@@ -122,8 +122,9 @@ def authorize(ledger, request, *, actor):
         meta, key, fingerprint, prior = request_in(ledger, db, request, actor, "authorize",
             {"missionHash", "reviewReceiptHash", "checkpointHash", "expiresAt", "settingsPolicy", "confirmed"})
         if prior: return prior
-        require(request["confirmed"] is True and request["settingsPolicy"] == "native_defaults",
-                "Explicit owner confirmation of native defaults is required; adaptive policy is not implemented")
+        require(request["confirmed"] is True, "Explicit owner confirmation of settings policy required")
+        from .model_policy import policy_in
+        policy_in(ledger, db, request["settingsPolicy"])
         timestamp(request["expiresAt"])
         now = time.time()
         require(now < request["expiresAt"] <= now + 86400, "Run intent needs an expiry within 24 hours")
@@ -157,7 +158,7 @@ def authorize(ledger, request, *, actor):
                  "brainId": meta["brainId"], "generation": generation, "actor": actor, "createdAt": now,
                  "expiresAt": request["expiresAt"], "missionHash": m["documentHash"], "reviewReceiptHash": m["receiptHash"],
                  "missionRevision": m["revision"], "phaseId": spec["phase"]["id"], "authority": spec["authority"],
-                 "repositoryBindings": bindings, "settingsPolicy": "native_defaults", "checkpoint": spec["phase"]["checkpoint"],
+                 "repositoryBindings": bindings, "settingsPolicy": request["settingsPolicy"], "checkpoint": spec["phase"]["checkpoint"],
                  "releasedCheckpointHash": request["checkpointHash"], "previousRunHash": previous["runHash"] if previous else None}
         run_hash = retain(db, "run_authorization", grant)
         meta["schemaVersion"] = 3
@@ -179,7 +180,9 @@ def require_current(ledger, db, run_hash):
             grant["reviewReceiptHash"] == m["receiptHash"] and grant["missionRevision"] == m["revision"] and
             grant["phaseId"] == spec["phase"]["id"] and grant["authority"] == spec["authority"] and
             grant["repositoryBindings"] == bindings, "Run mission or identity binding changed")
-    require(grant["actor"] == "dashboard_owner" and grant["settingsPolicy"] == "native_defaults", "Unsupported run policy")
+    require(grant["actor"] == "dashboard_owner", "Unsupported run policy")
+    from .model_policy import policy_in
+    policy_in(ledger, db, grant["settingsPolicy"])
     require(grant["createdAt"] <= time.time() < grant["expiresAt"], "Run authority expired or future-dated; checkpoint required")
     from .brain_control import stopped
     require(not stopped(meta), "Brain is stopping or parked; no new task authority")
@@ -195,7 +198,10 @@ def contract_in(ledger, db, queue_id, contract_hash):
     doc = document(db, contract_hash, "task_contract")
     result = task_contracts.evaluate(q, task_contracts.context_in(ledger, db, q), doc)
     require(result["status"] == "bound" and not q["held"], "Task contract is stale, invalid or held")
-    require(all(v is None for v in doc["spec"]["requestedSettings"].values()), "Task settings exceed the authorized native-defaults policy")
+    from .model_policy import initial_in
+    state = current_in(ledger, db)
+    require(state is not None, "Current run required for task settings")
+    initial_in(ledger, db, require_current(ledger, db, state["runHash"]), q, doc)
     return q, doc
 
 
@@ -235,11 +241,18 @@ def standard_handoff_scope(db, intent):
     grant = document(db, intent["runHash"], "run_authorization")
     contract = document(db, intent["contractHash"], "task_contract")
     require(contract["repositoryBinding"]["policyProfile"] == "standard", "Harness requires its trusted handoff adapter")
-    require(grant["actor"] == "dashboard_owner" and grant["settingsPolicy"] == "native_defaults" and
+    require(grant["actor"] == "dashboard_owner" and
             approval["workspaceId"] == grant["workspaceId"] == intent["workspaceId"] and
             approval["runHash"] == intent["runHash"] and approval["queueId"] == intent["queueId"] and
             approval["contractHash"] == intent["contractHash"] and approval["generation"] == grant["generation"] and
             approval["status"] == "approved", "Exact owner-authorized run and task binding required")
+    if grant["settingsPolicy"] != "native_defaults":
+        exact(grant["settingsPolicy"], {"mode", "policyHash"})
+        require(grant["settingsPolicy"]["mode"] == "adaptive", "Unsupported historical model policy")
+        policy = document(db, grant["settingsPolicy"]["policyHash"], "model_policy")
+        require(policy["actor"] == "dashboard_owner" and policy["workspaceId"] == grant["workspaceId"] and
+                policy["brainId"] == grant["brainId"] and policy["missionHash"] == grant["missionHash"] and
+                policy["reviewReceiptHash"] == grant["reviewReceiptHash"], "Historical model policy binding changed")
     require(approval["actor"] == "dashboard_owner" or (approval["actor"] == "designated_brain" and
             grant["authority"]["approvalMode"] == "phase_delegated"), "Handoff requires exact owner approval or owner-delegated phase authority")
     return approval

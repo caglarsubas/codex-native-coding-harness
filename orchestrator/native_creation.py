@@ -101,6 +101,9 @@ class NativeCreation:
         keys = [k for k in intent["resourceKeys"] if k.startswith("repo-local:")]
         require(len(keys) == 1, "One pinned local common-directory resource is required")
         args = arguments(worker, seed, contract, project)
+        from .model_policy import initial_arguments
+        args.update(initial_arguments(self.ledger, db, intent))
+        require(len(canonical(args).encode()) <= 20000, "Native inheritance exceeds its 20 KiB handoff bound")
         return worker, intent, {"path": repo["path"], "key": keys[0], "base": seed["baseSHA"]}, args
 
     def begin(self, token, worker_id, request):

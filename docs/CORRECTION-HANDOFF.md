@@ -1,5 +1,11 @@
 # WSP-05B — same-task correction handoff
 
+Update: [WSP-04E](MODEL-POLICY.md) binds adaptive corrections to the current or
+explicitly escalated owner-approved model/effort selection. Fresh matching native
+settings observations, bounded escalation and profile token floors are required;
+all existing one-shot, scope, no-progress, budget and Pause checks remain.
+Native-default corrections still emit no setting overrides. No live activation.
+
 Update: [WSP-05C](BRAIN-COORDINATOR.md) also permits exact designated-brain task
 approvals inside an owner-authorized delegated standard phase. The original
 exact-owner-only boundary below is superseded only for that case; current run,

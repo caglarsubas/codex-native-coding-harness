@@ -1,5 +1,10 @@
 # WSP-04D1 — brain-owned native creation handoff
 
+Update: [WSP-04E](MODEL-POLICY.md) permits exact owner-reviewed model/thinking
+arguments at the existing one-shot creation boundary. This supersedes the
+native-default-only restriction below only for a current adaptive run and bound
+selection; speed and Ultra remain gated. No live setting or installation changes.
+
 Update: [WSP-05C](BRAIN-COORDINATOR.md) adds valid owner-delegated standard-policy
 task approvals to the original exact-owner scope below. Native defaults, exact
 inheritance, one-shot delivery and all current effect checks remain mandatory.

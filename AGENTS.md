@@ -340,3 +340,21 @@ live native effect, installed-skill/schedule change, onboarding, maintenance rel
 automatic phase release or Play activation is authorized by source delivery.
 Quiesce older writers and prepared handoffs before separate rollout; no downgrade
 or mixed-version writer contract is provided.
+
+WSP-04E adds owner-reviewed adaptive model/effort policy and brain-only
+capability/selection/observation CLI. See docs/MODEL-POLICY.md. This supersedes
+earlier native-default-only handoff restrictions solely for an exact current
+owner-reviewed adaptive run. No live setting changes or rollout are authorized.
+Capabilities are bounded fresh observations of the destination native tool schema,
+not a hard-coded model catalog or host attestation. Native defaults remain unchanged.
+Only exact model/thinking fields may be emitted at existing creation/correction
+send boundaries. Speed and Ultra remain unqualified; no global settings, API tier,
+fallback model or paid-provider integration. Retain owner quality floors, work-token
+floors and escalation limits; insufficient budget never permits a quality downgrade.
+Requested/emitted, reported-applied and observed settings are separate. New adaptive
+corrections/runner effects need fresh matching observations after the last consumed
+boundary; delivery, a worker reply or a supplied model name alone is not proof.
+Policy changes fence the run; uncertainty retains owners/tokens and never resends.
+Owner review/revoke methods are internal trusted-caller seams, not brain authority
+or public routes. Preserve all Pause, maintenance, Harness, acceptance and accounting
+guards. Quiesce older writers/prepared handoffs before separately authorized rollout.

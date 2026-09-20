@@ -1,5 +1,10 @@
 # Phase-bound task contracts — WSP-03B3
 
+Update: [WSP-04E](MODEL-POLICY.md) can bind these requested settings to an exact
+owner-reviewed adaptive policy and brain selection before task approval. A
+declaration alone still proves neither authorization nor applied/observed settings.
+Native-default runs continue to require null overrides; speed remains unsupported.
+
 Implementation plan for the next prerequisite to autonomous Play. Give the brain
 a durable, exact declaration of a prepared task's operations and requested
 execution settings. This is not run activation or delegated approval.

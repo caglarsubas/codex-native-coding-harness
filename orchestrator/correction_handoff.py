@@ -102,6 +102,8 @@ class CorrectionHandoff(NativeLifecycle):
             "the brain independently verifies progress, inactivity and usage before another action."
         )
         args = {"hostId": creation["hostId"], "threadId": creation["threadId"], "prompt": prompt}
+        from .model_policy import correction_arguments
+        args.update(correction_arguments(self.ledger, db, worker, intent, state, request))
         require(len(canonical(args).encode()) <= 24000, "Correction message exceeds its bounded handoff")
         return args
 
@@ -112,7 +114,10 @@ class CorrectionHandoff(NativeLifecycle):
                 "checkRequired": True, "sendPermit": False, "executionAuthorized": False, "nativeCallMade": False}
 
     def prepare(self, token, worker_id, request):
-        request_shape(request, {"operation", "estimates", "findings", "expectedRevision", "rationale", "reuseReason"})
+        fields = {"operation", "estimates", "findings", "expectedRevision", "rationale", "reuseReason"}
+        if isinstance(request, dict) and "modelSelectionHash" in request:
+            fields.add("modelSelectionHash"); sha(request["modelSelectionHash"])
+        request_shape(request, fields)
         request = copy.deepcopy(request)
         integer(request["expectedRevision"], 0, 1_000_000_000)
         require(request["operation"] == "edit", "Only same-scope edit corrections are supported")
@@ -149,6 +154,7 @@ class CorrectionHandoff(NativeLifecycle):
                     {"repository": intent["repository"], "name": "correction-findings.md", "orderAt": time.time(),
                      "references": [{"workerId": worker_id, "intentHash": digest(intent), "subject": "correction", "at": time.time()}]})
                 base = {k: request[k] for k in ("id", "expectedHash", "operation", "estimates")}
+                if "modelSelectionHash" in request: base["modelSelectionHash"] = request["modelSelectionHash"]
                 base["instructionArtifactId"] = artifact["id"]
                 require(not self.replay_in(kernel, intent, "continuation", base),
                         "Correction was already consumed; do not reprepare")

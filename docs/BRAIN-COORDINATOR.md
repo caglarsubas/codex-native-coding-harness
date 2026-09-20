@@ -1,5 +1,10 @@
 # WSP-05C — brain lifecycle coordinator
 
+Update: [WSP-04E](MODEL-POLICY.md) adds owner-reviewed adaptive model/effort
+selection. Create candidates enforce the selected profile's token floor;
+adaptive continuation candidates also need fresh matching settings observations.
+These checks do not select or activate a policy automatically.
+
 Plan saved before implementation against PR #43 merge
 `7018268a5cbe438fac8c6c6202f206b1e5180050`.
 

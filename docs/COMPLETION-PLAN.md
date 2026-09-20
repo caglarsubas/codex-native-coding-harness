@@ -27,6 +27,12 @@ is not solved by another code PR. Unsupported per-task speed control must remain
 explicitly unavailable; do not invent a native argument or change global settings.
 Do not count a checked source item as installed, running or accepted.
 
+Progress after PR #44: WSP-04E supplies milestone 2's reviewed policy and
+creation/correction integration in source/fixtures. Once this increment merges,
+estimate **8–12 further standard-workspace iterations**, or **10–16 including
+Harness**, with the same prerequisites. Host observation collection and live
+model-choice acceptance remain in milestones 3/10; no dashboard activation follows.
+
 The standard-workspace exit criterion is a real two-workspace mission that the
 owner starts once in the dashboard, which performs multiple authorized task cycles,
 explains model/effort choices and usage, preserves results, obeys Pause and phase
@@ -35,6 +41,12 @@ its exact packet, clean-room, zero-bill and trusted-runner execution contract.
 
 ## Current increment
 
+- [x] WSP-04E source: exact owner-reviewed model/effort profiles, host catalog
+  binding, complexity quality/token floors, bounded same-task escalation and
+  distinct requested/applied/observed records. Existing one-shot handoffs enforce
+  selection; native defaults remain unchanged. See [model policy](MODEL-POLICY.md).
+  Local verification: 1,199 Python tests and 7 JavaScript UI test files passed;
+  no live activation or Actions execution.
 - [x] WSP-05C source: explicit brain lifecycle decisions, atomic phase-delegated
   standard task approval, guarded admission and existing handoff composition.
   The two-packet fixture independently reviews the first result and admits the
@@ -53,7 +65,7 @@ its exact packet, clean-room, zero-bill and trusted-runner execution contract.
 | # | Deliverable | Exit evidence |
 | --- | --- | --- |
 | 1 | Source complete: brain lifecycle coordination, delegated task selection and inheritance (WSP-05C) | Create/continue/handle/wait decisions, exact delegated scope and two-packet progression qualified in fixtures; live operating-loop acceptance remains in 7/10 |
-| 2 | Owner-reviewed adaptive model/effort policy | Host capability binding, allowed choices, quality/escalation bounds and requested/applied/observed records; unsupported speed remains visible |
+| 2 | Source complete: owner-reviewed adaptive model/effort policy (WSP-04E) | Host capability binding, allowed choices, quality/escalation bounds and requested/applied/observed records qualified in fixtures; speed/Ultra remain gated, live collection/acceptance remain in 3/10 |
 | 3 | Complete native/host observations and phase-counter collection | Real owned task-tree coverage, retained process/cleanup evidence and non-resetting usage; unknowns stop new work |
 | 4 | Controlled onboarding and maintenance release | Exact owner review, migrated ownership/baselines, interrupted-release recovery and no implicit upgrade activation |
 | 5 | Phase reports, checkpoint release and bounded new-generation corrections | Reviewed evidence report binds the next scope; no automatic boundary crossing or reset of usage/attempts |

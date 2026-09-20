@@ -1,5 +1,10 @@
 # WSP-03B4 — run authority kernel
 
+Update: [WSP-04E](MODEL-POLICY.md) also accepts an exact current owner-reviewed
+adaptive model/effort policy. The native-default-only restriction below describes
+the original increment. Policy review is not run activation; all mission,
+checkpoint, expiry and admission gates remain. No live rollout is included.
+
 Plan saved before implementation, continuing merged PR #22 (`9e0485f`).
 
 This increment implements the durable authority half of Play. It has no HTTP or

@@ -99,6 +99,8 @@ class BrainCoordinator:
             runs.check_task_in(self.ledger, db, run_hash=intent["runHash"], queue_id=intent["queueId"],
                                approval_hash=intent["approvalHash"], operation="edit")
             require(creation["hostId"] == "local", "Correction needs the confirmed local task")
+            from .model_policy import require_observed
+            require_observed(self.ledger, db, worker, intent, state)
             row.update(canContinue=True, next="correction-handoff-prepare")
         except Refusal as error:
             row["reason"] = str(error)
@@ -148,9 +150,12 @@ class BrainCoordinator:
                     require(grant["authority"]["approvalMode"] == "phase_delegated", "Exact owner task approval required")
                 self.bridge.local_capacity_in(db, meta, q["repository"], None)
                 self.store.check_capacity(kernel, allocation, [q["repository"]])
-                self.store.check_budget(kernel, allocation, contract["spec"]["estimatedTokens"] + 2)
+                from .model_policy import initial_in
+                selection = initial_in(self.ledger, db, grant, q, contract)
+                work_tokens = max(contract["spec"]["estimatedTokens"], selection["minimumWorkTokens"] if selection else 0)
+                self.store.check_budget(kernel, allocation, work_tokens + 2)
                 row.update(canCreate=True, contractHash=digest(contract), approvalHash=approval,
-                           estimatedWorkTokens=contract["spec"]["estimatedTokens"],
+                           estimatedWorkTokens=work_tokens,
                            needsDelegatedApproval=approval is None)
             except Refusal as error: row["reason"] = str(error)
             candidates.append(row)

@@ -51,6 +51,11 @@ def main():
     p.add_argument("spec", type=Path); p.add_argument("--revision", type=int, required=True); p.add_argument("--id", required=True)
     p = sub.add_parser("task-contract-state", help="Read current binding and immutable declaration history")
     p.add_argument("queue_id")
+    for operation in ("capability", "select", "observe", "state"):
+        p = sub.add_parser("model-policy-" + operation, help="Brain-only model policy observations/selection; no owner approval or transport")
+        if operation == "observe": p.add_argument("worker_id")
+        if operation == "state": p.add_argument("--worker-id")
+        else: p.add_argument("request", type=Path)
     for operation in ("inspect", "decide", "reserve", "read"):
         p = sub.add_parser("brain-cycle-" + operation, help="Designated-brain lifecycle decisions; no scheduler or native transport")
         if operation == "decide": p.add_argument("request", type=Path)
@@ -127,7 +132,7 @@ def main():
         raise Refusal("--workspace requires --platform")
     if args.state and (args.workspace or args.platform):
         raise Refusal("Choose a registered workspace or --state, not both")
-    if (args.action == "run-readiness" or args.action.startswith(("task-contract-", "brain-cycle-", "native-create-", "native-task-", "native-account-", "phase-usage-", "runner-handoff-", "result-handoff-", "archive-handoff-", "correction-handoff-"))) and not (args.platform and args.workspace):
+    if (args.action == "run-readiness" or args.action.startswith(("task-contract-", "model-policy-", "brain-cycle-", "native-create-", "native-task-", "native-account-", "phase-usage-", "runner-handoff-", "result-handoff-", "archive-handoff-", "correction-handoff-"))) and not (args.platform and args.workspace):
         raise Refusal("This operation requires an explicit registered workspace")
     registry = Registry(args.platform, create=args.action == "workspace-register") if args.platform else None
     if args.action.startswith("platform-reconciliation-"):
@@ -266,6 +271,17 @@ def main():
         else:
             path = args.request.absolute()
             out = getattr(api, operation)(token, args.worker_id, json.loads(read_regular(path, path.parent, 16000)))
+    elif action.startswith("model-policy-"):
+        from .model_policy import ModelPolicy, record_capability
+        from .result_handoff import read_request
+        if action == "model-policy-capability": out = record_capability(ledger, token, read_request(args.request))
+        else:
+            from .admission import AdmissionStore
+            from .dispatch_admission import DispatchAdmission
+            api = ModelPolicy(DispatchAdmission(registry, args.workspace, AdmissionStore(registry.root)))
+            if action == "model-policy-state": out = api.state(token, args.worker_id)
+            elif action == "model-policy-observe": out = api.observe(token, args.worker_id, read_request(args.request))
+            else: out = api.select(token, read_request(args.request))
     elif action.startswith("brain-cycle-"):
         from .admission import AdmissionStore
         from .dispatch_admission import DispatchAdmission
