@@ -1,5 +1,10 @@
 # WSP-04D3 — cumulative phase usage accounting
 
+Update: [WSP-04F](NATIVE-EVIDENCE-COLLECTION.md) inspects available native metadata
+but deliberately supplies no phase-counter evidence: current public reads do not
+establish complete non-resetting lifetime counters. All accounting requirements
+below remain unchanged, including explicit baselines and complete descendant scope.
+
 Plan saved before implementation, from merged PR #32 (`e113e6f`). This is a
 brain-owned accounting interface, not a native counter collector or Play rollout.
 

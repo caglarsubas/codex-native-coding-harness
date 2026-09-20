@@ -358,3 +358,18 @@ Policy changes fence the run; uncertainty retains owners/tokens and never resend
 Owner review/revoke methods are internal trusted-caller seams, not brain authority
 or public routes. Preserve all Pause, maintenance, Harness, acceptance and accounting
 guards. Quiesce older writers/prepared handoffs before separately authorized rollout.
+
+WSP-04F adds explicitly requested, owner-pinned public native metadata collection.
+See docs/NATIVE-EVIDENCE-COLLECTION.md. The sole additional read transport is the
+reviewed installed executable's fixed `app-server proxy --sock` invocation against
+an existing private local socket. No auto-start, default endpoint, daemon, private
+API, remote listener, arbitrary RPC, task resume/subscription, model call or native
+mutation. Bind phase-owned roots, complete returned pages, parent chains and endpoint
+identity; recheck ledger scope/revision after I/O. Drop conversation, command and
+error bodies. Configured settings are not per-turn telemetry; persisted descendants
+are not complete ephemeral coverage; tracked terminal absence is not OS cleanup;
+account/goal counters are not lifetime phase usage. Keep all four gaps explicit and
+never promote a report into execution, model application, accounting, settlement or
+acceptance. Owner endpoint methods remain internal trusted-caller seams. No live
+endpoint, installation, private ledger, schedule or maintenance changes follow from
+source delivery. Milestone 3 stays open until the missing host evidence is qualified.
