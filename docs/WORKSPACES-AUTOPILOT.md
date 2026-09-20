@@ -713,6 +713,15 @@ the app tool call. Local saved-project identity, exact base SHA, owner task
 approval and native defaults are required. This is fixture-qualified integration,
 not a live pilot, installed skill change, automatic dispatcher or Play activation.
 
+**WSP-04D2** adds [native supervision](NATIVE-SUPERVISION.md): the brain obtains
+exact single-task wait arguments, records normalized current native activity, and
+records account-wide limits into an immutable shared journal. Unknown status
+stays unknown even when an older turn completed. Window duration, not slot order,
+determines short/weekly coverage. New incomplete or exhausted observations fence
+admission; replay cannot revive old healthy evidence. These interfaces provide no
+complete descendant inventory or cumulative phase-token accounting and do not
+release resources, install an observer, change the window policy or activate Play.
+
 - [x] WSP-04A: common-directory/conventional-origin identity observation and explicit platform-wide owner/alias audit.
 - [x] WSP-04A: atomic multi-resource, global/workspace slot and token reservations in an isolated capacity kernel.
 - [x] WSP-04A: fresh account/phase observation checks, checkpoint headroom and conservative settlement accounting.
@@ -725,6 +734,7 @@ not a live pilot, installed skill change, automatic dispatcher or Play activatio
 - [x] WSP-04B3: read-only current re-evaluation, source/version concurrency checks, crash replay and retained ownership/fences.
 - [x] WSP-04C3e: bounded standard-policy local commit/ancestry/branch/diff observation, retained collector/request proof and no timestamp refresh on review/replay.
 - [x] WSP-04D1: one-use native creation handoff/check and CLI return-path fixtures; exact project/base/defaults, Pause races and conservative result recovery.
+- [x] WSP-04D2: exact native task/account observation CLI, safe status/limit projections, current-evidence admission fences and replay/Pause/privacy fixtures.
 - [ ] Trusted native/operator observation collection and live evidence qualification; supplied assertions are not independent attestation.
 - [ ] Canonical repository/runner identity and transactional platform reservations.
 - [ ] Brain-owned new/continue/handle/wait decisions with reason and immutable task seed.

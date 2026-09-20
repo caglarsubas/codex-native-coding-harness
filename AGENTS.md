@@ -209,3 +209,17 @@ recording and receipt-only recovery may proceed after Pause, never resume it.
 The check-to-native-call gap is cooperative in-flight work, not atomic cancellation.
 No live allocations, approval/activation route, native task, installed skill update,
 schedule change or maintenance-fence release is authorized by source delivery.
+
+WSP-04D2 adds brain-owned read-only native task/account observation CLI interfaces.
+See docs/NATIVE-SUPERVISION.md. Use exact owned confirmed task IDs and actual native
+tool results; a completed old turn never proves current idle, and missing status
+stays unknown. Preserve source hashes without conversation/tool content. Task
+observations cannot prove full descendants, token coverage, cleanup or acceptance,
+or release ownership. Bind account limits to window duration and a private account
+identity; unknown/exhausted/new-account evidence fences new effects without legacy
+fallback. Never convert usage percentages into phase/task token counters. Replay
+is historical and does not refresh timestamps. Upgrade/activation must quiesce
+older writers; no coexistence or downgrade contract is provided. Do not weaken
+the current two-window policy merely because one native window is absent. No live
+observation write, allocation, installation, schedule change or Play activation is
+authorized by source delivery.

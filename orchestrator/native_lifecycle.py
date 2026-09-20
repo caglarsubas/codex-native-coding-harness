@@ -164,13 +164,14 @@ class NativeLifecycle:
                 for binding in other["nativeIdentities"]:
                     require(binding["hostId"] != host or not ids.intersection(binding.values()), "Native identity has quarantined ownership")
 
-    def append_in(self, kernel, claim, intent, kind, request, state):
+    def append_in(self, kernel, claim, intent, kind, request, state, *, source=None):
         kernel.execute("CREATE TABLE IF NOT EXISTS native_records(hash TEXT PRIMARY KEY, claim TEXT NOT NULL, request TEXT NOT NULL, data TEXT NOT NULL, UNIQUE(claim,request))")
         count = kernel.execute("SELECT count(*) FROM native_records WHERE claim=?", (claim["id"],)).fetchone()[0]
         require(count < 1000, "Native journal requires explicit archival migration")
         record = {"kind": "native_lifecycle", "schemaVersion": 1, "workerId": claim["id"], "intentHash": digest(intent),
                   "version": count+1, "previousHash": claim.get("nativeLifecycleHash"), "event": kind,
                   "request": request, "state": state, "at": time.time()}
+        if source is not None: record["source"] = source
         require(len(canonical(record).encode()) <= 32768, "Native journal record exceeds its bound")
         key = digest(record)
         kernel.execute("INSERT INTO native_records VALUES(?,?,?,?)", (key, claim["id"], request["id"], canonical(record)))
@@ -247,8 +248,11 @@ class NativeLifecycle:
                     "runnerResourceReleased": record["state"]["runner"]["status"] == "released"} if record["state"].get("runner") else {}),
                 "trustBoundary": "caller_supplied_external_evidence_not_native_attestation"}
 
-    def observe(self, token, worker_id, request):
+    def observe(self, token, worker_id, request, *, source=None):
         request_shape(request, OBSERVATION)
+        if source is not None:
+            from .native_supervision import validate_source
+            validate_source(source, request)
         require(request["outcome"] in ("pending", "confirmed", "uncertain"), "Invalid creation outcome")
         identifier(request["hostId"]); sha(request["evidenceHash"])
         for key in ("threadId", "clientThreadId"):
@@ -274,7 +278,7 @@ class NativeLifecycle:
                             require(old[field] is None or old[field] == request[field], "Retained native identity cannot be replaced or erased")
                     self.unique_identity(kernel, worker_id, request)
                     state["creation"] = {key: request[key] for key in OBSERVATION}
-                    record = self.append_in(kernel, claim, intent, "observation", request, state)
+                    record = self.append_in(kernel, claim, intent, "observation", request, state, source=source)
             self.attach_in(db, worker, claim, record)
             return self.receipt(worker, record, prior)
 

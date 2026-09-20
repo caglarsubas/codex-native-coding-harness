@@ -100,7 +100,7 @@ def assess(source, platform, now):
     for code, detail, action, view in (
         ("run_activation", "The internal run-authority kernel is not connected to native admission/effect boundaries; Play remains unavailable.", "Integrate exact run activation and recovery; internal authority receipts alone cannot authorize effects.", "mission"),
         ("phase_release", "Internal phase/task approvals and checkpoint release are not available through the dashboard or enforced on native effects.", "Connect version-bound approvals and checkpoint releases to the run adapter before enabling Play.", "mission"),
-        ("native_admission", "Capacity/token reservations and reconciled legacy ownership are not connected to native effects.", "Integrate transactional claims, cumulative usage, ownership recovery and native receipts.", "workers"),
+        ("native_admission", "Brain-owned creation and task/account observation interfaces are implemented; full lifecycle, usage coverage and live activation remain gated.", "Qualify complete task/descendant and phase-token evidence, runner/results and owner activation before Play.", "workers"),
         ("task_policy", "Task declarations can bind operations and requested settings, but owner-approved adaptive policy and native-effect enforcement are not implemented.", "Inspect each packet declaration; integrate exact settings policy and effect checks before launch.", "queue"),
         ("native_pilot", "A real supervised two-workspace Play/Pause pilot has not been accepted by this feature.", "Qualify live behavior only after the preceding controls are implemented and separately authorized.", "readiness")):
         check(code, "implementation", False, detail, action, view, "platform_development", "not_implemented")
