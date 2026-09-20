@@ -188,6 +188,10 @@ class DispatchAdmission:
         with self.locked(token, effects=True) as (db, meta):
             q, contract = self.task_in(db, meta, run_hash, queue_id, approval_hash, worker_id)
             require(estimates["workTokens"] >= contract["spec"]["estimatedTokens"], "Work estimate undercuts the task declaration")
+            from .model_policy import initial_in
+            selection = initial_in(self.ledger, db, runs.require_current(self.ledger, db, run_hash), q, contract)
+            require(selection is None or estimates["workTokens"] >= selection["minimumWorkTokens"],
+                    "Work estimate undercuts the selected model profile")
             with self.store.tx() as kernel:
                 allocation = self.allocation_in(db, kernel, run_hash)
             intent = {"kind": "dispatch_intent", "schemaVersion": 1, "workspaceId": self.workspace_id,

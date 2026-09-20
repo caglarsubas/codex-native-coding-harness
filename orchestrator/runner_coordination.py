@@ -40,6 +40,8 @@ class RunnerCoordination(NativeLifecycle):
         require(observation["observedAt"] > record["at"], "Runner observation predates retained journal")
 
     def work_checks(self, db, meta, kernel, worker, intent, claim, state, request, *, launching=False):
+        from .model_policy import require_observed
+        require_observed(self.ledger, db, worker, intent, state)
         self.bridge.task_in(db, meta, intent["runHash"], intent["queueId"], intent["approvalHash"], worker["id"],
                             runner_owner=worker["id"] if launching else None)
         runs.check_task_in(self.ledger, db, run_hash=intent["runHash"], queue_id=intent["queueId"],

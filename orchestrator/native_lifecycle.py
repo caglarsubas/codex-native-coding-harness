@@ -21,6 +21,9 @@ INFLIGHT = {"intent", "acknowledged", "uncertain"}
 
 
 def request_shape(request, fields):
+    if fields == CONTINUATION and isinstance(request, dict) and "modelSelectionHash" in request:
+        fields = fields | {"modelSelectionHash"}
+        sha(request["modelSelectionHash"])
     exact(request, {"id", "expectedHash", *fields})
     identifier(request["id"])
     if request["expectedHash"] is not None: sha(request["expectedHash"])
@@ -294,6 +297,8 @@ class NativeLifecycle:
 
     def continuation_checks(self, db, meta, kernel, worker, intent, claim, state, request):
         require_runner_clear(state)
+        from .model_policy import correction_arguments
+        correction_arguments(self.ledger, db, worker, intent, state, request)
         self.bridge.task_in(db, meta, intent["runHash"], intent["queueId"], intent["approvalHash"], worker["id"])
         runs.check_task_in(self.ledger, db, run_hash=intent["runHash"], queue_id=intent["queueId"],
                            approval_hash=intent["approvalHash"], operation="edit")
