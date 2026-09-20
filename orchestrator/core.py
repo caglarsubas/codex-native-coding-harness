@@ -316,6 +316,9 @@ class Ledger:
                 "archive": {"workerId"}, "pause": set(), "resume": set(), "reconcile": set(),
                 "listening": {"enabled"}, "decision_response": {"decisionId", "decisionHash", "optionId", "note", "confirmed"},
                 "brain_stop": set(), "brain_resume": set()}
+            if kind == "archive" and "reviewHash" in p:
+                from .archive_handoff import PAYLOAD
+                fields["archive"] = PAYLOAD
             require(set(p) == fields[kind], "Unexpected command payload")
             record = {**command, "fingerprint": fingerprint, "actor": actor, "status": "queued", "createdAt": time.time(), "result": None}
             from .brain_control import request as brain_request, stopped
@@ -369,7 +372,12 @@ class Ledger:
                 worker = self.get(db, "workers", p["workerId"])
                 require(worker.get("threadId"), "Native task identity is not resolved")
                 if kind == "archive":
-                    require("dispatchAdmission" not in worker, "Admission-managed archival requires its own verified native adapter")
+                    if "dispatchAdmission" in worker:
+                        from .archive_handoff import PAYLOAD, submit_in
+                        require(set(p) == PAYLOAD, "Admission-managed archival requires its exact owner-bound handoff request")
+                        submit_in(self, db, worker, record)
+                    else:
+                        require(set(p) == {"workerId"}, "Legacy archive requires its existing worker-ID payload")
                     require(worker["status"] == "complete" and worker.get("preserved") is True, "Verify completion, pushed commits and preserved evidence first")
                     require(not worker.get("archived"), "Already archived")
                 require(not any(c["kind"] == kind and c["payload"] == p and c["status"] in ("queued", "processing") for c in self.all(db, "commands")), "Equivalent native request already pending")
@@ -430,7 +438,11 @@ class Ledger:
                 else:
                     worker = self.get(db, "workers", cmd["payload"]["workerId"])
                     if cmd["kind"] == "archive" and "dispatchAdmission" in worker:
-                        cmd.update(status="rejected", result="Admission-managed archival requires its own verified native adapter")
+                        from .archive_handoff import PAYLOAD, process_in
+                        if set(cmd["payload"]) == PAYLOAD:
+                            try: actions.append(process_in(self, db, worker, cmd))
+                            except Refusal as error: cmd.update(status="rejected", result=str(error))
+                        else: cmd.update(status="rejected", result="Admission-managed archival requires its exact owner-bound handoff request")
                     elif cmd["kind"] == "archive" and not (worker["status"] == "complete" and worker.get("preserved")):
                         cmd.update(status="rejected", result="Completion or preservation no longer verified")
                     else:

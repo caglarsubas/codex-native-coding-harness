@@ -219,8 +219,10 @@ def reviewed_worker_in(db, worker, claim, settlement):
     expected["dispatchAdmission"].update(stage="settled", claimHash=digest(claim))
     require(local_binding(worker) == expected and worker.get("ownershipSettlementHash") == digest(settlement) and
             runs.document(db, digest(settlement), "ownership_settlement") == settlement and
-            all(worker.get(k) == v for k, v in projection(record).items()) and not worker.get("archived"),
+            all(worker.get(k) == v for k, v in projection(record).items()),
             "Reviewed worker projection diverged")
+    from .archive_handoff import validate_projection
+    validate_projection(db, worker, record)
     if record["request"]["outcome"] == "changes_required": unaccepted_worker(worker)
     intent = runs.document(db, settlement["intentHash"], "dispatch_intent")
     report, _ = evidence_in(db, intent, settlement, record["request"])

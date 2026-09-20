@@ -717,6 +717,14 @@ Git/evidence retention, not off-device backup, external LFS/submodule payloads,
 native transcript preservation, acceptance or archive authorization. Verification
 remains local; no Actions workflow or billable CI is added.
 
+**WSP-05A** adds the [owner-requested archive handoff](ARCHIVE-HANDOFF.md).
+For an accepted exact-owner standard-policy task, measured local preservation and
+separate cleanup acknowledgment can prepare one local root-only native archive
+handoff. The brain must supply fresh complete safety evidence and consume a
+one-shot check before using the existing native tool. Unknown outcomes never retry;
+late observations remain possible after Pause. This CLI-only source increment is
+not delegated retention policy, live archival, host attestation or public Play.
+
 **WSP-04D1** adds the [brain-owned creation handoff](NATIVE-CREATION-HANDOFF.md):
 a designated-brain CLI emits exact native task arguments for an already admitted
 standard-policy reservation, consumes a current send check once, and binds actual
@@ -786,6 +794,7 @@ integration seam, not live native/host qualification, continuation or archival.
 
 ### WSP-05 — continuous development and knowledge lifecycle
 
+- [x] WSP-05A: owner-requested root-task archive CLI, retained result/preservation integrity, one-shot check, late/unknown outcomes and continued safe-Pause supervision; no live native effect.
 - [ ] Mission-scoped task decomposition/admission, inheritance and bounded correction.
 - [ ] Completion supervision, independent review, evidence promotion and next-task selection.
 - [ ] Continue after ordinary packet completion without asking for routine owner instructions.
