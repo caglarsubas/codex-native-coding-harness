@@ -1,5 +1,10 @@
 # WSP-04D2 — native task and account-limit supervision
 
+Update: [WSP-04F](NATIVE-EVIDENCE-COLLECTION.md) separately collects bounded
+diagnostic metadata through an owner-pinned existing public native endpoint.
+It does not replace these tool observations or establish complete host/counter
+coverage. No source upgrade authorizes a live endpoint connection.
+
 Plan saved before implementation on merged PR #31 (`200cdca`). The designated
 brain remains the native caller. This increment connects supported read-only tool
 results to existing lifecycle/admission checks; it does not start an app-server,

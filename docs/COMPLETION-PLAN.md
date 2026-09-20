@@ -33,6 +33,13 @@ estimate **8–12 further standard-workspace iterations**, or **10–16 includin
 Harness**, with the same prerequisites. Host observation collection and live
 model-choice acceptance remain in milestones 3/10; no dashboard activation follows.
 
+Progress after PR #45: WSP-04F adds bounded public native metadata collection,
+but local schema qualification found no read-only complete lifetime-counter or
+whole-process-tree cleanup proof. Milestone 3 remains **partial/capability-gated**;
+the estimate is not decremented for this partial delivery. The **8–12 / 10–16**
+ranges remain conditional, not a promise that more source PRs can replace a missing
+qualified host source. See [collection boundaries and next decision](NATIVE-EVIDENCE-COLLECTION.md).
+
 The standard-workspace exit criterion is a real two-workspace mission that the
 owner starts once in the dashboard, which performs multiple authorized task cycles,
 explains model/effort choices and usage, preserves results, obeys Pause and phase
@@ -41,6 +48,12 @@ its exact packet, clean-room, zero-bill and trusted-runner execution contract.
 
 ## Current increment
 
+- [x] WSP-04F source: exact owner-pinned existing endpoint, bounded public read-only
+  proxy, phase-owned root/descendant/configured-setting/terminal metadata, immutable
+  diagnostic reports, replay and explicit counter/cleanup/telemetry gaps. No live
+  connection or promotion into admission/acceptance; milestone 3 is not complete.
+  Local verification: 1,230 Python tests, seven JavaScript UI test files and the
+  JavaScript syntax check passed; no Actions workflow or run was triggered.
 - [x] WSP-04E source: exact owner-reviewed model/effort profiles, host catalog
   binding, complexity quality/token floors, bounded same-task escalation and
   distinct requested/applied/observed records. Existing one-shot handoffs enforce
@@ -66,7 +79,7 @@ its exact packet, clean-room, zero-bill and trusted-runner execution contract.
 | --- | --- | --- |
 | 1 | Source complete: brain lifecycle coordination, delegated task selection and inheritance (WSP-05C) | Create/continue/handle/wait decisions, exact delegated scope and two-packet progression qualified in fixtures; live operating-loop acceptance remains in 7/10 |
 | 2 | Source complete: owner-reviewed adaptive model/effort policy (WSP-04E) | Host capability binding, allowed choices, quality/escalation bounds and requested/applied/observed records qualified in fixtures; speed/Ultra remain gated, live collection/acceptance remain in 3/10 |
-| 3 | Complete native/host observations and phase-counter collection | Real owned task-tree coverage, retained process/cleanup evidence and non-resetting usage; unknowns stop new work |
+| 3 | Partial: native metadata collector (WSP-04F); complete host/counter source still required | Public metadata reads qualified in fixtures; complete ephemeral membership, whole-process cleanup and non-resetting lifetime usage remain capability-gated, not inferred |
 | 4 | Controlled onboarding and maintenance release | Exact owner review, migrated ownership/baselines, interrupted-release recovery and no implicit upgrade activation |
 | 5 | Phase reports, checkpoint release and bounded new-generation corrections | Reviewed evidence report binds the next scope; no automatic boundary crossing or reset of usage/attempts |
 | 6 | Dashboard Play/phase controls and assistant integration | Explicit version-bound start, immediate notification, brain receipt, recovery and truthful blocked states; Pause dominates races |

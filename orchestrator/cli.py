@@ -56,6 +56,10 @@ def main():
         if operation == "observe": p.add_argument("worker_id")
         if operation == "state": p.add_argument("--worker-id")
         else: p.add_argument("request", type=Path)
+    for operation in ("plan", "collect", "state"):
+        p = sub.add_parser("native-evidence-" + operation, help="Explicit phase-owned native metadata reads; never activation or complete host evidence")
+        p.add_argument("allocation_id")
+        if operation == "collect": p.add_argument("request", type=Path)
     for operation in ("inspect", "decide", "reserve", "read"):
         p = sub.add_parser("brain-cycle-" + operation, help="Designated-brain lifecycle decisions; no scheduler or native transport")
         if operation == "decide": p.add_argument("request", type=Path)
@@ -132,7 +136,7 @@ def main():
         raise Refusal("--workspace requires --platform")
     if args.state and (args.workspace or args.platform):
         raise Refusal("Choose a registered workspace or --state, not both")
-    if (args.action == "run-readiness" or args.action.startswith(("task-contract-", "model-policy-", "brain-cycle-", "native-create-", "native-task-", "native-account-", "phase-usage-", "runner-handoff-", "result-handoff-", "archive-handoff-", "correction-handoff-"))) and not (args.platform and args.workspace):
+    if (args.action == "run-readiness" or args.action.startswith(("task-contract-", "model-policy-", "native-evidence-", "brain-cycle-", "native-create-", "native-task-", "native-account-", "phase-usage-", "runner-handoff-", "result-handoff-", "archive-handoff-", "correction-handoff-"))) and not (args.platform and args.workspace):
         raise Refusal("This operation requires an explicit registered workspace")
     registry = Registry(args.platform, create=args.action == "workspace-register") if args.platform else None
     if args.action.startswith("platform-reconciliation-"):
@@ -271,6 +275,15 @@ def main():
         else:
             path = args.request.absolute()
             out = getattr(api, operation)(token, args.worker_id, json.loads(read_regular(path, path.parent, 16000)))
+    elif action.startswith("native-evidence-"):
+        from .admission import AdmissionStore
+        from .dispatch_admission import DispatchAdmission
+        from .native_evidence import NativeEvidence
+        from .result_handoff import read_request
+        api = NativeEvidence(DispatchAdmission(registry, args.workspace, AdmissionStore(registry.root)))
+        operation = action.removeprefix("native-evidence-")
+        if operation == "collect": out = api.collect(token, args.allocation_id, read_request(args.request))
+        else: out = getattr(api, operation)(token, args.allocation_id)
     elif action.startswith("model-policy-"):
         from .model_policy import ModelPolicy, record_capability
         from .result_handoff import read_request
