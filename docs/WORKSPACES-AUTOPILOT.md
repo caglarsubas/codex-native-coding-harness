@@ -11,6 +11,10 @@ Prepared 2026-09-18 against tooling commit
 `6ea0d3b4b5acea29e7c3252da170a4eb313093c7`. That is an inspected local baseline,
 not a claim about current main, deployment or product acceptance.
 
+The [post-PR #42 convergence plan](COMPLETION-PLAN.md) records remaining delivery
+milestones, acceptance exit criteria and conditional iteration estimates. Source
+checkboxes below are not installed-runtime or autonomous-Play completion claims.
+
 ## 1. Product outcome
 
 The owner manages separate product-development lifecycles from one dashboard.
@@ -795,6 +799,7 @@ integration seam, not live native/host qualification, continuation or archival.
 ### WSP-05 — continuous development and knowledge lifecycle
 
 - [x] WSP-05A: owner-requested root-task archive CLI, retained result/preservation integrity, one-shot check, late/unknown outcomes and continued safe-Pause supervision; no live native effect.
+- [x] WSP-05B: exact-owner standard-policy same-task edit correction CLI with retained brain rationale/findings, one-shot native arguments, cumulative usage/no-progress checks and historical/uncertain recovery; no native call or new-generation continuation.
 - [ ] Mission-scoped task decomposition/admission, inheritance and bounded correction.
 - [ ] Completion supervision, independent review, evidence promotion and next-task selection.
 - [ ] Continue after ordinary packet completion without asking for routine owner instructions.

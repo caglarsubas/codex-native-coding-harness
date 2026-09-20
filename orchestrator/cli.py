@@ -80,6 +80,11 @@ def main():
         p = sub.add_parser("archive-handoff-" + operation, help="One-shot owner-requested archival; brain calls the native tool")
         p.add_argument("worker_id")
         if operation != "state": p.add_argument("request", type=Path)
+    for operation in ("state", "prepare", "check", "record", "recover"):
+        p = sub.add_parser("correction-handoff-" + operation, help="One-shot same-task edit correction; brain calls the native tool")
+        p.add_argument("worker_id")
+        if operation == "check": p.add_argument("handoff_hash")
+        elif operation not in ("state", "recover"): p.add_argument("request", type=Path)
     p = sub.add_parser("mission-draft", help="Designated brain proposes a version; owner reviews in the dashboard")
     p.add_argument("spec", type=Path); p.add_argument("--revision", type=int, required=True); p.add_argument("--id", required=True)
     p = sub.add_parser("native-observe"); p.add_argument("observation", type=Path)
@@ -118,7 +123,7 @@ def main():
         raise Refusal("--workspace requires --platform")
     if args.state and (args.workspace or args.platform):
         raise Refusal("Choose a registered workspace or --state, not both")
-    if (args.action == "run-readiness" or args.action.startswith(("task-contract-", "native-create-", "native-task-", "native-account-", "phase-usage-", "runner-handoff-", "result-handoff-", "archive-handoff-"))) and not (args.platform and args.workspace):
+    if (args.action == "run-readiness" or args.action.startswith(("task-contract-", "native-create-", "native-task-", "native-account-", "phase-usage-", "runner-handoff-", "result-handoff-", "archive-handoff-", "correction-handoff-"))) and not (args.platform and args.workspace):
         raise Refusal("This operation requires an explicit registered workspace")
     registry = Registry(args.platform, create=args.action == "workspace-register") if args.platform else None
     if args.action.startswith("platform-reconciliation-"):
@@ -257,6 +262,16 @@ def main():
         else:
             path = args.request.absolute()
             out = getattr(api, operation)(token, args.worker_id, json.loads(read_regular(path, path.parent, 16000)))
+    elif action.startswith("correction-handoff-"):
+        from .admission import AdmissionStore
+        from .dispatch_admission import DispatchAdmission
+        from .correction_handoff import CorrectionHandoff
+        from .result_handoff import read_request
+        api = CorrectionHandoff(DispatchAdmission(registry, args.workspace, AdmissionStore(registry.root)))
+        operation = action.removeprefix("correction-handoff-")
+        if operation == "check": out = api.check(token, args.worker_id, args.handoff_hash)
+        elif operation in ("state", "recover"): out = getattr(api, operation)(token, args.worker_id)
+        else: out = getattr(api, operation)(token, args.worker_id, read_request(args.request))
     elif action.startswith("archive-handoff-"):
         from .admission import AdmissionStore
         from .dispatch_admission import DispatchAdmission

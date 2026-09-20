@@ -308,3 +308,17 @@ Legacy worker-ID-only managed archive and generic acknowledgments remain refused
 No automatic/delegated archival, UI/catalog enablement, transcript guarantee, native
 transport, live archive, install, schedule, workflow, allocation or Play activation
 is authorized by source delivery. Quiesce older writers before a separate rollout.
+
+WSP-05B adds the exact-owner standard-policy same-task edit correction handoff CLI.
+See docs/CORRECTION-HANDOFF.md. Preparation retains inert findings and the brain's
+reuse rationale, never a send permission. Consume the local/shared continuation
+boundary once at check; only the designated brain calls the native message tool.
+Preserve exact task/run/path scope, native defaults, Pause/maintenance, cumulative
+usage and two-no-progress bounds. Unconsumed preparations may be superseded with
+new version bindings; historical receipts never restore older authority or renew
+freshness. Unknown delivery and unmatched local intents retain ownership without
+retry, cancellation as unsent or timeout release. Late facts and receipt-only
+recovery must not resume work. No delegated/Harness/new-generation correction,
+native transport, automatic task selection, live send, install, schedule, workflow,
+allocation, maintenance release or Play activation follows from source delivery.
+Quiesce older writers before a separate rollout; no downgrade safety is claimed.
