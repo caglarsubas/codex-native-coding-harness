@@ -354,6 +354,9 @@ class SourceObserver:
             if prior: return prior  # Historical observation; never repeat Git or refresh clocks.
         with self.bridge.locked(token, ownership_change=True) as (db, meta):
             worker, intent = self.bridge.intent_in(db, worker_id)
+            # Another identical request may have retained its result after the first lookup.
+            prior = self.retained_in(db, key, fingerprint, intent, request)
+            if prior: return prior
             with self.store.tx() as kernel: source = self.source_in(db, meta, kernel, worker, intent, request)
         measured = inspect_source(source["repo"]["path"], source["resourceKey"], source["seed"]["baseSHA"],
                                   request["commit"], source["seed"]["branch"], source["seed"]["allowedPaths"])

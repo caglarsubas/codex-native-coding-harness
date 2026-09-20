@@ -210,6 +210,9 @@ class LocalPreservation:
             if prior: return prior
         with self.bridge.locked(token, ownership_change=True) as (db, meta):
             worker, intent = self.bridge.intent_in(db, worker_id)
+            # Another identical request may have retained its result after the first lookup.
+            prior = self.retained_in(db, intent, request)
+            if prior: return prior
             with self.store.tx() as kernel: context = self.context_in(db, meta, kernel, worker, intent, request)
         bundle, measured = preserve_git(context["repo"]["path"], context["resourceKey"], context["seed"]["baseSHA"],
                                          request["commit"], context["seed"]["branch"])
