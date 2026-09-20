@@ -72,7 +72,7 @@ def main():
         p.add_argument("worker_id")
         if operation == "check": p.add_argument("handoff_hash")
         elif operation not in ("state", "recover"): p.add_argument("request", type=Path)
-    for operation in ("state", "collect-source", "collect-github", "proof-add", "proof-read", "review"):
+    for operation in ("state", "collect-source", "collect-github", "collect-preservation", "proof-add", "proof-read", "review"):
         p = sub.add_parser("result-handoff-" + operation, help="Brain-owned standard-policy evidence/review; no native effects")
         p.add_argument("worker_id")
         if operation != "state": p.add_argument("request", type=Path)

@@ -160,7 +160,8 @@ These are planned tooling increments, not live mission or product authorization.
 - [x] WSP-04D3: brain-owned cumulative phase usage CLI, immutable per-session baselines/epochs, owned task-tree coverage, conservative high-water accounting, exact settlement incorporation and admission/effect-context fences (supplied evidence; no live counter collector or activation)
 - [x] WSP-04D4: brain-owned standard-policy runner handoff CLI, exact execution/target binding, non-replayable send check, separate delivery/process/cleanup records and receipt recovery (no native transport, trusted host collector or live activation)
 - [x] WSP-04D5: brain-owned owner-approved standard-policy result CLI, measured source/GitHub proof collection, atomic supplemental proof provenance, historical reads and separate review outcome (no native attestation, merge, archive, continuation or live activation)
-- [ ] WSP-04C3 remainder: broader CI/workflow-trust/preservation and resource/host/native qualification, trusted Harness acceptance adapter, new-generation continuation/rereview and native transport before exact owner Play activation
+- [x] WSP-04C3g: exact-owner standard-policy local Git preservation, independent temporary restore/integrity check, private bundle and task evidence manifest, original-time and historical byte validation (bounded local retention, not off-device backup, acceptance or archive authority)
+- [ ] WSP-04C3 remainder: broader CI/workflow-trust/external preservation and resource/host/native qualification, trusted Harness acceptance adapter, new-generation continuation/rereview and native transport before exact owner Play activation
 - [ ] WSP-03: configurable brain authority, phase checkpoint releases and safe Play/Pause
 - [ ] WSP-04: brain-owned task/model/effort/speed choices, parallel limits and token admission
 - [ ] WSP-05: continuous phase-scoped development, inheritance and preserved task archival
