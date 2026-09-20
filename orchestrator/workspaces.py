@@ -245,7 +245,8 @@ class Registry:
     def summary(self, workspace_ids=None):
         """Recorded cross-workspace measurements only. Never scan or notify on read."""
         from .repository import aggregate
-        rows, repositories, sessions, workers, artifacts, roadmaps = [], {}, {}, {}, {}, {}
+        from . import portfolio_metrics
+        rows, repositories, sessions, workers, artifacts, roadmaps = [], [], {}, {}, {}, {}
         conflicts = set()
         for workspace in self.list():
             wid = workspace["id"]
@@ -258,11 +259,10 @@ class Registry:
                 continue
             summary = aggregate(state)
             usage = state["observations"].get("usage") or {}
-            repo_paths = {r["id"]: str(Path(r["path"]).resolve()) for r in state["repositories"] if r.get("path")}
-            for metric in summary["repositories"]:
-                key = repo_paths.get(metric["repository"], wid + ":" + metric["repository"])
-                if key not in repositories or metric["at"] > repositories[key]["at"]:
-                    repositories[key] = metric
+            # No filesystem resolution on a summary read. Code identity was bound
+            # at explicit collection; roadmaps retain their configured-path basis.
+            repo_paths = {r["id"]: r["path"] for r in state["repositories"] if r.get("path")}
+            repositories.extend({**m, "workspaceId": wid} for m in summary["repositories"])
             for session in usage.get("sessions", []):
                 # A shared task can have partially observed history in two scopes.
                 # Without event-level union, differing summaries cannot safely be added.
@@ -289,21 +289,22 @@ class Registry:
             rows.append({**workspace, "status": "recorded", "revision": state["meta"]["revision"],
                 "paused": state["meta"]["paused"], "lastReconciled": state["meta"]["lastReconciled"],
                 "repositories": len(state["repositories"]), "metrics": summary["aggregate"],
+                "codeCoverage": summary["coverage"],
                 "usage": usage.get("aggregate") if usage.get("status") == "measured" else None,
                 "activeWorkers": sum(w["status"] not in ("complete", "settled") for w in state["workers"]),
                 "settledWorkers": sum(w["status"] == "settled" for w in state["workers"]),
                 "artifacts": len(state["observations"].get("artifacts", []))})
-        measured = [m for m in repositories.values() if m["status"] == "measured"]
+        code = portfolio_metrics.summarize(repositories)
         included = [value for key, value in sessions.items() if key not in conflicts and value["samples"]]
-        totals = {key: sum(m[key] for m in measured) if measured else None for key in ("lines", "characters", "files")}
-        totals.update(uniqueRepositorySnapshots=len(repositories), measuredRepositories=len(measured),
-            managedTasks=len(workers), completedTasks=sum(all(s == "complete" for s in statuses) for statuses in workers.values()),
+        totals = dict(code["aggregate"])
+        totals.update(managedTasks=len(workers), completedTasks=sum(all(s == "complete" for s in statuses) for statuses in workers.values()),
             settledTasks=sum(all(s == "settled" for s in statuses) for statuses in workers.values()),
             distinctObservedSessions=len(sessions), conflictingSessionsExcluded=len(conflicts),
             tokens=sum(s["total_tokens"] for s in included) if included else None,
             cachedInput=sum(s["cached_input_tokens"] for s in included) if included else None,
             uniqueArtifactVersions=len(artifacts))
         return {"observedAt": time.time(), "workspaces": rows, "aggregate": totals,
+                "codeSnapshots": code["snapshots"], "codeCoverage": code["coverage"],
                 "artifacts": sorted(artifacts.values(), key=lambda a: (a["orderAt"], a["workspaceId"], a["id"])),
                 "roadmaps": list(roadmaps.values()),
-                "method": "Recorded snapshots, not live activity. Code uses the latest observation per canonical checkout path; different clones are not assumed identical. Tokens include identical task summaries once; conflicting shared-task summaries are excluded, not added. Cached input is part of input. Artifact identity is source key, version and content hash; roadmap identity is checkout plus source path. Workspace rows may overlap and must not be summed. Missing measurements are unavailable, not zero."}
+                "method": code["method"] + " Tokens include identical task summaries once; conflicting shared-task summaries are excluded, not added. Cached input is part of input. Artifact identity is source key, version and content hash; roadmap identity remains configured checkout plus source path."}

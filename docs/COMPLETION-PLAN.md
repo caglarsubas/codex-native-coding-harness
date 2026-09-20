@@ -40,6 +40,14 @@ the estimate is not decremented for this partial delivery. The **8–12 / 10–1
 ranges remain conditional, not a promise that more source PRs can replace a missing
 qualified host source. See [collection boundaries and next decision](NATIVE-EVIDENCE-COLLECTION.md).
 
+Progress after PR #46: WSP-09A advances the independent portfolio-identity part of
+milestone 9 while milestone 3 remains capability-gated. Clone/worktree code totals,
+distributed aliases, conflicts, exports and numeric assistant context now share
+one counting contract. Synthetic scale and fixture-browser checks are retained in
+[portfolio identity](PORTFOLIO-IDENTITY.md). This does not complete runner fairness,
+host-alias qualification or live portfolio acceptance; the conditional **8–12 /
+10–16** ranges are unchanged. No dependency is bypassed to activate Play.
+
 The standard-workspace exit criterion is a real two-workspace mission that the
 owner starts once in the dashboard, which performs multiple authorized task cycles,
 explains model/effort choices and usage, preserves results, obeys Pause and phase
@@ -48,6 +56,11 @@ its exact packet, clean-room, zero-bill and trusted-runner execution contract.
 
 ## Current increment
 
+- [x] WSP-09A source: explicit identity-bound measurements, canonical recorded
+  snapshot aggregation across clones/worktrees, counting coverage, scoped links,
+  independent pagination and local-only refresh controls. Local verification:
+  1,255 Python tests and eight UI test files passed; two-workspace fixture browser
+  checks passed. No live observations, controller changes or Actions execution.
 - [x] WSP-04F source: exact owner-pinned existing endpoint, bounded public read-only
   proxy, phase-owned root/descendant/configured-setting/terminal metadata, immutable
   diagnostic reports, replay and explicit counter/cleanup/telemetry gaps. No live
@@ -85,7 +98,7 @@ its exact packet, clean-room, zero-bill and trusted-runner execution contract.
 | 6 | Dashboard Play/phase controls and assistant integration | Explicit version-bound start, immediate notification, brain receipt, recovery and truthful blocked states; Pause dominates races |
 | 7 | Native brain operating loop and quiet recovery scheduling | Updated reusable guidance composes all handoffs; no duplicate sends or background helper scheduler; idle owner waits do not poll models |
 | 8 | Delegated retention and complete preservation/archival lifecycle | Selected retention policy, descendant/untracked-output safeguards, preserved knowledge and independently observed safe archival |
-| 9 | Portfolio identity/deduplication and scale qualification | Canonical clone/worktree totals, shared-runner fairness, larger-portfolio performance and browser isolation evidence |
+| 9 | Partial: canonical portfolio metrics (WSP-09A); broader scale/fairness qualification remains | Same-origin clone and local worktree snapshot totals, explicit coverage, 3,200-row aggregation and two-workspace fixture browser checks; host aliases, runner fairness and full live portfolio qualification remain |
 | 10 | Standard-workspace supervised acceptance and runtime rollout | Two real workspaces, multiple task cycles, Pause/resume, gates, budget stops and exact installed/running revision independently verified |
 
 The numbering is a work-package inventory, not permission to bypass dependencies.

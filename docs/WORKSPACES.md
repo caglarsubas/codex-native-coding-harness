@@ -69,7 +69,14 @@ status. **Edit project introduction** preserves versions and rejects stale edits
 **All workspaces** compares retained measurements and opens artifacts/roadmaps in
 their originating workspace. Workspace rows may overlap; the aggregate uses the
 documented deduplication rules and excludes conflicting shared task usage summaries.
-Different checkout clones are not claimed as the same canonical repository yet.
+New explicit code measurements bind common-directory and conventional origin
+identity. Clones/worktrees at the same identified commit count once; different
+commits and forks stay separate snapshots. The comparison lists aliases and
+excluded observations, with links to the affected workspace. Historical records
+without identity evidence remain readable but are excluded until a normal explicit
+**Refresh local observations** from that workspace's **Portfolio metrics** view.
+Ordinary **Refresh** only reloads retained state. See [the counting contract and
+coverage limits](PORTFOLIO-IDENTITY.md); unsupported host aliases are not guessed.
 
 Links use `#/w/<id>/<view>` and artifact/decision links carry their workspace ID.
 Every operational API route, export and artifact download resolves that ID through
