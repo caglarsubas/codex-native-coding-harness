@@ -108,6 +108,8 @@ def artifact_in(db, key, intent, subject, result_commit):
         ref.get("intentHash") == digest(intent) and ref.get("commit") == result_commit and ref.get("subject") == subject
         for ref in info.get("references", [])), "Result artifact needs exact task, commit and subject binding")
     timestamp(info.get("observedAt"))
+    from .result_handoff import validate_proof
+    validate_proof(db, info, raw, intent, subject, result_commit)
     return info, raw
 
 
@@ -140,6 +142,7 @@ def evidence_in(db, intent, settlement, request):
             info, raw = artifact_in(db, proof["artifactId"], intent, subject, result["commit"])
             require(settlement["priorClaim"]["startedAt"] <= info["observedAt"] <= proof["observedAt"],
                     "Proof bytes must be retained before their review observation")
+            if "resultEvidenceObservedAt" in info: times.append(info["resultEvidenceObservedAt"])
             if subject == "source":
                 from .source_observation import validate_source_proof
                 collected_at = validate_source_proof(db, info, raw, intent, settlement, result)
@@ -184,6 +187,7 @@ def evidence_in(db, intent, settlement, request):
     require(max(result["observedAt"], settlement["at"]) <= report["observedAt"] <= info["observedAt"],
             "Independent review must follow the exact result and terminal settlement")
     times.extend([report["observedAt"], info["observedAt"]])
+    if "resultEvidenceObservedAt" in info: times.append(info["resultEvidenceObservedAt"])
     return report, times
 
 
@@ -236,6 +240,9 @@ class ResultReview:
     def __init__(self, bridge):
         self.bridge, self.ledger, self.store = bridge, bridge.ledger, bridge.store
         self.settlement = OwnershipSettlement(bridge)
+
+    def evidence_in(self, db, intent, settlement, request):
+        return evidence_in(db, intent, settlement, request)
 
     def authority_in(self, db, meta, worker, intent):
         require(meta["paused"] is False, "Dispatch paused; result acceptance is fenced")
@@ -294,7 +301,7 @@ class ResultReview:
                         "Phase allocation binding changed")
                 require(meta["revision"] == request["expectedRevision"], "Workspace changed before result review")
                 q = self.authority_in(db, meta, worker, intent)
-                report, times = evidence_in(db, intent, settlement, request)
+                report, times = self.evidence_in(db, intent, settlement, request)
                 policy = self.store.get(kernel, "meta", 1)["policy"]
                 for at in times: self.store.fresh(at, policy)
             record = {"kind": "result_review", "schemaVersion": 1, "workerId": worker_id,

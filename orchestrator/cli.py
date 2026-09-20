@@ -72,6 +72,10 @@ def main():
         p.add_argument("worker_id")
         if operation == "check": p.add_argument("handoff_hash")
         elif operation not in ("state", "recover"): p.add_argument("request", type=Path)
+    for operation in ("state", "collect-source", "collect-github", "proof-add", "proof-read", "review"):
+        p = sub.add_parser("result-handoff-" + operation, help="Brain-owned standard-policy evidence/review; no native effects")
+        p.add_argument("worker_id")
+        if operation != "state": p.add_argument("request", type=Path)
     p = sub.add_parser("mission-draft", help="Designated brain proposes a version; owner reviews in the dashboard")
     p.add_argument("spec", type=Path); p.add_argument("--revision", type=int, required=True); p.add_argument("--id", required=True)
     p = sub.add_parser("native-observe"); p.add_argument("observation", type=Path)
@@ -110,7 +114,7 @@ def main():
         raise Refusal("--workspace requires --platform")
     if args.state and (args.workspace or args.platform):
         raise Refusal("Choose a registered workspace or --state, not both")
-    if (args.action == "run-readiness" or args.action.startswith(("task-contract-", "native-create-", "native-task-", "native-account-", "phase-usage-", "runner-handoff-"))) and not (args.platform and args.workspace):
+    if (args.action == "run-readiness" or args.action.startswith(("task-contract-", "native-create-", "native-task-", "native-account-", "phase-usage-", "runner-handoff-", "result-handoff-"))) and not (args.platform and args.workspace):
         raise Refusal("This operation requires an explicit registered workspace")
     registry = Registry(args.platform, create=args.action == "workspace-register") if args.platform else None
     if args.action.startswith("platform-reconciliation-"):
@@ -249,6 +253,14 @@ def main():
         else:
             path = args.request.absolute()
             out = getattr(api, operation)(token, args.worker_id, json.loads(read_regular(path, path.parent, 16000)))
+    elif action.startswith("result-handoff-"):
+        from .admission import AdmissionStore
+        from .dispatch_admission import DispatchAdmission
+        from .result_handoff import ResultHandoff, read_request
+        api = ResultHandoff(DispatchAdmission(registry, args.workspace, AdmissionStore(registry.root)))
+        operation = action.removeprefix("result-handoff-").replace("-", "_")
+        if operation == "state": out = api.state(token, args.worker_id)
+        else: out = getattr(api, operation)(token, args.worker_id, read_request(args.request))
     elif action.startswith("phase-usage-"):
         from .admission import AdmissionStore
         from .dispatch_admission import DispatchAdmission

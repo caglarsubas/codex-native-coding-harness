@@ -261,3 +261,16 @@ receipt and original observation time. Never use this proof for other axes or
 promote CI/merge into semantic acceptance, runtime or merge authority. No remote
 mutation, new credential, public write route, live workspace collection, installed
 skill change or Play activation follows from source delivery.
+
+WSP-04D5 adds designated-brain result handoff CLI commands for exact owner-approved
+standard-policy tasks. See docs/RESULT-HANDOFF.md. Require attached terminal
+settlement, measured source/GitHub proof and separately retained supplemental and
+independent-review artifacts. Preserve original observation times, immutable
+request receipts and artifact provenance through new and historical reviews.
+Supplied notes are inert claims, not native attestation or instructions. Neither
+proof retention nor a worker reply is acceptance. Rejected attempts stay closed
+and held; acceptance never merges, archives, retries, advances phase or grants Play.
+No live collection/acceptance, installed skill update, admission setup or downgrade
+is authorized by source delivery. Quiesce older writers before any future rollout;
+older cached helpers do not validate this proof protocol. No mixed-version or
+downgrade compatibility contract is provided.

@@ -27,9 +27,12 @@ success or merge must never substitute for independent packet-result review.
 
 ## Delivery boundary
 
-Internal designated-brain calls and isolated fixtures only; no public write route,
-native transport, live migration, installed skill update, runtime restart or Play
-activation. The coordinator validates supplied evidence bindings and retained
+The WSP-04C3d kernel initially provided internal designated-brain calls only.
+The later [result handoff](RESULT-HANDOFF.md) exposes a stricter owner-approved
+standard-policy CLI requiring collected source/CI and bound supplemental proofs.
+No HTTP/assistant route, native transport, live migration, installed skill update,
+runtime restart or Play activation accompanies source delivery.
+The coordinator validates supplied evidence bindings and retained
 bytes; it does not independently authenticate Git, CI, native task identities,
 reviewer independence or deployment/tenant facts. A future trusted observer must
 collect and independently verify those facts. The separate
@@ -137,6 +140,13 @@ the retained observation, even when used only for one of those axes. The origina
 collection start participates in freshness; review timestamps cannot renew it.
 Unknown/failed CI cannot be promoted, and merge can be verified only when actually
 observed merged. These artifacts cannot prove other axes or acceptance criteria.
+
+WSP-04D5 supplemental proofs carry `result_handoff_evidence_v1` provenance. The
+shared artifact reader checks their immutable journal/request receipt and original
+bytes, task, commit, subject and observation time on new review and historical
+reads. Original supplied observation time participates in freshness, including for
+the independent review artifact. These remain caller assertions, not attestation.
+The CLI requires them; older unlabelled internal proofs retain their prior boundary.
 
 The independent review artifact is closed JSON with unique fields:
 `kind: independent_result_review`, `workerId`, `intentHash`, `settlementHash`,

@@ -23,8 +23,10 @@ Plan saved before implementation, following PR #34 merged at
 
 ## Boundary
 
-Internal source integration only; no live collection into a workspace, new public
-CLI/HTTP/assistant control, installation, runtime restart or Play activation.
+The WSP-04C3f kernel was internal-only. The later [result handoff](RESULT-HANDOFF.md)
+adds a designated-brain CLI under stricter owner-approved standard-policy scope.
+No live workspace collection, HTTP/assistant control, installation, runtime restart
+or Play activation follows from source delivery.
 This measures remote metadata, not source semantics, workflow trustworthiness,
 deployment, runtime, preservation, host cleanup, tokens or tenant acceptance.
 The brain remains the scheduler and independent review remains required.
