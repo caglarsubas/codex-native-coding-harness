@@ -33,6 +33,7 @@ acceptance authority. Items change through reviewed repository edits.
 - [x] Verify rendered generation, evidence preview and artifact-version reading
 - [ ] Qualify narrative accuracy with repeatable portfolio fixtures
 - [x] Publish and merge the inference extension (PR #3)
+- [x] Align with Planeon issue #38: streamed briefs/chat, pinned local models, shared token-budget checks, both-model availability and clone-wide credential-document ignore rule (source/local verification; runtime rollout separate)
 
 ## Operational readiness — v4
 

@@ -9,7 +9,7 @@ import time
 from urllib.parse import quote
 
 from .core import Refusal, canonical, digest, require
-from .inference import Client, ENV_FILE, projection, settings
+from .inference import Client, ENV_FILE, output_token_limit, projection, settings
 from .assistant_actions import catalog, public_catalog, resolve_action
 from .assistant_state import BOUNDARIES, CAPABILITIES, extend_context
 
@@ -239,8 +239,9 @@ def chat(ledger, body, env_path=ENV_FILE, snapshot=None, proposals=None, session
         response = Client(config).request("chat/completions", {
             "model": config.model, "messages": [{"role": "system", "content": SYSTEM},
                 {"role": "user", "content": canonical({"snapshot": data, "conversation": messages})}],
-            "max_tokens": 2048 if config.model in ("ministral-3:8b", "llama3.2:3b") else 4096,
-            "response_format": {"type": "json_object"}, "temperature": 0.2, "stream": True})
+            "max_tokens": output_token_limit(config.model),
+            "response_format": {"type": "json_object"}, "temperature": 0.2, "stream": True,
+            "stream_options": {"include_usage": True}})
         result = validate_response(response, data, links, config)
         intent = result.pop("action")
         proposal = None
