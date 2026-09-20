@@ -306,7 +306,7 @@ class ResultHandoffTest(GitFixture, unittest.TestCase):
             self.assertEqual(before, other.logical())
         finally: other.tearDown()
 
-    def test_delegated_task_waits_for_separate_handoff_qualification(self):
+    def test_delegated_task_retains_exact_result_scope_without_implicit_collection(self):
         import test_missions
         import test_run_authority
         specification, approve = test_missions.specification, test_run_authority.RunAuthorityTest.approve
@@ -317,13 +317,10 @@ class ResultHandoffTest(GitFixture, unittest.TestCase):
              patch.object(test_run_authority.RunAuthorityTest, "approve", delegated_approval): other.setUp()
         try:
             api = handoff.ResultHandoff(other.fx.bridge)
-            request = self.request(expectedRevision=other.ledger.snapshot()["meta"]["revision"],
-                                   settlementHash=other.worker()["ownershipSettlementHash"])
             with patch("subprocess.Popen", side_effect=AssertionError("No delegated I/O")):
-                with self.assertRaisesRegex(Refusal, "exact owner task approval"):
-                    api.collect_source(other.token, other.wid, request)
-                with self.assertRaisesRegex(Refusal, "exact owner task approval"):
-                    api.collect_github(other.token, other.wid, request | {"prUrl": test_github_evidence.URL})
+                state = api.state(other.token, other.wid)
+                self.assertEqual(state["seedHash"], other.intent["seedHash"])
+                self.assertFalse(state["executionAuthorized"])
         finally: other.tearDown()
 
     def test_closed_shapes_stale_revision_and_original_times_refuse(self):

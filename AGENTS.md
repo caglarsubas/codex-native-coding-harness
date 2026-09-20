@@ -322,3 +322,21 @@ recovery must not resume work. No delegated/Harness/new-generation correction,
 native transport, automatic task selection, live send, install, schedule, workflow,
 allocation, maintenance release or Play activation follows from source delivery.
 Quiesce older writers before a separate rollout; no downgrade safety is claimed.
+
+WSP-05C adds brain-cycle inspect/decide/read/reserve composition. See
+docs/BRAIN-COORDINATOR.md. The brain chooses create/continue/handle/wait from exact
+current context; Python never chooses autonomously, calls native tools or creates
+run/allocation authority. Delegate approval only inside an existing owner-authorized
+phase-delegated standard-policy run, atomically with its version-bound decision.
+Never replace a revoked/stale approval, reset task counters or infer authority from
+wait/handle notes. Recheck the exact latest decision at both reservation stages;
+historical decisions cannot restore old permission. Existing intents survive
+supersession, Pause and interruption and use explicit receipt recovery.
+Valid owner-delegated standard-policy task approvals are now supported by the
+creation/correction/runner/result handoffs, superseding their earlier exact-owner-
+only source restriction. All current authority/admission/evidence checks remain;
+Harness and delegated archival keep their separate gates. No model override,
+live native effect, installed-skill/schedule change, onboarding, maintenance release,
+automatic phase release or Play activation is authorized by source delivery.
+Quiesce older writers and prepared handoffs before separate rollout; no downgrade
+or mixed-version writer contract is provided.

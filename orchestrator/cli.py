@@ -51,6 +51,10 @@ def main():
     p.add_argument("spec", type=Path); p.add_argument("--revision", type=int, required=True); p.add_argument("--id", required=True)
     p = sub.add_parser("task-contract-state", help="Read current binding and immutable declaration history")
     p.add_argument("queue_id")
+    for operation in ("inspect", "decide", "reserve", "read"):
+        p = sub.add_parser("brain-cycle-" + operation, help="Designated-brain lifecycle decisions; no scheduler or native transport")
+        if operation == "decide": p.add_argument("request", type=Path)
+        elif operation != "inspect": p.add_argument("decision_hash")
     for name in ("native-create-begin", "native-create-record", "native-create-check", "native-create-state", "native-create-recover"):
         p = sub.add_parser(name, help="Designated-brain one-use native handoff; no transport or run activation")
         p.add_argument("worker_id")
@@ -123,7 +127,7 @@ def main():
         raise Refusal("--workspace requires --platform")
     if args.state and (args.workspace or args.platform):
         raise Refusal("Choose a registered workspace or --state, not both")
-    if (args.action == "run-readiness" or args.action.startswith(("task-contract-", "native-create-", "native-task-", "native-account-", "phase-usage-", "runner-handoff-", "result-handoff-", "archive-handoff-", "correction-handoff-"))) and not (args.platform and args.workspace):
+    if (args.action == "run-readiness" or args.action.startswith(("task-contract-", "brain-cycle-", "native-create-", "native-task-", "native-account-", "phase-usage-", "runner-handoff-", "result-handoff-", "archive-handoff-", "correction-handoff-"))) and not (args.platform and args.workspace):
         raise Refusal("This operation requires an explicit registered workspace")
     registry = Registry(args.platform, create=args.action == "workspace-register") if args.platform else None
     if args.action.startswith("platform-reconciliation-"):
@@ -262,6 +266,16 @@ def main():
         else:
             path = args.request.absolute()
             out = getattr(api, operation)(token, args.worker_id, json.loads(read_regular(path, path.parent, 16000)))
+    elif action.startswith("brain-cycle-"):
+        from .admission import AdmissionStore
+        from .dispatch_admission import DispatchAdmission
+        from .brain_coordinator import BrainCoordinator
+        from .result_handoff import read_request
+        api = BrainCoordinator(DispatchAdmission(registry, args.workspace, AdmissionStore(registry.root)))
+        operation = action.removeprefix("brain-cycle-")
+        if operation == "inspect": out = api.inspect(token)
+        elif operation == "decide": out = api.decide(token, read_request(args.request))
+        else: out = getattr(api, operation)(token, args.decision_hash)
     elif action.startswith("correction-handoff-"):
         from .admission import AdmissionStore
         from .dispatch_admission import DispatchAdmission

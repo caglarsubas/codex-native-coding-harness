@@ -15,6 +15,12 @@ acceptance cycle. Related work should be delivered as complete milestones, not
 split into another PR for each internal helper. Extra fixes consume the range's
 contingency; report new blockers instead of silently increasing the scope.
 
+Progress after PR #43: WSP-05C delivers milestone 1's coordinator and delegated
+handoff composition in source/fixtures. Once that increment is merged, the remaining
+estimate is **9–13 iterations for standard workspaces**, or **11–17 including
+Harness**, under the same prerequisites and contingencies. Live orchestration is
+still gated by the operating-loop, rollout and acceptance milestones below.
+
 These estimates are conditional on supported native capabilities, usable owner-
 approved pilot environments and decisions being available. External qualification
 is not solved by another code PR. Unsupported per-task speed control must remain
@@ -29,6 +35,12 @@ its exact packet, clean-room, zero-bill and trusted-runner execution contract.
 
 ## Current increment
 
+- [x] WSP-05C source: explicit brain lifecycle decisions, atomic phase-delegated
+  standard task approval, guarded admission and existing handoff composition.
+  The two-packet fixture independently reviews the first result and admits the
+  next packet without another owner approval. See [the coordinator contract](BRAIN-COORDINATOR.md).
+  Local verification: 1,165 Python tests and 7 JavaScript UI test files passed;
+  no live activation or Actions execution.
 - [x] WSP-05B source: guarded same-task correction handoff and CLI, with retained brain
   rationale, exact scope, one-shot send, conservative usage and recovery tests.
   This closes the correction transport-argument seam, not the autonomous loop.
@@ -36,11 +48,11 @@ its exact packet, clean-room, zero-bill and trusted-runner execution contract.
   See [the handoff contract and limits](CORRECTION-HANDOFF.md); live use is not
   activated or accepted by these source results.
 
-## Remaining delivery milestones
+## Delivery milestones
 
 | # | Deliverable | Exit evidence |
 | --- | --- | --- |
-| 1 | Brain lifecycle coordination, delegated task selection and inheritance | Create/continue/handle/wait decisions use exact phase authority; ordinary task completion selects the next eligible work without routine owner prompts |
+| 1 | Source complete: brain lifecycle coordination, delegated task selection and inheritance (WSP-05C) | Create/continue/handle/wait decisions, exact delegated scope and two-packet progression qualified in fixtures; live operating-loop acceptance remains in 7/10 |
 | 2 | Owner-reviewed adaptive model/effort policy | Host capability binding, allowed choices, quality/escalation bounds and requested/applied/observed records; unsupported speed remains visible |
 | 3 | Complete native/host observations and phase-counter collection | Real owned task-tree coverage, retained process/cleanup evidence and non-resetting usage; unknowns stop new work |
 | 4 | Controlled onboarding and maintenance release | Exact owner review, migrated ownership/baselines, interrupted-release recovery and no implicit upgrade activation |

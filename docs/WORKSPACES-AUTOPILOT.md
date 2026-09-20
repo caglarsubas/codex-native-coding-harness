@@ -800,6 +800,7 @@ integration seam, not live native/host qualification, continuation or archival.
 
 - [x] WSP-05A: owner-requested root-task archive CLI, retained result/preservation integrity, one-shot check, late/unknown outcomes and continued safe-Pause supervision; no live native effect.
 - [x] WSP-05B: exact-owner standard-policy same-task edit correction CLI with retained brain rationale/findings, one-shot native arguments, cumulative usage/no-progress checks and historical/uncertain recovery; no native call or new-generation continuation.
+- [x] WSP-05C: version-bound brain create/continue/handle/wait decisions, delegated standard-policy approval/reservation and existing native handoff composition; independently reviewed first-packet to next-packet fixture, with unchanged phase/usage boundaries. Native operating loop and live qualification remain separate.
 - [ ] Mission-scoped task decomposition/admission, inheritance and bounded correction.
 - [ ] Completion supervision, independent review, evidence promotion and next-task selection.
 - [ ] Continue after ordinary packet completion without asking for routine owner instructions.

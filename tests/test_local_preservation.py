@@ -267,30 +267,41 @@ class PreservationHandoffTest(unittest.TestCase):
         with patch.object(preservation, "preserve_git", side_effect=AssertionError("No Harness access")):
             with self.assertRaisesRegex(Refusal, "Harness"): api.collect_preservation(other.token, other.wid, request)
 
-    def test_delegated_scope_refuses_before_any_source_access(self):
-        import test_missions
-        import test_run_authority
-        specification, approve = test_missions.specification, test_run_authority.RunAuthorityTest.approve
-        def delegated_spec(*args, **kwargs): return specification(*args, **{**kwargs, "mode": "phase_delegated"})
-        def delegated_approval(fixture, run, **kwargs): return approve(fixture, run, **{**kwargs, "actor": "designated_brain"})
-        other = test_result_review.ResultReviewTest()
-        with patch.object(test_missions, "specification", delegated_spec), \
-             patch.object(test_run_authority.RunAuthorityTest, "approve", delegated_approval): other.setUp()
-        self.addCleanup(other.tearDown)
-        from orchestrator.result_handoff import ResultHandoff
-        api = ResultHandoff(other.fx.bridge)
-        request = self.fx.request(expectedRevision=other.ledger.snapshot()["meta"]["revision"],
-                                 settlementHash=other.worker()["ownershipSettlementHash"],
-                                 evidence=[{"subject": "source", "artifactId": "a" * 64}])
-        with patch.object(preservation, "preserve_git", side_effect=AssertionError("No delegated access")):
-            with self.assertRaisesRegex(Refusal, "exact owner task approval"):
-                api.collect_preservation(other.token, other.wid, request)
+    def test_brain_approval_without_owner_delegation_refuses_before_source_access(self):
+        from orchestrator import run_authority as runs
+        _, request = self.prepare()
+        read = runs.document
+        def forged(db, key, kind):
+            value = read(db, key, kind)
+            return value | {"actor": "designated_brain"} if kind == "run_task_approval" else value
+        with patch.object(runs, "document", forged), \
+             patch.object(preservation, "preserve_git", side_effect=AssertionError("No unauthorized source access")):
+            with self.assertRaisesRegex(Refusal, "exact owner"): self.collect(request)
 
     def test_settled_acceptance_does_not_allow_new_preservation_or_archive(self):
         result, request = self.prepare(); receipt = self.collect(request)
         self.fx.call("review", self.review_request(result, receipt))
         with self.assertRaises(Refusal): self.collect(request | {"id": "new", "expectedRevision": self.fx.revision()})
         self.assertFalse(self.fx.fx.worker()["archived"])
+
+
+class DelegatedPreservationTest(unittest.TestCase):
+    def test_delegated_scope_preserves_local_bytes_without_archive_authority(self):
+        import test_missions
+        import test_run_authority
+        specification, approve = test_missions.specification, test_run_authority.RunAuthorityTest.approve
+        def delegated_spec(*args, **kwargs): return specification(*args, **{**kwargs, "mode": "phase_delegated"})
+        def delegated_approval(fixture, run, **kwargs): return approve(fixture, run, **{**kwargs, "actor": "designated_brain"})
+        other = PreservationHandoffTest()
+        with patch.object(test_missions, "specification", delegated_spec), \
+             patch.object(test_run_authority.RunAuthorityTest, "approve", delegated_approval): other.setUp()
+        self.addCleanup(other.doCleanups)
+        result, request = other.prepare(); receipt = other.collect(request)
+        self.assertEqual(other.read(receipt)["provenance"], preservation.PROVENANCE)
+        accepted = other.fx.call("review", other.review_request(result, receipt))
+        self.assertTrue(accepted["packetAccepted"]); self.assertFalse(accepted["archiveAuthorized"])
+        with patch.object(preservation, "preserve_git", side_effect=AssertionError("No replay I/O")):
+            self.assertEqual(other.collect(request), receipt)
 
 
 class LocalOnlyVerificationPolicyTest(unittest.TestCase):

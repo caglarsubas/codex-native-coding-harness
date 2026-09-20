@@ -317,6 +317,18 @@ class AdmissionStore:
         allocation = self.get(db, "allocations", allocation_id)
         estimated = sum(estimates.values())
         self.check_budget(db, allocation, estimated)
+        keys = self.check_capacity(db, allocation, repositories)
+        result = {"id": claim_id, **spec, "fingerprint": fingerprint, "estimatedTokens": estimated,
+                  "status": "reserved", "createdAt": self.clock(), "native": None, "actual": None, "settledAt": None}
+        db.execute("INSERT INTO claims VALUES(?,?,?)", (claim_id, allocation_id, canonical(result)))
+        for key in sorted(keys):
+            db.execute("INSERT INTO resources VALUES(?,?,?)", (key, claim_id, self.clock()))
+        self.event(db, "capacity_reserved", id=claim_id)
+        return result
+
+    def check_capacity(self, db, allocation, repositories):
+        """Read-only eligibility, rechecked by reservation; never a capacity lock."""
+        allocation_id = allocation["id"]
         claims = self.rows(db, "claims")
         held = [c for c in claims if c["status"] in HELD]
         limits = allocation["spec"]["limits"]
@@ -329,13 +341,7 @@ class AdmissionStore:
             keys.update(allocation["spec"]["repositories"][repo])
         for key in sorted(keys):
             require(not db.execute("SELECT 1 FROM resources WHERE id=?", (key,)).fetchone(), "Repository resource already owned")
-        result = {"id": claim_id, **spec, "fingerprint": fingerprint, "estimatedTokens": estimated,
-                  "status": "reserved", "createdAt": self.clock(), "native": None, "actual": None, "settledAt": None}
-        db.execute("INSERT INTO claims VALUES(?,?,?)", (claim_id, allocation_id, canonical(result)))
-        for key in sorted(keys):
-            db.execute("INSERT INTO resources VALUES(?,?,?)", (key, claim_id, self.clock()))
-        self.event(db, "capacity_reserved", id=claim_id)
-        return result
+        return keys
 
     def begin(self, claim_id):
         """One-shot durable boundary; caller still needs independent execution authority."""

@@ -1,5 +1,10 @@
 # WSP-04D4 — brain-owned runner handoff
 
+Update: [WSP-05C](BRAIN-COORDINATOR.md) also supports valid owner-delegated
+standard-policy task approvals. This supersedes the initial exact-owner-only
+scope, not the existing execution, budget, runner, one-shot or cleanup checks.
+It neither enables Harness execution nor activates a live workspace.
+
 Plan saved before implementation, following merged PR #33 (`2c1acc3`).
 
 Connect the standard-policy runner coordinator to explicit designated-brain CLI

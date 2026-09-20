@@ -1,5 +1,10 @@
 # WSP-05B — same-task correction handoff
 
+Update: [WSP-05C](BRAIN-COORDINATOR.md) also permits exact designated-brain task
+approvals inside an owner-authorized delegated standard phase. The original
+exact-owner-only boundary below is superseded only for that case; current run,
+scope, budget, Pause and one-shot checks remain. No live activation is included.
+
 Plan saved before implementation after PR #42, on `393a53b`.
 
 - [x] Retain the brain's reason for continuing the exact owned task, rather than
