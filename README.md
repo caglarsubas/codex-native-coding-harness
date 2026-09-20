@@ -186,6 +186,12 @@ It uses an isolated read-only Git view and never fetches, reads worktree content
 runs tests or marks a packet accepted. CI/remote/preservation/semantic evidence
 remain separate. It is internal standard-policy tooling, not a Harness adapter
 or a new dashboard/Play control.
+The [GitHub result observer](docs/GITHUB-EVIDENCE.md) supplies optional remote
+PR/required-check evidence for the same review. It binds exact head/base/branch and
+pinned repository identity, collects through bounded read-only GitHub requests,
+and retains redacted provenance. Missing policy, ambiguous checks and empty check
+sets stay unverified. CI, observed merge, semantic acceptance and runtime remain
+separate; this internal helper does not merge, dispatch or activate Play.
 The [brain-owned creation handoff](docs/NATIVE-CREATION-HANDOFF.md) connects an
 already admitted, exact owner-approved standard-policy task to one-use native
 `create_thread` arguments. The designated brain checks immediately before sending,

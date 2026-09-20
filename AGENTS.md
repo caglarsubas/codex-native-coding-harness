@@ -249,3 +249,15 @@ timestamps and keep late safety observations available after Pause; maintenance
 fences still govern cleanup release. No model override, private API, transport,
 live execution, installation, mixed-version writers or Play activation follows
 from source delivery. Harness still requires its separate trusted adapter.
+
+WSP-04C3f adds internal standard-policy GitHub PR/required-check collection. See
+docs/GITHUB-EVIDENCE.md. Bind the exact allocation-pinned remote, approved branch/
+base/result and attached terminal settlement before bounded read-only GETs.
+Harness refuses before network access. Missing policy, truncated inventories,
+ambiguous providers/reruns and unsupported rules remain unverified; repeat reads
+detect drift but never acquire a remote lock. Recheck authority after I/O, retain
+only redacted metadata/hashes, and bind later CI/merge review to canonical journal,
+receipt and original observation time. Never use this proof for other axes or
+promote CI/merge into semantic acceptance, runtime or merge authority. No remote
+mutation, new credential, public write route, live workspace collection, installed
+skill change or Play activation follows from source delivery.

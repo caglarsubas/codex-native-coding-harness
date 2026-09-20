@@ -144,6 +144,9 @@ def evidence_in(db, intent, settlement, request):
                 from .source_observation import validate_source_proof
                 collected_at = validate_source_proof(db, info, raw, intent, settlement, result)
                 if collected_at is not None: times.append(collected_at)
+            from .github_evidence import validate_github_proof
+            collected_at = validate_github_proof(db, info, raw, intent, settlement, result, subject)
+            if collected_at is not None: times.append(collected_at)
         times.append(proof["observedAt"])
     ci = result["ci"]; checks = {c["name"]: c for c in ci["checks"]}
     require(all(c["headSHA"] == result["commit"] for c in checks.values()), "CI check belongs to a different commit")
