@@ -207,6 +207,8 @@ class AdmissionStore:
             require(window["resetsAt"] > observation["observedAt"], "Account window already reset")
         with self.tx() as db:
             meta = self.get(db, "meta", 1)
+            from .native_limits import current_in
+            require(current_in(self, db) is None, "Use native account observation; legacy updates cannot bypass native evidence")
             if meta["account"] == observation:
                 return
             self.fresh(observation["observedAt"], meta["policy"])
@@ -267,6 +269,8 @@ class AdmissionStore:
         require_open(self.root, self.get(db, "meta", 1))
         require(not allocation["closed"], "Allocation is closed")
         meta = self.get(db, "meta", 1)
+        from .native_limits import enforce
+        enforce(self, db)
         account, policy = meta["account"], meta["policy"]
         require(account is not None, "Account usage is unknown")
         self.fresh(account["observedAt"], policy)

@@ -194,6 +194,13 @@ the existing lifecycle. It binds the actual local saved project and exact base,
 preserves native settings defaults and refuses duplicate sends. This is a CLI
 integration seam, not installed live automation or autonomous Play; source delivery
 creates no native task and does not release any activation/maintenance gate.
+The [native supervision interface](docs/NATIVE-SUPERVISION.md) lets that brain
+record current task activity and account-limit observations through versioned
+CLI receipts. It separates current status from old turn outcomes, retains no chat
+content, and blocks admission on incomplete or exhausted account evidence. Missing
+windows remain unknown; account percentages never substitute for complete phase
+token accounting. These source interfaces do not install an observer, enable
+autonomous Play, release task ownership or qualify live acceptance.
 The [non-creation recovery coordinator](docs/CREATION-RECOVERY.md) can close a
 failed creation attempt only after explicit final absence, cleanup and zero-task-
 usage evidence. It retains attempt counts and pending IDs, keeps the packet held,
