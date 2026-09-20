@@ -5,6 +5,7 @@ bare view, not repository configuration, worktree files, replacement refs or
 credentials. This is a bounded read against a trusted local filesystem, not an
 OS sandbox or an attestation of remote state/semantic correctness.
 """
+import contextlib
 import hashlib
 import json
 import os
@@ -161,6 +162,33 @@ def commit_tree(view, key):
     return oid(first[5:].decode("ascii"))
 
 
+@contextlib.contextmanager
+def object_view(objects):
+    """Configuration-isolated view shared by closed, read-only Git probes."""
+    with tempfile.TemporaryDirectory(prefix="codex-source-view-") as folder:
+        view = Path(folder)
+        (view / "refs").mkdir(); (view / "HEAD").write_text("ref: refs/heads/observer\n")
+        (view / "config").write_text("[core]\nrepositoryformatversion = 0\nbare = true\n")
+        (view / "objects").symlink_to(objects, target_is_directory=True)
+        yield view
+
+
+def inspect_base(path, key, base):
+    """Exact local commit availability/identity only; never checkout or fetch."""
+    oid(base)
+    try:
+        common, objects, pin = layout(path, key)
+        check_objects(objects)
+        with object_view(objects) as view: tree = commit_tree(view, base)
+        common_after, objects_after, after = layout(path, key)
+        check_objects(objects_after)
+        require(after == pin and common_after == common, "Repository identity changed during base observation")
+    except (OSError, UnicodeError, subprocess.SubprocessError) as error:
+        raise Refusal("Local base metadata unavailable or unsupported") from error
+    return {"baseSHA": base, "baseTree": tree, "resourceKey": key, "layoutHash": pin,
+            "observedAt": time.time(), "worktreeInspected": False, "remoteObserved": False}
+
+
 def changes(raw):
     require(raw.endswith(b"\0"), "Complete nonempty source diff required")
     fields = raw[:-1].split(b"\0")
@@ -192,11 +220,7 @@ def inspect_source(path, key, base, result, branch, allowed):
         common, objects, pin = layout(path, key)
         require(ref_value(common, ref) == result, "Result branch tip does not match the requested commit")
         check_objects(objects)
-        with tempfile.TemporaryDirectory(prefix="codex-source-view-") as folder:
-            view = Path(folder)
-            (view / "refs").mkdir(); (view / "HEAD").write_text("ref: refs/heads/observer\n")
-            (view / "config").write_text("[core]\nrepositoryformatversion = 0\nbare = true\n")
-            (view / "objects").symlink_to(objects, target_is_directory=True)
+        with object_view(objects) as view:
             base_tree, result_tree = commit_tree(view, base), commit_tree(view, result)
             git_read(view, ["merge-base", "--is-ancestor", base, result], bound=0)
             raw = git_read(view, ["diff-tree", "--no-ext-diff", "--no-textconv", "--no-renames", "--no-commit-id",

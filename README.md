@@ -186,6 +186,14 @@ It uses an isolated read-only Git view and never fetches, reads worktree content
 runs tests or marks a packet accepted. CI/remote/preservation/semantic evidence
 remain separate. It is internal standard-policy tooling, not a Harness adapter
 or a new dashboard/Play control.
+The [brain-owned creation handoff](docs/NATIVE-CREATION-HANDOFF.md) connects an
+already admitted, exact owner-approved standard-policy task to one-use native
+`create_thread` arguments. The designated brain checks immediately before sending,
+calls the app tool, and records pending, confirmed or uncertain results through
+the existing lifecycle. It binds the actual local saved project and exact base,
+preserves native settings defaults and refuses duplicate sends. This is a CLI
+integration seam, not installed live automation or autonomous Play; source delivery
+creates no native task and does not release any activation/maintenance gate.
 The [non-creation recovery coordinator](docs/CREATION-RECOVERY.md) can close a
 failed creation attempt only after explicit final absence, cleanup and zero-task-
 usage evidence. It retains attempt counts and pending IDs, keeps the packet held,
