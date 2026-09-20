@@ -67,6 +67,11 @@ def main():
         p = sub.add_parser(name, help="Brain-owned cumulative phase accounting; no native collection or activation")
         p.add_argument("allocation_id")
         if name.endswith("-record"): p.add_argument("request", type=Path)
+    for operation in ("acquire", "prepare", "check", "delivery", "observe-process", "release", "state", "recover"):
+        p = sub.add_parser("runner-handoff-" + operation, help="Brain-owned standard-policy runner handoff; no native transport")
+        p.add_argument("worker_id")
+        if operation == "check": p.add_argument("handoff_hash")
+        elif operation not in ("state", "recover"): p.add_argument("request", type=Path)
     p = sub.add_parser("mission-draft", help="Designated brain proposes a version; owner reviews in the dashboard")
     p.add_argument("spec", type=Path); p.add_argument("--revision", type=int, required=True); p.add_argument("--id", required=True)
     p = sub.add_parser("native-observe"); p.add_argument("observation", type=Path)
@@ -105,7 +110,7 @@ def main():
         raise Refusal("--workspace requires --platform")
     if args.state and (args.workspace or args.platform):
         raise Refusal("Choose a registered workspace or --state, not both")
-    if (args.action == "run-readiness" or args.action.startswith(("task-contract-", "native-create-", "native-task-", "native-account-", "phase-usage-"))) and not (args.platform and args.workspace):
+    if (args.action == "run-readiness" or args.action.startswith(("task-contract-", "native-create-", "native-task-", "native-account-", "phase-usage-", "runner-handoff-"))) and not (args.platform and args.workspace):
         raise Refusal("This operation requires an explicit registered workspace")
     registry = Registry(args.platform, create=args.action == "workspace-register") if args.platform else None
     if args.action.startswith("platform-reconciliation-"):
@@ -232,6 +237,18 @@ def main():
             out = getattr(api, action.removeprefix("native-create-"))(token, args.worker_id, request)
         elif action == "native-create-check": out = api.check(token, args.worker_id, args.handoff_hash)
         else: out = getattr(api, action.removeprefix("native-create-"))(token, args.worker_id)
+    elif action.startswith("runner-handoff-"):
+        from .admission import AdmissionStore
+        from .dispatch_admission import DispatchAdmission
+        from .runner_handoff import RunnerHandoff
+        from .observations import read_regular
+        api = RunnerHandoff(DispatchAdmission(registry, args.workspace, AdmissionStore(registry.root)))
+        operation = action.removeprefix("runner-handoff-").replace("-", "_")
+        if operation == "check": out = api.check(token, args.worker_id, args.handoff_hash)
+        elif operation in ("state", "recover"): out = getattr(api, operation)(token, args.worker_id)
+        else:
+            path = args.request.absolute()
+            out = getattr(api, operation)(token, args.worker_id, json.loads(read_regular(path, path.parent, 16000)))
     elif action.startswith("phase-usage-"):
         from .admission import AdmissionStore
         from .dispatch_admission import DispatchAdmission

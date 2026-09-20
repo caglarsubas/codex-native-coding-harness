@@ -114,10 +114,13 @@ class RunnerCoordination(NativeLifecycle):
             self.attach_in(db, worker, claim, record)
             return self.receipt(worker, record)
 
-    def begin(self, token, worker_id, request):
+    def begin(self, token, worker_id, request, *, one_shot=False):
         request_shape(request, BEGIN); resource(request["runnerKey"], "runner"); identifier(request["reservationId"])
-        prior = self.replay(token, worker_id, "runner_launch", request)
-        if prior: return prior
+        # A receipt replay is useful for the internal coordinator, but must never
+        # become a second send permission in the designated-brain handoff.
+        if not one_shot:
+            prior = self.replay(token, worker_id, "runner_launch", request)
+            if prior: return prior
         # Local one-shot marker first. There is no native call; any retained
         # marker nevertheless forbids retry because an adapter may have sent.
         for phase in ("local", "shared"):
@@ -126,6 +129,9 @@ class RunnerCoordination(NativeLifecycle):
                 with self.store.tx() as kernel:
                     claim, record, state = self.state_in(kernel, intent)
                     require(request["expectedHash"] == digest(record), "Runner journal changed before launch")
+                    if one_shot and phase == "local":
+                        require(self.replay_in(kernel, intent, "runner_launch", request) is None,
+                                "Runner launch already recorded; reconcile, never resend")
                     runner = self.current_runner(state, request)
                     require(runner["status"] == "reserved", "Runner launch already attempted; reconcile, never resend")
                     if phase == "local":

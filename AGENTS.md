@@ -236,3 +236,16 @@ No direct legacy usage overwrite after journal activation. Do not use dashboard
 best-effort totals, account percentages or fabricated coverage as phase evidence.
 No live baseline/observation write, mixed-version rollout, allocation, installation,
 schedule, policy relaxation or Play activation is authorized by source delivery.
+
+WSP-04D4 adds the designated-brain standard-policy runner handoff CLI. See
+docs/RUNNER-HANDOFF.md. Exact owner-approved execution and confirmed local task
+bindings produce fixed native message arguments; instruction artifact bodies
+remain inert. Consume the existing local/shared launch boundary once immediately
+before the brain's native send. Receipt replay/recovery must never return another
+send permission. Lost responses, local-only intents and ambiguous delivery retain
+ownership with no retry, cancellation as unlaunched or timeout release. Delivery
+does not prove process activity, exit, cleanup, CI or acceptance. Preserve process
+timestamps and keep late safety observations available after Pause; maintenance
+fences still govern cleanup release. No model override, private API, transport,
+live execution, installation, mixed-version writers or Play activation follows
+from source delivery. Harness still requires its separate trusted adapter.

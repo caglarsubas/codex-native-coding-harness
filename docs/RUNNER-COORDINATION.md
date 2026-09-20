@@ -42,6 +42,10 @@ increment has no CLI/HTTP/assistant write route, scheduler, transport, native ar
 public Play or live migration. No live ledger, dashboard process, installed skill,
 schedule, credentials, inference service or product repository changes.
 
+WSP-04D4 separately adds the designated-brain [runner handoff CLI](RUNNER-HANDOFF.md)
+around this coordinator. It emits a one-use native message contract and separates
+delivery from process evidence; the helper still performs no native call or test.
+
 ## Internal contract
 
 Construct `RunnerCoordination` from an existing `DispatchAdmission`. Every call
