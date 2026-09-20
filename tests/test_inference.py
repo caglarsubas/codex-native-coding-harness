@@ -2,6 +2,7 @@ import copy
 import fcntl
 import io
 import json
+from http.client import IncompleteRead
 from pathlib import Path
 import tempfile
 import unittest
@@ -10,7 +11,7 @@ from unittest.mock import Mock, patch
 
 from orchestrator.core import Ledger, Refusal, canonical
 from orchestrator.inference import (Client, NoRedirect, Settings, generate, projection,
-    public_status, settings, validate_response)
+    output_token_limit, public_status, settings, validate_response)
 from orchestrator.observations import artifact, capture
 
 
@@ -24,6 +25,12 @@ def response():
             "headline": "Dispatch is paused", "summary": "No managed work has started.",
             "attention": [{"text": "Pilot acceptance is pending.", "evidence": ["F1"]}],
             "nextSteps": [{"text": "Review a bounded packet before authorizing work.", "evidence": ["F1", "F2"]}]})}}]}
+
+
+def stream(value):
+    choice = value["choices"][0]
+    event = {**value, "choices": [{"index": 0, "delta": choice["message"], "finish_reason": choice["finish_reason"]}]}
+    return io.BytesIO(("data: " + json.dumps(event) + "\n\ndata: [DONE]\n\n").encode())
 
 
 class InferenceTest(unittest.TestCase):
@@ -85,16 +92,19 @@ class InferenceTest(unittest.TestCase):
     def test_transport_fixed_auth_and_payload_without_fallback_or_tenant(self):
         client = Client(CONFIG)
         client.opener = Mock()
-        client.opener.open.return_value = io.BytesIO(json.dumps(response()).encode())
+        client.opener.open.return_value = stream(response())
         client.summarize(projection(self.ledger.snapshot()))
         request = client.opener.open.call_args.args[0]
         self.assertEqual(request.full_url, CONFIG.base_url + "/chat/completions")
         self.assertEqual(client.opener.open.call_args.kwargs, {"timeout": 90})
         self.assertEqual(request.get_header("Authorization"), "Bearer " + CONFIG.api_key)
         payload = json.loads(request.data)
-        self.assertEqual(set(payload), {"model", "messages", "temperature", "max_tokens", "stream"})
+        self.assertEqual(set(payload), {"model", "messages", "temperature", "max_tokens", "stream", "response_format", "stream_options"})
         self.assertEqual(payload["max_tokens"], 2048)
-        self.assertFalse(payload["stream"])
+        self.assertTrue(payload["stream"])
+        self.assertEqual(payload["response_format"], {"type": "json_object"})
+        self.assertEqual(payload["stream_options"], {"include_usage": True})
+        self.assertEqual(request.get_header("Accept"), "text/event-stream")
         self.assertNotIn(CONFIG.api_key, str(payload))
         self.assertIsNone(NoRedirect().redirect_request(request, None, 302, "", {}, "https://elsewhere.example"))
         large = Client(Settings(CONFIG.base_url, CONFIG.api_key, "gemma4:26b"))
@@ -110,6 +120,88 @@ class InferenceTest(unittest.TestCase):
             self.assertNotIn("private-provider", str(result))
         with patch.object(client, "request", return_value={"data": None}):
             self.assertRaises(Refusal, client.check)
+
+    def test_availability_check_requires_both_configured_models(self):
+        config = Settings(CONFIG.base_url, CONFIG.api_key, assistant_model="qwen3.8:27b")
+        client = Client(config)
+        with patch.object(client, "request", return_value={"data": [{"id": CONFIG.model}]}):
+            with self.assertRaisesRegex(Refusal, "assistant model"): client.check()
+        with patch.object(client, "request", return_value={"data": [{"id": CONFIG.model}, {"id": config.assistant_model}]}):
+            self.assertEqual(client.check()["assistantModel"], config.assistant_model)
+
+    def test_client_cannot_bypass_local_models_with_direct_settings(self):
+        with patch("orchestrator.inference.build_opener") as opener:
+            for change in ({"model": "external:openrouter"}, {"assistant_model": "external:openrouter"}, {"model": {}}):
+                with self.subTest(change=change), self.assertRaises(Refusal):
+                    Client(Settings(CONFIG.base_url, CONFIG.api_key, **change))
+            opener.assert_not_called()
+
+    def test_shared_client_refuses_model_budget_and_stream_overrides_before_network(self):
+        client = Client(CONFIG); client.opener = Mock()
+        base = {"model": CONFIG.model, "max_tokens": 2048, "stream": True}
+        changes = [{"model": "external:openrouter"}, {"model": "llama3.2:3b"}, {"stream": False}, {"stream": 1}]
+        changes += [{"max_tokens": value} for value in (None, True, 1023, 2049, 100000, 2048.0, "2048")]
+        for change in changes:
+            with self.subTest(change=change), self.assertRaises(Refusal): client.request("chat/completions", base | change)
+        for payload in (None, [], {}):
+            with self.assertRaises(Refusal): client.request("chat/completions", payload)
+        with self.assertRaises(Refusal): client.request("models", base)
+        with self.assertRaises(Refusal): client.request("embeddings", base)
+        client.opener.open.assert_not_called()
+
+    def test_shared_budgets_obey_service_minimum_and_model_caps(self):
+        for model, maximum in (("ministral-3:8b", 2048), ("llama3.2:3b", 2048), ("qwen3.8:27b", 4096), ("gemma4:26b", 4096)):
+            with self.subTest(model=model):
+                self.assertEqual(output_token_limit(model), maximum)
+                client = Client(Settings(CONFIG.base_url, CONFIG.api_key, model)); client.opener = Mock()
+                for budget in (1024, maximum):
+                    client.opener.open.return_value = stream(response() | {"model": model})
+                    result = client.request("chat/completions", {"model": model, "max_tokens": budget, "stream": True})
+                    self.assertEqual(result["model"], model)
+
+    def test_streamed_brief_is_validated_and_retained_only_after_completion(self):
+        opener = Mock(); opener.open.return_value = stream(response())
+        before = self.ledger.snapshot()
+        with patch("orchestrator.inference.build_opener", return_value=opener):
+            result = generate(self.ledger, self.env)
+        self.assertEqual(result["status"], "generated")
+        self.assertEqual(result["report"]["routing"], "local-inference")
+        self.assertEqual(result["report"]["usage"]["total_tokens"], 700)
+        self.assertEqual(opener.open.call_count, 1)
+        self.assertTrue(json.loads(opener.open.call_args.args[0].data)["stream"])
+        for key in ("meta", "workers", "queue", "commands"):
+            self.assertEqual(self.ledger.snapshot()[key], before[key])
+
+    def test_failed_stream_preserves_previous_brief_without_fallback_or_retry(self):
+        with patch.object(Client, "summarize", return_value=response()): generate(self.ledger, self.env)
+        before = self.ledger.snapshot()
+        cut = stream(response()).getvalue().split(b"data: [DONE]")[0]
+        bad_route = response(); bad_route.pop("request_key_source")
+        truncated = response(); truncated["choices"][0]["finish_reason"] = "length"
+        for wire in (cut, stream(bad_route).getvalue(), stream(truncated).getvalue()):
+            opener = Mock(); opener.open.return_value = io.BytesIO(wire)
+            with patch("orchestrator.inference.build_opener", return_value=opener), self.assertRaises(Refusal):
+                generate(self.ledger, self.env, force=True)
+            self.assertEqual(opener.open.call_count, 1)
+            after = self.ledger.snapshot()
+            for key in ("meta", "workers", "queue", "commands", "observations"):
+                self.assertEqual(after[key], before[key])
+
+    def test_midstream_http_cutoff_is_sanitized_without_retry(self):
+        client = Client(CONFIG); client.opener = Mock()
+        client.opener.open.return_value.__enter__ = Mock(return_value=Mock())
+        client.opener.open.return_value.__exit__ = Mock(return_value=False)
+        wire = client.opener.open.return_value.__enter__.return_value
+        wire.readline.side_effect = IncompleteRead(CONFIG.api_key.encode())
+        with self.assertRaises(Refusal) as caught: client.summarize(projection(self.ledger.snapshot()))
+        self.assertNotIn(CONFIG.api_key, str(caught.exception))
+        self.assertIsNone(caught.exception.__cause__)
+        self.assertEqual(client.opener.open.call_count, 1)
+
+    def test_credential_directory_and_env_stay_ignored_in_all_clones(self):
+        patterns = (Path(__file__).resolve().parents[1] / ".gitignore").read_text().splitlines()
+        for pattern in (".planeon/", ".env", ".env.*", "!.env.example"):
+            self.assertIn(pattern, patterns)
 
     def test_missing_usage_is_not_zero_spend(self):
         value = response(); value["usage"] = None

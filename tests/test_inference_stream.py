@@ -30,7 +30,7 @@ class InferenceStreamTest(unittest.TestCase):
     def test_transport_uses_sse_accept_with_same_auth_and_no_extra_route(self):
         c = Client(CONFIG); c.opener = Mock()
         c.opener.open.return_value = sse([event("ok", "stop")])
-        result = c.request("chat/completions", {"stream":True})
+        result = c.request("chat/completions", {"model": CONFIG.model, "max_tokens": 2048, "stream":True})
         req = c.opener.open.call_args.args[0]
         self.assertEqual(req.get_header("Accept"), "text/event-stream")
         self.assertEqual(req.get_header("Authorization"), "Bearer "+CONFIG.api_key)

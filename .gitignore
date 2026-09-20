@@ -1,5 +1,6 @@
 .state/
 .platform/
+.planeon/
 reports/
 __pycache__/
 *.pyc

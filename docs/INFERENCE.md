@@ -1,6 +1,6 @@
 # Optional portfolio intelligence
 
-The first integration with `llm-inference-engine` is an on-demand executive brief
+The integration with the Planeon `llm-inference-engine` tenancy provides an on-demand executive brief
 on **Overview**: what is recorded, what needs attention, and read-only next steps.
 The model is an adviser, never the brain, a scheduler, or an approval authority.
 Dispatch, heartbeat, pilot and repository merge policies are unchanged.
@@ -20,7 +20,8 @@ or controller authority.
    Optional `CODEX_LLM_ASSISTANT_MODEL` selects a different model from this same
    allowlist for chat only. Omit it to reuse the brief model. The endpoint and
    bearer tenancy remain shared; neither model is selectable from the browser.
-4. Run `python3 -m orchestrator.cli inference-check`, then choose **Generate brief**
+4. Run `python3 -m orchestrator.cli inference-check` to verify both configured models
+   are advertised, then choose **Generate brief**
    on Overview, or run `python3 -m orchestrator.cli executive-summary`.
 
 The CLI and dashboard load the same file on demand; configuration changes do not
@@ -29,7 +30,10 @@ shell script: no interpolation, `source`, or command execution. Files with group
 or world access, symlinks, duplicate settings or non-HTTPS URLs are refused.
 Do not put real endpoints or credentials in tracked examples, docs or screenshots.
 `.env` and `.env.*` are ignored; only the credential-free `.env.example` is tracked.
-The supplied credential document must remain outside the repository.
+Keep the supplied credential document outside the repository or in its ignored
+`.planeon/` directory; never force-add it. Ignore rules prevent accidental staging,
+not deliberate publication. The document is not runtime configuration: `.env`
+remains the only credential source. Never print its value in diagnostics.
 
 All portfolios in one checkout share this server-side configuration. Separate
 checkouts/configurations are required for separate service identities; selecting a
@@ -76,10 +80,14 @@ owner for a restricted key if stronger account-level enforcement is needed.
   not a global tenant quota; other portfolios/clients can still contend.
 - A matching snapshot/model/prompt version is reused for 15 minutes. A new source
   snapshot invalidates it; **Regenerate brief** explicitly bypasses this cache.
-- Requests are non-streaming, with a 90-second socket timeout, a 2,048 output-token
-  cap for small models (4,096 for the two larger reasoning models), and bounded
-  response size. This is a socket timeout, not a strict total
-  wall-clock deadline for a slowly arriving response. There is no background retry.
+- Both briefs and chat use server-side SSE and JSON-object output. Partial text
+  is buffered privately until completion and schema/routing validation; a failed
+  stream retains the previous brief. There is no blocking-generation fallback.
+  Requests use 2,048 output tokens for small models (4,096 for the larger models);
+  the shared client refuses budgets below 1,024, above the model cap, noninteger
+  budgets and model overrides. A 90-second socket timeout, 240-second processing
+  window checked at each read and bounded stream size apply. This is not a hard
+  whole-request deadline while a socket read is pending. There is no background retry.
 - HTTP 429 gives a manual retry hint. Authentication errors, timeouts, null or
   truncated answers, unexpected models/routing, tool calls, invalid JSON/schema,
   or unknown evidence IDs keep the previous brief and show an explicit failure.
@@ -89,11 +97,16 @@ owner for a restricted key if stronger account-level enforcement is needed.
 - Every successful brief becomes an immutable JSON artifact version, ordered by
   generation time. Earlier versions remain readable in Artifact library. Export
   includes the last brief with its original evidence, not a fresh verification.
-- Prompt/completion token counts are service-reported, separate from Codex usage.
+- Streams explicitly request final usage with `stream_options.include_usage`.
+  Prompt/completion token counts are service-reported, separate from Codex usage.
+  If the service omits them, they remain unknown, not zero.
   Retained-brief totals exclude failed/discarded calls and older versions without
   usage metadata. They are not complete account usage or a currency estimate.
 - The supplied service is a shared single-node proof of concept, not a production
   SLA. Its benchmark is grounded QA, not demonstrated coding-agent competence.
+- The documented tenant queue holds four requests; overflow returns 429 with a
+  retry hint. The local portfolio lock is not a cross-client tenant queue limit.
+  Do not retry automatically or request quota increases without owner approval.
 - Embeddings and local vision are unsupported by the supplied contract. No vector
   search, screenshot understanding, or autonomous coding dependency is added.
 
@@ -102,6 +115,16 @@ Use `python3 -m orchestrator.cli inference-status` for configuration/freshness a
 Removing `.env` disables new requests without affecting orchestration or retained
 briefs. Stopping a server can abandon an in-flight response; restart never retries
 it automatically. Native task lifecycle remains exclusively in Codex.
+
+### Planeon contract update
+
+[Issue #38](https://github.com/caglarsubas/codex-native-coding-harness/issues/38)
+reissued the existing tenant notes under the Planeon name; no new key/endpoint was
+required. This client does not consume OpenTelemetry attributes or pin the model
+plane usage-ledger schema, so the `planeon.*` / `planeon-model-usage-v2.schema.json`
+rename needs no telemetry migration here. It does not add external telemetry.
+See [contract alignment and verification](PLANEON-INFERENCE.md). Live configuration
+checks, merged source, installed source and dashboard runtime remain separate.
 
 ## Assistant chat data boundary
 

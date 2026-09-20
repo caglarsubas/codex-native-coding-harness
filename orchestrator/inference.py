@@ -4,6 +4,7 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass, field
 import fcntl
+from http.client import HTTPException
 import json
 import os
 from pathlib import Path
@@ -26,6 +27,12 @@ PROMPT_VERSION = 4
 CACHE_SECONDS = 15 * 60
 MAX_RESPONSE = 128 * 1024
 MAX_STREAM_BYTES = 4 * 1024 * 1024
+
+
+def output_token_limit(model):
+    require(isinstance(model, str) and model in LOCAL_MODELS,
+            "Only documented on-prem models are allowed; external-provider routing is disabled in this client")
+    return 2048 if model in ("ministral-3:8b", "llama3.2:3b") else 4096
 
 
 def stream_response(response, config, started):
@@ -157,12 +164,22 @@ class NoRedirect(HTTPRedirectHandler):
 
 class Client:
     def __init__(self, config):
+        output_token_limit(config.model)
+        output_token_limit(config.assistant_model or config.model)
         self.config = config
         # Do not forward the bearer key via redirects or ambient HTTP proxies.
         self.opener = build_opener(ProxyHandler({}), NoRedirect())
 
     def request(self, route, payload=None, *, timeout=90):
         require(route in ("models", "chat/completions"), "Unsupported inference operation")
+        if route == "models":
+            require(payload is None, "Model availability checks cannot contain a generation payload")
+        else:
+            require(isinstance(payload, dict) and payload.get("model") == self.config.model,
+                    "Generation must use the configured local model")
+            require(type(payload.get("max_tokens")) is int and 1024 <= payload["max_tokens"] <= output_token_limit(self.config.model),
+                    "Generation requires a bounded output-token budget of at least 1024")
+            require(payload.get("stream") is True, "Generation requires streaming; blocking fallback is disabled")
         streaming = bool(payload and payload.get("stream"))
         request = Request(self.config.base_url + "/" + route,
             data=canonical(payload).encode() if payload is not None else None,
@@ -192,7 +209,7 @@ class Client:
             raise Refusal(f"Inference service returned HTTP {error.code}; no new answer was published.") from None
         except (TimeoutError, socket.timeout):
             raise Refusal("Inference timed out before a complete response. No automatic retry was sent.") from None
-        except (URLError, ssl.SSLError, OSError):
+        except (URLError, ssl.SSLError, OSError, HTTPException):
             raise Refusal("Inference service could not be reached within the request limit; no new answer was published.") from None
         except Refusal:
             raise
@@ -205,7 +222,10 @@ class Client:
         require(isinstance(data, list), "Service returned an invalid model listing")
         models = {m["id"] for m in data if isinstance(m, dict) and isinstance(m.get("id"), str)}
         require(self.config.model in models, "The configured on-prem model is not advertised by this service")
-        return {"status": "available", "model": self.config.model, "localModels": sorted(models & LOCAL_MODELS), "checkedAt": time.time()}
+        assistant_model = self.config.assistant_model or self.config.model
+        require(assistant_model in models, "The configured assistant model is not advertised by this service")
+        return {"status": "available", "model": self.config.model, "assistantModel": assistant_model,
+                "localModels": sorted(models & LOCAL_MODELS), "checkedAt": time.time()}
 
     def summarize(self, facts):
         prompt = (
@@ -235,8 +255,8 @@ class Client:
         )
         return self.request("chat/completions", {"model": self.config.model,
             "messages": [{"role": "system", "content": prompt}, {"role": "user", "content": canonical(facts)}],
-            "max_tokens": 2048 if self.config.model in ("ministral-3:8b", "llama3.2:3b") else 4096,
-            "temperature": 0.2, "stream": False})
+            "max_tokens": output_token_limit(self.config.model), "response_format": {"type": "json_object"},
+            "temperature": 0.2, "stream": True, "stream_options": {"include_usage": True}})
 
 
 def projection(state):

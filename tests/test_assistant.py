@@ -91,6 +91,7 @@ class AssistantTest(unittest.TestCase):
         self.assertEqual(route, "chat/completions")
         self.assertEqual(payload["model"], CONFIG.model)
         self.assertTrue(payload["stream"])
+        self.assertEqual(payload["stream_options"], {"include_usage": True})
         self.assertEqual(payload["response_format"], {"type": "json_object"})
         self.assertEqual(payload["max_tokens"], 2048)
         self.assertNotIn("tools", payload)
