@@ -341,7 +341,7 @@ class NativeCreationTest(NativeCreationFixture, unittest.TestCase):
         for operations in (["edit", "merge"], ["archive"], ["test"]):
             with self.assertRaises(Refusal): creation.arguments(self.fx.worker(), seed, {"spec": {"operations": operations}}, {"projectId": "project-a"})
         with self.assertRaisesRegex(Refusal, "20 KiB"):
-            creation.arguments(self.fx.worker(), {**seed, "objective": "x"*20000}, {"spec": {"operations": ["edit"]}}, {"projectId": "project-a"})
+            creation.arguments(self.fx.worker(), {**seed, "objective": "x"*20000}, {"spec": {"operations": ["edit"], "missionHash": "a"*64}}, {"projectId": "project-a"})
 
     def test_consumed_check_pointer_cannot_disappear_or_hide_history(self):
         handoff = self.begin(); self.check(handoff)
@@ -400,11 +400,15 @@ class NativeCreationDelegationTest(NativeCreationFixture, unittest.TestCase):
             mock.start(); self.addCleanup(mock.stop)
         super().setUp()
 
-    def test_first_handoff_requires_exact_owner_even_with_valid_delegation(self):
-        before = self.logical()
-        with patch.object(creation, "inspect_base", side_effect=AssertionError("No delegated first pilot")):
-            with self.assertRaisesRegex(Refusal, "exact owner task approval"): self.begin()
-        self.assertEqual(before, self.logical())
+    def test_owner_delegated_handoff_preserves_seed_defaults_and_one_shot_check(self):
+        handoff = self.begin()
+        args = handoff["arguments"]
+        self.assertEqual(set(args), {"title", "prompt", "target"})
+        self.assertIn("Mission SHA-256", args["prompt"])
+        self.assertIn(self.fx.worker()["seedHash"], args["prompt"])
+        self.assertTrue(self.check(handoff)["sendNow"])
+        with self.assertRaises(Refusal): self.check(handoff)
+        self.assertFalse(self.record(handoff)["executionAuthorized"])
 
 
 if __name__ == "__main__": unittest.main()

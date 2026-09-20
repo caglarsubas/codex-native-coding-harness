@@ -1,5 +1,10 @@
 # WSP-04D5 — brain-owned result evidence and review handoff
 
+Update: [WSP-05C](BRAIN-COORDINATOR.md) also supports valid owner-delegated
+standard-policy approvals, including local result preservation. This supersedes
+the initial exact-owner-only scope below, not settlement, proof provenance,
+independent review, Pause or current authority requirements. No live acceptance.
+
 Plan saved before implementation, following PR #35 merged at
 `e8839dcf10d05d5536f0fa041b315f3f4d81f31b`.
 

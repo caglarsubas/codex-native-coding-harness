@@ -64,8 +64,7 @@ class CorrectionHandoff(NativeLifecycle):
         return self.document_in(db, worker, intent, key) if key else None
 
     def scope_in(self, db, worker, intent, state, request):
-        approval = runs.document(db, intent["approvalHash"], "run_task_approval")
-        require(approval["actor"] == "dashboard_owner", "Correction handoff requires exact owner task approval")
+        runs.standard_handoff_scope(db, intent)
         seed = runs.document(db, intent["seedHash"], "seed")
         require(seed["policyProfile"] == "standard", "Harness requires its trusted correction adapter")
         creation = state["creation"]

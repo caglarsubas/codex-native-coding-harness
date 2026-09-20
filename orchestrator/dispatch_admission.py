@@ -104,13 +104,16 @@ class DispatchAdmission:
         issues = [i for i in eligibility_issues(q, repo, seed, workers)
                   if i["code"] not in ("phase_contract_fence", "approval", "approval_binding")]
         require(not issues, issues[0]["detail"] if issues else "")
-        others = [w for w in workers if w["status"] in ACTIVE and w["id"] != worker_id]
+        self.local_capacity_in(db, meta, q["repository"], worker_id, runner_owner=runner_owner)
+        return q, contract
+
+    def local_capacity_in(self, db, meta, repository, worker_id, *, runner_owner=None):
+        others = [w for w in self.ledger.all(db, "workers") if w["status"] in ACTIVE and w["id"] != worker_id]
         limit = min(meta["concurrency"], meta["maximumConcurrency"], 1 if not meta["pilotPassed"] else 16)
         require(len(others) < limit, "Local worker capacity exhausted")
-        require(not any(w["repository"] == q["repository"] for w in others), "Local repository already owned")
+        require(not any(w["repository"] == repository for w in others), "Local repository already owned")
         require(meta["runner"] is None or runner_owner == worker_id == meta["runner"].get("workerId"),
                 "Local runner ownership must be reconciled first")
-        return q, contract
 
     def intent_in(self, db, worker_id):
         worker = self.ledger.get(db, "workers", worker_id)

@@ -1,5 +1,10 @@
 # WSP-04D1 — brain-owned native creation handoff
 
+Update: [WSP-05C](BRAIN-COORDINATOR.md) adds valid owner-delegated standard-policy
+task approvals to the original exact-owner scope below. Native defaults, exact
+inheritance, one-shot delivery and all current effect checks remain mandatory.
+This is source support, not a live activation or migration.
+
 Plan saved before implementation on merged PR #30 (`7f758d2`). This is the
 first integration slice toward the supervised single-workspace pilot, not another
 alternative scheduler or an autonomous Play release.

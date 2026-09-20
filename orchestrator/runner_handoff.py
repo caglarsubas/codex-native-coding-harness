@@ -64,8 +64,7 @@ class RunnerHandoff(RunnerCoordination):
         return doc
 
     def scope_in(self, db, worker, intent, state):
-        approval = runs.document(db, intent["approvalHash"], "run_task_approval")
-        require(approval["actor"] == "dashboard_owner", "First runner handoff requires exact owner task approval")
+        runs.standard_handoff_scope(db, intent)
         seed = runs.document(db, intent["seedHash"], "seed")
         require(seed["policyProfile"] == "standard", "Harness requires its trusted acceptance adapter")
         return arguments(worker, intent, seed, state)

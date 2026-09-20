@@ -36,7 +36,10 @@ def arguments(worker, seed, contract, project):
     operations = contract["spec"]["operations"]
     require("edit" in operations and set(operations) <= {"edit", "test", "commit", "open_pr"},
             "First native handoff supports edit/test/commit/open_pr scope only; no merge or archive")
-    prompt = ("Implement the exact owner-approved packet at the base below in this task.\n"
+    prompt = ("Implement the exact phase-authorized packet at the base below in this task.\n"
+              "Seed SHA-256: " + digest(seed) + "\n"
+              "Mission SHA-256: " + contract["spec"]["missionHash"] + "\n"
+              "Task contract SHA-256: " + digest(contract) + "\n"
               "Permitted operations: " + ", ".join(operations) + ". No other operations are authorized.\n"
               "Test/acceptance commands require a separate brain-granted runner reservation; stop before them. "
               "Do not merge, archive, create other tasks or expand scope.\n" + worker_prompt(worker["id"], seed))
@@ -73,10 +76,9 @@ class NativeCreation:
                 "Creation boundary already crossed or changed; never reissue a native handoff")
         require(self.check_in(db, worker, intent) is None, "Native send check already consumed; reconcile, never resend")
         _, contract = self.bridge.task_in(db, meta, intent["runHash"], intent["queueId"], intent["approvalHash"], worker_id)
-        approval = runs.document(db, intent["approvalHash"], "run_task_approval")
-        require(approval["actor"] == "dashboard_owner", "First native handoff requires exact owner task approval")
         require(contract["repositoryBinding"]["policyProfile"] == "standard",
                 "Native creation requires standard policy; Harness needs its trusted adapter")
+        runs.standard_handoff_scope(db, intent)
         repo = self.ledger.get(db, "repos", intent["repository"])
         seed = runs.document(db, intent["seedHash"], "seed")
         require(repo["policyProfile"] == seed["policyProfile"] == "standard", "Standard policy binding required")

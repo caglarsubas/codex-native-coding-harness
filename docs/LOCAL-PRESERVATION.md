@@ -1,5 +1,10 @@
 # WSP-04C3g — local result preservation
 
+Update: [WSP-05C](BRAIN-COORDINATOR.md) permits valid owner-delegated standard-policy
+task approvals through result preservation. Exact settled task, retained evidence,
+Git identity, current authority and private-byte checks remain unchanged. This
+does not grant delegated archival, a retention policy or live activation.
+
 The later [owner-requested archive handoff](ARCHIVE-HANDOFF.md) requires this
 measured proof plus separate acceptance, cleanup acknowledgment and fresh native
 safety evidence. Preservation by itself never authorizes archival.

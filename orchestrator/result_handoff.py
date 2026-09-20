@@ -94,8 +94,7 @@ def scope_in(db, intent):
     require(seed["policyProfile"] == "standard", "Harness requires its trusted result adapter")
     contract = runs.document(db, intent["contractHash"], "task_contract")
     require(contract["repositoryBinding"]["policyProfile"] == "standard", "Harness requires its trusted result adapter")
-    approval = runs.document(db, intent["approvalHash"], "run_task_approval")
-    require(approval["actor"] == "dashboard_owner", "First result handoff requires exact owner task approval")
+    runs.standard_handoff_scope(db, intent)
     return seed
 
 

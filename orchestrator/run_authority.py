@@ -201,26 +201,48 @@ def contract_in(ledger, db, queue_id, contract_hash):
 
 def approve_task(ledger, request, *, actor, token=None):
     with ledger.tx() as db:
-        _, key, fingerprint, prior = request_in(ledger, db, request, actor, "approve_task",
-            {"runHash", "queueId", "contractHash", "scopeAssessment", "confirmed"}, token)
-        if prior: return prior
-        require(request["confirmed"] is True, "Explicit exact task confirmation required")
-        assessment = missions.text(request["scopeAssessment"], "Task scope assessment")
-        grant = require_current(ledger, db, request["runHash"])
-        q, contract = contract_in(ledger, db, request["queueId"], request["contractHash"])
-        require(q["status"] in ("proposed", "approved") and not db.execute("SELECT 1 FROM workers WHERE queue_id=?", (q["id"],)).fetchone(),
-                "Owned task requires future continuation authority, not a new approval")
-        require(actor == "dashboard_owner" or grant["authority"]["approvalMode"] == "phase_delegated", "Exact owner task approval required")
-        require(actor == "dashboard_owner" or contract["repositoryBinding"]["policyProfile"] != "harness", "Harness requires exact owner task approval")
-        old_hash = q.get("phaseApprovalHash")
-        if old_hash is not None: document(db, old_hash, "run_task_approval")
-        approval = {"kind": "run_task_approval", "workspaceId": missions.workspace(ledger), "runHash": request["runHash"],
-                    "generation": grant["generation"], "queueId": q["id"], "contractHash": request["contractHash"],
-                    "actor": actor, "scopeAssessment": assessment, "at": time.time(), "previousHash": old_hash, "status": "approved"}
-        approval_hash = retain(db, "run_task_approval", approval)
-        q["phaseApprovalHash"] = approval_hash
-        ledger.put(db, "queue", q["id"], q)
-        return receipt_in(ledger, db, key, fingerprint, "approve_task", approvalHash=approval_hash, runHash=request["runHash"], queueId=q["id"])
+        return approve_task_in(ledger, db, request, actor=actor, token=token)
+
+
+def approve_task_in(ledger, db, request, *, actor, token=None):
+    """Same approval checks, composable with a retained brain decision atomically."""
+    require(db.in_transaction, "Task approval requires a transaction")
+    _, key, fingerprint, prior = request_in(ledger, db, request, actor, "approve_task",
+        {"runHash", "queueId", "contractHash", "scopeAssessment", "confirmed"}, token)
+    if prior: return prior
+    require(request["confirmed"] is True, "Explicit exact task confirmation required")
+    assessment = missions.text(request["scopeAssessment"], "Task scope assessment")
+    grant = require_current(ledger, db, request["runHash"])
+    q, contract = contract_in(ledger, db, request["queueId"], request["contractHash"])
+    require(q["status"] in ("proposed", "approved") and not db.execute("SELECT 1 FROM workers WHERE queue_id=?", (q["id"],)).fetchone(),
+            "Owned task requires future continuation authority, not a new approval")
+    require(actor == "dashboard_owner" or grant["authority"]["approvalMode"] == "phase_delegated", "Exact owner task approval required")
+    require(actor == "dashboard_owner" or contract["repositoryBinding"]["policyProfile"] != "harness", "Harness requires exact owner task approval")
+    old_hash = q.get("phaseApprovalHash")
+    if old_hash is not None: document(db, old_hash, "run_task_approval")
+    approval = {"kind": "run_task_approval", "workspaceId": missions.workspace(ledger), "runHash": request["runHash"],
+                "generation": grant["generation"], "queueId": q["id"], "contractHash": request["contractHash"],
+                "actor": actor, "scopeAssessment": assessment, "at": time.time(), "previousHash": old_hash, "status": "approved"}
+    approval_hash = retain(db, "run_task_approval", approval)
+    q["phaseApprovalHash"] = approval_hash
+    ledger.put(db, "queue", q["id"], q)
+    return receipt_in(ledger, db, key, fingerprint, "approve_task", approvalHash=approval_hash, runHash=request["runHash"], queueId=q["id"])
+
+
+def standard_handoff_scope(db, intent):
+    """Historical scope binding, NOT a substitute for current effect authority."""
+    approval = document(db, intent["approvalHash"], "run_task_approval")
+    grant = document(db, intent["runHash"], "run_authorization")
+    contract = document(db, intent["contractHash"], "task_contract")
+    require(contract["repositoryBinding"]["policyProfile"] == "standard", "Harness requires its trusted handoff adapter")
+    require(grant["actor"] == "dashboard_owner" and grant["settingsPolicy"] == "native_defaults" and
+            approval["workspaceId"] == grant["workspaceId"] == intent["workspaceId"] and
+            approval["runHash"] == intent["runHash"] and approval["queueId"] == intent["queueId"] and
+            approval["contractHash"] == intent["contractHash"] and approval["generation"] == grant["generation"] and
+            approval["status"] == "approved", "Exact owner-authorized run and task binding required")
+    require(approval["actor"] == "dashboard_owner" or (approval["actor"] == "designated_brain" and
+            grant["authority"]["approvalMode"] == "phase_delegated"), "Handoff requires exact owner approval or owner-delegated phase authority")
+    return approval
 
 
 def check_task_in(ledger, db, *, run_hash, queue_id, approval_hash, operation):
