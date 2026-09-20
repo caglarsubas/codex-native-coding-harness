@@ -1,5 +1,9 @@
 # WSP-04C3g — local result preservation
 
+The later [owner-requested archive handoff](ARCHIVE-HANDOFF.md) requires this
+measured proof plus separate acceptance, cleanup acknowledgment and fresh native
+safety evidence. Preservation by itself never authorizes archival.
+
 Plan saved before implementation, continuing PR #36 merged at
 `3fb9bf9b77256a1e7cbcd1f8148d3ca8bffaaefd`.
 

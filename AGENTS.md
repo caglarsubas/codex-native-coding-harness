@@ -293,3 +293,18 @@ not off-device backup, external LFS/submodule contents, native inactivity, seman
 correctness or archival permission. Supplied proofs retain their labelled boundary;
 no automatic promotion, acceptance or live migration. No source checkout mutation,
 network call, workflow execution, native action, skill install or Play activation.
+
+WSP-05A adds the exact-owner standard-policy archive handoff CLI. See
+docs/ARCHIVE-HANDOFF.md. Require accepted review, measured local preservation,
+explicit owner cleanup acknowledgment, a confirmed local root without descendants,
+and fresh complete native inactivity/worktree assertions before a one-shot check.
+Only the brain calls the existing native archive tool; Python never archives or
+cleans up. Retain unknown delivery without retry or cancellation as unsent. Only
+observed archival changes the archive projection; an unsent prepared handoff can
+be cancelled before check consumption. Queued receipt is not native in-flight work.
+Historical result/settlement reads must validate archive journals; archived tasks
+stay under safe-Pause supervision. Caller assertions are not host attestation.
+Legacy worker-ID-only managed archive and generic acknowledgments remain refused.
+No automatic/delegated archival, UI/catalog enablement, transcript guarantee, native
+transport, live archive, install, schedule, workflow, allocation or Play activation
+is authorized by source delivery. Quiesce older writers before a separate rollout.

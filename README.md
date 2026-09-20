@@ -233,6 +233,11 @@ retention and separate acceptance or rejection. Measured facts and supplied
 review claims stay distinct; historical reads/replay cannot renew old evidence.
 No worker response automatically completes a packet, and acceptance does not
 merge, archive, retry or advance the roadmap. Live activation remains separate.
+The [owner-requested archive CLI](docs/ARCHIVE-HANDOFF.md) adds a separate one-shot
+handoff for an accepted, locally preserved standard-policy root task. It requires
+explicit cleanup acknowledgment and fresh safety evidence; the brain calls the
+native tool. Uncertain outcomes never retry. This does not enable automatic
+archival, managed archive UI controls or live Play.
 The [non-creation recovery coordinator](docs/CREATION-RECOVERY.md) can close a
 failed creation attempt only after explicit final absence, cleanup and zero-task-
 usage evidence. It retains attempt counts and pending IDs, keeps the packet held,

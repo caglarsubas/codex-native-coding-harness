@@ -199,12 +199,16 @@ result writes are in one database transaction. Shared terminal recovery recogniz
 the later valid review without reverting it; its old `packetAccepted: false`
 receipt describes settlement only, not the newer result outcome.
 
-Legacy pilot qualification and archive submission/processing/acknowledgment refuse
-admission-managed workers. Dashboard and assistant do not offer that unsupported
-archive action. Completed admitted tasks stay in subsequent safe-Pause inventories,
+Legacy pilot qualification, worker-ID-only archive requests and generic archive
+acknowledgments refuse admission-managed workers. The later exact-owner
+[archive handoff](ARCHIVE-HANDOFF.md) is a narrow separate exception: accepted
+review, measured preservation, cleanup acknowledgment and fresh root-only safety
+evidence precede a consumed native send check. Dashboard and assistant still do
+not offer managed archive actions. Completed admitted tasks stay in safe-Pause inventories,
 including descendants; acceptance is not a fresh idle observation or archival.
 No cleanup, task closing, worktree deletion, concurrency upgrade or phase advance
-occurs. A new-generation continuation/rereview/archival contract remains necessary.
+occurs through result review. A new-generation continuation/rereview contract and
+delegated archival policy remain necessary.
 
 See [verification](RESULT-REVIEW-VERIFICATION.md). Independent observation
 collection, native transport, Harness acceptance, maintenance migration, exact
