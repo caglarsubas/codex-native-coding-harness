@@ -51,6 +51,15 @@ controller authority: an exact owner confirmation is required for submission.
   external observations with retained owners and preserve account/task usage
   baselines across versions. Freshness, coverage and counter resets stay explicit;
   no native collection, ownership release or activation is implied.
+- Optional [local result preservation](docs/LOCAL-PRESERVATION.md) retains a
+  bounded private Git bundle after a source-independent restore check, with exact
+  handoff/evidence versions. Local retention is not automatic acceptance, archival
+  permission or off-device backup.
+
+Development verification is local. Do not add/enable GitHub Actions workflows,
+dispatch/rerun jobs or provision paid CI: the owner requires no extra Actions
+billing. Read-only GitHub evidence checks do not execute workflows. Missing CI
+remains unavailable, never silently replaced by local-test success.
 
 Use the top **Navigation / Workspace / AI assistant** controls to show or collapse
 panes. Drag either divider, or focus it and use Left/Right (Shift for larger

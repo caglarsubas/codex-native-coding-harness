@@ -20,6 +20,13 @@ provider fallback or new paid-service integration. The installed PyYAML is used
 only by the read-only packet importer; it never executes a packet. Tests use
 temporary fixture repos.
 
+The owner requires no extra GitHub Actions billing. Keep verification local;
+do not add/enable Actions workflows, dispatch/rerun jobs, provision runners or
+introduce paid CI services. Inspect workflow configuration read-only before
+pushing a branch/PR; stop if it could trigger unapproved billable execution.
+No workflows are currently configured. Missing checks are not passing CI; never
+weaken an approved task's evidence requirements to manufacture CI success.
+
 Run `python3 -m unittest discover -s tests -v` and `node --check web/app.js`.
 Keep `.state/` private. Never commit auth tokens, conversation transcripts or
 the live SQLite database. No background dispatcher or private Codex API. The
@@ -274,3 +281,15 @@ No live collection/acceptance, installed skill update, admission setup or downgr
 is authorized by source delivery. Quiesce older writers before any future rollout;
 older cached helpers do not validate this proof protocol. No mixed-version or
 downgrade compatibility contract is provided.
+
+WSP-04C3g adds explicit local result preservation for exact owner-approved,
+settled standard-policy tasks. See docs/LOCAL-PRESERVATION.md. Retain bounded Git
+bundle bytes only in the private ledger; never publish or send them to inference.
+Restore into an empty temporary object store and check integrity before retention.
+Pin original repository identity and before/after authority, exact evidence versions
+and handoff bytes. Historical reads must validate bundle/manifest/inventory bytes
+without refreshing time or re-running Git. This proves local Git/evidence retention,
+not off-device backup, external LFS/submodule contents, native inactivity, semantic
+correctness or archival permission. Supplied proofs retain their labelled boundary;
+no automatic promotion, acceptance or live migration. No source checkout mutation,
+network call, workflow execution, native action, skill install or Play activation.

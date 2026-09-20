@@ -32,6 +32,10 @@ maintenance release, dashboard restart or Play activation is part of this run.
 Native/host/usage qualification, preservation truth, rereview/continuation/archival,
 owner rollout and supervised pilot remain separate work.
 
+The later optional [local preservation collector](LOCAL-PRESERVATION.md) measures
+bounded local Git/evidence retention. External/off-device preservation and archive
+qualification remain separate; supplied notes are not promoted into collector proof.
+
 ## Brain procedure
 
 Use an already admitted, exact **owner-approved standard-policy** task with its
@@ -58,6 +62,7 @@ workspace or legacy `--state` fallback is permitted.
 | `result-handoff-state WORKER` | Read exact settlement, task requirements, current revision and any recorded review |
 | `result-handoff-collect-source WORKER REQUEST_JSON` | Explicit local Git collection under the existing isolated source observer |
 | `result-handoff-collect-github WORKER REQUEST_JSON` | Explicit read-only exact PR/policy/check collection |
+| `result-handoff-collect-preservation WORKER REQUEST_JSON` | Retain a bounded locally restored Git bundle and exact handoff/evidence manifest |
 | `result-handoff-proof-add WORKER REQUEST_JSON` | Retain task-bound supplemental proof text; never mark it verified or accepted |
 | `result-handoff-proof-read WORKER REQUEST_JSON` | Read exact retained proof, provenance and original/retention timestamps |
 | `result-handoff-review WORKER REQUEST_JSON` | Apply one separate acceptance or changes-required review under current authority |
@@ -76,6 +81,9 @@ workspace or legacy `--state` fallback is permitted.
 4. Independently examine semantics, every acceptance criterion, required extra
    axes and preservation. Retain the supporting material using `proof-add` below.
    This CLI neither performs that review nor attests a supplied claim's truth.
+   Optionally use `collect-preservation` after the other result proofs; its exact
+   request schema, inventory/version binding and local-only limits are documented
+   in [local preservation](LOCAL-PRESERVATION.md).
 5. Build the exact result document from [result review](RESULT-REVIEW.md), using
    the collected source path set and GitHub PR/CI projection unchanged. Supply all
    eight axes, exact criteria and preservation proof. Source and CI artifacts must

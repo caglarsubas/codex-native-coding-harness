@@ -110,6 +110,8 @@ def artifact_in(db, key, intent, subject, result_commit):
     timestamp(info.get("observedAt"))
     from .result_handoff import validate_proof
     validate_proof(db, info, raw, intent, subject, result_commit)
+    from .local_preservation import validate_proof as validate_preservation
+    validate_preservation(db, info, raw, intent, subject, result_commit)
     return info, raw
 
 
@@ -143,6 +145,10 @@ def evidence_in(db, intent, settlement, request):
             require(settlement["priorClaim"]["startedAt"] <= info["observedAt"] <= proof["observedAt"],
                     "Proof bytes must be retained before their review observation")
             if "resultEvidenceObservedAt" in info: times.append(info["resultEvidenceObservedAt"])
+            if subject == "preservation":
+                from .local_preservation import validate_result
+                collected_at = validate_result(db, info, raw, intent, settlement, result)
+                if collected_at is not None: times.append(collected_at)
             if subject == "source":
                 from .source_observation import validate_source_proof
                 collected_at = validate_source_proof(db, info, raw, intent, settlement, result)

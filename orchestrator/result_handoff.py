@@ -101,6 +101,9 @@ def scope_in(db, intent):
 
 def handoff_proof(db, key, intent, subject, commit):
     info, raw = results.artifact_in(db, key, intent, subject, commit)
+    from .local_preservation import PROVENANCE as PRESERVATION_PROVENANCE
+    if subject == "preservation" and info.get("provenance") == PRESERVATION_PROVENANCE:
+        return info, raw  # Shared artifact reader has validated bundle and inventory.
     expected = source.PROVENANCE if subject == "source" else github.PROVENANCE if subject in ("ci", "merge") else PROVENANCE
     require(info.get("provenance") == expected, "Result handoff requires measured source/CI and bound supplemental evidence")
     if expected == source.PROVENANCE: source.collector_binding_in(db, info, raw, intent)
@@ -136,6 +139,9 @@ class ResultHandoff:
 
     def collect_source(self, token, worker_id, request): return self.source.observe(token, worker_id, request)
     def collect_github(self, token, worker_id, request): return self.github.observe(token, worker_id, request)
+    def collect_preservation(self, token, worker_id, request):
+        from .local_preservation import LocalPreservation
+        return LocalPreservation(self).collect(token, worker_id, request)
     def review(self, token, worker_id, request): return self.reviewer.review(token, worker_id, request)
 
     def terminal_in(self, db, kernel, worker, intent):

@@ -148,6 +148,14 @@ reads. Original supplied observation time participates in freshness, including f
 the independent review artifact. These remain caller assertions, not attestation.
 The CLI requires them; older unlabelled internal proofs retain their prior boundary.
 
+The optional WSP-04C3g `local_preservation_v1` manifest is also accepted for the
+preservation subject. It requires its immutable journal/receipt, retained binary
+bundle and exact handoff/result evidence bytes. The result must reference the same
+evidence subjects and versions, and collection start participates in freshness.
+Historical reads recheck those bytes without re-running Git. It proves bounded
+local Git/evidence retention only; other axes and caller-supplied claims remain
+separate. See [local preservation](LOCAL-PRESERVATION.md) for exclusions and limits.
+
 The independent review artifact is closed JSON with unique fields:
 `kind: independent_result_review`, `workerId`, `intentHash`, `settlementHash`,
 `resultHash` (canonical result digest), `outcome`, `reviewer`, `observedAt`,
