@@ -201,6 +201,12 @@ content, and blocks admission on incomplete or exhausted account evidence. Missi
 windows remain unknown; account percentages never substitute for complete phase
 token accounting. These source interfaces do not install an observer, enable
 autonomous Play, release task ownership or qualify live acceptance.
+The [phase usage accounting bridge](docs/PHASE-USAGE.md) composes explicitly
+supplied cumulative brain/task-tree samples into a stable phase budget. It retains
+baselines and counter epochs, exposes known per-session/per-role totals, and
+reconciles exact settled usage without charging it twice. Missing/regressed
+coverage blocks new work without erasing known usage. This is not a live token
+collector: source qualification and activation remain separate requirements.
 The [non-creation recovery coordinator](docs/CREATION-RECOVERY.md) can close a
 failed creation attempt only after explicit final absence, cleanup and zero-task-
 usage evidence. It retains attempt counts and pending IDs, keeps the packet held,

@@ -223,3 +223,16 @@ older writers; no coexistence or downgrade contract is provided. Do not weaken
 the current two-window policy merely because one native window is absent. No live
 observation write, allocation, installation, schedule change or Play activation is
 authorized by source delivery.
+
+WSP-04D3 adds designated-brain cumulative phase usage state/record CLI commands.
+See docs/PHASE-USAGE.md. This composes supplied evidence, not native collection.
+Preserve exact workspace/allocation/account and task-tree bindings, brain baseline,
+full-lifetime worker counters, counter epochs and per-session high-water marks.
+Unknown/regressed coverage must fence new work without removing known charges;
+report timestamps cannot refresh older samples. Incorporate settlements only with
+their exact retained final session counters; never release ownership or infer
+acceptance from accounting. Recheck both shared membership and local effect context.
+No direct legacy usage overwrite after journal activation. Do not use dashboard
+best-effort totals, account percentages or fabricated coverage as phase evidence.
+No live baseline/observation write, mixed-version rollout, allocation, installation,
+schedule, policy relaxation or Play activation is authorized by source delivery.

@@ -722,6 +722,13 @@ admission; replay cannot revive old healthy evidence. These interfaces provide n
 complete descendant inventory or cumulative phase-token accounting and do not
 release resources, install an observer, change the window policy or activate Play.
 
+**WSP-04D3** adds [cumulative phase accounting](PHASE-USAGE.md), connecting
+supplied per-session counter evidence to admission and effect checks. It retains
+the brain's phase baseline and each owned task tree's full lifetime usage, preserves
+counter epochs and high-water marks, and incorporates exact terminal counters without
+double charging. Unknown coverage or a changed context blocks new work. This is not
+a native counter collector, qualified live coverage or autonomous phase execution.
+
 - [x] WSP-04A: common-directory/conventional-origin identity observation and explicit platform-wide owner/alias audit.
 - [x] WSP-04A: atomic multi-resource, global/workspace slot and token reservations in an isolated capacity kernel.
 - [x] WSP-04A: fresh account/phase observation checks, checkpoint headroom and conservative settlement accounting.
@@ -735,6 +742,7 @@ release resources, install an observer, change the window policy or activate Pla
 - [x] WSP-04C3e: bounded standard-policy local commit/ancestry/branch/diff observation, retained collector/request proof and no timestamp refresh on review/replay.
 - [x] WSP-04D1: one-use native creation handoff/check and CLI return-path fixtures; exact project/base/defaults, Pause races and conservative result recovery.
 - [x] WSP-04D2: exact native task/account observation CLI, safe status/limit projections, current-evidence admission fences and replay/Pause/privacy fixtures.
+- [x] WSP-04D3: cumulative phase/session accounting, baseline/epoch continuity, settlement incorporation and effect-context checks; supplied evidence only, no live collector.
 - [ ] Trusted native/operator observation collection and live evidence qualification; supplied assertions are not independent attestation.
 - [ ] Canonical repository/runner identity and transactional platform reservations.
 - [ ] Brain-owned new/continue/handle/wait decisions with reason and immutable task seed.

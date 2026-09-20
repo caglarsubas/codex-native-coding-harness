@@ -63,6 +63,10 @@ def main():
     p = sub.add_parser("native-account-record", help="Record native account limits; unavailable evidence fences new work")
     p.add_argument("request", type=Path)
     sub.add_parser("native-account-state", help="Read retained native account headroom; not phase token counters")
+    for name in ("phase-usage-state", "phase-usage-record"):
+        p = sub.add_parser(name, help="Brain-owned cumulative phase accounting; no native collection or activation")
+        p.add_argument("allocation_id")
+        if name.endswith("-record"): p.add_argument("request", type=Path)
     p = sub.add_parser("mission-draft", help="Designated brain proposes a version; owner reviews in the dashboard")
     p.add_argument("spec", type=Path); p.add_argument("--revision", type=int, required=True); p.add_argument("--id", required=True)
     p = sub.add_parser("native-observe"); p.add_argument("observation", type=Path)
@@ -101,7 +105,7 @@ def main():
         raise Refusal("--workspace requires --platform")
     if args.state and (args.workspace or args.platform):
         raise Refusal("Choose a registered workspace or --state, not both")
-    if (args.action == "run-readiness" or args.action.startswith(("task-contract-", "native-create-", "native-task-", "native-account-"))) and not (args.platform and args.workspace):
+    if (args.action == "run-readiness" or args.action.startswith(("task-contract-", "native-create-", "native-task-", "native-account-", "phase-usage-"))) and not (args.platform and args.workspace):
         raise Refusal("This operation requires an explicit registered workspace")
     registry = Registry(args.platform, create=args.action == "workspace-register") if args.platform else None
     if args.action.startswith("platform-reconciliation-"):
@@ -228,6 +232,16 @@ def main():
             out = getattr(api, action.removeprefix("native-create-"))(token, args.worker_id, request)
         elif action == "native-create-check": out = api.check(token, args.worker_id, args.handoff_hash)
         else: out = getattr(api, action.removeprefix("native-create-"))(token, args.worker_id)
+    elif action.startswith("phase-usage-"):
+        from .admission import AdmissionStore
+        from .dispatch_admission import DispatchAdmission
+        from .phase_usage import PhaseUsage
+        from .observations import read_regular
+        api = PhaseUsage(DispatchAdmission(registry, args.workspace, AdmissionStore(registry.root)))
+        if action == "phase-usage-record":
+            path = args.request.absolute()
+            out = api.record(token, args.allocation_id, json.loads(read_regular(path, path.parent, 128000)))
+        else: out = api.state(token, args.allocation_id)
     elif action.startswith(("native-task-", "native-account-")):
         from .admission import AdmissionStore
         from .dispatch_admission import DispatchAdmission
