@@ -133,6 +133,8 @@ This maintainer implementation does not qualify as the real native-worker pilot.
 ## Development workspaces and phase-bounded autopilot — planned v12+
 
 See [the workspace/autopilot design and acceptance plan](WORKSPACES-AUTOPILOT.md).
+The [post-PR #42 convergence plan](COMPLETION-PLAN.md) groups the remaining work
+into end-to-end milestones and records conditional iteration estimates.
 These are planned tooling increments, not live mission or product authorization.
 
 - [x] Record owner's phase-bounded delegation, brain-owned task routing and Play/Pause requirements
@@ -164,6 +166,7 @@ These are planned tooling increments, not live mission or product authorization.
 - [x] WSP-04C3g: exact-owner standard-policy local Git preservation, independent temporary restore/integrity check, private bundle and task evidence manifest, original-time and historical byte validation (bounded local retention, not off-device backup, acceptance or archive authority)
 - [x] [Collector replay reliability — issue #41](COLLECTOR-REPLAY.md): transaction-bound receipt recheck for GitHub/source/preservation, deterministic concurrent replay and preserved authority/maintenance/evidence guards (source fix, no live rollout)
 - [x] WSP-05A: exact-owner standard-policy archive handoff, accepted review/local preservation binding, explicit cleanup acknowledgment, root-only fresh safety assertions, one-shot send boundary and uncertain/late-result recovery (CLI fixtures; no live archive, delegated retention policy or Play activation)
+- [x] WSP-05B: exact-owner standard-policy same-task correction handoff, retained brain reuse rationale/findings, one-shot scope-bound message, cumulative reservations, no-progress and receipt recovery guards (CLI fixtures; no delegated/new-generation correction, native send or Play activation)
 - [ ] WSP-04C3 remainder: broader CI/workflow-trust/external preservation and resource/host/native qualification, trusted Harness acceptance adapter, new-generation continuation/rereview and native transport before exact owner Play activation
 - [ ] WSP-03: configurable brain authority, phase checkpoint releases and safe Play/Pause
 - [ ] WSP-04: brain-owned task/model/effort/speed choices, parallel limits and token admission

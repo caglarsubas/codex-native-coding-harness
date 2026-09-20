@@ -317,7 +317,7 @@ class NativeLifecycle:
                 artifact["id"] == digest([artifact["key"], artifact["version"], artifact["sha256"]]), "Correction artifact binding or bytes changed")
         # Artifact is retained data. Its contents are never parsed or executed.
 
-    def begin_continuation(self, token, worker_id, request):
+    def begin_continuation(self, token, worker_id, request, *, one_shot=False):
         request_shape(request, CONTINUATION)
         require(request["operation"] == "edit", "Only same-scope edit corrections are supported")
         sha(request["instructionArtifactId"])
@@ -329,6 +329,7 @@ class NativeLifecycle:
                 claim, record, state = self.state_in(kernel, intent)
                 prior = self.replay_in(kernel, intent, "continuation", request)
             if prior:
+                require(not one_shot, "Continuation send boundary already crossed; never resend")
                 self.attach_in(db, worker, claim, record)
                 return self.receipt(worker, record, prior)  # Historical receipt, never a second send.
         with self.bridge.locked(token, effects=True) as (db, meta):
