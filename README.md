@@ -207,6 +207,11 @@ baselines and counter epochs, exposes known per-session/per-role totals, and
 reconciles exact settled usage without charging it twice. Missing/regressed
 coverage blocks new work without erasing known usage. This is not a live token
 collector: source qualification and activation remain separate requirements.
+The [runner handoff CLI](docs/RUNNER-HANDOFF.md) connects an existing approved
+standard-policy task to a single-use acceptance message. The brain consumes the
+launch check and calls the native tool; the helper separately records delivery,
+process exit and cleanup. Uncertain sends retain ownership and never retry.
+This does not execute tests, qualify host evidence or activate live automation.
 The [non-creation recovery coordinator](docs/CREATION-RECOVERY.md) can close a
 failed creation attempt only after explicit final absence, cleanup and zero-task-
 usage evidence. It retains attempt counts and pending IDs, keeps the packet held,
