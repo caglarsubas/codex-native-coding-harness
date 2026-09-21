@@ -36,6 +36,17 @@ class RunAuthorityTest(unittest.TestCase):
     def authorize(self, request=None):
         return runs.authorize(self.ledger, request or self.auth_request(), actor="dashboard_owner")
 
+    def release_request(self, checkpoint):
+        from orchestrator import phase_checkpoints as phases
+        state = self.state()
+        report = phases.prepare(self.ledger, self.token, self.request(runHash=state["runHash"], checkpointHash=checkpoint,
+            note="Fixture retained phase claims; shared admission remains separate"))
+        auth = self.auth_request(checkpoint)
+        reviewed = phases.review(self.ledger, self.request(reportHash=report["reportHash"], artifactId=report["artifactId"],
+            **{k: auth[k] for k in ("missionHash", "reviewReceiptHash", "settingsPolicy", "expiresAt", "confirmed")}), actor="dashboard_owner")
+        return {**auth, "id": self.request()["id"], "expectedRevision": self.ledger.snapshot()["meta"]["revision"],
+                "checkpointReviewHash": reviewed["checkpointReviewHash"]}
+
     def approval_request(self, run):
         return self.request(runHash=run["runHash"], queueId=self.fx.q["id"], contractHash=self.contract["contractHash"],
                             scopeAssessment="Fixture is within the exact reviewed phase", confirmed=True)
@@ -235,7 +246,7 @@ class RunAuthorityTest(unittest.TestCase):
         self.assertEqual(self.state()["status"], "checkpointed")
         self.assertEqual(self.state()["checkpointHash"], checkpoint["documentHash"])
         with self.assertRaises(Refusal): self.authorize(self.auth_request("a"*64))
-        next_run = self.authorize(self.auth_request(checkpoint["documentHash"]))
+        next_run = self.authorize(self.release_request(checkpoint["documentHash"]))
         self.assertEqual(next_run["generation"], 2)
         self.assertEqual(self.ledger.document(next_run["runHash"])["previousRunHash"], run["runHash"])
         self.assertEqual(self.ledger.document(next_run["runHash"])["authority"], self.ledger.document(run["runHash"])["authority"])
@@ -313,7 +324,7 @@ class RunAuthorityTest(unittest.TestCase):
         saved = missions.change(self.ledger, test_missions.request(revision=m["revision"], spec=spec))["current"]
         with self.assertRaises(Refusal): self.authorize(self.auth_request(cp["documentHash"]))
         missions.change(self.ledger, test_missions.request("review", saved["revision"], documentHash=saved["documentHash"], confirmed=True))
-        following = self.authorize(self.auth_request(cp["documentHash"]))
+        following = self.authorize(self.release_request(cp["documentHash"]))
         self.assertEqual(self.ledger.document(following["runHash"])["phaseId"], "phase-two")
 
     def test_pause_racing_approval_never_leaves_effective_authority(self):
@@ -391,7 +402,7 @@ class RunAuthorityTest(unittest.TestCase):
         self.assertNotEqual(first["documentHash"], second["documentHash"])
         self.assertEqual(self.state()["generation"], 1)
         with self.assertRaises(Refusal): self.authorize(self.auth_request(first["documentHash"]))
-        self.assertEqual(self.authorize(self.auth_request(second["documentHash"]))["generation"], 2)
+        self.assertEqual(self.authorize(self.release_request(second["documentHash"]))["generation"], 2)
 
     def test_missing_pointer_does_not_reset_generation_or_regain_legacy_dispatch(self):
         self.authorize()

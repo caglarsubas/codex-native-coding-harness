@@ -384,3 +384,15 @@ fall back from a newer failed observation or infer zero from missing coverage.
 Literal origin matching is descriptive, not a verified host alias, reservation,
 token proof or migration decision. Preserve scoped assistant projections and all
 admission/Pause/maintenance rules. No live refresh, rollout or Actions follows.
+
+WSP-03C adds retained local phase checkpoint reports and exact owner review before
+subsequent run intent. See docs/PHASE-CHECKPOINTS.md. Reports are historical claims,
+not phase acceptance or fresh activity; unknown shared usage stays unknown. Keep
+result axes, original observation times and checkpoint artifact bytes distinct.
+Only the brain prepares/reads reports; owner review remains an internal trusted
+seam. Bind release to the latest unchanged report, exact next reviewed mission,
+settings and expiry in the grant transaction. Missing/superseded reviews cannot
+use the old release path. No resume, dispatch, new retry, budget reset, ownership
+release, acceptance, merge or archive follows. Quiesce older writers before a
+separate rollout; no mixed-version/downgrade contract, live installation, public
+Play or workflow execution is authorized by source delivery.

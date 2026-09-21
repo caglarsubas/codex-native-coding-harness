@@ -119,8 +119,10 @@ def authorize(ledger, request, *, actor):
     """Retain exact owner run intent. Internal only; does not activate dispatch."""
     require(actor == "dashboard_owner", "Only the authenticated owner may authorize a run")
     with ledger.tx() as db:
-        meta, key, fingerprint, prior = request_in(ledger, db, request, actor, "authorize",
-            {"missionHash", "reviewReceiptHash", "checkpointHash", "expiresAt", "settingsPolicy", "confirmed"})
+        fields = {"missionHash", "reviewReceiptHash", "checkpointHash", "expiresAt", "settingsPolicy", "confirmed"}
+        if isinstance(request, dict) and "checkpointReviewHash" in request:
+            fields.add("checkpointReviewHash")
+        meta, key, fingerprint, prior = request_in(ledger, db, request, actor, "authorize", fields)
         if prior: return prior
         require(request["confirmed"] is True, "Explicit owner confirmation of settings policy required")
         from .model_policy import policy_in
@@ -137,6 +139,7 @@ def authorize(ledger, request, *, actor):
         require(meta["paused"] is True, "Pause legacy dispatch before retaining run intent")
         if previous is None:
             require(request["checkpointHash"] is None, "Initial run cannot release an unknown checkpoint")
+            require("checkpointReviewHash" not in request, "Initial run cannot consume a checkpoint review")
             require(meta.get("runner") is None and not any(w["status"] in ACTIVE for w in ledger.all(db, "workers")),
                     "Initial run requires no retained active legacy workers or runner; reconcile ownership first")
             generation = 1
@@ -152,6 +155,8 @@ def authorize(ledger, request, *, actor):
                 old_grant = document(db, previous["runHash"], "run_authorization")
                 require(m["documentHash"] != old_grant["missionHash"],
                         "Brain stop boundary requires a newly reviewed mission or bounded correction scope")
+            from .phase_checkpoints import require_release_in
+            require_release_in(ledger, db, request)
             generation = previous["generation"] + 1
         missions.integer(generation, "Run generation", 1, 1_000_000_000)
         grant = {"kind": "run_authorization", "schemaVersion": 1, "workspaceId": source["workspaceId"],
@@ -160,6 +165,7 @@ def authorize(ledger, request, *, actor):
                  "missionRevision": m["revision"], "phaseId": spec["phase"]["id"], "authority": spec["authority"],
                  "repositoryBindings": bindings, "settingsPolicy": request["settingsPolicy"], "checkpoint": spec["phase"]["checkpoint"],
                  "releasedCheckpointHash": request["checkpointHash"], "previousRunHash": previous["runHash"] if previous else None}
+        if previous: grant["checkpointReviewHash"] = request["checkpointReviewHash"]
         run_hash = retain(db, "run_authorization", grant)
         meta["schemaVersion"] = 3
         save_state(ledger, db, meta, {"kind": "run_state", "workspaceId": source["workspaceId"], "generation": generation,

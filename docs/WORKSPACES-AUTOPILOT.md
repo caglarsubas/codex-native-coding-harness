@@ -660,10 +660,11 @@ admission adapter is enabled; neither a generation nor approval is a native perm
 - [x] WSP-03B2: read-only exact mission/review binding, conservative packet-scope assessment and platform-baseline diagnostics with workspace-scoped reports.
 - [x] WSP-03B3: closed phase/task declarations, bounded estimates/requested settings, immutable brain proposal history and no legacy dispatch downgrade.
 - [x] WSP-03B4: internal run/approval/checkpoint lifecycle kernel, stop races and legacy bypass fences; no public Play or native effect integration.
+- [x] WSP-03C: [retained phase checkpoint reports](PHASE-CHECKPOINTS.md), versioned artifacts, separate recorded result axes and exact owner-reviewed next-generation mission/settings/expiry binding; no public release or phase-acceptance inference.
 - [ ] Implement the selected configurable authority model in tooling/skill contracts.
 - [ ] Activate workspace authority with enforced packet, checkpoint, task and token admission.
 - [ ] Mission/phase review, delegated packet approval/revocation and exact version checks.
-- [ ] Phase report, independent verification and owner-bound checkpoint release.
+- [ ] Complete phase-exit verification, measured shared-usage presentation, public owner-bound release and bounded new-generation task correction/rereview integration.
 - [ ] Durable workspace-run intent, immediate notification, receipt and recovery states.
 - [ ] Autonomous Play integrated with workspace Pause and run generations; reject duplicate activation and pause/play races.
 - [ ] Brain-initiated safe stops for phase completion, material plan changes and budget revisions.
