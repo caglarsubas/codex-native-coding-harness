@@ -258,6 +258,11 @@ class Registry:
                 rows.append({**workspace, "status": "unavailable"})
                 continue
             summary = aggregate(state)
+            standard_run = state["meta"].get("standardRun")
+            cooperative = None if not standard_run else {
+                "status": standard_run["status"], "tasks": len(standard_run["tasks"]),
+                "completed": sum(t["status"] == "completed" for t in standard_run["tasks"]),
+                "active": sum(t["status"] not in ("completed", "failed", "not_created") for t in standard_run["tasks"])}
             usage = state["observations"].get("usage") or {}
             # No filesystem resolution on a summary read. Code identity was bound
             # at explicit collection; roadmaps retain their configured-path basis.
@@ -290,6 +295,7 @@ class Registry:
                 "paused": state["meta"]["paused"], "lastReconciled": state["meta"]["lastReconciled"],
                 "repositories": len(state["repositories"]), "metrics": summary["aggregate"],
                 "codeCoverage": summary["coverage"],
+                "cooperative": cooperative,
                 "usage": usage.get("aggregate") if usage.get("status") == "measured" else None,
                 "activeWorkers": sum(w["status"] not in ("complete", "settled") for w in state["workers"]),
                 "settledWorkers": sum(w["status"] == "settled" for w in state["workers"]),
@@ -297,6 +303,8 @@ class Registry:
         code = portfolio_metrics.summarize(repositories)
         included = [value for key, value in sessions.items() if key not in conflicts and value["samples"]]
         totals = dict(code["aggregate"])
+        totals.update(cooperativeTasks=sum((r.get("cooperative") or {}).get("tasks", 0) for r in rows),
+                      cooperativeCompletedTasks=sum((r.get("cooperative") or {}).get("completed", 0) for r in rows))
         totals.update(managedTasks=len(workers), completedTasks=sum(all(s == "complete" for s in statuses) for statuses in workers.values()),
             settledTasks=sum(all(s == "settled" for s in statuses) for statuses in workers.values()),
             distinctObservedSessions=len(sessions), conflictingSessionsExcluded=len(conflicts),

@@ -68,6 +68,8 @@ class WorkspaceRuntime:
         self.observer_controls = ObserverControls()
         self.observer_inspection = None
         self.observer_lock = threading.Lock()
+        from .standard import Controls
+        self.standard_controls = Controls()
 
     def snapshot(self):
         """Same evidence for workspace and assistant; no model-triggered scans or refresh."""
@@ -100,6 +102,8 @@ class WorkspaceRuntime:
         from .observer_controls import summary as observer_summary
         state["observerInspection"] = observer_summary(self.observer_inspection, state["meta"]["revision"])
         if self.registry:
+            from .standard import read as standard_read
+            state["standard"] = standard_read(self.ledger)
             state["workspace"] = {"id": self.workspace_id,
                 "name": next(w["name"] for w in self.registry.list() if w["id"] == self.workspace_id),
                 "projectProfile": self.registry.profile(self.workspace_id)}
@@ -213,7 +217,7 @@ class Handler(BaseHTTPRequestHandler):
         static["/activity.js"] = ("activity.js", "text/javascript; charset=utf-8")
         static["/decisions.js"] = ("decisions.js", "text/javascript; charset=utf-8")
         static["/decisions.css"] = ("decisions.css", "text/css; charset=utf-8")
-        for file in ("panes.js", "assistant.js", "routing.js", "workspaces.js", "missions.js", "workspace-pause.js", "run-readiness.js", "phase-checkpoints.js", "checkpoint-controls.js", "rereview.js", "model-controls.js", "observer-controls.js", "budget.js", "retention.js", "task-contracts.js", "panes.css"):
+        for file in ("panes.js", "assistant.js", "routing.js", "workspaces.js", "missions.js", "standard.js", "workspace-pause.js", "run-readiness.js", "phase-checkpoints.js", "checkpoint-controls.js", "rereview.js", "model-controls.js", "observer-controls.js", "budget.js", "retention.js", "task-contracts.js", "panes.css"):
             static["/" + file] = (file, "text/javascript; charset=utf-8" if file.endswith(".js") else "text/css; charset=utf-8")
         if path in static:
             file, mime = static[path]
@@ -400,6 +404,13 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/mission" and workspace_id:
                 from .missions import change
                 return self.respond(200, change(runtime.ledger, body))
+            if path in ("/api/standard/preview", "/api/standard/confirm") and workspace_id:
+                if urlsplit(self.path).query:
+                    raise Refusal("Standard controls accept no query parameters")
+                if path.endswith("/preview"):
+                    return self.respond(200, runtime.standard_controls.preview(runtime.ledger, body, csrf))
+                result = runtime.standard_controls.confirm(runtime.registry, runtime.ledger, body, csrf)
+                return self.respond(200, runtime.notify_control(result))
             if path in ("/api/checkpoint-decisions/preview", "/api/checkpoint-decisions/confirm") and workspace_id:
                 if urlsplit(self.path).query:
                     return self.respond(400, {"error": "Checkpoint controls accept no query parameters"})

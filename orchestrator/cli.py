@@ -46,6 +46,13 @@ def main():
     p.add_argument("--apply", action="store_true", help="Register in place after a verified SQLite backup; default is preview")
     p = sub.add_parser("workspace-profile-set"); p.add_argument("profile", type=Path); p.add_argument("--version", type=int, required=True)
     sub.add_parser("mission-state", help="Read workspace mission configuration; not execution authority")
+    sub.add_parser("standard-state", help="Read cooperative run, task journal and usage gaps")
+    p = sub.add_parser("standard-acquire", help="Persist a private brain controller token across bounded shell calls")
+    p.add_argument("owner")
+    p = sub.add_parser("standard-release", help="Release the private standard controller after checkpointing")
+    p.add_argument("checkpoint")
+    p = sub.add_parser("standard-brain", help="Designated brain cooperative journal; no native transport")
+    p.add_argument("request", type=Path)
     sub.add_parser("run-readiness", help="Read-only mission/packet/platform preflight; never activation")
     p = sub.add_parser("task-contract-propose", help="Brain-only phase-bound task declaration; invalidates legacy approval, not activation")
     p.add_argument("spec", type=Path); p.add_argument("--revision", type=int, required=True); p.add_argument("--id", required=True)
@@ -219,6 +226,9 @@ def main():
     token = os.environ.get("ORCHESTRATOR_CONTROLLER_TOKEN", "")
     read = lambda path: json.loads(path.read_text())
     action = args.action
+    if action in ("decision-publish", "decision-resolve") and not token and ledger.snapshot()["meta"].get("standardRun"):
+        from .standard import private_token
+        token = private_token(ledger)
     if action == "init": out = ledger.initialize(read(args.config))
     elif action == "status":
         out = ledger.snapshot(); out["summary"] = aggregate(out)
@@ -255,6 +265,21 @@ def main():
         with args.evidence.open("rb") as handle: raw = handle.read(512_001)
         if len(raw) > 512_000: raise Refusal("Pause evidence exceeds its bound")
         out = observe(ledger, token, args.id, json.loads(raw))
+    elif action == "standard-state":
+        from .standard import read as standard_read
+        out = standard_read(ledger)
+    elif action in ("standard-acquire", "standard-release"):
+        from .standard import acquire_private, release_private
+        if not registry or not args.workspace:
+            raise Refusal("Explicit registered standard workspace required")
+        out = acquire_private(ledger, args.owner) if action == "standard-acquire" else release_private(ledger, args.checkpoint)
+    elif action == "standard-brain":
+        from .standard import brain, private_token
+        if not registry or not args.workspace:
+            raise Refusal("Explicit registered standard workspace required")
+        with args.request.open("rb") as handle: raw = handle.read(65537)
+        if len(raw) > 65536: raise Refusal("Standard request exceeds its bound")
+        out = brain(registry, ledger, token or private_token(ledger), json.loads(raw))
     elif action == "mission-state":
         from .missions import read as read_mission
         out = read_mission(ledger)

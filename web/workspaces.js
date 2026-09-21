@@ -157,12 +157,13 @@ function allWorkspaces(root){
     const a=data.aggregate,strip=el('div',null,'summary-strip');
     for(const [value,label] of [[a.lines,'counted code lines'],[a.tokens,'deduplicated tokens'],[a.managedTasks,'managed tasks'],[a.uniqueArtifactVersions,'artifact versions']]){const item=el('div');item.append(el('strong',num(value)),el('span',label));strip.append(item);}
     container.append(strip);
+    if(a.cooperativeTasks)container.append(el('p',`${num(a.cooperativeCompletedTasks)} / ${num(a.cooperativeTasks)} cooperative tasks completed across current workspace phases. Historical log tokens and legacy task totals above remain separate.`,'checkpoint'));
     const method=el('details');method.append(el('summary','How totals are counted'),el('p',data.method,'metric-note'));rememberCodeDetails(method,'method');container.append(method);
     codeCountingCoverage(container,data.codeCoverage,true);
     if(a.conflictingSessionsExcluded)container.append(el('p',`${a.conflictingSessionsExcluded} shared task summaries conflict and are excluded from aggregate tokens. Review workspace coverage.`,'metric-note'));
     container.append(table(['Workspace','Dispatch / checkpoint','Workers','Code lines','Observed tokens'],data.workspaces.map(w=>{
       const name=el('div');name.append(button(w.name,()=>switchWorkspace(w.id)));
-      return [name,w.status==='unavailable'?'Unavailable':textCell(w.paused?'Paused':'Enabled',when(w.lastReconciled)),num(w.activeWorkers),num(w.metrics?.measuredRepositories?w.metrics.lines:null),num(w.usage?.total_tokens)];
+      return [name,w.status==='unavailable'?'Unavailable':textCell(w.cooperative?'Cooperative · '+w.cooperative.status:w.paused?'Paused':'Enabled',when(w.lastReconciled)),num(w.cooperative?w.cooperative.active:w.activeWorkers),num(w.metrics?.measuredRepositories?w.metrics.lines:null),num(w.usage?.total_tokens)];
     })));
     container.append(section('Code snapshots counted across workspaces','Each identity and commit counts once. Different commits remain separate; expand aliases to open their workspace.'));
     codeSnapshotTable(container,data.codeSnapshots||[]);

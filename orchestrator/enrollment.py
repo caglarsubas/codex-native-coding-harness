@@ -44,6 +44,7 @@ def projection(ledger, meta):
 
 
 def require_legacy_unfenced(ledger, meta):
+    require(not meta.get("standardRun"), "Cooperative workspace uses only its standard run protocol; legacy dispatch remains disabled")
     state = projection(ledger, meta)
     require(not state["dispatchBlocked"], state["reason"])
 
@@ -82,6 +83,7 @@ def registry_identity(registry):
 
 def observe(ledger, db, member):
     meta = ledger.get(db, "meta", 1)
+    require(not meta.get("standardRun"), "Cooperative run history needs an explicit migration, not strict enrollment")
     require(meta["brainId"] == member["brainId"], "Workspace brain identity changed")
     workers = ledger.all(db, "workers")
     repos = {r["id"]: r for r in ledger.all(db, "repos")}

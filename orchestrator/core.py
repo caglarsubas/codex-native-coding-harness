@@ -19,7 +19,7 @@ import uuid
 from urllib.parse import urlsplit
 
 VERSION = 1
-LEDGER_VERSIONS = (1, 2, 3)  # v2 task declarations; v3 internal run authority. Seeds stay v1.
+LEDGER_VERSIONS = (1, 2, 3, 4)  # v2 declarations; v3 strict runs; v4 explicit cooperative runs.
 AXES = ("source", "ci", "merge", "artifact", "deployment", "runtime", "assurance", "tenant")
 ACTIVE = ("reserved", "starting", "running", "awaiting_acceptance", "accepting", "verifying", "blocked")
 COMMANDS = {"approve", "hold", "prioritize", "pause", "resume", "reconcile", "checkpoint", "archive", "decision_response", "listening", "brain_stop", "brain_resume"}
@@ -258,6 +258,10 @@ class Ledger:
             meta = self.get(db, "meta", 1)
             require(meta["controller"] and meta["controller"]["owner"] == expected_owner, "Controller changed")
             meta.update(controller=None, paused=True)
+            if meta.get("standardRun"):
+                from .standard import save
+                meta["standardRun"]["status"] = "stopping"
+                save(self, db, meta, meta["standardRun"], "controller_recovery")
             from .run_authority import fence_in
             fence_in(self, db, meta, "controller_recovery")
             self.put(db, "meta", 1, meta)
@@ -311,6 +315,8 @@ class Ledger:
             meta = self.get(db, "meta", 1)
             require(command["expectedRevision"] == meta["revision"], "State changed; refresh and review before submitting")
             kind, p = command["kind"], command["payload"]
+            require(not meta.get("standardRun") or kind == "decision_response",
+                    "Cooperative workspace uses its separate Play/Pause/Resume controls")
             fields = {"approve": {"queueId", "seedHash", "packetDigest"}, "hold": {"queueId", "held"},
                 "prioritize": {"queueId", "priority"}, "checkpoint": {"workerId"},
                 "archive": {"workerId"}, "pause": set(), "resume": set(), "reconcile": set(),
@@ -393,6 +399,7 @@ class Ledger:
         """Handle local requests; return native actions without executing them."""
         with self.tx() as db:
             meta = self.authorize(db, token)
+            require(not meta.get("standardRun"), "Use standard-brain receive for cooperative runs")
             owner = meta["controller"]["owner"]
             if meta["brainId"] and (owner == meta["brainId"] or owner.startswith(meta["brainId"] + ":")):
                 meta["inboxCheckedAt"] = time.time()

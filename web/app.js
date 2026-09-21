@@ -46,6 +46,7 @@ async function refresh() {try{state=await api("/api/state");connected=true;$('co
 function overview(root) {
  const m=state.meta,active=state.workers.filter(w=>!['complete'].includes(w.status));
  projectIntroduction(root);
+ if(state.standard?.run){standardPanel(root);executiveSummary(root);return;}
  workspacePausePanel(root);
  missionSummary(root);
  checkpointSummary(root);
@@ -84,12 +85,14 @@ function queue(root) {
 }
 function canArchiveWorker(w) {return !('dispatchAdmission' in w)&&w.status==='complete'&&w.preserved&&!w.archived;}
 function workers(root) {
+ if(state.standard?.run){standardPanel(root);return;}
  if(typeof rereviewPanel==='function')rereviewPanel(root);
  if(!state.workers.length){root.append(empty("No implementation workers yet", "The designated brain is separate from implementation workers. It may be planning or reconciling while this list is empty. After approval and preflight, new workers appear here."),button("View brain activity",()=>navigateView("overview")));return;}
  state.workers.forEach(w=>{const d=el("section",null,"detail");d.append(el("h3",w.packetId+" · "+w.repository),badge(w.status),el("p",w.note||"Dispatch "+w.id,"subline"));const actions=el("div",null,"inline-actions");if(w.threadId){actions.append(button("Copy Codex task ID",()=>navigator.clipboard.writeText(w.threadId).then(()=>showNotice("Task ID copied. Open the task in the native Codex sidebar."))),button("Request checkpoint",()=>command("checkpoint",{workerId:w.id})));}else d.append(el("p","Native creation pending or uncertain. Ownership remains reserved; no replacement will be launched.","muted"));if(canArchiveWorker(w))actions.append(button("Request archive",()=>{selected=w.id;render();}));if(w.pr){try{const u=new URL(w.pr);if(u.protocol==='https:'&&u.hostname==='github.com'){const a=el("a","Review pull request","button");a.href=u.href;a.target="_blank";a.rel="noopener noreferrer";actions.append(a);}}catch{}}
  d.append(actions,section("Evidence axes"));const axes=el("div",null,"axes");Object.entries(w.evidence).forEach(([axis,v])=>{const e=el("span",axis+": "+v.status);e.dataset.verified=String(v.status==='verified');e.title=v.reference||"No verified evidence";axes.append(e);});d.append(axes);if(selected===w.id&&canArchiveWorker(w)){d.append(callout("Archive this completed task?", "Archiving can trigger cleanup of a Codex-managed worktree. Only proceed after commits are pushed and evidence is preserved. This is not a stop or delete operation."),button("Confirm archive request",()=>command("archive",{workerId:w.id})));}root.append(d);});
 }
 function knowledge(root) {
+ if(state.standard?.run){standardPanel(root);return;}
  brainActivity(root,true);
  root.append(section("Current checkpoint",when(state.meta.lastReconciled)),el("p",state.meta.checkpoint,"checkpoint"));
  root.append(section("Immutable inheritance & results"));
@@ -114,6 +117,7 @@ function render() {
  document.querySelector(".page-actions").hidden=['workspaces','mission','runReadiness','phaseCheckpoints','retention'].includes(view);
  const m=state.meta,dispatch=dispatchPresentation(m,state.commands),primary=state.workspace?workspacePausePresentation(state):dispatch;
  $('mode').textContent=dispatch.label+" · Brain: "+activityLabel(state.brainActivity)+" · Checkpoint: "+age(m.lastReconciled)+" · Heartbeat (recorded): "+m.heartbeat.status;
+ if(state.standard?.run){$('mode').textContent='STANDARD · '+state.standard.run.status.toUpperCase()+' · '+state.standard.run.tasks.filter(t=>!['completed','failed','not_created'].includes(t.status)).length+' registered tasks in flight';document.querySelector('.page-actions').hidden=true;}
  $('pause').textContent=primary.button;$('pause').disabled=!connected||busy||primary.disabled;
  $('pause').title=state.workspace?primary.detail:"Change new worker dispatch only";
  $('pause').classList.toggle('primary',!!state.workspace);$('reconcile').classList.toggle('primary',!state.workspace);

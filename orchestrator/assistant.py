@@ -229,6 +229,13 @@ def context(state, view):
         facts.append({"id": "F39", "label": "Cached observer setup and saved report counts; not complete native evidence",
             "data": {k: cached[k] for k in ("status", "workspaceRevision", "inspectedAt", "historical", "workspaceChanged",
                 "expired", "executionAuthorized", "endpointReviewed", "endpointRevoked", "reportsStatus", "savedReportCount", "completeEvidence") if k in cached}})
+    if state.get("standard", {}).get("run"):
+        standard = state["standard"]; run = standard["run"]
+        facts.append({"id": "F40", "label": "Cooperative standard phase; not Harness assurance or complete token accounting",
+            "data": {"status": run["status"], "tasks": len(run["tasks"]), "maxTasks": run["limits"]["maxTasks"],
+                     "observedTokens": standard["observedTokens"], "unmeasuredTasks": standard["unmeasuredTasks"],
+                     "remainingAllowance": standard["remainingAllowance"], "brainUsageCoverage": run["brainUsageCoverage"],
+                     "controlLocation": "Selected workspace overview; separate explicit Play/Pause/Resume review"}})
     # The service sees aliases, not native/ledger IDs, filesystem paths or routes.
     data = {"schemaVersion": 2, "observedAt": time.time(), "snapshotTimeUTC": datetime.now(timezone.utc).isoformat(), "currentView": VIEWS[view], "facts": facts,
             "links": {k: v["label"] for k, v in links.items()},

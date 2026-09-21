@@ -5,10 +5,12 @@ const missionModes={prepare_only:'Prepare only',exact_owner:'Exact owner-approve
 const missionOperations=['edit','test','commit','push','open_pr','merge'];
 const missionLines=value=>value.split('\n').map(x=>x.trim()).filter(Boolean);
 function missionSummary(root){
+  if(typeof standardPanel==='function')standardPanel(root);
+  if(state.standard?.available||state.standard?.run)return;
   if(!state.mission)return;
   const m=state.mission,panel=el('section',null,'mission-summary');
   panel.append(el('p','MISSION SETUP · NOT ACTIVE','eyebrow'),el('h2',m.document?m.document.spec.phase.title:'Define what Play should deliver'));
-  panel.append(el('p',m.document?`Configuration v${m.version} · ${m.effectiveStatus.replaceAll('_',' ')}. Autonomous Play is not available yet.`:'Set the phase, permitted repositories, owner checkpoint and proposed task/token limits. Existing dispatch controls remain separate.','muted'));
+  panel.append(el('p',m.document?`Configuration v${m.version} · ${m.effectiveStatus.replaceAll('_',' ')}. ${state.standard?'Standard Play requires the separate cooperative review above; strict activation remains separate.':'Autonomous Play is not available yet.'}`:'Set the phase, permitted repositories, owner checkpoint and proposed task/token limits. Existing dispatch controls remain separate.','muted'));
   panel.append(button(m.document?'Review mission & authority':'Configure mission & authority',()=>navigateView('mission')),
     button('Inspect run readiness',()=>navigateView('runReadiness')),button('Task retention',()=>navigateView('retention')));root.append(panel);
 }
@@ -21,12 +23,13 @@ function missionDocument(parent,hash,label){
   });parent.append(details);
 }
 function missionView(root){
+  if(typeof standardPanel==='function')standardPanel(root);
   const m=state.mission;
   if(!m){root.append(empty('Select a registered workspace','Mission configuration belongs to one workspace and its designated brain.'));return;}
   const status=el('section',null,'mission-status');
   status.append(el('p','CONFIGURATION, NOT EXECUTION AUTHORITY','eyebrow'),el('h2',m.document?`Version ${m.version} · ${m.effectiveStatus.replaceAll('_',' ')}`:'No mission configured'));
   status.append(el('p','Saving or reviewing a configuration does not start development, approve packets, enforce these proposed limits, change a model or notify the brain. Existing exact packet approvals and dispatch controls are unchanged.','checkpoint'));
-  const activation=el('details');activation.append(el('summary','Why autonomous Play is unavailable'));
+  const activation=el('details');activation.append(el('summary','Strict-mode activation boundaries'));
   const blockers=el('ul');m.activation.blockers.forEach(reason=>blockers.append(el('li',reason)));activation.append(blockers);
   activation.append(el('p','This release prepares the contract. Play will require a separate owner-bound activation after these gates are implemented. A reviewed version cannot activate automatically after an upgrade.','muted'));status.append(activation);root.append(status);
   if(m.bindingIssues.length)root.append(callout('Configuration needs a new version',m.bindingIssues.join(' ')));
