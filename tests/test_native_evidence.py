@@ -71,12 +71,18 @@ class ProxyTest(EndpointFixture, unittest.TestCase):
 
     def test_mutation_and_broad_read_refuse_before_rpc(self):
         with client.ReadProxy(self.endpoint) as proxy:
-            for method, params in (("turn/start", {}), ("thread/resume", {}), ("thread/archive", {}),
-                                   ("command/exec", {}), ("thread/read", {"threadId": "owned", "includeTurns": True}),
-                                   ("thread/list", {})):
-                with self.assertRaises(Refusal): proxy.call(method, params)
+            with patch.object(proxy, "_rpc", wraps=proxy._rpc) as rpc:
+                for method, params in (("turn/start", {}), ("thread/resume", {}), ("thread/archive", {}),
+                                       ("command/exec", {}), ("thread/read", {"threadId": "owned", "includeTurns": True}),
+                                       ("thread/list", {})):
+                    with self.assertRaises(Refusal): proxy.call(method, params)
+                rpc.assert_not_called()
+            # A completed allowed round trip drains the preceding initialized
+            # notification before context exit terminates the disposable proxy.
+            proxy.call("thread/read", {"threadId": "owned-task", "includeTurns": False})
         calls = [json.loads(s) for s in (self.root / "requests.jsonl").read_text().splitlines()]
-        self.assertEqual([c["method"] for c in calls], ["initialize", "initialized"])
+        self.assertEqual([c["method"] for c in calls], ["initialize", "initialized", "thread/read"])
+        self.assertEqual(calls[-1]["params"], {"threadId": "owned-task", "includeTurns": False})
 
     def test_errors_ids_duplicate_keys_server_requests_and_oversize_are_closed(self):
         for mode in ("error", "wrong_id", "duplicate", "server_request", "closed", "large"):

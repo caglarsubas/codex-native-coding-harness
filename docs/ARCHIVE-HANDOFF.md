@@ -32,8 +32,10 @@ permission to delete files directly. See the [official worktree documentation](h
 Only the existing native `set_thread_archived` tool is a permitted caller boundary.
 Source delivery does not invoke it or change installed operator guidance.
 
-This is an explicit-owner first handoff, **not automatic phase-delegated archival**.
-The original task must have exact owner approval, a confirmed terminal settlement,
+This was the explicit-owner first handoff. WSP-05E adds a separate, opt-in
+[exact-run retention policy](DELEGATED-RETENTION.md) for designated-brain requests;
+phase task approval alone still does not authorize archival. The original task
+must have exact run-bound approval, a confirmed terminal settlement,
 separate accepted result review and `local_preservation_v1` proof. A supplied
 preservation note cannot substitute. The original run must remain current and
 unpaused for preparation and the send check. Harness, remote hosts, descendants,
@@ -81,6 +83,12 @@ python3 -m orchestrator.cli --platform PRIVATE_PLATFORM --workspace EXACT_WORKSP
    queued until preparation; receipt alone must not claim native work is in flight
    or prevent safe parking. Legacy generic archive processing/acknowledgment cannot
    bypass this handoff.
+
+   For an explicitly reviewed WSP-05E policy, the designated brain may instead use
+   `archive-handoff-request-delegated` for steps 2–3. Its retained request already
+   records brain receipt. Policy review is owner-only and no public UI is added;
+   all preparation, fresh safety checks and one-shot behavior below remain required.
+
 4. Obtain fresh complete native inactivity/worktree evidence and call `prepare`
    with exactly `commandId`, `expectedRevision`, `inventory`. It atomically retains
    one immutable handoff, marks the command processing, and returns `handoffHash`,
@@ -154,6 +162,7 @@ parking until reconciled; queued unprepared requests do not count as in-flight.
 Quiesce older helpers before any separately authorized rollout. No mixed-version
 writer/downgrade contract, installed-skill update, schedule change, maintenance
 release, live task archival, public Play or supervised pilot follows from this PR.
-See [local verification](ARCHIVE-HANDOFF-VERIFICATION.md). Remaining WSP-05 work
-includes delegated continuation/next-task selection, retention policy/UI and live
-native/host qualification; this first handoff does not complete that milestone.
+See [original local verification](ARCHIVE-HANDOFF-VERIFICATION.md) and the
+[delegated-retention extension](DELEGATED-RETENTION.md). Owner policy UI, complete
+descendant/output preservation and live native/host qualification remain separate;
+these source handoffs do not complete the autonomous lifecycle milestone.

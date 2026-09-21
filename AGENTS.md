@@ -440,3 +440,19 @@ suppresses the balance. Account percentages/global recorded counts are separate
 from phase tokens and exclude legacy/unmanaged capacity. Cached overview/chat
 facts are historical; no background inspection or assistant budget action. Keep
 foreign workspace/native identities and proof content out of the projection.
+
+WSP-05E adds exact-run owner-reviewed retention delegation. See
+docs/DELEGATED-RETENTION.md. This supersedes explicit-owner-per-archive requirements
+only for the designated brain's policy-bound accepted standard local root tasks.
+No policy means no delegation; phase task-approval authority alone is insufficient.
+Review/revoke remain internal authenticated-owner seams, not public or brain CLI
+authority. Require an exact phase-delegated run, paused owner setup, explicit cleanup
+acknowledgment, accepted measured preservation, age and attempt limits. Each request
+consumes an immutable per-worker slot and exact-run allowance; cancellation,
+revocation, supersession or uncertainty never resets it or allows an owner-actor
+fallback. Recheck policy at prepare/check while preserving the existing one-shot
+native boundary, fresh root-only safety evidence and all Pause/maintenance gates.
+Historical/late outcomes remain recordable after revocation without another permit.
+No token/ownership release, acceptance promotion, native call, retry, cleanup,
+rollout or Actions follows. Quiesce older writers before separately authorized
+installation; owner UI, descendant/output preservation and host qualification remain.

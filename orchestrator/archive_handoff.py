@@ -50,9 +50,11 @@ def binding_in(ledger, db, worker):
             "confirmed": True, "allowManagedWorktreeCleanup": True}
 
 
-def owner_request_in(ledger, db, worker, command):
+def owner_request_in(ledger, db, worker, command, *, current=False):
     exact(command["payload"], PAYLOAD)
-    require(command["actor"] in OWNERS, "An explicit owner archival request is required")
+    from .retention_policy import validate_command
+    delegated = validate_command(db, worker, command, ledger=ledger, current=current)
+    require(command["actor"] in OWNERS or delegated is not None, "An explicit owner archival request is required")
     require(command["payload"].get("confirmed") is True and command["payload"].get("allowManagedWorktreeCleanup") is True,
             "Owner must explicitly acknowledge native managed-worktree cleanup")
     require(command["payload"] == binding_in(ledger, db, worker), "Archive request review or preservation changed")
@@ -62,7 +64,7 @@ def owner_request_in(ledger, db, worker, command):
 
 
 def submit_in(ledger, db, worker, command):
-    owner_request_in(ledger, db, worker, command)
+    owner_request_in(ledger, db, worker, command, current=True)
     require(not worker.get("archived") and not worker.get("archiveHandoffHash") and
             not db.execute("SELECT 1 FROM snapshots WHERE id=?", (slot(worker["id"]),)).fetchone(),
             "Archive already attempted; retain its receipt and do not retry")
@@ -72,9 +74,9 @@ def submit_in(ledger, db, worker, command):
 
 def process_in(ledger, db, worker, command):
     # Existing helper generations must never emit a generic managed archive action.
-    owner_request_in(ledger, db, worker, command)
+    owner_request_in(ledger, db, worker, command, current=True)
     command.update(status="queued", archiveReceivedAt=time.time(),
-                   result="Owner request received; dedicated archive handoff and fresh safety evidence required")
+                   result="Authorized archive request received; dedicated handoff and fresh safety evidence required")
     return {"kind": "archive_handoff_required", "commandId": command["id"], "workerId": worker["id"],
             "nativeCallMade": False, "sendPermit": False}
 
@@ -102,10 +104,13 @@ def validate_projection(db, worker, review):
     row = db.execute("SELECT data FROM commands WHERE id=?", (doc["command"]["id"],)).fetchone()
     require(row is not None, "Archive owner command missing")
     command = json.loads(row[0])
+    from .retention_policy import validate_command
+    delegated = validate_command(db, worker, command)
     require({k: command.get(k) for k in doc["command"]} == doc["command"] and
             doc["command"]["payload"] == {"workerId": worker["id"], "reviewHash": digest(review),
                 "preservationArtifactId": review["request"]["result"]["preservation"]["artifactId"],
-                "confirmed": True, "allowManagedWorktreeCleanup": True} and doc["command"]["actor"] in OWNERS and
+                "confirmed": True, "allowManagedWorktreeCleanup": True} and
+            (doc["command"]["actor"] in OWNERS or delegated is not None) and
             doc["command"]["fingerprint"] == digest({k: doc["command"][k] for k in ("id", "kind", "expectedRevision", "payload")}),
             "Archive owner binding changed")
     check = runs.document(db, worker["archiveHandoffCheckHash"], CHECK) if worker.get("archiveHandoffCheckHash") else None
@@ -164,7 +169,7 @@ class ArchiveHandoff:
         runs.require_current(self.ledger, db, intent["runHash"])
         from .brain_control import stopped
         require(not stopped(meta) and meta["runner"] is None, "Brain stop or runner ownership fences archival")
-        owner_request_in(self.ledger, db, worker, command)
+        owner_request_in(self.ledger, db, worker, command, current=True)
         require(command["status"] == ("queued" if preparing else "processing") and command.get("archiveReceivedAt") and
                 not worker.get("archived"), "Exact received pending owner archive request required")
         require(not any(c["id"] != command["id"] and c["kind"] in ("archive", "checkpoint") and
@@ -189,10 +194,16 @@ class ArchiveHandoff:
         with self.bridge.locked(token) as (db, meta):
             worker, intent = self.bridge.intent_in(db, worker_id)
             with self.store.tx() as kernel: _, _, payload, (doc, check, latest) = self.context_in(db, kernel, worker, intent)
+            from .retention_policy import state_in
             return {"workerId": worker_id, "revision": meta["revision"], "ownerRequestPayload": payload,
+                    "retention": state_in(self.ledger, db, worker, intent),
                     "handoffHash": digest(doc) if doc else None, "checkHash": digest(check) if check else None,
                     "observation": receipt(latest) if latest else None, "archived": worker["archived"],
                     "sendPermit": False, "nativeCallMade": False, "currentNativeActivity": "not_observed"}
+
+    def request_delegated(self, token, worker_id, request):
+        from .retention_policy import request_archive
+        return request_archive(self, token, worker_id, request)
 
     def prepare(self, token, worker_id, request):
         exact(request, {"commandId", "expectedRevision", "inventory"}); identifier(request["commandId"]); integer(request["expectedRevision"])
@@ -209,6 +220,7 @@ class ArchiveHandoff:
             doc = {"kind": KIND, "workerId": worker_id, "intentHash": digest(intent), "reviewHash": digest(review),
                    "request": request, "arguments": arguments(worker), "at": time.time(),
                    "command": {k: command[k] for k in ("id", "kind", "expectedRevision", "payload", "actor", "fingerprint", "createdAt", "archiveReceivedAt")}}
+            if "retentionHash" in command: doc["command"]["retentionHash"] = command["retentionHash"]
             key = runs.retain(db, KIND, doc)
             db.execute("INSERT INTO snapshots VALUES(?,?,?)", (slot(worker_id), SLOT, canonical({"handoffHash": key})))
             worker["archiveHandoffHash"] = key; self.ledger.put(db, "workers", worker_id, worker)
