@@ -259,6 +259,12 @@ its unique dispatch/request identity against actual native state first.
 
 ## Reuse with another project
 
+For registered workspaces, **Phase checkpoints** shows saved phase-report versions
+and lets you explicitly inspect their retained evidence. It separates unfinished
+work, recorded worker results, stale/missing evidence and unknown phase usage.
+The assistant receives cached metadata only. Opening the page does not prepare a
+report, approve a release or start Play. See the [checkpoint owner workflow](docs/CHECKPOINT-VISIBILITY-PLAN.md).
+
 The planned [development workspaces and phase-bounded autopilot](docs/WORKSPACES-AUTOPILOT.md)
 will bring separate portfolios into one dashboard with executive project introductions,
 workspace brains, configurable packet approval and phase checkpoints. Brains will

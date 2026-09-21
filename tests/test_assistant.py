@@ -60,6 +60,27 @@ class AssistantTest(unittest.TestCase):
         self.assertEqual(rows[0]["status"], "open")
         self.assertLess(len(canonical(data).encode()), 24000)
 
+    def test_phase_checkpoint_context_is_historical_and_links_only_to_inspection(self):
+        state = self.ledger.snapshot()
+        state["phaseCheckpoints"] = {"status": "intact", "kind": "report", "historical": True,
+            "workspaceChanged": True, "expired": True, "executionAuthorized": False,
+            "measuredPhaseTokens": None, "phaseAcceptance": "not_established"}
+        data, links = context(state, "phaseCheckpoints")
+        fact = next(f for f in data["facts"] if f["id"] == "F33")
+        self.assertEqual(fact["data"], state["phaseCheckpoints"])
+        state["phaseCheckpoints"]["note"] = "withheld-private-report-body"
+        self.assertNotIn("withheld-private-report-body", canonical(context(state, "phaseCheckpoints")[0]))
+        self.assertEqual(links["phaseCheckpoints"]["href"], "#/phaseCheckpoints")
+        self.assertFalse(any("phase" in a["key"] or "checkpoint" in a["key"] for a in data["actions"]))
+        result = response(); content = json.loads(result["choices"][0]["message"]["content"])
+        content.update(links=["phaseCheckpoints"], evidence=["F33"])
+        result["choices"][0]["message"]["content"] = json.dumps(content)
+        answer = validate_response(result, data, links, CONFIG)
+        self.assertEqual(answer["links"][0]["href"], "#/phaseCheckpoints")
+        content["links"] = ["phase-release"]
+        result["choices"][0]["message"]["content"] = json.dumps(content)
+        with self.assertRaises(Refusal): validate_response(result, data, links, CONFIG)
+
     def test_closed_prompts_cannot_reopen_settled_questions_in_chat_context(self):
         state = self.ledger.snapshot()
         state["decisions"][0]["status"] = "blocked"

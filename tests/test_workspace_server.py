@@ -85,6 +85,33 @@ class WorkspaceServerTest(unittest.TestCase):
         with runtime.run_readiness_lock:
             self.assertEqual(self.request("/api/workspaces/a/run-readiness", headers=auth)[0], 409)
 
+    def test_phase_history_is_explicit_authenticated_scoped_and_read_only(self):
+        from orchestrator import checkpoint_views
+        from orchestrator.workspaces import fingerprint
+        route = "/api/workspaces/a/phase-checkpoints"
+        self.assertEqual(self.request(route)[0], 401)
+        auth = self.auth("a")
+        runtime = self.server.runtime_for("a")
+        with patch.object(checkpoint_views, "history", side_effect=AssertionError("No polling inspection")):
+            _, _, raw = self.request("/api/workspaces/a/state", headers=auth)
+            self.assertEqual(json.loads(raw)["phaseCheckpoints"]["status"], "not_inspected")
+            self.assertEqual(self.request("/api/workspaces/a/assistant/context?view=phaseCheckpoints", headers=auth)[0], 200)
+        with self.ledgers["a"].tx() as db: before = fingerprint(db)
+        status, _, raw = self.request(route, headers=auth)
+        self.assertEqual(status, 200); self.assertEqual(json.loads(raw)["status"], "empty")
+        with self.ledgers["a"].tx() as db: self.assertEqual(before, fingerprint(db))
+        _, _, raw = self.request("/api/workspaces/b/state", headers=auth)
+        self.assertEqual(json.loads(raw)["phaseCheckpoints"]["status"], "not_inspected")
+        _, _, raw = self.request("/api/workspaces/a/assistant/context?view=phaseCheckpoints", headers=auth)
+        fact = next(f for f in json.loads(raw)["facts"] if f["id"] == "F33")
+        self.assertTrue(fact["data"]["historical"])
+        with runtime.checkpoint_inspection_lock:
+            self.assertEqual(self.request(route, headers=auth)[0], 409)
+        for suffix in ("?reportHash=x", "?reportHash=x&artifactId=y", "?reportHash=&artifactId=", "?activate=true", "?reportHash=x&reportHash=y&artifactId=z"):
+            self.assertEqual(self.request(route+suffix, headers=auth)[0], 400)
+        self.assertEqual(self.request(route, {"confirmed": True}, auth)[0], 404)
+        self.assertEqual(self.request("/api/phase-checkpoints", headers=auth)[0], 400)
+
     def test_task_contract_read_is_authenticated_scoped_and_no_write_route(self):
         from test_core import seed
         auth = self.auth("a")
