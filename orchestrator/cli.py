@@ -88,6 +88,10 @@ def main():
         p.add_argument("worker_id")
         if operation == "check": p.add_argument("handoff_hash")
         elif operation not in ("state", "recover"): p.add_argument("request", type=Path)
+    for operation in ("state", "proof-add", "settle", "recover"):
+        p = sub.add_parser("terminal-handoff-" + operation, help="Brain-owned terminal accounting; supplied evidence, not native attestation")
+        p.add_argument("worker_id"); p.add_argument("--outcome", choices=["confirmed", "not_created"], required=True)
+        if operation in ("proof-add", "settle"): p.add_argument("request", type=Path)
     for operation in ("state", "collect-source", "collect-github", "collect-preservation", "proof-add", "proof-read", "review"):
         p = sub.add_parser("result-handoff-" + operation, help="Brain-owned standard-policy evidence/review; no native effects")
         p.add_argument("worker_id")
@@ -139,7 +143,7 @@ def main():
         raise Refusal("--workspace requires --platform")
     if args.state and (args.workspace or args.platform):
         raise Refusal("Choose a registered workspace or --state, not both")
-    if (args.action == "run-readiness" or args.action.startswith(("task-contract-", "model-policy-", "native-evidence-", "brain-cycle-", "phase-checkpoint-", "native-create-", "native-task-", "native-account-", "phase-usage-", "runner-handoff-", "result-handoff-", "archive-handoff-", "correction-handoff-"))) and not (args.platform and args.workspace):
+    if (args.action == "run-readiness" or args.action.startswith(("task-contract-", "model-policy-", "native-evidence-", "brain-cycle-", "phase-checkpoint-", "native-create-", "native-task-", "native-account-", "phase-usage-", "runner-handoff-", "terminal-handoff-", "result-handoff-", "archive-handoff-", "correction-handoff-"))) and not (args.platform and args.workspace):
         raise Refusal("This operation requires an explicit registered workspace")
     registry = Registry(args.platform, create=args.action == "workspace-register") if args.platform else None
     if args.action.startswith("platform-reconciliation-"):
@@ -331,6 +335,15 @@ def main():
         api = ArchiveHandoff(DispatchAdmission(registry, args.workspace, AdmissionStore(registry.root)))
         operation = action.removeprefix("archive-handoff-")
         if operation == "state": out = api.state(token, args.worker_id)
+        else: out = getattr(api, operation)(token, args.worker_id, read_request(args.request))
+    elif action.startswith("terminal-handoff-"):
+        from .admission import AdmissionStore
+        from .dispatch_admission import DispatchAdmission
+        from .terminal_handoff import TerminalHandoff
+        from .result_handoff import read_request
+        api = TerminalHandoff(DispatchAdmission(registry, args.workspace, AdmissionStore(registry.root)), args.outcome)
+        operation = action.removeprefix("terminal-handoff-").replace("-", "_")
+        if operation in ("state", "recover"): out = getattr(api, operation)(token, args.worker_id)
         else: out = getattr(api, operation)(token, args.worker_id, read_request(args.request))
     elif action.startswith("result-handoff-"):
         from .admission import AdmissionStore

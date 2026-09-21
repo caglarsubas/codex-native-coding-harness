@@ -32,10 +32,16 @@ acceptance, native transport, maintenance migration or autonomous Play activatio
 
 ## Delivery boundary
 
-Internal designated-brain methods and isolated fixtures only. External proof is
+WSP-04D6 now exposes the scoped standard-local command adapter documented in
+[TERMINAL-HANDOFF.md](TERMINAL-HANDOFF.md). It supersedes only the original
+internal-only entry-point limitation below; absence evidence is still externally
+supplied and live rollout remains separate.
+
+The original increment exposed internal designated-brain methods and isolated
+fixtures only; WSP-04D6 adds the scoped CLI. External proof is
 caller-supplied evidence, not independently authenticated native attestation.
 A future trusted transport/observer must prove finality, completeness and cleanup;
-this increment does not collect or fabricate that evidence. No CLI/HTTP/assistant
+this increment does not collect or fabricate that evidence. No HTTP/assistant
 write route, installed skill, live ledger, native task, dashboard process, schedule,
 model configuration, credentials or product repository is changed.
 

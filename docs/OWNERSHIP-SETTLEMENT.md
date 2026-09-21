@@ -25,8 +25,14 @@ termination, archiving, runner execution or public Play.
 
 ## Boundaries
 
-Only trusted designated-brain internal Python calls and isolated tests. No CLI,
-HTTP, assistant or installed-skill entry point; no live setup or transport.
+WSP-04D6 now exposes the scoped standard-local command adapter documented in
+[TERMINAL-HANDOFF.md](TERMINAL-HANDOFF.md). It supersedes only the original
+internal-only entry-point limitation below; external evidence and rollout gates
+are unchanged.
+
+The original increment exposed only trusted designated-brain internal Python
+calls and isolated tests. WSP-04D6 adds the scoped CLI; no HTTP/assistant write
+route, live setup, installation or transport is implied.
 Native activity, coverage, terminal intent, cleanup and token samples are supplied
 external assertions, not independently authenticated native evidence. The future
 adapter must obtain and independently verify them; a final worker message or
