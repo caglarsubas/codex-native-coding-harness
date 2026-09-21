@@ -35,6 +35,7 @@ async function initializeWorkspaces(){
   $('workspace-picker').hidden=false;
   $('mission-nav').hidden=false;
   $('run-readiness-nav').hidden=false;
+  $('phase-checkpoints-nav').hidden=false;
   if(!workspaceList.length)throw new Error('No registered workspaces are available.');
   const select=$('workspace-select');select.replaceChildren();
   select.onchange=()=>switchWorkspace(select.value);

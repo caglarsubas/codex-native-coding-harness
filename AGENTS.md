@@ -389,10 +389,22 @@ WSP-03C adds retained local phase checkpoint reports and exact owner review befo
 subsequent run intent. See docs/PHASE-CHECKPOINTS.md. Reports are historical claims,
 not phase acceptance or fresh activity; unknown shared usage stays unknown. Keep
 result axes, original observation times and checkpoint artifact bytes distinct.
-Only the brain prepares/reads reports; owner review remains an internal trusted
-seam. Bind release to the latest unchanged report, exact next reviewed mission,
-settings and expiry in the grant transaction. Missing/superseded reviews cannot
+Only the brain prepares reports and uses their controller-scoped CLI; the
+authenticated dashboard may inspect them read-only under WSP-03D below. Owner
+review remains an internal trusted seam. Bind release to the latest unchanged
+report, exact next reviewed mission, settings and expiry in the grant transaction.
+Missing/superseded reviews cannot
 use the old release path. No resume, dispatch, new retry, budget reset, ownership
 release, acceptance, merge or archive follows. Quiesce older writers before a
 separate rollout; no mixed-version/downgrade contract, live installation, public
 Play or workflow execution is authorized by source delivery.
+
+WSP-03D adds explicit, authenticated, selected-workspace checkpoint history and
+retained-proof inspection. See docs/CHECKPOINT-VISIBILITY-PLAN.md. Polling and chat
+must not inspect proofs, prepare reports or initialize shared accounting; expose
+only cached bounded metadata to the assistant. Keep unavailable, superseded,
+changed-source and uncheckable-current-context states separate. Inspection never
+renews report/checkpoint timestamps or establishes acceptance, usage or native
+inactivity. Reads cannot acquire a controller, notify, approve, release or resume.
+Preserve workspace-generation guards, original artifact versions and the closed
+navigation allowlist. No public owner review/release or Play endpoint is added.

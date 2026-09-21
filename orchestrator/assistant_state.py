@@ -127,6 +127,7 @@ CAPABILITIES = [
     {"view": "roadmap", "capability": "Inspect plan source checklists and progress; checkmarks do not authorize execution or prove acceptance"},
     {"view": "readiness", "capability": "Local readiness inspection, isolated rehearsal and runtime/GitHub provenance checks; no fetch, deployment or runtime restart"},
     {"view": "runReadiness", "capability": "Explicit read-only mission, prepared-packet scope and retained platform-evidence inspection; not activation, fresh native collection or a reservation"},
+    {"view": "phaseCheckpoints", "capability": "Explicit saved phase report history and retained-evidence inspection; cached metadata only in chat, not phase acceptance, measured usage or permission to continue"},
 ]
 
 BOUNDARIES = [

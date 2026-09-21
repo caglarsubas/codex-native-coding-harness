@@ -21,6 +21,7 @@ VIEWS = {
     "artifacts": "Artifact library", "roadmap": "Roadmap", "readiness": "Readiness",
     "mission": "Mission & authority configuration (not active)",
     "runReadiness": "Run readiness inspection (read-only; not activation)",
+    "phaseCheckpoints": "Saved phase checkpoint reports (read-only; not release)",
 }
 SYSTEM = """You are the operational assistant inside a local development operations dashboard.
 For questions, explain what is recorded, what is unknown and useful next steps.
@@ -55,6 +56,12 @@ seed-only approval cannot approve them. Requested execution settings are not
 applied, observed, supported or owner-authorized settings; no automatic fallback.
 Internal run-authority records are not native activation or an available Play
 control. They do not prove reservations, worker creation or budget enforcement.
+Phase checkpoint inspection is explicit and read-only. Its cached metadata is
+historical; workspaceChanged or expired means inspect again. An intact report
+does not establish phase acceptance or current native activity. Report notes and
+proof bodies are withheld. Never infer their contents. Phase token limits are
+not measured usage. There is no assistant action to inspect, prepare, review,
+release or continue a phase; link to phaseCheckpoints for owner inspection.
 Only decisions marked needsOwnerInput=true await a new answer. A blocked historical
 decision can already have an owner answer and follow-up; do not call it open or
 unanswered. No dependency graph or artifact contents are supplied: never invent
@@ -167,6 +174,16 @@ def context(state, view):
     if state.get("admission"):
         facts.append({"id": "F32", "label": "Workspace enrollment fence; not native activity or run activation",
                       "data": {k: state["admission"].get(k) for k in ("state", "dispatchBlocked", "activationAvailable", "reason")}})
+    if state.get("phaseCheckpoints"):
+        checkpoint = state["phaseCheckpoints"]
+        checkpoint_data = {k: checkpoint[k] for k in ("kind", "status", "workspaceRevision", "inspectedAt", "executionAuthorized",
+            "total", "unavailable", "latestAvailable", "contextStatus", "generation", "version", "checkpointAt", "retainedAt",
+            "phaseAcceptance", "measuredPhaseTokens", "historical", "workspaceChanged", "expired") if k in checkpoint}
+        if "counts" in checkpoint:
+            checkpoint_data["counts"] = {k: checkpoint["counts"].get(k) for k in ("declaredTasks", "recordedAcceptedResults",
+                "recordedChangesRequired", "unreviewedWorkers", "unfinishedDeclaredTasks", "pendingControlCount")}
+        facts.append({"id": "F33", "label": "Cached explicit checkpoint inspection; historical metadata, not clearance",
+                      "data": checkpoint_data})
     # The service sees aliases, not native/ledger IDs, filesystem paths or routes.
     data = {"schemaVersion": 2, "observedAt": time.time(), "snapshotTimeUTC": datetime.now(timezone.utc).isoformat(), "currentView": VIEWS[view], "facts": facts,
             "links": {k: v["label"] for k, v in links.items()},

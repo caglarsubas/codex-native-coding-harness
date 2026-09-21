@@ -1,5 +1,9 @@
 # WSP-03C — reviewed phase checkpoint reports
 
+Follow-on WSP-03D adds an authenticated, explicit read-only dashboard inspection
+of these reports: [checkpoint visibility and owner workflow](CHECKPOINT-VISIBILITY-PLAN.md).
+Report preparation remains brain-only; owner review/release remains internal.
+
 Plan saved before implementation, from verified PR #47 merge
 `ecee2319de353a09120d77431d42d0d544c35ba0`.
 

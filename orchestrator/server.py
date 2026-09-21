@@ -45,6 +45,8 @@ class WorkspaceRuntime:
         self.assistant_proposals = ActionProposals()
         self.run_readiness_report = None
         self.run_readiness_lock = threading.Lock()
+        self.checkpoint_inspection = None
+        self.checkpoint_inspection_lock = threading.Lock()
 
     def snapshot(self):
         """Same evidence for workspace and assistant; no model-triggered scans or refresh."""
@@ -62,6 +64,8 @@ class WorkspaceRuntime:
         state["brainNotification"] = self.notifier.status(state["meta"]["brainId"])
         from .run_readiness import assistant_summary
         state["runReadiness"] = assistant_summary(self.run_readiness_report)
+        from .checkpoint_views import cached_summary
+        state["phaseCheckpoints"] = cached_summary(self.checkpoint_inspection, state["meta"]["revision"])
         if self.registry:
             state["workspace"] = {"id": self.workspace_id,
                 "name": next(w["name"] for w in self.registry.list() if w["id"] == self.workspace_id),
@@ -176,7 +180,7 @@ class Handler(BaseHTTPRequestHandler):
         static["/activity.js"] = ("activity.js", "text/javascript; charset=utf-8")
         static["/decisions.js"] = ("decisions.js", "text/javascript; charset=utf-8")
         static["/decisions.css"] = ("decisions.css", "text/css; charset=utf-8")
-        for file in ("panes.js", "assistant.js", "routing.js", "workspaces.js", "missions.js", "workspace-pause.js", "run-readiness.js", "task-contracts.js", "panes.css"):
+        for file in ("panes.js", "assistant.js", "routing.js", "workspaces.js", "missions.js", "workspace-pause.js", "run-readiness.js", "phase-checkpoints.js", "task-contracts.js", "panes.css"):
             static["/" + file] = (file, "text/javascript; charset=utf-8" if file.endswith(".js") else "text/css; charset=utf-8")
         if path in static:
             file, mime = static[path]
@@ -201,6 +205,19 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/mission" and workspace_id:
                 from .missions import read
                 return self.respond(200, read(runtime.ledger))
+            if path == "/api/phase-checkpoints" and workspace_id:
+                from . import checkpoint_views
+                query = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
+                if query and (set(query) != {"reportHash", "artifactId"} or any(len(v) != 1 for v in query.values())):
+                    return self.respond(400, {"error": "Expected reportHash and artifactId, or no query for history"})
+                if not runtime.checkpoint_inspection_lock.acquire(blocking=False):
+                    return self.respond(409, {"error": "Checkpoint inspection is already in progress for this workspace."})
+                try:
+                    result = checkpoint_views.inspect(runtime.ledger, {k: v[0] for k, v in query.items()}) if query else checkpoint_views.history(runtime.ledger)
+                    runtime.checkpoint_inspection = checkpoint_views.summary(result)
+                    return self.respond(200, result)
+                finally:
+                    runtime.checkpoint_inspection_lock.release()
             if path == "/api/task-contract" and workspace_id:
                 from .task_contracts import read
                 query = parse_qs(urlsplit(self.path).query)

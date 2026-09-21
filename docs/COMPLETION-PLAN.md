@@ -61,8 +61,21 @@ measured shared-usage presentation and full phase-exit qualification remain open
 milestone 3 is still capability-gated. The conditional **8–12 / 10–16** estimates
 are unchanged for this partial milestone. See [phase checkpoints](PHASE-CHECKPOINTS.md).
 
+Progress after verified PR #48: WSP-03D exposes those saved reports through the
+selected-workspace dashboard and bounded assistant metadata. Explicit inspection
+shows original versions/times, separate outcomes, unknown usage and stale/missing
+evidence without adding approval or activation controls. This advances the
+visibility portion of milestones 5/6, not their complete exit criteria; native
+capability qualification and the conditional **8–12 / 10–16** ranges are unchanged.
+See the [saved increment plan and owner workflow](CHECKPOINT-VISIBILITY-PLAN.md).
+
 ## Current increment
 
+- [x] WSP-03D source: read-only phase report history, retained-proof inspection,
+  context comparison, workspace dashboard and bounded historical assistant facts.
+  No polling inspection, owner release, shared-store initialization or live Play.
+  Local verification: 1,300 Python tests, nine JavaScript UI suites and disposable
+  two-workspace browser checks passed. No Actions workflow or run was triggered.
 - [x] WSP-03C source: parked-phase report artifacts, recorded result/criterion/axis
   projections, exact owner review and transaction-bound subsequent run release.
   Replay, changed-source/report refusal and same-phase accounting continuity are
@@ -107,7 +120,7 @@ are unchanged for this partial milestone. See [phase checkpoints](PHASE-CHECKPOI
 | 3 | Partial: native metadata collector (WSP-04F); complete host/counter source still required | Public metadata reads qualified in fixtures; complete ephemeral membership, whole-process cleanup and non-resetting lifetime usage remain capability-gated, not inferred |
 | 4 | Controlled onboarding and maintenance release | Exact owner review, migrated ownership/baselines, interrupted-release recovery and no implicit upgrade activation |
 | 5 | Partial: checkpoint report/release binding (WSP-03C); new-generation corrections and phase-exit qualification remain | Retained local claims bind an exact owner-reviewed next scope/settings/expiry; no inferred phase acceptance, public release, automatic crossing or usage/attempt reset |
-| 6 | Dashboard Play/phase controls and assistant integration | Explicit version-bound start, immediate notification, brain receipt, recovery and truthful blocked states; Pause dominates races |
+| 6 | Partial: checkpoint visibility and assistant metadata (WSP-03D); Play/phase controls remain | Saved evidence inspection is read-only; explicit version-bound start, immediate notification, brain receipt and recovery still require qualification; Pause dominates races |
 | 7 | Native brain operating loop and quiet recovery scheduling | Updated reusable guidance composes all handoffs; no duplicate sends or background helper scheduler; idle owner waits do not poll models |
 | 8 | Delegated retention and complete preservation/archival lifecycle | Selected retention policy, descendant/untracked-output safeguards, preserved knowledge and independently observed safe archival |
 | 9 | Partial: canonical portfolio metrics (WSP-09A); broader scale/fairness qualification remains | Same-origin clone and local worktree snapshot totals, explicit coverage, 3,200-row aggregation and two-workspace fixture browser checks; host aliases, runner fairness and full live portfolio qualification remain |
