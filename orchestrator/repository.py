@@ -150,6 +150,8 @@ def aggregate(state):
     cycles = [w["completedAt"] - w["createdAt"] for w in completed]
     totals.update(repositoryCount=len(state["repositories"]), managedTasks=len(state["workers"]), completedPackets=len(completed),
         meanCycleSeconds=sum(cycles) / len(cycles) if cycles else None)
+    tasks = (state.get("meta", {}).get("standardRun") or {}).get("tasks", [])
+    totals.update(cooperativeTasks=len(tasks), cooperativeCompletedTasks=sum(t["status"] == "completed" for t in tasks))
     return {**code, "aggregate": totals, "delivery": state.get("delivery"), "usage": state.get("observations", {}).get("usage") or {"status": "unavailable",
         "reason": "No validated per-task usage source connected. Model/effort, tokens, cache, messages and historical sessions are not inferred from task counts."}}
 

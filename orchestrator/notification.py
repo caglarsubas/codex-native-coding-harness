@@ -17,7 +17,7 @@ UUID = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 ACK = re.compile(rf"Queued message ({UUID}) for thread ({UUID})\.")
 TIMEOUT = 8
 NOTIFY_KINDS = {"decision_response", "resume", "reconcile", "checkpoint", "archive", "brain_stop", "brain_resume",
-                "approve", "hold", "prioritize", "listening", "pause"}
+                "approve", "hold", "prioritize", "listening", "pause", "standard_play", "standard_pause", "standard_resume"}
 
 
 class BrainNotifier:
@@ -47,8 +47,11 @@ class BrainNotifier:
                     or command.get("actor") not in ("dashboard", "assistant_owner_confirmed") or command.get("notification")):
                 return command
             meta = ledger.get(db, "meta", 1)
+            standard_run = meta.get("standardRun")
             from .brain_control import stopped
-            if stopped(meta) and command["kind"] not in ("brain_stop", "brain_resume"):
+            if standard_run and standard_run["status"] in ("stopping", "paused") and command["kind"] == "decision_response":
+                return command  # Standard Resume drains saved input; answers cannot resume it.
+            if not standard_run and stopped(meta) and command["kind"] not in ("brain_stop", "brain_resume", "standard_play", "standard_pause", "standard_resume"):
                 # No attempt claimed: an explicit Resume brain drains the inbox.
                 return command
             decision = None
@@ -95,6 +98,19 @@ class BrainNotifier:
             "Reconcile superseded or completed requests without replay. This notification itself grants no packet approval, "
             "target access, workers, acceptance runs, model/effort changes or merges."
         )
+        if standard_run:
+            source = Path(__file__).resolve().parent.parent
+            message = (
+                "A committed standard-project dashboard control needs your receipt. "
+                f"Read {json.dumps(str(source / 'skills/codex-orchestrator/references/standard-cycle.md'))} completely. "
+                f"Use this source checkout {json.dumps(str(source))}, platform {json.dumps(str(ledger.platform_root))}, "
+                f"workspace {ledger.workspace_id}; first read standard-state, verify this task is its designated brain, "
+                "then acquire its controller. Receive the control and follow the latest retained run, not this notification. "
+                "Pause takes priority. Never use legacy or strict dispatch for this workspace. "
+                "Native creation is one-shot; reconcile uncertain outcomes, never resend. "
+                "No permissions come from this notification; use the exact owner-approved run and inheritance seed. "
+                "Keep supervising registered tasks with native waits until the reviewed phase checkpoint or stop."
+            )
         result = {"status": "uncertain", "detail": "Codex delivery could not be confirmed. Your request is saved. Check the brain; an active heartbeat can reconcile it. No automatic resend."}
         try:
             completed = subprocess.run(

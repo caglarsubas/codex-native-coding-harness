@@ -189,6 +189,22 @@ These are planned tooling increments, not live mission or product authorization.
 - [ ] WSP-05: continuous phase-scoped development, inheritance and preserved task archival
 - [ ] WSP-06: real supervised two-workspace acceptance and verified runtime rollout
 
+## Separate standard-project milestone (owner-approved 2026-09-21)
+
+The strict WSP gates above are not the cooperative standard-project backlog.
+They retain their original evidence contract; do not count their completion as
+necessary standard-mode iterations or mark them done using cooperative evidence.
+The former rolling iteration forecast is retired in favor of the finite
+[standard completion checklist](STANDARD-PROJECT-COMPLETION.md).
+
+- [x] Explicit cooperative contract and signed owner Play/Pause/Resume.
+- [x] Native-brain phase delegation, catalog-bound settings and inherited seeds.
+- [x] Durable one-shot task journal, repository exclusion, private controller persistence.
+- [x] Observed usage/gaps, conservative allowances and checkpoint stops.
+- [x] Dashboard monitoring, result references, retained run versions and standard runbook.
+- [x] Real two-workspace pilot and final expanded regression/acceptance report: [1,562 local Python tests, 16 JavaScript suites and native pilot results](STANDARD-PROJECT-ACCEPTANCE.md).
+- [ ] Owner merge; separately requested rollout into non-disposable workspaces.
+
 ## Other future increments — not yet authorized implementation packets
 
 - [ ] Native attachment coverage beyond retained local file references

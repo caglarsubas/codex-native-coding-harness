@@ -15,6 +15,13 @@ controller authority: an exact owner confirmation is required for submission.
 
 ## What is included
 
+**New opt-in standard contract:** [Cooperative standard runs](docs/STANDARD-COOPERATIVE-RUNS.md)
+connect exact owner Play/Pause/Resume to the existing native brain, bounded phase
+delegation, task inheritance and observed-usage accounting. Existing workspaces
+are unchanged. Strict managed/Harness activation remains separate; descriptions
+of internal kernels and unavailable strict Play below still apply to that mode.
+See the [completion checklist](docs/STANDARD-PROJECT-COMPLETION.md).
+
 - Portfolio-neutral controller, with `standard` and stricter `harness` policies.
 - Versioned, immutable seeds and completion envelopes; digest-bound approvals.
 - Single-controller ownership, one worker per repository, and serialized managed

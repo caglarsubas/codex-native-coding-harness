@@ -1,5 +1,17 @@
 # Codex Orchestrator — personal tooling
 
+## Owner-approved standard-project contract (2026-09-21)
+
+`standard_cooperative_v1` is a separate opt-in run protocol. The owner explicitly
+approved registered-task scope, observed usage with gaps and checkpoint budget
+stops, and task/tracked-terminal checks rather than whole-process-tree cleanup.
+See docs/STANDARD-PROJECT-COMPLETION.md. Standard Play must bind an exact reviewed
+phase and explicit owner confirmation; review alone never activates anything.
+Only the native brain dispatches. No Harness, strict enrollment or imported-owner
+fence may enter this protocol. All strict-mode requirements below remain intact.
+The fixed notification bridge may also notify committed standard Play/Pause/
+Resume controls; source upgrades do not install or activate live workspaces.
+
 This is private development tooling, not a Harness product repository. Do not
 edit Harness product checkouts from this workspace. Product workers must follow
 their own approved packet, allowedPaths, AGENTS.md and trusted execution rules.

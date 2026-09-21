@@ -24,6 +24,13 @@ Use `workspace-list` to discover registered IDs, then confirm the selected ledge
 brain ID matches this task before any controller operation. Registry registration
 is not onboarding authority, packet approval or permission to start development.
 
+For an explicitly owner-activated `standard_cooperative_v1` workspace, read
+`references/standard-cycle.md` completely and use only that protocol. It is the
+owner-approved standard-project exception: phase delegation, observed usage and
+registered-task checkpoints, not Harness assurance. A mission review or tooling
+installation does not select this mode. Its native model/effort choices are
+authorized only by the exact run's catalog and phase limits.
+
 For schema v3/run-authority workspaces, immutable task contracts or admission-managed
 workers, read `references/managed-cycle.md` before the cycle. It composes the
 coordinator, model policy, one-shot handoffs, result review and event-bound waits.
