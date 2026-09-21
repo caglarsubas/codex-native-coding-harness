@@ -73,6 +73,19 @@ class StandardTest(unittest.TestCase):
         result=self.controls.confirm(self.registry,self.ledger,{**p,'confirmed':True},'session')
         self.assertEqual(result,self.controls.confirm(self.registry,self.ledger,{**p,'confirmed':True},'session'))
         self.assertTrue(self.ledger.snapshot()['meta']['paused'])
+
+    def test_workspace_conversation_receive_and_pause_boundary(self):
+        from test_conversation import envelope
+        from orchestrator.conversation import read as messages, reply
+        self.control()
+        cmd = self.ledger.submit(envelope(self.ledger, brainId=self.ledger.snapshot()['meta']['brainId']))
+        self.call('receive')
+        self.assertIsNotNone(messages(self.ledger)['messages'][0]['receivedAt'])
+        reply(self.ledger,self.token,cmd['id'],{'message':'Scoped answer','artifactIds':[],'decisionIds':[]})
+        self.control('pause')
+        self.ledger.submit(envelope(self.ledger, brainId=self.ledger.snapshot()['meta']['brainId']))
+        self.call('receive')
+        self.assertIsNone(messages(self.ledger)['messages'][-1]['receivedAt'])
         self.assertEqual(self.ledger.snapshot()['meta']['schemaVersion'],4)
 
     def test_decision_answers_use_standard_receipt_and_never_resume_pause(self):

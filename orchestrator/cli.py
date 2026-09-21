@@ -47,6 +47,9 @@ def main():
     p = sub.add_parser("workspace-profile-set"); p.add_argument("profile", type=Path); p.add_argument("--version", type=int, required=True)
     sub.add_parser("mission-state", help="Read workspace mission configuration; not execution authority")
     sub.add_parser("standard-state", help="Read cooperative run, task journal and usage gaps")
+    sub.add_parser("brain-messages", help="Read durable workspace conversation without waking the brain")
+    p = sub.add_parser("brain-message-receive"); p.add_argument("id")
+    p = sub.add_parser("brain-message-reply"); p.add_argument("id"); p.add_argument("reply", type=Path)
     p = sub.add_parser("standard-acquire", help="Persist a private brain controller token across bounded shell calls")
     p.add_argument("owner")
     p = sub.add_parser("standard-release", help="Release the private standard controller after checkpointing")
@@ -144,6 +147,7 @@ def main():
     p = sub.add_parser("pilot"); p.add_argument("id"); p.add_argument("evidence")
     p = sub.add_parser("serve"); p.add_argument("--port", type=int, default=8768)
     p.add_argument("--notify-brain", type=Path, metavar="CODEX_CLI", help="Opt in to immediate decision notification using an absolute installed Codex CLI path")
+    p.add_argument("--inference-env", type=Path, help="Existing private inference configuration; never a browser-selected path")
     args = parser.parse_args()
     from .workspaces import Registry
     if args.workspace and not args.platform:
@@ -218,7 +222,7 @@ def main():
         workspaces = registry.list()
         if not workspaces:
             raise Refusal("Register at least one workspace before serving")
-        serve(registry.ledger(workspaces[0]["id"]), args.port, notification_cli=args.notify_brain, registry=registry)
+        serve(registry.ledger(workspaces[0]["id"]), args.port, notification_cli=args.notify_brain, registry=registry, inference_env=args.inference_env)
         return
     if registry and not args.workspace:
         raise Refusal("Select an exact --workspace; no default portfolio is inferred")
@@ -226,7 +230,7 @@ def main():
     token = os.environ.get("ORCHESTRATOR_CONTROLLER_TOKEN", "")
     read = lambda path: json.loads(path.read_text())
     action = args.action
-    if action in ("decision-publish", "decision-resolve") and not token and ledger.snapshot()["meta"].get("standardRun"):
+    if action in ("decision-publish", "decision-resolve", "brain-message-receive", "brain-message-reply") and not token and ledger.snapshot()["meta"].get("standardRun"):
         from .standard import private_token
         token = private_token(ledger)
     if action == "init": out = ledger.initialize(read(args.config))
@@ -235,6 +239,15 @@ def main():
     elif action == "inbox":
         from .decisions import inbox
         out = inbox(ledger.snapshot())
+    elif action == "brain-messages":
+        from .conversation import read as messages
+        out = messages(ledger)
+    elif action == "brain-message-receive":
+        from .conversation import receive
+        out = receive(ledger, token, args.id)
+    elif action == "brain-message-reply":
+        from .conversation import reply, read_reply
+        out = reply(ledger, token, args.id, read_reply(args.reply))
     elif action == "acquire": out = {"controllerToken": ledger.acquire(args.owner)}
     elif action == "release": out = ledger.release(token, args.checkpoint)
     elif action == "recover": out = ledger.recover(args.owner, args.observation)
@@ -469,7 +482,7 @@ def main():
         out = {"markdown": str(path), "json": str(path.with_suffix(".json"))}
     elif action == "serve":
         from .server import serve
-        serve(ledger, args.port, notification_cli=args.notify_brain, registry=registry); return
+        serve(ledger, args.port, notification_cli=args.notify_brain, registry=registry, inference_env=args.inference_env); return
     print(json.dumps(out if out is not None else {"ok": True}, ensure_ascii=False, indent=2))
 
 

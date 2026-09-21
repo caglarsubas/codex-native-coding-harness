@@ -20,6 +20,7 @@
   <script src="/panes.js" defer></script>
   <script src="/assistant.js" defer></script>
   <script src="/workspaces.js" defer></script>
+  <script src="/conversation.js" defer></script>
   <script src="/missions.js" defer></script>
   <script src="/standard.js" defer></script>
   <script src="/task-contracts.js" defer></script>
@@ -52,6 +53,7 @@
     <div id="workspace-picker" class="workspace-picker" hidden><label for="workspace-select">Development workspace</label><select id="workspace-select" aria-label="Development workspace"></select><button id="all-workspaces" data-view="workspaces">All workspaces</button></div>
     <nav aria-label="Dashboard views">
       <button data-view="overview" aria-current="page"><span>01</span> Overview</button>
+      <button data-view="conversation"><span>↳</span> Brain conversation</button>
       <button data-view="mission" id="mission-nav" hidden><span>↳</span> Mission & authority</button>
       <button data-view="runReadiness" id="run-readiness-nav" hidden><span>↳</span> Run readiness</button>
       <button data-view="phaseCheckpoints" id="phase-checkpoints-nav" hidden><span>↳</span> Phase checkpoints</button>
@@ -90,6 +92,7 @@
       <header class="assistant-heading"><div><p class="eyebrow" id="assistant-workspace">WORKSPACE COMPANION</p><h2>AI assistant</h2></div><button data-pane-toggle="assistant" aria-label="Collapse AI assistant" title="Collapse assistant">→</button></header>
       <div class="assistant-intro">
         <p>Understand the state. Find your next step.</p>
+        <button data-view="conversation">Talk to workspace brain</button>
         <p id="assistant-service" class="muted">Connect to the ledger to ask a question.</p>
         <details id="assistant-privacy"><summary>Capabilities, context & privacy</summary><p>Ask about platform state or request a supported control: stop/resume the brain, pause/resume dispatch, reconcile, change idle-check preference, hold a packet, checkpoint/archive a worker, or answer a decision. Review and confirm the exact action before it is submitted. Packet approval and other operations open their review screens.</p><p>On Send, your message, up to four previous exchanges and bounded process states, repository metrics, decision prompts, follow-up summaries, checklist metadata and artifact names go to the configured inference service. Freshness and omitted records are explicit. No source code, artifact bodies, Codex conversations, credentials or prior owner-answer bodies are included. Do not enter secrets.</p><p>Chat and unconfirmed previews stay in this tab; reload or Clear chat removes them here. Confirmed controls and decision answers remain in the private ledger with receipts. Service-side retention follows your inference service policy.</p><button id="assistant-context">Preview current context & capabilities</button><pre id="assistant-context-preview" hidden></pre></details>
       </div>

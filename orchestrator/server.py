@@ -217,6 +217,7 @@ class Handler(BaseHTTPRequestHandler):
         static["/activity.js"] = ("activity.js", "text/javascript; charset=utf-8")
         static["/decisions.js"] = ("decisions.js", "text/javascript; charset=utf-8")
         static["/decisions.css"] = ("decisions.css", "text/css; charset=utf-8")
+        static["/conversation.js"] = ("conversation.js", "text/javascript; charset=utf-8")
         for file in ("panes.js", "assistant.js", "routing.js", "workspaces.js", "missions.js", "standard.js", "workspace-pause.js", "run-readiness.js", "phase-checkpoints.js", "checkpoint-controls.js", "rereview.js", "model-controls.js", "observer-controls.js", "budget.js", "retention.js", "task-contracts.js", "panes.css"):
             static["/" + file] = (file, "text/javascript; charset=utf-8" if file.endswith(".js") else "text/css; charset=utf-8")
         if path in static:
@@ -239,6 +240,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(200, {"csrf": scoped_csrf(session, workspace_id), "workspaceId": workspace_id})
             if path == "/api/profile" and workspace_id:
                 return self.respond(200, self.server.registry.profile(workspace_id))
+            if path == "/api/brain-conversation":
+                from .conversation import read
+                query = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
+                if set(query) - {"page"} or (query.get("page") and (len(query["page"]) != 1 or not query["page"][0].isdigit())):
+                    return self.respond(400, {"error": "Expected one conversation page number"})
+                return self.respond(200, read(runtime.ledger, int(query.get("page", ["0"])[0])))
             if path == "/api/mission" and workspace_id:
                 from .missions import read
                 return self.respond(200, read(runtime.ledger))
@@ -567,7 +574,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.respond(400, {"error": "Malformed request: " + str(error)})
 
 
-def serve(ledger, port, notification_cli=None, registry=None):
+def serve(ledger, port, notification_cli=None, registry=None, inference_env=None):
     # Every registered ledger has a single dashboard owner. New registrations
     # become served only after a restart and lock acquisition, never on a GET.
     import fcntl
@@ -583,7 +590,8 @@ def serve(ledger, port, notification_cli=None, registry=None):
                 fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError as error:
                 raise Refusal("Dashboard already running for a registered ledger") from error
-        server = Dashboard(ledger, port, notification_cli=notification_cli, registry=registry)
+        server = Dashboard(ledger, port, notification_cli=notification_cli, registry=registry,
+                           inference_env=inference_env if inference_env is not None else ENV_FILE)
         # Freeze the exact locked set, including a registration that races startup.
         if registry:
             server.served_workspaces = {w["id"] for w in registered}

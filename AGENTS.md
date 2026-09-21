@@ -1,5 +1,14 @@
 # Codex Orchestrator — personal tooling
 
+## Workspace conversation (2026-09-21)
+
+The owner requested project selection and routine Codex interaction through the
+dashboard. Authenticated owner messages may use the closed, brain-bound reconcile
+payload described in docs/WORKSPACE-CONVERSATION.md. The bridge still sends only
+a fixed pointer, never message text as argv. Only the designated brain may retain
+its reply. Conversation grants no packet/phase approval, target access or bypass
+of stop, budget or policy controls. Native security prompts remain native.
+
 ## Owner-approved standard-project contract (2026-09-21)
 
 `standard_cooperative_v1` is a separate opt-in run protocol. The owner explicitly

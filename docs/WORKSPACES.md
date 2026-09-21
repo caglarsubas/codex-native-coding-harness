@@ -66,6 +66,15 @@ the running server deliberately does not adopt new roots during ordinary reads.
 Use **Development workspace** in the left menu. Selection is tab-local and opens
 Overview; no native task starts. The introduction appears before operational
 status. **Edit project introduction** preserves versions and rejects stale edits.
+
+Use **Brain conversation** to send scoped direction to that project's existing
+Codex brain and read its retained reply. This is separate from the advisory
+inference assistant on the right. Delivery, receipt and reply are distinct;
+follow-up decisions and artifact links remain in the selected workspace.
+Pause/Resume and execution approvals keep their existing dedicated controls.
+See [the conversation contract](WORKSPACE-CONVERSATION.md). Native security or
+host permission prompts still require Codex; this is not a full transcript mirror.
+
 **All workspaces** compares retained measurements and opens artifacts/roadmaps in
 their originating workspace. Workspace rows may overlap; the aggregate uses the
 documented deduplication rules and excludes conflicting shared task usage summaries.

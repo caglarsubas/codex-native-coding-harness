@@ -315,21 +315,28 @@ class Ledger:
             meta = self.get(db, "meta", 1)
             require(command["expectedRevision"] == meta["revision"], "State changed; refresh and review before submitting")
             kind, p = command["kind"], command["payload"]
-            require(not meta.get("standardRun") or kind == "decision_response",
+            from .conversation import is_message, validate as validate_message
+            conversation = is_message(command)
+            require(not meta.get("standardRun") or kind == "decision_response" or conversation,
                     "Cooperative workspace uses its separate Play/Pause/Resume controls")
             fields = {"approve": {"queueId", "seedHash", "packetDigest"}, "hold": {"queueId", "held"},
                 "prioritize": {"queueId", "priority"}, "checkpoint": {"workerId"},
                 "archive": {"workerId"}, "pause": set(), "resume": set(), "reconcile": set(),
                 "listening": {"enabled"}, "decision_response": {"decisionId", "decisionHash", "optionId", "note", "confirmed"},
                 "brain_stop": set(), "brain_resume": set()}
+            if conversation:
+                from .conversation import FIELDS
+                fields["reconcile"] = FIELDS
             if kind == "archive" and "reviewHash" in p:
                 from .archive_handoff import PAYLOAD
                 fields["archive"] = PAYLOAD
             require(set(p) == fields[kind], "Unexpected command payload")
             record = {**command, "fingerprint": fingerprint, "actor": actor, "status": "queued", "createdAt": time.time(), "result": None}
             from .brain_control import request as brain_request, stopped
-            if kind in ("resume", "reconcile"):
-                require(not any(c["kind"] == kind and c["status"] in ("queued", "processing") for c in self.all(db, "commands")), "Equivalent request already pending")
+            if conversation:
+                validate_message(self, db, command, meta, actor)
+            elif kind in ("resume", "reconcile"):
+                require(not any(c["kind"] == kind and not is_message(c) and c["status"] in ("queued", "processing") for c in self.all(db, "commands")), "Equivalent request already pending")
             if kind == "resume":
                 from .enrollment import require_legacy_unfenced
                 require_legacy_unfenced(self, meta)
@@ -418,7 +425,13 @@ class Ledger:
                     continue
                 if cmd["status"] != "queued":
                     continue
-                if cmd["kind"] == "brain_resume":
+                from .conversation import is_message, receive_in
+                if is_message(cmd):
+                    from .decisions import authorize_brain
+                    meta = authorize_brain(self, db, token)
+                    receive_in(self, db, cmd, meta)
+                    actions.append({"kind": "brain_message", "commandId": cmd["id"], "message": cmd["payload"]["message"]})
+                elif cmd["kind"] == "brain_resume":
                     from .decisions import authorize_brain
                     meta = authorize_brain(self, db, token)
                     require(meta.get("brainControl", {}).get("commandId") == cmd["id"], "Brain request changed")
@@ -464,6 +477,8 @@ class Ledger:
         with self.tx() as db:
             self.authorize(db, token)
             cmd = self.get(db, "commands", command_id)
+            from .conversation import is_message
+            require(not is_message(cmd), "Use brain-message-reply to retain a conversation response")
             require(cmd["kind"] not in ("decision_response", "brain_stop", "brain_resume"), "Use the dedicated decision or brain checkpoint lifecycle")
             require(cmd["status"] == "processing", "Command is not in flight")
             if cmd["kind"] == "archive":

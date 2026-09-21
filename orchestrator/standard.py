@@ -270,6 +270,7 @@ def brain(registry, ledger, token, request):
         if operation == "receive":
             exact(request, "operation runId")
             meta["inboxCheckedAt"] = time.time()
+            from .conversation import pending, receive_in
             for command in ledger.all(db, "commands"):
                 if command["kind"].startswith("standard_") and command["status"] == "queued":
                     command.update(status="completed", result="Received by designated brain; latest run state governs", completedAt=time.time())
@@ -278,6 +279,8 @@ def brain(registry, ledger, token, request):
                     from .decisions import receive
                     receive(ledger, db, command)
                     ledger.put(db, "commands", command["id"], command)
+                elif pending(command) and run["status"] not in ("stopping", "paused"):
+                    receive_in(ledger, db, command, meta)
         elif operation == "claim":
             exact(request, "operation runId id repository title paths instructions acceptance model effort rationale allowance")
             require(run["status"] == "running" and not current_blockers(ledger, db, run), "Run is stopped, expired or stale")

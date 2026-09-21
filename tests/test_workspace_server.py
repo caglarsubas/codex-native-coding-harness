@@ -57,6 +57,30 @@ class WorkspaceServerTest(unittest.TestCase):
         _, _, raw = self.request("/api/workspaces", headers=auth)
         self.assertEqual(len(json.loads(raw)["workspaces"]), 2)
 
+    def test_conversation_auth_csrf_scope_and_recipient(self):
+        import uuid
+        from orchestrator.conversation import receive, reply
+        auth_a = self.auth("a")
+        auth_b = self.auth("b", auth_a)
+        path = "/api/workspaces/a/brain-conversation"
+        self.assertEqual(self.request(path)[0], 401)
+        for query in ("?page=-1", "?page=1&page=2", "?other=1", "?page=1000001"):
+            self.assertEqual(self.request(path + query, headers=auth_a)[0], 400)
+        command = {"id":str(uuid.uuid4()), "kind":"reconcile", "expectedRevision":self.ledgers["a"].snapshot()["meta"]["revision"],
+                   "payload":{"message":"Only project A", "brainId":"brain-a", "confirmed":True}}
+        self.assertEqual(self.request("/api/workspaces/a/commands", command, auth_b)[0], 403)
+        self.assertEqual(self.request("/api/workspaces/b/commands", command, auth_b)[0], 409)
+        self.assertEqual(self.request("/api/workspaces/a/commands", command, auth_a)[0], 200)
+        token = self.ledgers["a"].acquire("brain-a:test")
+        receive(self.ledgers["a"], token, command["id"])
+        reply(self.ledgers["a"], token, command["id"], {"message":"Project A answer", "artifactIds":[], "decisionIds":[]})
+        status, _, raw = self.request(path, headers=auth_a)
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(raw)["messages"][0]["reply"]["message"], "Project A answer")
+        _, _, raw = self.request("/api/workspaces/b/brain-conversation", headers=auth_b)
+        self.assertEqual(json.loads(raw)["messages"], [])
+        self.assertEqual(self.request("/conversation.js")[0], 200)
+
     def test_run_readiness_is_explicit_scoped_read_only_and_assistant_history(self):
         from orchestrator import run_readiness
         from orchestrator.workspaces import fingerprint

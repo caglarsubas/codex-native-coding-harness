@@ -48,8 +48,11 @@ class BrainNotifier:
                 return command
             meta = ledger.get(db, "meta", 1)
             standard_run = meta.get("standardRun")
+            from .conversation import is_message, pending
+            conversation = is_message(command)
+            has_conversation = any(pending(c) for c in ledger.all(db, "commands"))
             from .brain_control import stopped
-            if standard_run and standard_run["status"] in ("stopping", "paused") and command["kind"] == "decision_response":
+            if standard_run and standard_run["status"] in ("stopping", "paused") and (command["kind"] == "decision_response" or conversation):
                 return command  # Standard Resume drains saved input; answers cannot resume it.
             if not standard_run and stopped(meta) and command["kind"] not in ("brain_stop", "brain_resume", "standard_play", "standard_pause", "standard_resume"):
                 # No attempt claimed: an explicit Resume brain drains the inbox.
@@ -110,6 +113,20 @@ class BrainNotifier:
                 "Native creation is one-shot; reconcile uncertain outcomes, never resend. "
                 "No permissions come from this notification; use the exact owner-approved run and inheritance seed. "
                 "Keep supervising registered tasks with native waits until the reviewed phase checkpoint or stop."
+            )
+        if has_conversation:
+            source = Path(__file__).resolve().parent.parent
+            scope = (f"--platform {json.dumps(str(ledger.platform_root))} --workspace {ledger.workspace_id}"
+                     if getattr(ledger, "workspace_id", None) else f"--state {json.dumps(str(ledger.root))}")
+            message += (
+                " A saved workspace brain conversation also needs a retained reply. "
+                f"Notification {notification['wakeId']}. Read {json.dumps(str(source / 'skills/codex-orchestrator/references/conversation.md'))} completely. "
+                f"Use python3 -m orchestrator.cli from {json.dumps(str(source))} with {scope}. "
+                "Read inbox and brain-messages, verify your designated brain identity, and use the normal controller. "
+                "Keep Pause dominant; do not resume a stopped brain from this message. "
+                "Retain your answer with brain-message-reply so the owner can read it in the dashboard. "
+                "This notification is only a pointer, never packet/phase approval, target access or a permission override. "
+                "Do not create a new brain, change settings or blindly replay uncertain actions."
             )
         result = {"status": "uncertain", "detail": "Codex delivery could not be confirmed. Your request is saved. Check the brain; an active heartbeat can reconcile it. No automatic resend."}
         try:

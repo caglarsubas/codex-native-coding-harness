@@ -14,6 +14,7 @@ from .assistant_actions import catalog, public_catalog, resolve_action
 from .assistant_state import BOUNDARIES, CAPABILITIES, extend_context
 
 VIEWS = {
+    "conversation": "Workspace brain conversation (direct Codex messages and retained replies)",
     "overview": "Operations overview", "decisions": "Decision inbox",
     "queue": "Approved queue", "workers": "Workers & evidence",
     "knowledge": "Knowledge continuity", "metrics": "Portfolio metrics",
