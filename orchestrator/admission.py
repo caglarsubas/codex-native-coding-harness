@@ -63,6 +63,22 @@ def resource(value, prefix="repo"):
     return value
 
 
+def budget_projection(allocation, claims):
+    """One arithmetic contract for enforcement and read-only presentation."""
+    usage = allocation["usage"]
+    spent = counters(usage["counters"]) if usage else 0
+    included = set(usage["settledClaimIds"]) if usage else set()
+    claims = [c for c in claims if c["allocationId"] == allocation["id"]]
+    # Estimates may overlap partial observations until explicit incorporation.
+    held = sum(c["estimatedTokens"] for c in claims if c["status"] in HELD)
+    unsettled = sum(counters(c["actual"]) for c in claims if c["status"] == "settled" and c["id"] not in included)
+    limits = allocation["spec"]["limits"]
+    return {"observedTokens": spent, "heldTokens": held, "unincorporatedSettledTokens": unsettled,
+            "checkpointReserveTokens": limits["checkpointReserveTokens"],
+            "remainingForNewWork": limits["tokenBudget"] - spent - held - unsettled - limits["checkpointReserveTokens"],
+            "usageKnown": usage is not None and set(usage["coverage"]) == COVERAGE}
+
+
 class AdmissionStore:
     """One private SQLite transaction covers all workspaces and resource claims.
 
@@ -252,19 +268,7 @@ class AdmissionStore:
             self.event(db, "usage_observed", id=allocation_id, evidenceHash=observation["evidenceHash"])
 
     def budget(self, db, allocation):
-        usage = allocation["usage"]
-        spent = counters(usage["counters"]) if usage else 0
-        included = set(usage["settledClaimIds"]) if usage else set()
-        claims = [c for c in self.rows(db, "claims") if c["allocationId"] == allocation["id"]]
-        # Active estimates may overlap partial observed usage. Keep the conservative
-        # over-count until an explicit settled-claim coverage observation replaces it.
-        held = sum(c["estimatedTokens"] for c in claims if c["status"] in HELD)
-        unsettled_usage = sum(counters(c["actual"]) for c in claims if c["status"] == "settled" and c["id"] not in included)
-        limits = allocation["spec"]["limits"]
-        return {"observedTokens": spent, "heldTokens": held, "unincorporatedSettledTokens": unsettled_usage,
-                "checkpointReserveTokens": limits["checkpointReserveTokens"],
-                "remainingForNewWork": limits["tokenBudget"] - spent - held - unsettled_usage - limits["checkpointReserveTokens"],
-                "usageKnown": usage is not None and set(usage["coverage"]) == COVERAGE}
+        return budget_projection(allocation, self.rows(db, "claims"))
 
     def check_budget(self, db, allocation, extra=0):
         from .admission_legacy import require_open

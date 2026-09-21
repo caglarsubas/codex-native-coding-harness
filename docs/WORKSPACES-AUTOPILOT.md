@@ -755,6 +755,15 @@ counter epochs and high-water marks, and incorporates exact terminal counters wi
 double charging. Unknown coverage or a changed context blocks new work. This is not
 a native counter collector, qualified live coverage or autonomous phase execution.
 
+**WSP-04D7** adds [workspace budget visibility](BUDGET-VISIBILITY.md): the Token
+usage page explicitly reads the existing private shared ledger and separates
+phase allowances, observed cumulative charges, held estimates, settlement charges
+awaiting incorporation and checkpoint reserve. Unknown/incomplete/stale evidence
+has no displayed balance. Shared account percentages and managed claim counts
+remain separate, not workspace wallets or proof of free capacity. Overview and
+assistant context use bounded historical metadata only; no polling inspection,
+native collection, budget mutation, installation or Play activation.
+
 **WSP-04D4** adds the [brain-owned runner handoff](RUNNER-HANDOFF.md): explicit
 reservation, exact acceptance message preparation, one-shot pre-send launch check,
 delivery observation, process/cleanup recording and receipt recovery. The brain
@@ -786,6 +795,7 @@ integration seam, not live native/host qualification, continuation or archival.
 - [x] WSP-04D1: one-use native creation handoff/check and CLI return-path fixtures; exact project/base/defaults, Pause races and conservative result recovery.
 - [x] WSP-04D2: exact native task/account observation CLI, safe status/limit projections, current-evidence admission fences and replay/Pause/privacy fixtures.
 - [x] WSP-04D3: cumulative phase/session accounting, baseline/epoch continuity, settlement incorporation and effect-context checks; supplied evidence only, no live collector.
+- [x] WSP-04D7: authenticated read-only dashboard budget breakdown, explicit freshness/coverage and separate shared account/capacity projections; no implicit collection or admission.
 - [x] WSP-04D4: exact standard-policy runner message handoff and separate delivery/process/cleanup CLI with one-shot send and Pause/crash fixtures; no native transport or live execution.
 - [x] WSP-04D5: exact-owner standard-policy result CLI, source/GitHub collector composition, supplemental proof journal and separate review with historical reads; no automatic acceptance or live activation.
 - [ ] Trusted native/operator observation collection and live evidence qualification; supplied assertions are not independent attestation.

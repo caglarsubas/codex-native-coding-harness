@@ -430,3 +430,13 @@ acceptance. Qualified external evidence remains mandatory; never promote public
 metadata, a final reply or account percentages into complete descendants,
 full-process cleanup or lifetime counters. No live migration, native collector,
 runner adapter substitution, retry, install, schedule change or Play is implied.
+
+WSP-04D7 adds explicit selected-workspace budget inspection. See
+docs/BUDGET-VISIBILITY.md. Read existing private stores with bounded read-only
+connections; never initialize admission, collect native samples or take controller
+authority from a dashboard read. Reuse kernel arithmetic without double-counting
+cached/reasoning subsets. Unknown, incomplete, stale or changed phase evidence
+suppresses the balance. Account percentages/global recorded counts are separate
+from phase tokens and exclude legacy/unmanaged capacity. Cached overview/chat
+facts are historical; no background inspection or assistant budget action. Keep
+foreign workspace/native identities and proof content out of the projection.

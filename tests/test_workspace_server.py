@@ -85,6 +85,29 @@ class WorkspaceServerTest(unittest.TestCase):
         with runtime.run_readiness_lock:
             self.assertEqual(self.request("/api/workspaces/a/run-readiness", headers=auth)[0], 409)
 
+    def test_budget_read_is_explicit_authenticated_scoped_and_never_initializes(self):
+        from orchestrator import budget_views
+        route = "/api/workspaces/a/budget"
+        self.assertEqual(self.request(route)[0], 401)
+        auth = self.auth("a")
+        with patch.object(budget_views, "inspect", side_effect=AssertionError("No background inspection")):
+            _, _, raw = self.request("/api/workspaces/a/state", headers=auth)
+            self.assertEqual(json.loads(raw)["budgetInspection"]["status"], "not_inspected")
+            self.assertEqual(self.request("/api/workspaces/a/assistant/context?view=usage", headers=auth)[0], 200)
+        status, _, raw = self.request(route, headers=auth)
+        self.assertEqual(status, 200); self.assertEqual(json.loads(raw)["status"], "not_initialized")
+        self.assertFalse((self.registry.root / "admission.sqlite3").exists())
+        _, _, raw = self.request("/api/workspaces/b/state", headers=auth)
+        self.assertEqual(json.loads(raw)["budgetInspection"]["status"], "not_inspected")
+        _, _, raw = self.request("/api/workspaces/a/assistant/context?view=usage", headers=auth)
+        fact = next(f for f in json.loads(raw)["facts"] if f["id"] == "F34")
+        self.assertTrue(fact["data"]["historical"]); self.assertFalse(fact["data"]["executionAuthorized"])
+        with self.server.runtime_for("a").budget_inspection_lock:
+            self.assertEqual(self.request(route, headers=auth)[0], 409)
+        self.assertEqual(self.request(route+"?initialize=true", headers=auth)[0], 400)
+        self.assertEqual(self.request(route, {"initialize": True}, auth)[0], 404)
+        self.assertEqual(self.request("/api/budget", headers=auth)[0], 400)
+
     def test_phase_history_is_explicit_authenticated_scoped_and_read_only(self):
         from orchestrator import checkpoint_views
         from orchestrator.workspaces import fingerprint
