@@ -24,6 +24,11 @@ Use `workspace-list` to discover registered IDs, then confirm the selected ledge
 brain ID matches this task before any controller operation. Registry registration
 is not onboarding authority, packet approval or permission to start development.
 
+For saved workspace conversation messages, read `references/conversation.md`
+completely. Receive the exact owner message and retain your reply in that same
+workspace; a native final answer or delivery receipt alone is not a dashboard
+reply. Keep decisions and execution approvals on their existing typed routes.
+
 For an explicitly owner-activated `standard_cooperative_v1` workspace, read
 `references/standard-cycle.md` completely and use only that protocol. It is the
 owner-approved standard-project exception: phase delegation, observed usage and

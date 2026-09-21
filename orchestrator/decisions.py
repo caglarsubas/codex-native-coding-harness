@@ -134,7 +134,8 @@ def workflow(state):
     observed = heartbeat.get("observedAt")
     recent = (checked is not None and 0 <= now - checked <= 35 * 60
               and observed is not None and 0 <= now - observed <= 35 * 60)
-    pending = [c for c in state["commands"] if c["status"] in ("queued", "processing") or c.get("needsBrainReceipt")]
+    from .conversation import pending as pending_message
+    pending = [c for c in state["commands"] if c["status"] in ("queued", "processing") or c.get("needsBrainReceipt") or pending_message(c)]
     active = any(w["status"] in ACTIVE for w in state["workers"])
     approved = not m["paused"] and not state.get("admission", {}).get("dispatchBlocked") and any(q["status"] == "approved" and not q["held"] for q in state["queue"])
     continuations = state.get("continuations", [])
@@ -164,11 +165,12 @@ def workflow(state):
 
 def inbox(state):
     """Compact native-cycle input: no token logs, artifact bodies or event history."""
+    from .conversation import pending as pending_message
     return {"meta":state["meta"], "workflow":state["workflow"], "continuations": state.get("continuations", []),
             "admission": state.get("admission"),
             "workspacePause": state.get("workspacePause"),
             "missionConfiguration": {k: state.get("mission", {}).get(k) for k in ("version", "effectiveStatus", "documentHash", "activation", "executionAuthority")},
             "decisions":[d for d in state["decisions"] if d["status"] in ("open", "answered", "received")],
-            "commands":[c for c in state["commands"] if c["status"] in ("queued", "processing") or c.get("needsBrainReceipt")],
+            "commands":[c for c in state["commands"] if c["status"] in ("queued", "processing") or c.get("needsBrainReceipt") or pending_message(c)],
             "queue":[q for q in state["queue"] if q["status"] == "approved"],
             "workers":[w for w in state["workers"] if w["status"] in ACTIVE]}
