@@ -1,5 +1,6 @@
 """Retained local phase reports and exact owner review; never execution authority."""
 import contextlib
+import copy
 import hashlib
 import json
 import time
@@ -12,6 +13,8 @@ from .observations import capture
 
 REPORT = "phase_checkpoint_report"
 REVIEW = "phase_checkpoint_review"
+WITHDRAWAL = "phase_checkpoint_withdrawal"
+REVIEW_FIELDS = {"reportHash", "artifactId", "missionHash", "reviewReceiptHash", "settingsPolicy", "expiresAt", "confirmed"}
 BOUND = 256000
 BOUNDARY = ("Recorded local claims, not phase acceptance or fresh native activity. "
             "Limits are not measured usage. Shared cumulative accounting and every "
@@ -225,44 +228,102 @@ def read(ledger, token, request):
 
 
 def review(ledger, request, *, actor):
-    """Internal authenticated-owner seam only; deliberately not a public route."""
-    require(actor == "dashboard_owner", "Only the authenticated owner may review a phase checkpoint")
+    """Trusted owner seam; the dashboard adapter authenticates signed confirmation."""
     with ledger.tx() as db:
-        meta, key, fingerprint, prior = runs.request_in(ledger, db, request, actor, "phase_review",
-            {"reportHash", "artifactId", "missionHash", "reviewReceiptHash", "settingsPolicy", "expiresAt", "confirmed"})
-        if prior:
-            release = document(db, prior["checkpointReviewHash"], REVIEW)
-            read_in(ledger, db, release["request"]["reportHash"], release["request"]["artifactId"])
-            return prior
-        require(request["confirmed"] is True, "Explicit checkpoint review confirmation required")
-        sha(request["reportHash"]); sha(request["artifactId"]); timestamp(request["expiresAt"])
-        report = read_in(ledger, db, request["reportHash"], request["artifactId"])["report"]
-        source, grant, state, *_ = context_in(ledger, db)
-        require(meta.get("phaseCheckpointReport") == {"reportHash": request["reportHash"], "artifactId": request["artifactId"]} and
-                report["source"] == source, "Phase checkpoint report is stale or superseded; prepare it again")
-        current = runs.mission_source(ledger, db); spec, _ = task_contracts.reviewed_phase(current)
-        m = current["mission"]
-        require(request["missionHash"] == m["documentHash"] and request["reviewReceiptHash"] == m["receiptHash"], "Exact next reviewed mission required")
-        require(spec["authority"]["approvalMode"] != "prepare_only", "Prepare-only mission cannot release run intent")
-        if set(state["stopReasons"]) & runs.STOP_REASONS:
-            require(m["documentHash"] != grant["missionHash"], "Brain stop boundary requires a newly reviewed mission or bounded correction scope")
-        from .model_policy import policy_in
-        policy_in(ledger, db, request["settingsPolicy"])
-        require(time.time() < request["expiresAt"] <= time.time()+86400, "Review expiry must be within 24 hours")
-        record = {"kind": REVIEW, "workspaceId": missions.workspace(ledger), "actor": actor, "request": request,
-                  "source": source, "at": time.time(), "requestKey": key, "fingerprint": fingerprint, "executionAuthorized": False}
-        review_hash = retain(db, REVIEW, record)
-        return runs.receipt_in(ledger, db, key, fingerprint, "phase_review", checkpointReviewHash=review_hash)
+        return review_in(ledger, db, request, actor=actor)
+
+
+def validate_review_in(ledger, db, request):
+    meta = ledger.get(db, "meta", 1)
+    require(request["confirmed"] is True, "Explicit checkpoint review confirmation required")
+    sha(request["reportHash"]); sha(request["artifactId"]); timestamp(request["expiresAt"])
+    report = read_in(ledger, db, request["reportHash"], request["artifactId"])["report"]
+    source, grant, state, *_ = context_in(ledger, db)
+    require(meta.get("phaseCheckpointReport") == {"reportHash": request["reportHash"], "artifactId": request["artifactId"]} and
+            report["source"] == source, "Phase checkpoint report is stale or superseded; prepare it again")
+    current = runs.mission_source(ledger, db); spec, _ = task_contracts.reviewed_phase(current)
+    m = current["mission"]
+    require(request["missionHash"] == m["documentHash"] and request["reviewReceiptHash"] == m["receiptHash"], "Exact next reviewed mission required")
+    require(spec["authority"]["approvalMode"] != "prepare_only", "Prepare-only mission cannot release run intent")
+    if set(state["stopReasons"]) & runs.STOP_REASONS:
+        require(m["documentHash"] != grant["missionHash"], "Brain stop boundary requires a newly reviewed mission or bounded correction scope")
+    from .model_policy import policy_in
+    policy_in(ledger, db, request["settingsPolicy"])
+    require(time.time() < request["expiresAt"] <= time.time()+86400, "Review expiry must be within 24 hours")
+    return source
+
+
+def review_in(ledger, db, request, *, actor):
+    require(actor == "dashboard_owner", "Only the authenticated owner may review a phase checkpoint")
+    request = copy.deepcopy(request)
+    _, key, fingerprint, prior = runs.request_in(ledger, db, request, actor, "phase_review", REVIEW_FIELDS)
+    if prior:
+        release = owner_review_in(ledger, db, prior["checkpointReviewHash"])
+        read_in(ledger, db, release["request"]["reportHash"], release["request"]["artifactId"])
+        return prior
+    source = validate_review_in(ledger, db, request)
+    record = {"kind": REVIEW, "workspaceId": missions.workspace(ledger), "actor": actor, "request": request,
+              "source": source, "at": time.time(), "requestKey": key, "fingerprint": fingerprint, "executionAuthorized": False}
+    review_hash = retain(db, REVIEW, record)
+    return runs.receipt_in(ledger, db, key, fingerprint, "phase_review", checkpointReviewHash=review_hash)
+
+
+def owner_review_in(ledger, db, key):
+    record = document(db, key, REVIEW)
+    require(record["workspaceId"] == missions.workspace(ledger) and record["actor"] == "dashboard_owner", "Foreign checkpoint review")
+    receipt = receipt_for(db, record)
+    require(receipt.get("operation") == "phase_review" and receipt.get("checkpointReviewHash") == key, "Checkpoint review receipt changed")
+    return record
+
+
+def withdrawals_in(ledger, db):
+    """Durable denial, not a new phase or retroactive stop of an authorized run."""
+    mapping = ledger.get(db, "meta", 1).get("phaseReviewWithdrawals", {})
+    require(isinstance(mapping, dict) and len(mapping) <= 128, "Invalid checkpoint withdrawal inventory")
+    count = db.execute("SELECT count(*) FROM snapshots WHERE kind=?", (WITHDRAWAL,)).fetchone()[0]
+    require(count == len(mapping), "Checkpoint withdrawal history changed; explicit recovery required")
+    for review_hash, key in mapping.items():
+        sha(review_hash); sha(key)
+        record = document(db, key, WITHDRAWAL)
+        require(record["workspaceId"] == missions.workspace(ledger) and record["actor"] == "dashboard_owner" and
+                record["checkpointReviewHash"] == review_hash, "Checkpoint withdrawal identity changed")
+        receipt = receipt_for(db, record)
+        require(receipt.get("operation") == "phase_withdraw" and receipt.get("withdrawalHash") == key and
+                receipt.get("checkpointReviewHash") == review_hash, "Checkpoint withdrawal receipt changed")
+    return mapping
+
+
+def withdraw(ledger, request, *, actor):
+    with ledger.tx() as db:
+        return withdraw_in(ledger, db, request, actor=actor)
+
+
+def withdraw_in(ledger, db, request, *, actor):
+    require(actor == "dashboard_owner", "Only the owner may withdraw checkpoint review")
+    request = copy.deepcopy(request)
+    meta, key, fp, prior = runs.request_in(ledger, db, request, actor, "phase_withdraw", {"checkpointReviewHash", "reason", "confirmed"})
+    mapping = withdrawals_in(ledger, db)
+    if prior:
+        require(mapping.get(request["checkpointReviewHash"]) == prior["withdrawalHash"], "Withdrawal projection changed")
+        return prior
+    require(request["confirmed"] is True, "Explicit withdrawal confirmation required")
+    review_hash = sha(request["checkpointReviewHash"]); missions.text(request["reason"], "Withdrawal reason")
+    owner_review_in(ledger, db, review_hash)
+    require(review_hash not in mapping and len(mapping) < 128, "Review already withdrawn or history requires maintenance")
+    record = {"kind": WITHDRAWAL, "workspaceId": missions.workspace(ledger), "actor": actor,
+              "checkpointReviewHash": review_hash, "reason": request["reason"], "at": time.time(),
+              "requestKey": key, "fingerprint": fp, "executionAuthorized": False}
+    value = retain(db, WITHDRAWAL, record)
+    meta["phaseReviewWithdrawals"] = {**mapping, review_hash: value}; ledger.put(db, "meta", 1, meta)
+    return runs.receipt_in(ledger, db, key, fp, "phase_withdraw", checkpointReviewHash=review_hash, withdrawalHash=value)
 
 
 def require_release_in(ledger, db, request):
     """Same transaction as the new run grant. An old review cannot re-arm a run."""
-    record = document(db, request.get("checkpointReviewHash"), REVIEW)
-    require(record["workspaceId"] == missions.workspace(ledger) and record["actor"] == "dashboard_owner", "Foreign checkpoint review")
+    review_hash = request.get("checkpointReviewHash")
+    record = owner_review_in(ledger, db, review_hash)
+    require(review_hash not in withdrawals_in(ledger, db), "Checkpoint review withdrawn; new owner review required")
     reviewed = record["request"]
-    # Verify immutable request receipt as well as hash-addressed review bytes.
-    receipt = receipt_for(db, record)
-    require(receipt.get("operation") == "phase_review" and receipt.get("checkpointReviewHash") == digest(record), "Checkpoint review receipt changed")
     source, *_ = context_in(ledger, db)
     meta = ledger.get(db, "meta", 1)
     report = read_in(ledger, db, reviewed["reportHash"], reviewed["artifactId"])["report"]

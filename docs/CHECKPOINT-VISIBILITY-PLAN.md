@@ -23,7 +23,9 @@ complete either milestone or enable autonomous Play.
 
 ## Explicit exclusions
 
-Public checkpoint review/release, Play, new-generation correction and rereview,
+This read-only increment did not add public checkpoint review/release. Follow-on
+[WSP-03E](CHECKPOINT-CONTROLS.md) now adds explicit owner review and withdrawal
+alongside this report view, without activating a run. Release, Play, new-generation correction and rereview,
 live admission/native evidence, real usage collection, onboarding rollout,
 runtime restart, skill installation, autonomous merge and paid CI are separate
 work. An intact saved report is neither a fresh native observation nor permission

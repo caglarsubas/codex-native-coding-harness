@@ -52,6 +52,10 @@ class WorkspaceRuntime:
         from .retention_controls import RetentionControls
         self.retention_controls = RetentionControls()
         self.retention_inspection = None
+        from .checkpoint_controls import CheckpointControls
+        self.checkpoint_controls = CheckpointControls()
+        self.checkpoint_decision_inspection = None
+        self.checkpoint_decision_lock = threading.Lock()
 
     def snapshot(self):
         """Same evidence for workspace and assistant; no model-triggered scans or refresh."""
@@ -75,6 +79,8 @@ class WorkspaceRuntime:
         state["budgetInspection"] = budget_summary(self.budget_inspection, state["meta"]["revision"])
         from .retention_controls import summary as retention_summary
         state["retentionInspection"] = retention_summary(self.retention_inspection, state["meta"]["revision"])
+        from .checkpoint_controls import summary as decision_summary
+        state["checkpointDecisions"] = decision_summary(self.checkpoint_decision_inspection, state["meta"]["revision"])
         if self.registry:
             state["workspace"] = {"id": self.workspace_id,
                 "name": next(w["name"] for w in self.registry.list() if w["id"] == self.workspace_id),
@@ -189,7 +195,7 @@ class Handler(BaseHTTPRequestHandler):
         static["/activity.js"] = ("activity.js", "text/javascript; charset=utf-8")
         static["/decisions.js"] = ("decisions.js", "text/javascript; charset=utf-8")
         static["/decisions.css"] = ("decisions.css", "text/css; charset=utf-8")
-        for file in ("panes.js", "assistant.js", "routing.js", "workspaces.js", "missions.js", "workspace-pause.js", "run-readiness.js", "phase-checkpoints.js", "budget.js", "retention.js", "task-contracts.js", "panes.css"):
+        for file in ("panes.js", "assistant.js", "routing.js", "workspaces.js", "missions.js", "workspace-pause.js", "run-readiness.js", "phase-checkpoints.js", "checkpoint-controls.js", "budget.js", "retention.js", "task-contracts.js", "panes.css"):
             static["/" + file] = (file, "text/javascript; charset=utf-8" if file.endswith(".js") else "text/css; charset=utf-8")
         if path in static:
             file, mime = static[path]
@@ -214,6 +220,17 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/mission" and workspace_id:
                 from .missions import read
                 return self.respond(200, read(runtime.ledger))
+            if path == "/api/checkpoint-decisions" and workspace_id:
+                if urlsplit(self.path).query:
+                    return self.respond(400, {"error": "Checkpoint decision inspection accepts no query parameters"})
+                if not runtime.checkpoint_decision_lock.acquire(blocking=False):
+                    return self.respond(409, {"error": "Checkpoint decision inspection is already in progress"})
+                try:
+                    from .checkpoint_controls import inspect
+                    runtime.checkpoint_decision_inspection = inspect(runtime.ledger)
+                    return self.respond(200, runtime.checkpoint_decision_inspection)
+                finally:
+                    runtime.checkpoint_decision_lock.release()
             if path == "/api/retention" and workspace_id:
                 if urlsplit(self.path).query:
                     return self.respond(400, {"error": "Retention inspection accepts no query parameters"})
@@ -300,7 +317,7 @@ class Handler(BaseHTTPRequestHandler):
             if not 0 < length <= 32768:
                 return self.respond(413, {"error": "Invalid request size"})
             raw = self.rfile.read(length)
-            if urlsplit(self.path).path.endswith(("/retention/preview", "/retention/confirm")):
+            if urlsplit(self.path).path.endswith(("/retention/preview", "/retention/confirm", "/checkpoint-decisions/preview", "/checkpoint-decisions/confirm")):
                 from .retention_controls import decode
                 body = decode(raw)
             else:
@@ -331,6 +348,19 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/mission" and workspace_id:
                 from .missions import change
                 return self.respond(200, change(runtime.ledger, body))
+            if path in ("/api/checkpoint-decisions/preview", "/api/checkpoint-decisions/confirm") and workspace_id:
+                if urlsplit(self.path).query:
+                    return self.respond(400, {"error": "Checkpoint controls accept no query parameters"})
+                if not runtime.checkpoint_decision_lock.acquire(blocking=False):
+                    return self.respond(409, {"error": "Checkpoint decision operation is already in progress; inspect before retrying"})
+                try:
+                    if path.endswith("/preview"):
+                        return self.respond(200, runtime.checkpoint_controls.preview(runtime.ledger, body, csrf))
+                    result = runtime.checkpoint_controls.confirm(runtime.ledger, body, csrf)
+                    runtime.checkpoint_decision_inspection = None
+                    return self.respond(200, result)
+                finally:
+                    runtime.checkpoint_decision_lock.release()
             if path in ("/api/retention/preview", "/api/retention/confirm") and workspace_id:
                 if urlsplit(self.path).query:
                     return self.respond(400, {"error": "Retention controls accept no query parameters"})

@@ -20,11 +20,12 @@ function checkpointDisclosure(parent,key,label,body){
 function phaseCheckpointsView(root){
   if(!state.workspace){root.append(empty('Select a registered workspace','Checkpoint reports belong to one workspace.'));return;}
   const body=el('div',null,'phase-checkpoint-view');root.append(body);root=body;
+  if(typeof checkpointDecisionView==='function')checkpointDecisionView(root);
   const history=checkpointHistory.get(workspaceId),result=checkpointReports.get(workspaceId),pending=checkpointPending.has(workspaceId);
   const intro=el('section',null,'run-inspection');intro.setAttribute('aria-label','Saved phase checkpoint inspection');
   intro.append(el('p',state.workspace.name+' · READ ONLY','eyebrow'),el('h2','What was preserved at the checkpoint?'),el('p','Load the saved versions, then inspect a report and its retained evidence. This does not observe native activity, measure usage, prepare a report or continue development.'));
   const load=button(pending?'Reading saved evidence…':history?'Reload report history':'Load report history',()=>loadPhaseCheckpoints(),'primary');load.disabled=pending||!connected;intro.append(load);root.append(intro);
-  if(!history){root.append(empty('No report history loaded','Opening this page does not inspect or change the workspace. Load history when you want to review its saved phase reports.'));return;}
+  if(!history){root.append(empty('No report history loaded','Opening this page does not inspect or change the workspace. Load history when you want to review its saved phase reports.'));if(result)checkpointReportView(root,result);return;}
   root.append(el('p',checkpointFreshness(history,state)+' · '+when(history.inspectedAt),'muted'));
   if(history.status==='history_limit'){root.append(callout('History exceeds the inspection limit',`${history.total} reports are retained; the inspection limit is ${history.limit}. No partial history is shown. Ask the operator for a bounded history migration; no records were removed.`));return;}
   if(history.unavailable)root.append(callout('Some report metadata is unavailable',`${history.unavailable} of ${history.total} records have missing or invalid metadata. Their creation order cannot be established. Ask the brain/operator to restore the retained evidence; reloading cannot repair it.`));
@@ -43,7 +44,8 @@ function phaseCheckpointsView(root){
   if(result)checkpointReportView(root,result);
 }
 function checkpointReportView(root,result){
-  root.append(section('Inspected report',when(result.inspectedAt)),el('p',checkpointFreshness(result,state),'muted'));
+  const heading=section('Inspected report',when(result.inspectedAt));heading.id='checkpoint-inspected-report';heading.tabIndex=-1;
+  root.append(heading,el('p',checkpointFreshness(result,state),'muted'));
   if(result.status!=='intact'){root.append(callout('Report evidence unavailable',result.detail));return;}
   const r=result.report,s=r.summary;
   root.append(el('h3',r.phase.title+' · generation '+r.generation+' · v'+result.version),el('p','At inspection: '+checkpointContext[result.contextStatus],'checkpoint'),el('p',result.boundary,'muted'));
@@ -71,7 +73,7 @@ function checkpointReportView(root,result){
   if(artifactKnown)actions.append(button('Read retained report artifact · v'+result.version,()=>navigateView('artifacts',result.artifactId)));
   else root.append(el('p','Report artifact is outside the current library snapshot. Reload dashboard state before navigating to it.','muted'));
   const again=button('Inspect this report again',()=>loadPhaseCheckpoints(result));again.disabled=checkpointPending.has(workspaceId)||!connected;actions.append(again);root.append(actions);
-  root.append(el('p','To continue: inspect remaining work and evidence with the designated brain. Next-phase review, release and autonomous Play are not available from this view.','muted'));
+  root.append(el('p','Use the owner-decision panel above to review the exact next mission or withdraw an earlier review. Review is not phase acceptance, a run grant or Play; release remains separately gated.','muted'));
 }
 async function loadPhaseCheckpoints(row=null){
   const wid=workspaceId,generation=workspaceGeneration;
@@ -84,5 +86,5 @@ async function loadPhaseCheckpoints(row=null){
     if(row)checkpointReports.set(wid,result);
     else{checkpointHistory.set(wid,result);checkpointReports.delete(wid);}
   }catch(error){if(!error.workspaceChanged&&workspaceId===wid&&workspaceGeneration===generation){if(row)checkpointReports.delete(wid);showNotice('Checkpoint read failed. No state was changed. '+error.message,true);}}
-  finally{if(checkpointPending.get(wid)===identity)checkpointPending.delete(wid);if(workspaceId===wid&&workspaceGeneration===generation&&view==='phaseCheckpoints')render();}
+  finally{if(checkpointPending.get(wid)===identity)checkpointPending.delete(wid);if(workspaceId===wid&&workspaceGeneration===generation&&view==='phaseCheckpoints'){render();if(row&&typeof document!=='undefined')document.getElementById('checkpoint-inspected-report')?.focus();}}
 }
