@@ -64,42 +64,51 @@ def current_in(ledger, db, key, run_hash):
 
 
 def review(ledger, request, *, actor):
+    with ledger.tx() as db:
+        return review_in(ledger, db, request, actor=actor)
+
+
+def review_in(ledger, db, request, *, actor):
+    """Trusted owner adapter; caller holds the workspace transaction."""
     require(actor == "dashboard_owner", "Only the owner can review retention policy")
     request = copy.deepcopy(request)
-    with ledger.tx() as db:
-        meta, key, fp, prior = runs.request_in(ledger, db, request, actor, "retention_review",
-            {"runHash", "expectedPolicyHash", "maxArchives", "minimumRetentionSeconds", "allowManagedWorktreeCleanup", "confirmed"})
-        if prior: return prior
-        require(meta["paused"] is True and request["confirmed"] is True, "Explicit owner review while paused required")
-        old = latest_in(ledger, db)
-        require(request["expectedPolicyHash"] == (digest(old) if old else None), "Retention policy version changed")
-        grant = runs.require_current(ledger, db, request["runHash"])
-        require(grant["authority"]["approvalMode"] == "phase_delegated", "Retention delegation requires a phase-delegated run")
-        integer(request["maxArchives"], 1, min(64, grant["authority"]["maxTasks"]))
-        integer(request["minimumRetentionSeconds"], 0, 86400)
-        require(request["allowManagedWorktreeCleanup"] is True, "Owner must explicitly acknowledge managed-worktree cleanup")
-        version = old["version"]+1 if old else 1
-        require(version <= MAX_HISTORY, "Retention history requires explicit maintenance")
-        doc = {"kind": POLICY, "actor": actor, "workspaceId": grant["workspaceId"], "brainId": grant["brainId"],
-               "runHash": request["runHash"], "missionHash": grant["missionHash"], "phaseId": grant["phaseId"],
-               "maxArchives": request["maxArchives"], "minimumRetentionSeconds": request["minimumRetentionSeconds"],
-               "allowManagedWorktreeCleanup": True, "version": version, "previousHash": digest(old) if old else None, "at": time.time()}
-        value = runs.retain(db, POLICY, doc)
-        meta.update(retentionPolicyHash=value, retentionPolicyRevoked=False); ledger.put(db, "meta", 1, meta)
-        return runs.receipt_in(ledger, db, key, fp, "retention_review", policyHash=value)
+    meta, key, fp, prior = runs.request_in(ledger, db, request, actor, "retention_review",
+        {"runHash", "expectedPolicyHash", "maxArchives", "minimumRetentionSeconds", "allowManagedWorktreeCleanup", "confirmed"})
+    if prior: return prior
+    require(meta["paused"] is True and request["confirmed"] is True, "Explicit owner review while paused required")
+    old = latest_in(ledger, db)
+    require(request["expectedPolicyHash"] == (digest(old) if old else None), "Retention policy version changed")
+    grant = runs.require_current(ledger, db, request["runHash"])
+    require(grant["authority"]["approvalMode"] == "phase_delegated", "Retention delegation requires a phase-delegated run")
+    integer(request["maxArchives"], 1, min(64, grant["authority"]["maxTasks"]))
+    integer(request["minimumRetentionSeconds"], 0, 86400)
+    require(request["allowManagedWorktreeCleanup"] is True, "Owner must explicitly acknowledge managed-worktree cleanup")
+    version = old["version"]+1 if old else 1
+    require(version <= MAX_HISTORY, "Retention history requires explicit maintenance")
+    doc = {"kind": POLICY, "actor": actor, "workspaceId": grant["workspaceId"], "brainId": grant["brainId"],
+           "runHash": request["runHash"], "missionHash": grant["missionHash"], "phaseId": grant["phaseId"],
+           "maxArchives": request["maxArchives"], "minimumRetentionSeconds": request["minimumRetentionSeconds"],
+           "allowManagedWorktreeCleanup": True, "version": version, "previousHash": digest(old) if old else None, "at": time.time()}
+    value = runs.retain(db, POLICY, doc)
+    meta.update(retentionPolicyHash=value, retentionPolicyRevoked=False); ledger.put(db, "meta", 1, meta)
+    return runs.receipt_in(ledger, db, key, fp, "retention_review", policyHash=value)
 
 
 def revoke(ledger, request, *, actor):
+    with ledger.tx() as db:
+        return revoke_in(ledger, db, request, actor=actor)
+
+
+def revoke_in(ledger, db, request, *, actor):
     require(actor == "dashboard_owner", "Only the owner can revoke retention policy")
     request = copy.deepcopy(request)
-    with ledger.tx() as db:
-        meta, key, fp, prior = runs.request_in(ledger, db, request, actor, "retention_revoke", {"policyHash", "reason"})
-        if prior: return prior
-        sha(request["policyHash"]); missions.text(request["reason"], "Revocation reason")
-        doc = latest_in(ledger, db)
-        require(doc and digest(doc) == request["policyHash"], "Exact retention policy required")
-        meta["retentionPolicyRevoked"] = True; ledger.put(db, "meta", 1, meta)
-        return runs.receipt_in(ledger, db, key, fp, "retention_revoke", policyHash=request["policyHash"])
+    meta, key, fp, prior = runs.request_in(ledger, db, request, actor, "retention_revoke", {"policyHash", "reason"})
+    if prior: return prior
+    sha(request["policyHash"]); missions.text(request["reason"], "Revocation reason")
+    doc = latest_in(ledger, db)
+    require(doc and digest(doc) == request["policyHash"], "Exact retention policy required")
+    meta["retentionPolicyRevoked"] = True; ledger.put(db, "meta", 1, meta)
+    return runs.receipt_in(ledger, db, key, fp, "retention_revoke", policyHash=request["policyHash"])
 
 
 def slot(worker_id): return digest({"kind": SLOT, "workerId": worker_id})

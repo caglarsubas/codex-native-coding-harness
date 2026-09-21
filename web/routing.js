@@ -1,5 +1,5 @@
 "use strict";
-const ROUTE_VIEWS=["workspaces","overview","mission","runReadiness","phaseCheckpoints","decisions","queue","workers","knowledge","metrics","usage","gitStatus","artifacts","roadmap","readiness"];
+const ROUTE_VIEWS=["workspaces","overview","mission","runReadiness","phaseCheckpoints","retention","decisions","queue","workers","knowledge","metrics","usage","gitStatus","artifacts","roadmap","readiness"];
 function dashboardRoute(hash){
   const scoped=hash.match(/^#\/w\/([a-z][a-z0-9-]{0,47})\/(.+)$/);
   if(scoped){const route=dashboardRoute('#/'+scoped[2]);return route&&!route.workspaceId?{...route,workspaceId:scoped[1]}:null;}

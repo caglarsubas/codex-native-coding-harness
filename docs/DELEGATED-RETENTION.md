@@ -20,8 +20,9 @@ Plan saved before implementation after PR #52 merged at
 
 ## Scope boundaries
 
-This is source and disposable-fixture work only. Owner policy methods are internal
-trusted-caller seams, not a public dashboard/assistant approval route. A generic
+This is source and disposable-fixture work only. Owner policy methods are trusted
+authenticated-caller seams; [WSP-05F owner controls](RETENTION-CONTROLS.md) now expose
+signed dashboard review/revoke, not an assistant approval route. A generic
 phase task-approval grant does not delegate archival. No live policy, native call,
 skill installation, process restart, scheduler, cleanup, billing or Play activation.
 
@@ -33,11 +34,12 @@ archives or deletes; the brain remains the native caller. Descendant retention,
 complete output preservation, qualified host evidence and live acceptance remain
 separate work; this increment does not complete milestone 8.
 
-## Owner policy — internal seam, not a dashboard control
+## Owner policy — trusted kernel and signed dashboard adapter
 
 `retention_policy.review(ledger, request, actor="dashboard_owner")` is a trusted
-authenticated-owner adapter seam, not authentication by itself. It has no public
-HTTP/assistant action or brain CLI. Review happens while dispatch is paused, after
+authenticated-owner adapter seam, not authentication by itself. WSP-05F supplies
+the signed, same-session HTTP adapter; no assistant action or brain CLI exists.
+Review happens while dispatch is paused, after
 an exact `phase_delegated` run intent is authorized and before activation. It does
 not unpause, alter task approval, fence unrelated work or grant native capability.
 An `exact_owner` run cannot gain delegated retention without a newly reviewed
@@ -150,6 +152,7 @@ Quiesce all older writers and prepared handoffs before any separately authorized
 rollout. New readers preserve legacy explicit-owner records; older writers do not
 understand delegated authority. This is not mixed-writer or downgrade support.
 No live policy was configured, skill installed, service restarted, task archived
-or GitHub Actions workflow added. Owner-facing policy controls, complete descendant
-and non-Git output preservation, qualified host evidence and supervised acceptance
-remain separate gates. The conditional completion estimate is unchanged.
+or GitHub Actions workflow added. Owner-facing policy controls are delivered
+separately in [WSP-05F](RETENTION-CONTROLS.md); complete descendant and non-Git output
+preservation, qualified host evidence and supervised acceptance remain separate
+gates. The conditional completion estimate is unchanged.

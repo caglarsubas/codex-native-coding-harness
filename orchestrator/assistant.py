@@ -22,6 +22,7 @@ VIEWS = {
     "mission": "Mission & authority configuration (not active)",
     "runReadiness": "Run readiness inspection (read-only; not activation)",
     "phaseCheckpoints": "Saved phase checkpoint reports (read-only; not release)",
+    "retention": "Task retention policy (owner review and revocation; no direct archive)",
 }
 SYSTEM = """You are the operational assistant inside a local development operations dashboard.
 For questions, explain what is recorded, what is unknown and useful next steps.
@@ -70,6 +71,11 @@ shared limits, never tokens or per-workspace wallets. Separate phase allowances
 cannot be added as one spendable balance. Inspection cannot change a budget,
 approve a run, collect a new sample or notify the brain. No assistant action is
 available for those operations; the full effect context has not been checked.
+Task retention is owner-controlled on the retention screen. Only an exact current
+phase-delegated run in paused setup can gain a reviewed retention policy. Saved
+policy and attempt counts are historical, not safe-to-archive evidence. Revocation
+cannot undo an already-consumed native send check. Link there to explain or review;
+never propose policy changes, inspect automatically or claim any task was archived.
 Only decisions marked needsOwnerInput=true await a new answer. A blocked historical
 decision can already have an owner answer and follow-up; do not call it open or
 unanswered. No dependency graph or artifact contents are supplied: never invent
@@ -196,6 +202,10 @@ def context(state, view):
         from .budget_views import assistant_summary
         facts.append({"id": "F34", "label": "Cached explicit budget inspection; recorded accounting, not execution clearance or billing",
                       "data": assistant_summary(state["budgetInspection"])})
+    if state.get("retentionInspection"):
+        from .retention_controls import assistant_summary as retention_summary
+        facts.append({"id": "F35", "label": "Cached owner retention inspection; historical policy, not archive permission",
+                      "data": retention_summary(state["retentionInspection"])})
     # The service sees aliases, not native/ledger IDs, filesystem paths or routes.
     data = {"schemaVersion": 2, "observedAt": time.time(), "snapshotTimeUTC": datetime.now(timezone.utc).isoformat(), "currentView": VIEWS[view], "facts": facts,
             "links": {k: v["label"] for k, v in links.items()},

@@ -49,6 +49,9 @@ class WorkspaceRuntime:
         self.checkpoint_inspection_lock = threading.Lock()
         self.budget_inspection = None
         self.budget_inspection_lock = threading.Lock()
+        from .retention_controls import RetentionControls
+        self.retention_controls = RetentionControls()
+        self.retention_inspection = None
 
     def snapshot(self):
         """Same evidence for workspace and assistant; no model-triggered scans or refresh."""
@@ -70,6 +73,8 @@ class WorkspaceRuntime:
         state["phaseCheckpoints"] = cached_summary(self.checkpoint_inspection, state["meta"]["revision"])
         from .budget_views import cached_summary as budget_summary
         state["budgetInspection"] = budget_summary(self.budget_inspection, state["meta"]["revision"])
+        from .retention_controls import summary as retention_summary
+        state["retentionInspection"] = retention_summary(self.retention_inspection, state["meta"]["revision"])
         if self.registry:
             state["workspace"] = {"id": self.workspace_id,
                 "name": next(w["name"] for w in self.registry.list() if w["id"] == self.workspace_id),
@@ -184,7 +189,7 @@ class Handler(BaseHTTPRequestHandler):
         static["/activity.js"] = ("activity.js", "text/javascript; charset=utf-8")
         static["/decisions.js"] = ("decisions.js", "text/javascript; charset=utf-8")
         static["/decisions.css"] = ("decisions.css", "text/css; charset=utf-8")
-        for file in ("panes.js", "assistant.js", "routing.js", "workspaces.js", "missions.js", "workspace-pause.js", "run-readiness.js", "phase-checkpoints.js", "budget.js", "task-contracts.js", "panes.css"):
+        for file in ("panes.js", "assistant.js", "routing.js", "workspaces.js", "missions.js", "workspace-pause.js", "run-readiness.js", "phase-checkpoints.js", "budget.js", "retention.js", "task-contracts.js", "panes.css"):
             static["/" + file] = (file, "text/javascript; charset=utf-8" if file.endswith(".js") else "text/css; charset=utf-8")
         if path in static:
             file, mime = static[path]
@@ -209,6 +214,12 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/mission" and workspace_id:
                 from .missions import read
                 return self.respond(200, read(runtime.ledger))
+            if path == "/api/retention" and workspace_id:
+                if urlsplit(self.path).query:
+                    return self.respond(400, {"error": "Retention inspection accepts no query parameters"})
+                from .retention_controls import inspect
+                runtime.retention_inspection = inspect(runtime.ledger)
+                return self.respond(200, runtime.retention_inspection)
             if path == "/api/budget" and workspace_id:
                 if urlsplit(self.path).query:
                     return self.respond(400, {"error": "Budget inspection accepts no query parameters"})
@@ -288,7 +299,12 @@ class Handler(BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length", "0"))
             if not 0 < length <= 32768:
                 return self.respond(413, {"error": "Invalid request size"})
-            body = json.loads(self.rfile.read(length))
+            raw = self.rfile.read(length)
+            if urlsplit(self.path).path.endswith(("/retention/preview", "/retention/confirm")):
+                from .retention_controls import decode
+                body = decode(raw)
+            else:
+                body = json.loads(raw)
             if self.path == "/api/login":
                 if not isinstance(body, dict) or not isinstance(body.get("token"), str) or not secrets.compare_digest(body["token"], self.server.bootstrap):
                     return self.respond(403, {"error": "Invalid local session token"})
@@ -315,6 +331,14 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/mission" and workspace_id:
                 from .missions import change
                 return self.respond(200, change(runtime.ledger, body))
+            if path in ("/api/retention/preview", "/api/retention/confirm") and workspace_id:
+                if urlsplit(self.path).query:
+                    return self.respond(400, {"error": "Retention controls accept no query parameters"})
+                if path.endswith("/preview"):
+                    return self.respond(200, runtime.retention_controls.preview(runtime.ledger, body, csrf))
+                result = runtime.retention_controls.confirm(runtime.ledger, body, csrf)
+                runtime.retention_inspection = None
+                return self.respond(200, result)
             if path == "/api/assistant/confirm":
                 command, first = runtime.assistant_proposals.confirm(runtime.ledger, body, csrf)
                 if first:

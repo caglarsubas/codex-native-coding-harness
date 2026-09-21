@@ -51,6 +51,7 @@ body{overflow:hidden}
 .chat-action-status{font-size:.82rem;color:var(--muted)}
 .chat-action[data-action-state="recorded"]{background:var(--soft)}
 .workspace-picker{display:grid;gap:8px;min-width:0;font-size:11px}
+.retention-form{margin-block:32px}.retention-preview{display:grid;gap:16px;max-width:760px}.retention-preview>label{display:flex;align-items:flex-start;gap:12px;line-height:1.6}.retention-preview input[type=checkbox]{flex:none;inline-size:20px;block-size:20px}.retention-preview pre{white-space:pre-wrap;overflow-wrap:anywhere}.retention-preview>button{justify-self:start;min-height:44px}
 .workspace-picker select{width:100%;min-height:44px;border:1px solid oklch(44% .02 155);border-radius:4px;background:var(--rail);color:var(--rail-text);padding:9px 8px;font-size:12px;text-overflow:ellipsis}
 .workspace-picker button{color:var(--rail-text);font-size:11px;text-align:left;border-color:transparent;padding:6px 8px}
 .workspace-picker button:hover,.workspace-picker button[aria-current=page]{background:oklch(34% .025 155)}
