@@ -159,10 +159,15 @@ class ResultHandoff:
             worker, intent = self.bridge.intent_in(db, worker_id)
             with self.store.tx() as kernel: seed, terminal = self.terminal_in(db, kernel, worker, intent)
             review = runs.document(db, worker["resultReviewHash"], "result_review") if worker.get("resultReviewHash") else None
+            from .result_reauthorization import current_in
+            authority = current_in(db, worker)
             out = {"workerId": worker_id, "workspaceId": intent["workspaceId"], "repository": intent["repository"],
                    "revision": meta["revision"], "intentHash": digest(intent), "seedHash": intent["seedHash"],
                    "settlementHash": digest(terminal), "settledAt": terminal["at"], "workerStatus": worker["status"],
                    "review": self.reviewer.receipt(review) if review else None,
+                   "reviewHistory": [self.reviewer.receipt(r) for r in results.history_in(db, digest(review), intent, terminal)] if review else [],
+                   "reviewAuthority": {"hash": digest(authority), "status": authority["status"], "expiresAt": authority["expiresAt"],
+                       "historical": True, "consumed": authority["status"] == "approved" and authority["request"]["previousReviewHash"] != worker.get("resultReviewHash")} if authority else None,
                    "requirements": {"baseSHA": seed["baseSHA"], "branch": seed["branch"], "allowedPaths": seed["allowedPaths"],
                        "completionAxes": seed["completionAxes"], "criteria": [{"index": i, "criterionHash": digest(c), "text": c}
                                                                            for i, c in enumerate(seed["acceptance"])]},
@@ -208,6 +213,9 @@ class ResultHandoff:
                 seed, terminal = self.terminal_in(db, kernel, worker, intent)
                 self.reviewer.settlement.maintenance_check(kernel); results.unaccepted_worker(worker)
                 self.reviewer.authority_in(db, meta, worker, intent)
+                if "resultReviewAuthorityHash" in worker:
+                    from .result_reauthorization import check_in
+                    check_in(self.ledger, db, meta, worker, intent, commit=request["commit"])
                 require(meta["revision"] == request["expectedRevision"] and digest(terminal) == request["settlementHash"],
                         "Result evidence revision or settlement changed")
                 subject_allowed(request["subject"], seed)

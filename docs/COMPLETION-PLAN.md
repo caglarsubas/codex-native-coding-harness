@@ -71,6 +71,16 @@ See the [saved increment plan and owner workflow](CHECKPOINT-VISIBILITY-PLAN.md)
 
 ## Current increment
 
+- [x] WSP-03F source after verified PR #55: exact-owner review-only authority for
+  unaccepted settled standard results under a later current run, unchanged-commit
+  collector/proof reuse, fresh independent review and immutable result history.
+  Historical retries preserve the latest outcome; revocation/Pause fence new work.
+  This advances milestone 5, not its native correction or full phase-exit gates.
+  The public owner adapter, native evidence qualification and Play remain separate;
+  conditional **8–12 / 10–16** ranges are unchanged for this partial milestone.
+  See [saved plan and contract](GENERATION-RESULT-REVIEW.md). No live rollout or Actions.
+  Local verification: 1,467 Python tests, all twelve JavaScript UI suites,
+  JavaScript syntax, Python compilation and diff whitespace checks passed.
 - [x] WSP-03E source after verified PR #54: selected-workspace checkpoint review
   and withdrawal controls, signed five-minute previews, exact report/next-mission/
   settings/expiry confirmation and durable withdrawal checked in the grant
@@ -173,7 +183,7 @@ See the [saved increment plan and owner workflow](CHECKPOINT-VISIBILITY-PLAN.md)
 | 2 | Source complete: owner-reviewed adaptive model/effort policy (WSP-04E) | Host capability binding, allowed choices, quality/escalation bounds and requested/applied/observed records qualified in fixtures; speed/Ultra remain gated, live collection/acceptance remain in 3/10 |
 | 3 | Partial: native metadata collector (WSP-04F); complete host/counter source still required | Public metadata reads qualified in fixtures; complete ephemeral membership, whole-process cleanup and non-resetting lifetime usage remain capability-gated, not inferred |
 | 4 | Controlled onboarding and maintenance release | Exact owner review, migrated ownership/baselines, interrupted-release recovery and no implicit upgrade activation |
-| 5 | Partial: checkpoint report/release binding and owner review/withdrawal (WSP-03C / WSP-03E); new-generation corrections and phase-exit qualification remain | Exact report/next-scope/settings/expiry confirmation and durable withdrawal; no inferred phase acceptance, public release, automatic crossing or usage/attempt reset |
+| 5 | Partial: checkpoint report/release binding, owner review/withdrawal and internal settled-result rereview (WSP-03C / WSP-03E / WSP-03F); native corrections and phase-exit qualification remain | Exact next-scope/settings/expiry and same-commit rereview permission, immutable outcomes and durable revocation; no inferred phase acceptance, public release, automatic crossing or usage/attempt reset |
 | 6 | Partial: checkpoint/budget visibility, owner checkpoint decisions and assistant metadata (WSP-03D / WSP-03E / WSP-04D7); Play remains | Saved evidence/accounting inspection, explicit owner review/withdrawal and unknown/stale budget balance suppression; version-bound start, immediate notification, brain receipt and recovery still require qualification; Pause dominates races |
 | 7 | Partial: managed-cycle guidance/event-bound waits (WSP-05D) and terminal command path (WSP-04D6); rollout/acceptance remain | Source guidance composes guarded handoffs through terminal accounting and result review, and refuses duplicate unchanged waits. Qualified host evidence, live quiet scheduling and operating-loop acceptance remain gated; no helper scheduler or native polling |
 | 8 | Partial: exact-run delegated retention, owner controls and one-shot archival (WSP-05E / WSP-05F); broader preservation and qualification remain | Signed owner review/revoke, age/attempt bounds and root-only lifecycle qualified in fixtures; descendant/untracked-output safeguards and independently observed safe archival remain |

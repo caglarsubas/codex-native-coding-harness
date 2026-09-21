@@ -409,6 +409,19 @@ inactivity. Reads cannot acquire a controller, notify, approve, release or resum
 Preserve workspace-generation guards, original artifact versions and the closed
 navigation allowlist. These report reads add no public release or Play endpoint.
 
+WSP-03F adds internal exact-owner authorization to review an unaccepted settled
+standard-policy result in a later current run. See docs/GENERATION-RESULT-REVIEW.md.
+Bind the original intent/settlement, exact previous outcome and same commit to the
+current reviewed descendant run and still-covered mission scope. The brain cannot
+mint permission; no owner HTTP/CLI adapter or native resume is added. Keep old task
+approval/contract and closed attempts unchanged. Before/after collector I/O must
+check current authority, exact commit, Pause and maintenance. A fresh independent
+review consumes one permission and appends an immutable result version; accepted
+results cannot reopen. Preserve all old proofs/receipts in result reads, settlement
+recovery and phase reports. Historical retries never restore projections or revoked
+authority, reset usage, release ownership or authorize corrections. Bounded history
+requires explicit migration, not pruning. No live rollout or downgrade safety.
+
 WSP-03E adds explicit owner checkpoint review/withdrawal, not run authorization.
 See docs/CHECKPOINT-CONTROLS.md. Bind signed five-minute previews to workspace,
 ledger identity, browser session, exact revision/context and explicit confirmation.

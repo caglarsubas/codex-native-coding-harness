@@ -662,6 +662,7 @@ admission adapter is enabled; neither a generation nor approval is a native perm
 - [x] WSP-03B4: internal run/approval/checkpoint lifecycle kernel, stop races and legacy bypass fences; no public Play or native effect integration.
 - [x] WSP-03C: [retained phase checkpoint reports](PHASE-CHECKPOINTS.md), versioned artifacts, separate recorded result axes and exact owner-reviewed next-generation mission/settings/expiry binding; no public release or phase-acceptance inference.
 - [x] WSP-03E: [owner checkpoint decisions](CHECKPOINT-CONTROLS.md), authenticated inspection, signed review/withdrawal previews, explicit confirmation and grant-transaction withdrawal checks. Reviews bind the next mission/settings/expiry without starting or authorizing a run; existing authorized runs require safe Pause separately.
+- [x] WSP-03F: [later-generation result review](GENERATION-RESULT-REVIEW.md), internal exact-owner permission, unchanged-commit evidence collection and versioned rereview of unaccepted settled results. Old outcomes, attempts and accounting remain intact; no public owner adapter, native correction, accepted-result reopening or Play.
 - [ ] Implement the selected configurable authority model in tooling/skill contracts.
 - [ ] Activate workspace authority with enforced packet, checkpoint, task and token admission.
 - [ ] Mission/phase review, delegated packet approval/revocation and exact version checks.

@@ -322,6 +322,9 @@ class SourceObserver:
         self.review.settlement.maintenance_check(kernel)
         unaccepted_worker(worker)
         self.review.authority_in(db, meta, worker, intent)  # Includes standard policy before filesystem I/O.
+        if "resultReviewAuthorityHash" in worker:
+            from .result_reauthorization import check_in
+            check_in(self.ledger, db, meta, worker, intent, commit=request["commit"])
         require(meta["revision"] == request["expectedRevision"], "Workspace changed before source observation")
         allocation = self.store.get(kernel, "allocations", intent["allocationId"])
         require(allocation["fingerprint"] == intent["allocationFingerprint"] == digest(allocation["spec"]), "Phase allocation binding changed")
