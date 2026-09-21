@@ -1,5 +1,6 @@
 """Owner-only permission to review closed result bytes, never to resume a task."""
 import copy
+import contextlib
 import time
 
 from . import missions, run_authority as runs, task_contracts
@@ -107,11 +108,16 @@ def scope_in(ledger, db, meta, worker, intent, run_hash):
     return q
 
 
-def authorize(ledger, request, *, actor):
-    """Internal owner seam only. No brain/public route can mint this permission."""
+def authorize(ledger, request, *, actor, _db=None):
+    """Trusted owner seam; the dashboard adapter authenticates exact confirmation.
+
+    An optional existing transaction keeps preview revalidation and this write
+    atomic. The brain never supplies the owner actor or the connection.
+    """
     require(actor == "dashboard_owner", "Only the owner may authorize result rereview")
     request = copy.deepcopy(request)
-    with ledger.tx() as db:
+    with (contextlib.nullcontext(_db) if _db is not None else ledger.tx()) as db:
+        require(db.in_transaction, "Review authorization requires a transaction")
         meta, key, fp, prior = runs.request_in(ledger, db, request, actor, "result_review_approved", FIELDS)
         if prior:
             record_in(db, prior["authorityHash"])
@@ -141,10 +147,11 @@ def authorize(ledger, request, *, actor):
         return runs.receipt_in(ledger, db, key, fp, "result_review_approved", authorityHash=authority_hash)
 
 
-def revoke(ledger, request, *, actor):
+def revoke(ledger, request, *, actor, _db=None):
     require(actor == "dashboard_owner", "Only the owner may revoke result rereview")
     request = copy.deepcopy(request)
-    with ledger.tx() as db:
+    with (contextlib.nullcontext(_db) if _db is not None else ledger.tx()) as db:
+        require(db.in_transaction, "Review revocation requires a transaction")
         _, key, fp, prior = runs.request_in(ledger, db, request, actor, "result_review_revoked", {"workerId", "authorityHash", "reason", "confirmed"})
         if prior: record_in(db, prior["authorityHash"]); return prior
         require(request["confirmed"] is True, "Explicit review revocation required"); missions.text(request["reason"], "Revocation reason")

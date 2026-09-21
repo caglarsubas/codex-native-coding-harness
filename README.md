@@ -265,6 +265,13 @@ work, recorded worker results, stale/missing evidence and unknown phase usage.
 The assistant receives cached metadata only. Opening the page does not prepare a
 report, approve a release or start Play. See the [checkpoint owner workflow](docs/CHECKPOINT-VISIBILITY-PLAN.md).
 
+In **Workers & evidence**, owners can explicitly inspect a settled result and
+preview/confirm permission to review its unchanged commit in a later authorized
+phase, or revoke that permission. Original review versions and saved independent
+reports remain readable. This grants review permission only: no result acceptance,
+task restart, brain notification, budget reset or Play follows. See the
+[rereview owner workflow](docs/REREVIEW-CONTROLS.md).
+
 The planned [development workspaces and phase-bounded autopilot](docs/WORKSPACES-AUTOPILOT.md)
 will bring separate portfolios into one dashboard with executive project introductions,
 workspace brains, configurable packet approval and phase checkpoints. Brains will

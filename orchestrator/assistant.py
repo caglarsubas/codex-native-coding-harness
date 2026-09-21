@@ -214,6 +214,11 @@ def context(state, view):
         facts.append({"id": "F36", "label": "Cached owner checkpoint decisions; historical, not run permission or current activity",
             "data": {k: cached[k] for k in ("status", "workspaceRevision", "inspectedAt", "historical", "workspaceChanged",
                 "expired", "executionAuthorized", "recordedReviews", "recordedWithdrawals") if k in cached}})
+    if state.get("resultReviewInspection"):
+        cached = state["resultReviewInspection"]
+        facts.append({"id": "F37", "label": "Cached explicit result permission inspection; historical, not acceptance or execution permission",
+            "data": {k: cached[k] for k in ("status", "workspaceRevision", "inspectedAt", "historical", "workspaceChanged",
+                "expired", "executionAuthorized", "recordedVersions", "recordedPermissions") if k in cached}})
     # The service sees aliases, not native/ledger IDs, filesystem paths or routes.
     data = {"schemaVersion": 2, "observedAt": time.time(), "snapshotTimeUTC": datetime.now(timezone.utc).isoformat(), "currentView": VIEWS[view], "facts": facts,
             "links": {k: v["label"] for k, v in links.items()},

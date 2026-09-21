@@ -170,7 +170,9 @@ collectors at the unchanged commit and requires `reviewAuthorityHash` on the new
 review request. The independent report must follow that permission. State adds
 newest-first `reviewHistory` and historical `reviewAuthority` metadata; neither
 claims current eligibility or native activity. Prior outcomes remain byte-verified
-and cannot be restored by replay. No owner permission HTTP/CLI is added here.
+and cannot be restored by replay. The separate [WSP-03G owner dashboard adapter](REREVIEW-CONTROLS.md)
+provides authenticated permission inspection/preview/confirmation; the brain
+cannot mint it and no owner-approval CLI shortcut is provided.
 Do not delete old history to rearm an attempt. Fresh source/CI collection and acceptance
 are not safe-Pause, host cleanup, archival, pilot qualification or execution authority.
 

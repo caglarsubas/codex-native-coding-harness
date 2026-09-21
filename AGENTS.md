@@ -413,7 +413,8 @@ WSP-03F adds internal exact-owner authorization to review an unaccepted settled
 standard-policy result in a later current run. See docs/GENERATION-RESULT-REVIEW.md.
 Bind the original intent/settlement, exact previous outcome and same commit to the
 current reviewed descendant run and still-covered mission scope. The brain cannot
-mint permission; no owner HTTP/CLI adapter or native resume is added. Keep old task
+mint permission; WSP-03G supplies only an authenticated owner HTTP adapter, not a
+CLI shortcut or native resume. Keep old task
 approval/contract and closed attempts unchanged. Before/after collector I/O must
 check current authority, exact commit, Pause and maintenance. A fresh independent
 review consumes one permission and appends an immutable result version; accepted
@@ -421,6 +422,20 @@ results cannot reopen. Preserve all old proofs/receipts in result reads, settlem
 recovery and phase reports. Historical retries never restore projections or revoked
 authority, reset usage, release ownership or authorize corrections. Bounded history
 requires explicit migration, not pruning. No live rollout or downgrade safety.
+
+WSP-03G exposes exact settled-result permission controls in Workers & evidence.
+See docs/REREVIEW-CONTROLS.md. Explicit inspection is scoped to one workspace and
+task and never collects proofs. Signed five-minute previews bind browser session,
+ledger identity, exact revision/context, current run, original intent/settlement,
+previous outcome and unchanged commit. Revalidate and write in one transaction;
+retry only the identical signed request and never restore revoked permission.
+Revocation remains available after Pause or damaged result proofs when its own
+history is intact. Polling/chat receive cached closed counts/status only, never
+proofs, owner actions or inference-authored approvals. Keep drafts and late
+responses workspace/task scoped, confirmations unchecked and proof reads explicit.
+No acceptance, notification, shared accounting initialization, native call, run
+release or Play follows. This supersedes WSP-03F's internal-only owner surface,
+not its evidence, scope, Harness, preservation or native qualification gates.
 
 WSP-03E adds explicit owner checkpoint review/withdrawal, not run authorization.
 See docs/CHECKPOINT-CONTROLS.md. Bind signed five-minute previews to workspace,

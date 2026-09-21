@@ -52,6 +52,8 @@ contract allowed one immutable review outcome per closed attempt. Later
 [WSP-03F](GENERATION-RESULT-REVIEW.md) permits an explicit owner-authorized review
 under a later current generation: unchanged result bytes, exact previous outcome,
 current mission coverage, fresh independent evidence and immutable history.
+The [WSP-03G owner controls](REREVIEW-CONTROLS.md) inspect, authorize and revoke
+that permission, not the result outcome itself.
 Accepted outcomes cannot be reopened. Changed-source correction or native resume
 remains a separate contract, never deletion of the old receipt.
 

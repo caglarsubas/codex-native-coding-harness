@@ -56,6 +56,10 @@ class WorkspaceRuntime:
         self.checkpoint_controls = CheckpointControls()
         self.checkpoint_decision_inspection = None
         self.checkpoint_decision_lock = threading.Lock()
+        from .rereview_controls import RereviewControls
+        self.rereview_controls = RereviewControls()
+        self.rereview_inspection = None
+        self.rereview_lock = threading.Lock()
 
     def snapshot(self):
         """Same evidence for workspace and assistant; no model-triggered scans or refresh."""
@@ -81,6 +85,8 @@ class WorkspaceRuntime:
         state["retentionInspection"] = retention_summary(self.retention_inspection, state["meta"]["revision"])
         from .checkpoint_controls import summary as decision_summary
         state["checkpointDecisions"] = decision_summary(self.checkpoint_decision_inspection, state["meta"]["revision"])
+        from .rereview_controls import summary as rereview_summary
+        state["resultReviewInspection"] = rereview_summary(self.rereview_inspection, state["meta"]["revision"])
         if self.registry:
             state["workspace"] = {"id": self.workspace_id,
                 "name": next(w["name"] for w in self.registry.list() if w["id"] == self.workspace_id),
@@ -195,7 +201,7 @@ class Handler(BaseHTTPRequestHandler):
         static["/activity.js"] = ("activity.js", "text/javascript; charset=utf-8")
         static["/decisions.js"] = ("decisions.js", "text/javascript; charset=utf-8")
         static["/decisions.css"] = ("decisions.css", "text/css; charset=utf-8")
-        for file in ("panes.js", "assistant.js", "routing.js", "workspaces.js", "missions.js", "workspace-pause.js", "run-readiness.js", "phase-checkpoints.js", "checkpoint-controls.js", "budget.js", "retention.js", "task-contracts.js", "panes.css"):
+        for file in ("panes.js", "assistant.js", "routing.js", "workspaces.js", "missions.js", "workspace-pause.js", "run-readiness.js", "phase-checkpoints.js", "checkpoint-controls.js", "rereview.js", "budget.js", "retention.js", "task-contracts.js", "panes.css"):
             static["/" + file] = (file, "text/javascript; charset=utf-8" if file.endswith(".js") else "text/css; charset=utf-8")
         if path in static:
             file, mime = static[path]
@@ -231,6 +237,18 @@ class Handler(BaseHTTPRequestHandler):
                     return self.respond(200, runtime.checkpoint_decision_inspection)
                 finally:
                     runtime.checkpoint_decision_lock.release()
+            if path == "/api/result-review-controls" and workspace_id:
+                query = parse_qs(urlsplit(self.path).query, keep_blank_values=True, strict_parsing=True, max_num_fields=2)
+                if set(query) != {"workerId"} or len(query["workerId"]) != 1:
+                    return self.respond(400, {"error": "Select exactly one workerId for result inspection"})
+                if not runtime.rereview_lock.acquire(blocking=False):
+                    return self.respond(409, {"error": "Result permission inspection is already in progress"})
+                try:
+                    from .rereview_controls import inspect
+                    runtime.rereview_inspection = inspect(runtime.ledger, query["workerId"][0])
+                    return self.respond(200, runtime.rereview_inspection)
+                finally:
+                    runtime.rereview_lock.release()
             if path == "/api/retention" and workspace_id:
                 if urlsplit(self.path).query:
                     return self.respond(400, {"error": "Retention inspection accepts no query parameters"})
@@ -317,7 +335,7 @@ class Handler(BaseHTTPRequestHandler):
             if not 0 < length <= 32768:
                 return self.respond(413, {"error": "Invalid request size"})
             raw = self.rfile.read(length)
-            if urlsplit(self.path).path.endswith(("/retention/preview", "/retention/confirm", "/checkpoint-decisions/preview", "/checkpoint-decisions/confirm")):
+            if urlsplit(self.path).path.endswith(("/retention/preview", "/retention/confirm", "/checkpoint-decisions/preview", "/checkpoint-decisions/confirm", "/result-review-controls/preview", "/result-review-controls/confirm")):
                 from .retention_controls import decode
                 body = decode(raw)
             else:
@@ -361,6 +379,19 @@ class Handler(BaseHTTPRequestHandler):
                     return self.respond(200, result)
                 finally:
                     runtime.checkpoint_decision_lock.release()
+            if path in ("/api/result-review-controls/preview", "/api/result-review-controls/confirm") and workspace_id:
+                if urlsplit(self.path).query:
+                    return self.respond(400, {"error": "Result permission controls accept no query parameters"})
+                if not runtime.rereview_lock.acquire(blocking=False):
+                    return self.respond(409, {"error": "Result permission operation is already in progress; inspect before retrying"})
+                try:
+                    if path.endswith("/preview"):
+                        return self.respond(200, runtime.rereview_controls.preview(runtime.ledger, body, csrf))
+                    result = runtime.rereview_controls.confirm(runtime.ledger, body, csrf)
+                    runtime.rereview_inspection = None
+                    return self.respond(200, result)
+                finally:
+                    runtime.rereview_lock.release()
             if path in ("/api/retention/preview", "/api/retention/confirm") and workspace_id:
                 if urlsplit(self.path).query:
                     return self.respond(400, {"error": "Retention controls accept no query parameters"})

@@ -26,8 +26,10 @@ result may be reconsidered only at the same exact commit; changed source require
 a separately authorized new implementation task. No new task approval, native
 call, runner, reservation, usage reset, ownership release or retry follows.
 
-The owner authorization remains an internal trusted integration seam, not a
-browser or brain-authored permission. It may be revoked before consumption.
+WSP-03F introduced an internal trusted owner seam. The subsequent
+[WSP-03G dashboard adapter](REREVIEW-CONTROLS.md) now authenticates explicit owner
+preview/confirmation; the brain still cannot mint permission. It may be revoked
+before consumption.
 There is no public Play, live installation, maintenance release, scheduler,
 paid service or Actions execution. All verification uses disposable fixtures.
 Harness review remains refused until its trusted adapter is qualified.
@@ -47,8 +49,9 @@ accepts closed finite JSON, bounded to 16,000 bytes:
 | `reason`, `confirmed` | Bounded nonempty review rationale and literal `true` |
 
 The actor argument is a trusted internal integration boundary, not authentication.
-There is no owner HTTP or CLI adapter for this permission in this increment. The
-brain cannot mint it. The later run must already exist through the parked-checkpoint
+The subsequent [WSP-03G owner HTTP adapter](REREVIEW-CONTROLS.md) supplies signed
+preview/confirmation, not a CLI shortcut or brain-authored permission. The later
+run must already exist through the parked-checkpoint
 and owner-reviewed phase-release contract. Authorization neither creates nor
 resumes it, and it requires unpaused dispatch. The original seed, task contract and
 approval remain unchanged; current reviewed mission paths, operations, repository
@@ -110,6 +113,6 @@ no workflow was added or invoked. These are local results, not GitHub CI or live
 acceptance evidence.
 
 This advances only milestone 5's settled-result rereview component. Cross-generation
-native correction/resume, changed-source tasks, a public owner adapter, phase-exit
-qualification and Play remain separate. Native host/counter evidence qualification
+native correction/resume, changed-source tasks, phase-exit qualification and Play
+remain separate. WSP-03G closes the owner UI gap only. Native host/counter evidence qualification
 is still an external capability gate, not something these source tests establish.
