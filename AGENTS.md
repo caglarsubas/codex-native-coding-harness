@@ -419,3 +419,14 @@ Never route managed workers through legacy effect commands. Missing native
 capabilities, terminal adapters and release/Play authority remain gated; the
 guidance is not a rollout, live skill install or background scheduler. Preserve
 old unbound decisions without claiming event coverage or downgrade compatibility.
+
+WSP-04D6 adds a designated-brain terminal-handoff CLI for standard-policy local
+tasks. See docs/TERMINAL-HANDOFF.md. This supersedes the internal-only terminal
+entry-point limitation, not its evidence or rollout gates. Require explicit
+confirmed/not_created outcome and exact attempt-bound proof provenance. State
+reads must not attach a missing receipt. Reuse the shared-first terminal journal;
+settle/recover preserve attempts, actual usage, newer owners and separate result
+acceptance. Qualified external evidence remains mandatory; never promote public
+metadata, a final reply or account percentages into complete descendants,
+full-process cleanup or lifetime counters. No live migration, native collector,
+runner adapter substitution, retry, install, schedule change or Play is implied.

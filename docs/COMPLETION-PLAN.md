@@ -71,6 +71,14 @@ See the [saved increment plan and owner workflow](CHECKPOINT-VISIBILITY-PLAN.md)
 
 ## Current increment
 
+- [x] WSP-04D6 source: scoped terminal handoff CLI closes the command gap between
+  managed supervision and result review, including proof retention, conclusive
+  non-creation and shared-first receipt recovery. Composition is fixture-only;
+  qualified host facts, onboarding and live operating-loop acceptance remain.
+  This advances milestone 7 without completing it; conditional **8–12 / 10–16**
+  ranges are unchanged. See [terminal handoff](TERMINAL-HANDOFF.md).
+  Local verification: 1,356 Python tests, nine JavaScript UI suites and
+  skill/temporary-install checks passed. No live rollout or Actions execution.
 - [x] WSP-05D source: event-bound wait receipts, read-only change/supervision
   classification and managed brain-cycle guidance across existing handoffs.
   Repeated unchanged wakes do not need another decision or evidence artifact.
@@ -130,7 +138,7 @@ See the [saved increment plan and owner workflow](CHECKPOINT-VISIBILITY-PLAN.md)
 | 4 | Controlled onboarding and maintenance release | Exact owner review, migrated ownership/baselines, interrupted-release recovery and no implicit upgrade activation |
 | 5 | Partial: checkpoint report/release binding (WSP-03C); new-generation corrections and phase-exit qualification remain | Retained local claims bind an exact owner-reviewed next scope/settings/expiry; no inferred phase acceptance, public release, automatic crossing or usage/attempt reset |
 | 6 | Partial: checkpoint visibility and assistant metadata (WSP-03D); Play/phase controls remain | Saved evidence inspection is read-only; explicit version-bound start, immediate notification, brain receipt and recovery still require qualification; Pause dominates races |
-| 7 | Partial: managed operating-loop guidance and event-bound waits (WSP-05D); rollout/acceptance remain | Source guidance composes guarded handoffs and refuses duplicate unchanged waits; no helper scheduler or native polling. Qualified terminal/host adapters, live quiet scheduling and operating-loop acceptance remain gated |
+| 7 | Partial: managed-cycle guidance/event-bound waits (WSP-05D) and terminal command path (WSP-04D6); rollout/acceptance remain | Source guidance composes guarded handoffs through terminal accounting and result review, and refuses duplicate unchanged waits. Qualified host evidence, live quiet scheduling and operating-loop acceptance remain gated; no helper scheduler or native polling |
 | 8 | Delegated retention and complete preservation/archival lifecycle | Selected retention policy, descendant/untracked-output safeguards, preserved knowledge and independently observed safe archival |
 | 9 | Partial: canonical portfolio metrics (WSP-09A); broader scale/fairness qualification remains | Same-origin clone and local worktree snapshot totals, explicit coverage, 3,200-row aggregation and two-workspace fixture browser checks; host aliases, runner fairness and full live portfolio qualification remain |
 | 10 | Standard-workspace supervised acceptance and runtime rollout | Two real workspaces, multiple task cycles, Pause/resume, gates, budget stops and exact installed/running revision independently verified |

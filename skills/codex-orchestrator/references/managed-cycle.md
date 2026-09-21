@@ -1,4 +1,4 @@
-# Managed workspace cycle (WSP-05D)
+# Managed workspace cycle (WSP-05D / WSP-04D6)
 
 Read this for `meta.runAuthority`, schema v3, immutable task contracts or an
 admission-managed worker. It replaces the legacy reserve/begin/bind/transition/
@@ -79,7 +79,7 @@ Read the corresponding `docs/` document from the installed tooling checkout.
 | Account/phase usage | `native-account-state` / record and `phase-usage-state` / record on the existing allocation. Percentages are not lifetime counters. See `PHASE-USAGE.md`. |
 | Same-task correction | `correction-handoff-prepare`, fresh one-shot check, one native message, then record; state/recover after uncertainty. See `CORRECTION-HANDOFF.md`. |
 | Declared standard runner | `runner-handoff-acquire`, prepare/check, one native message, delivery/process observation and release after proven full-process cleanup. See `RUNNER-HANDOFF.md`. |
-| Terminal ownership | Retain the claim until independently qualified inventory, handoff, counters and cleanup satisfy `OWNERSHIP-SETTLEMENT.md`. This is still an internal trusted seam, not a fabricated CLI or permission to invoke Python on live state. Without a qualified adapter, retain ownership and expose the blocker. |
+| Terminal ownership | For standard local tasks, use `terminal-handoff-state`, retain exact root/descendant checkpoint proofs with `terminal-handoff-proof-add`, then `terminal-handoff-settle`; use `terminal-handoff-recover` only for a committed receipt. Explicit `--outcome confirmed` requires qualified complete inactivity, inventory, cleanup and cumulative usage; `not_created` requires conclusive final attempt reconciliation and explicit zero task usage. See `TERMINAL-HANDOFF.md` and its linked evidence schemas. No qualified evidence means keep ownership and expose the blocker, not fabricate facts. |
 | Settled result | `result-handoff-state`; collect measured source/GitHub/preservation, retain supplemental and independent-review proofs, then review. See `RESULT-HANDOFF.md`. Never self-review or promote one evidence axis into another. |
 | Accepted result | Inspect for the next eligible same-phase packet. Keep task history; acceptance is not merge, archive or phase-release authority. |
 | Owner archive | `archive-handoff-state/prepare/check/record` only with exact owner cleanup acknowledgment, measured preservation and fresh root-only safety evidence. See `ARCHIVE-HANDOFF.md`; delegated/descendant archival remains gated. |
@@ -102,7 +102,10 @@ budget, or equate requested settings with observed application.
 complete ephemeral descendants, full-process cleanup, non-resetting lifetime
 counters or per-turn applied settings. Never promote that report into handoff
 inputs. Harness also needs its trusted execution/evidence adapter; standard
-runner/result paths cannot replace it.
+runner/terminal/result paths cannot replace it. Terminal state reads are historical
+and never recover automatically. Settlement is permanent ownership accounting,
+not packet acceptance, retry, archive or a new send permit. Proof text stays inert;
+do not turn an LLM conclusion or a final message into completeness/cleanup facts.
 
 ## Leave a useful, quiet handoff
 
