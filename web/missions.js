@@ -31,6 +31,7 @@ function missionView(root){
   activation.append(el('p','This release prepares the contract. Play will require a separate owner-bound activation after these gates are implemented. A reviewed version cannot activate automatically after an upgrade.','muted'));status.append(activation);root.append(status);
   if(m.bindingIssues.length)root.append(callout('Configuration needs a new version',m.bindingIssues.join(' ')));
   if(missionDrafts.has(workspaceId)){missionEditor(root,m);return;}
+  if(typeof modelControlPanel==='function')modelControlPanel(root);
   if(!m.document){root.append(button('Create mission draft',()=>openMissionEditor(),'primary'));return;}
   const spec=m.document.spec,phase=spec.phase,a=spec.authority;
   root.append(section('The proposed outcome',phase.id),el('h3',spec.goal));

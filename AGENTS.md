@@ -355,9 +355,22 @@ Requested/emitted, reported-applied and observed settings are separate. New adap
 corrections/runner effects need fresh matching observations after the last consumed
 boundary; delivery, a worker reply or a supplied model name alone is not proof.
 Policy changes fence the run; uncertainty retains owners/tokens and never resends.
-Owner review/revoke methods are internal trusted-caller seams, not brain authority
-or public routes. Preserve all Pause, maintenance, Harness, acceptance and accounting
-guards. Quiesce older writers/prepared handoffs before separately authorized rollout.
+Owner review/revoke methods require an authenticated trusted caller; WSP-04G below
+adds only their owner HTTP adapter, never brain authority. Preserve all Pause,
+maintenance, Harness, acceptance and accounting guards. Quiesce older writers/
+prepared handoffs before separately authorized rollout.
+
+WSP-04G exposes model-policy inspection/review/revoke in Mission & authority. See
+docs/MODEL-POLICY-CONTROLS.md. Bind signed previews to selected workspace, browser
+session, ledger identity, exact revision/context, reviewed mission and recorded
+catalog; atomically revalidate before the existing policy write and run fence.
+Keep model/effort/profile/quality/token choices explicit and confirmations unchecked.
+Missing/stale capabilities block review, not intact-policy revocation. Catalogs
+remain designated-brain observations, not live host availability or benchmarks.
+Historical retries cannot restore revoked authority. Polling/chat get cached
+closed counts/status only; no model names/profiles, owner actions or proof reads.
+No native settings change, provider call, brain notification, run intent, shared
+accounting initialization, usage reset, maintenance release, install or Play.
 
 WSP-04F adds explicitly requested, owner-pinned public native metadata collection.
 See docs/NATIVE-EVIDENCE-COLLECTION.md. The sole additional read transport is the
