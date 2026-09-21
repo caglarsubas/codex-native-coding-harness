@@ -373,3 +373,14 @@ never promote a report into execution, model application, accounting, settlement
 acceptance. Owner endpoint methods remain internal trusted-caller seams. No live
 endpoint, installation, private ledger, schedule or maintenance changes follow from
 source delivery. Milestone 3 stays open until the missing host evidence is qualified.
+
+WSP-09A adds canonical recorded portfolio counting, not resource identity authority.
+See docs/PORTFOLIO-IDENTITY.md. Capture hashed common-directory and conventional
+origin identity only during an explicit measurement, with before/after checks.
+Summary/exports must not probe Git or resolve repository paths on read. Count each
+identity/commit/policy once; different commits and forks stay distinct. Keep alias
+rows, legacy identity gaps, changed settings and conflicts visible; never silently
+fall back from a newer failed observation or infer zero from missing coverage.
+Literal origin matching is descriptive, not a verified host alias, reservation,
+token proof or migration decision. Preserve scoped assistant projections and all
+admission/Pause/maintenance rules. No live refresh, rollout or Actions follows.

@@ -140,7 +140,8 @@ These are planned tooling increments, not live mission or product authorization.
 - [x] Record owner's phase-bounded delegation, brain-owned task routing and Play/Pause requirements
 - [x] WSP-01: private workspace registry, isolated state and verified in-place migration
 - [x] WSP-02 foundation: workspace selection, executive project introduction, recorded aggregates and scoped assistant
-- [ ] WSP-02 scale qualification and WSP-04 canonical clone/worktree deduplication
+- [x] WSP-09A: conventional clone/local worktree code-snapshot deduplication, visible exclusions/aliases, shared export/inference counting and bounded pagination (local/synthetic/browser fixtures; not live acceptance)
+- [ ] WSP-02 broader scale qualification, explicit host-alias mapping and shared-runner fairness
 - [x] WSP-03A: versioned mission/phase authority configuration, exact owner review/revocation and policy-safe editor (inactive)
 - [x] WSP-04A: isolated shared-capacity kernel, conservative token accounting and explicit read-only resource audit (not connected to native dispatch)
 - [x] WSP-04B1: explicit maintenance enrollment, durable legacy dispatch fences, retained-owner journal and interrupted-staging recovery (no activation/unfence)

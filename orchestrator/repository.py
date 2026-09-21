@@ -3,21 +3,30 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
 import time
 
 from .core import Refusal, canonical, require, safe_relative, validate_seed
+from . import portfolio_metrics
 
 EXCLUDED = {"node_modules", "vendor", "dist", "build", "coverage", ".git", ".venv", "__pycache__", "generated"}
 LOCKS = {"package-lock.json", "pnpm-lock.yaml", "yarn.lock", "uv.lock", "requirements.lock", "Cargo.lock", "poetry.lock"}
 SOURCE = {".py", ".js", ".ts", ".tsx", ".jsx", ".go", ".rs", ".java", ".c", ".h", ".cpp", ".cs", ".swift", ".rb", ".sh", ".css", ".html", ".sql", ".vue", ".svelte"}
 
 
+def git_environment():
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    env.update(GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL=os.devnull,
+               GIT_OPTIONAL_LOCKS="0", GIT_NO_REPLACE_OBJECTS="1", LC_ALL="C")
+    return env
+
+
 def git(path, *args, binary=False):
     require(path and Path(path).is_dir(), "Repository not present on disk")
     result = subprocess.run(["git", "-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false", "-C", str(path), *args],
-        capture_output=True, timeout=60, check=False)
+        capture_output=True, timeout=60, check=False, env=git_environment())
     require(result.returncode == 0, "Git read failed: " + result.stderr.decode(errors="replace")[:300])
     return result.stdout if binary else result.stdout.decode().strip()
 
@@ -40,6 +49,7 @@ def measure(repo):
         "messages": None, "tokens": None, "cacheRate": None, "modelEffort": None,
         "methodology": "Tracked UTF-8 text at configured ref; Unicode code points and physical lines, including blanks/comments. No worktree or untracked files. Excludes vendor/build/generated directories, lockfiles, symlinks, binaries and files over 2 MiB. Not SLOC or coverage."}
     try:
+        identity = portfolio_metrics.observe_identity(repo)
         commit = head(repo["path"], repo["ref"])
         result["commit"] = commit
         entries = git(repo["path"], "ls-tree", "-r", "-l", "-z", commit, binary=True).split(b"\0")
@@ -56,8 +66,9 @@ def measure(repo):
             selected.append((oid.decode(), path))
         # Batch reads use immutable blob IDs; no checked-out file or symlink is opened.
         require(sum(int(e.split(b"\t")[0].split()[-1]) for e in entries if e and e.split(b"\t")[0].split()[1] == b"blob") < 512 * 1024 * 1024, "Tree too large for bounded metrics scan")
-        output = subprocess.run(["git", "-c", "core.hooksPath=/dev/null", "-C", repo["path"], "cat-file", "--batch"],
-            input="".join(oid + "\n" for oid, _ in selected).encode(), capture_output=True, timeout=120, check=True).stdout
+        output = subprocess.run(["git", "-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false", "-C", repo["path"], "cat-file", "--batch"],
+            input="".join(oid + "\n" for oid, _ in selected).encode(), capture_output=True, timeout=120, check=True,
+            env=git_environment()).stdout
         offset = 0
         for _, path in selected:
             end = output.index(b"\n", offset)
@@ -76,7 +87,10 @@ def measure(repo):
             for key, value in values.items():
                 target[key] += value
                 result[key] += value
-        result["status"] = "measured"
+        after = portfolio_metrics.observe_identity(repo)
+        if after != identity:
+            identity = {**identity, "status": "unavailable"}
+        result.update(status="measured", identity=identity, measurementPolicy=portfolio_metrics.POLICY)
     except (Refusal, subprocess.SubprocessError, OSError, ValueError) as error:
         result["reason"] = str(error)
         result["groups"] = {}
@@ -130,17 +144,13 @@ def verify_git_inputs(catalog, repo, seed):
 
 
 def aggregate(state):
-    latest = {}
-    for metric in state["metrics"]:
-        if metric["repository"] not in latest or metric["at"] > latest[metric["repository"]]["at"]:
-            latest[metric["repository"]] = metric
-    totals = {key: sum(m[key] for m in latest.values() if m["status"] == "measured") for key in ("files", "lines", "characters", "bytes")}
+    code = portfolio_metrics.summarize(portfolio_metrics.candidates(state))
+    totals = code["aggregate"]
     completed = [w for w in state["workers"] if w["status"] == "complete"]
     cycles = [w["completedAt"] - w["createdAt"] for w in completed]
-    totals.update(measuredRepositories=sum(m["status"] == "measured" for m in latest.values()),
-        repositoryCount=len(state["repositories"]), managedTasks=len(state["workers"]), completedPackets=len(completed),
+    totals.update(repositoryCount=len(state["repositories"]), managedTasks=len(state["workers"]), completedPackets=len(completed),
         meanCycleSeconds=sum(cycles) / len(cycles) if cycles else None)
-    return {"aggregate": totals, "repositories": list(latest.values()), "delivery": state.get("delivery"), "usage": state.get("observations", {}).get("usage") or {"status": "unavailable",
+    return {**code, "aggregate": totals, "delivery": state.get("delivery"), "usage": state.get("observations", {}).get("usage") or {"status": "unavailable",
         "reason": "No validated per-task usage source connected. Model/effort, tokens, cache, messages and historical sessions are not inferred from task counts."}}
 
 
@@ -149,10 +159,11 @@ def report(state):
     text = ["# Codex Orchestrator — portfolio snapshot", "", f"Generated: {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}",
         f"Ledger revision: {state['meta']['revision']}. Dispatch paused: {state['meta']['paused']}.", "",
         "## Aggregate", "", "```json", json.dumps(metrics["aggregate"], indent=2), "```", "",
-        "## Repository distribution", "", "| Repository | Commit | Status | Files | Lines | Characters |", "|---|---|---|---:|---:|---:|"]
+        "## Counting coverage", "", metrics["method"], "", "```json", json.dumps(metrics["coverage"], indent=2), "```", "",
+        "## Repository distribution", "", "| Repository | Commit | Status | Files | Lines | Characters | Counting |", "|---|---|---|---:|---:|---:|---|"]
     for m in metrics["repositories"]:
         measured = m["status"] == "measured"
-        text.append(f"| {m['repository']} | {(m['commit'] or '—')[:12]} | {m['status']} | {m['files'] if measured else '—'} | {m['lines'] if measured else '—'} | {m['characters'] if measured else '—'} |")
+        text.append(f"| {m['repository']} | {(m['commit'] or '—')[:12]} | {m['status']} | {m['files'] if measured else '—'} | {m['lines'] if measured else '—'} | {m['characters'] if measured else '—'} | {m['counting']['status']} |")
     if state.get("delivery"):
         text += ["", "## Managed delivery", "", "| Repository | Tasks | Completed in 7 days | Blocked minutes | Runner wait minutes | No-progress cycles |", "|---|---:|---:|---:|---:|---:|"]
         for row in state["delivery"]["repositories"]:
@@ -161,5 +172,5 @@ def report(state):
     for title, value in (("Local token usage", observations.get("usage")), ("Git and pull requests", observations.get("git")), ("Artifact versions", observations.get("artifacts")), ("Roadmap checklist", observations.get("roadmaps")), ("Executive brief (advisory snapshot, not current verification)", observations.get("executive"))):
         if value:
             text += ["", "## " + title, "", "```json", json.dumps(value, indent=2, ensure_ascii=False), "```"]
-    text += ["", "## Method and limitations", "", "Counts cover tracked UTF-8 text at exact commits, including blank/comment lines; they are not executable SLOC. Vendor/build/generated directories, lockfiles, binaries, symlinks and files over 2 MiB are excluded. Untracked work and duplicate worktrees are not counted. Missing repositories are unavailable, not zero.", "", metrics["usage"]["reason"], "", "No API-equivalent cost is a subscription bill. Model/effort comparisons require measured, comparable tasks and do not establish causation. Artifact dates distinguish supplied creation dates, first references and observation times. Checklist states are recorded source claims, never dispatch or acceptance authority.", "", "## Brain checkpoint", "", state["meta"]["checkpoint"], ""]
+    text += ["", "## Method and limitations", "", "Counts cover tracked UTF-8 text at exact commits, including blank/comment lines; they are not executable SLOC. Vendor/build/generated directories, lockfiles, binaries, symlinks and files over 2 MiB are excluded. Untracked work is not counted. Clones/worktrees at the same identified commit count once; different commits remain separate snapshots. Missing or unqualified measurements are unavailable, not zero.", "", metrics["usage"]["reason"], "", "No API-equivalent cost is a subscription bill. Model/effort comparisons require measured, comparable tasks and do not establish causation. Artifact dates distinguish supplied creation dates, first references and observation times. Checklist states are recorded source claims, never dispatch or acceptance authority.", "", "## Brain checkpoint", "", state["meta"]["checkpoint"], ""]
     return "\n".join(text)

@@ -1,6 +1,8 @@
 "use strict";
 let workspaceId=null, workspaceGeneration=0, workspaceSwitching=false, workspaceWrites=0, workspaceList=[];
 const workspaceTabs=new Map();
+let codeSnapshotPage=0;
+const codeDetailsOpen=new Set();
 Object.assign(titles,{workspaces:['All workspaces','Recorded measurements across separate development lifecycles.']});
 function workspacePath(path,id=workspaceId){
   return id&&path.startsWith('/api/')&&!path.startsWith('/api/workspaces')&&path!=='/api/login'
@@ -25,7 +27,7 @@ function restoreWorkspaceTab(id){
   $('assistant-context-preview').textContent='';$('assistant-context-preview').hidden=true;
   $('assistant-status').textContent=saved?.status||'';$('assistant-status').dataset.error='false';
   $('assistant-usage').textContent=saved?.usage||'Chat is private to this workspace and tab. Actions require confirmation.';
-  decisionDetailsOpen.clear();observationRepo='all';observationPage=0;artifactQuery='';autoObserve=saved?.autoObserve||false;lastAutoAttempt=0;
+  decisionDetailsOpen.clear();codeDetailsOpen.clear();observationRepo='all';observationPage=0;codeSnapshotPage=0;artifactQuery='';autoObserve=saved?.autoObserve||false;lastAutoAttempt=0;
 }
 async function initializeWorkspaces(){
   const data=await api('/api/workspaces');workspaceList=data.workspaces;
@@ -98,19 +100,70 @@ function editProjectIntroduction(panel){
   };
   panel.append(form);inputs.goal.focus();
 }
+function codeCountingLabel(counting){
+  if(counting?.status==='included')return 'Counted once';
+  if(counting?.status==='alias')return 'Alias · counted elsewhere';
+  const codes=counting?.issues||[];
+  if(codes.some(c=>c.includes('conflict')))return 'Excluded · conflicting observations';
+  if(codes.includes('repository_configuration_changed'))return 'Excluded · repository settings changed';
+  if(codes.includes('identity_refresh_required'))return 'Excluded · refresh identity evidence';
+  return 'Excluded · measurement unavailable or invalid';
+}
+function rememberCodeDetails(details,key,onOpen=null){
+  details.open=codeDetailsOpen.has(key);
+  details.addEventListener('toggle',()=>{
+    if(details.isConnected===false)return;
+    if(details.open){codeDetailsOpen.add(key);if(onOpen)onOpen();}else codeDetailsOpen.delete(key);
+  });
+  if(details.open&&onOpen)onOpen();
+}
+function codeCountingCoverage(root,coverage,workspaceLinks=false){
+  if(!coverage)return;
+  root.append(el('p',`${coverage.configuredRows} repository entries · ${coverage.duplicateAliases} duplicate aliases · ${coverage.excludedRows} excluded from totals.`,'metric-note'));
+  if(coverage.excludedRows)root.append(callout('Some code measurements are excluded','Old records without identity evidence, changed repository settings and conflicting measurements cannot be counted safely. Open the affected workspace’s Portfolio metrics and refresh observations. Missing values are not zero.'));
+  if(coverage.issues?.length){
+    const details=el('details'),list=el('ul');details.append(el('summary',`Excluded measurements · ${coverage.issues.length} ${coverage.issues.length===1?'entry':'entries'}`));
+    for(const issue of coverage.issues.slice(0,40)){
+      const item=el('li'),label=issue.repository+' · '+codeCountingLabel({status:'excluded',issues:issue.codes});
+      item.append(workspaceLinks?button(issue.workspaceId+' / '+label,()=>switchWorkspace(issue.workspaceId,{view:'metrics'})):el('span',label));list.append(item);
+    }
+    details.append(list);if(coverage.issues.length>40)details.append(el('p','Showing the first 40 exclusions. Open individual workspaces for their full repository distribution.','metric-note'));rememberCodeDetails(details,'exclusions/'+(workspaceLinks?'all':workspaceId));root.append(details);
+  }
+  if(coverage.localOnlySnapshots)root.append(el('p',`${coverage.localOnlySnapshots} snapshots use local Git identity only. Separate clones without a supported origin cannot be matched automatically.`,'metric-note'));
+}
+function codeSnapshotTable(root,snapshots){
+  const block=el('section');root.append(block);
+  function draw(){
+    block.replaceChildren();const pages=Math.max(1,Math.ceil(snapshots.length/40));
+    codeSnapshotPage=Math.max(0,Math.min(codeSnapshotPage,pages-1));
+    block.append(table(['Commit / counting basis','Repository aliases','Counted lines','State'],snapshots.slice(codeSnapshotPage*40,(codeSnapshotPage+1)*40).map(s=>{
+      const aliases=el('details');aliases.append(el('summary',`${s.aliases.length} repository ${s.aliases.length===1?'entry':'entries'}`));
+      rememberCodeDetails(aliases,'snapshot/'+(s.id||s.commit),()=>{if(aliases.dataset.loaded)return;aliases.dataset.loaded='true';
+        const list=el('ul');for(const a of s.aliases){const item=el('li');item.append(button(a.workspaceId+' / '+a.repository,()=>switchWorkspace(a.workspaceId,{view:'metrics'})));list.append(item);}aliases.append(list);});
+      return [textCell(s.commit.slice(0,12),s.identityBasis==='conventional_origin'?'Same conventional origin':'Same local Git directory'),aliases,num(s.lines),s.status==='counted'?'Counted once':'Conflicting measurements'];
+    })));
+    const actions=el('div',null,'pagination'),prev=button('Previous code snapshots',()=>{codeSnapshotPage--;draw();}),next=button('Next code snapshots',()=>{codeSnapshotPage++;draw();});
+    prev.disabled=codeSnapshotPage===0;next.disabled=codeSnapshotPage===pages-1;actions.append(prev,el('span',`Page ${codeSnapshotPage+1} / ${pages} · ${snapshots.length} code snapshots`),next);block.append(actions);
+  }
+  draw();
+}
 function allWorkspaces(root){
   const container=el('section');container.append(el('p','Loading retained workspace measurements…'));root.append(container);
   api('/api/workspaces/summary').then(data=>{
     if(!container.isConnected)return;container.replaceChildren();
     container.append(callout('Workspace scopes remain separate','This comparison does not authorize work. The assistant remains scoped to the workspace selected in the menu.'));
     const a=data.aggregate,strip=el('div',null,'summary-strip');
-    for(const [value,label] of [[a.lines,'measured lines'],[a.tokens,'deduplicated tokens'],[a.managedTasks,'managed tasks'],[a.uniqueArtifactVersions,'artifact versions']]){const item=el('div');item.append(el('strong',num(value)),el('span',label));strip.append(item);}
-    container.append(strip,el('p',data.method,'metric-note'));
+    for(const [value,label] of [[a.lines,'counted code lines'],[a.tokens,'deduplicated tokens'],[a.managedTasks,'managed tasks'],[a.uniqueArtifactVersions,'artifact versions']]){const item=el('div');item.append(el('strong',num(value)),el('span',label));strip.append(item);}
+    container.append(strip);
+    const method=el('details');method.append(el('summary','How totals are counted'),el('p',data.method,'metric-note'));rememberCodeDetails(method,'method');container.append(method);
+    codeCountingCoverage(container,data.codeCoverage,true);
     if(a.conflictingSessionsExcluded)container.append(el('p',`${a.conflictingSessionsExcluded} shared task summaries conflict and are excluded from aggregate tokens. Review workspace coverage.`,'metric-note'));
     container.append(table(['Workspace','Dispatch / checkpoint','Workers','Code lines','Observed tokens'],data.workspaces.map(w=>{
       const name=el('div');name.append(button(w.name,()=>switchWorkspace(w.id)));
       return [name,w.status==='unavailable'?'Unavailable':textCell(w.paused?'Paused':'Enabled',when(w.lastReconciled)),num(w.activeWorkers),num(w.metrics?.measuredRepositories?w.metrics.lines:null),num(w.usage?.total_tokens)];
     })));
+    container.append(section('Code snapshots counted across workspaces','Each identity and commit counts once. Different commits remain separate; expand aliases to open their workspace.'));
+    codeSnapshotTable(container,data.codeSnapshots||[]);
     container.append(section('Artifact versions across workspaces','Oldest first · open in its originating workspace'));
     paginated(container,data.artifacts,['Artifact','Workspace','Version','Creation / reference date'],a=>[
       button(a.name,()=>switchWorkspace(a.workspaceId,{view:'artifacts',id:a.id})),a.workspace,'v'+a.version,when(a.orderAt)]);

@@ -606,9 +606,10 @@ change. No native task, approval, heartbeat or product mutation was performed.
 - [x] Overview-first selection and versioned executive project introduction with sources.
 - [x] Separate static project purpose/architecture from live operational brief/status.
 - [x] Per-workspace jobs, drafts, assistant context and confirmation binding.
-- [x] Recorded aggregate/distributed usage, delivery, artifacts and roadmap with explicit deduplication and coverage. Different clones are not yet canonicalized together; conflicting shared-session summaries are excluded.
+- [x] Recorded aggregate/distributed usage, delivery, artifacts and roadmap with explicit deduplication and coverage. WSP-09A additionally canonicalizes conventional same-origin clones/local worktrees at each commit; conflicting shared-session summaries remain excluded.
 - [x] Two-workspace browser checks: switching, draft retention, scoped chat, profile save and narrow-screen selection; automated stale-response and confirmation-isolation tests.
-- [ ] Larger-portfolio browser/performance qualification and full canonical clone/worktree identity (WSP-04).
+- [x] WSP-09A: 3,200-row pure code aggregation and 170-entry two-workspace browser fixtures, paged aliases, explicit exclusions and scoped refresh/deep links. See [counting contract and limits](PORTFOLIO-IDENTITY.md).
+- [ ] Broader live portfolio/browser performance, host-alias mapping and shared-runner fairness qualification (WSP-04).
 
 See [implemented workspace operations](WORKSPACES.md). WSP-03 through WSP-06 remain
 open: this release does not rename legacy Resume into continuous Play or grant
