@@ -25,6 +25,8 @@ box.table=(headers,rows)=>new Element('table',headers.join(' ')+rows.map(r=>r.ma
 vm.runInContext("let workspaceId='alpha',workspaceGeneration=1,connected=true,view='phaseCheckpoints';let state={workspace:{name:'Alpha'},meta:{revision:1},observations:{artifacts:[]}};let renders=0,notices=0;function render(){renders++}function showNotice(){notices++}",box);
 let calls=0;box.api=()=>{calls++;throw new Error('View must not fetch')};
 let root=new Element('main');box.phaseCheckpointsView(root);assert.match(root.textContent,/No report history loaded/);assert.equal(calls,0);
+vm.runInContext("checkpointReports.set(workspaceId,{status:'unavailable',workspaceRevision:1,inspectedAt:90,detail:'Bound report fixture'})",box);
+root=new Element('main');box.phaseCheckpointsView(root);assert.match(root.textContent,/Bound report fixture/);vm.runInContext('checkpointReports.clear()',box);
 const history={workspaceId:'alpha',workspaceRevision:1,inspectedAt:90,kind:'history',status:'empty',total:0,reports:[]};
 box.history=history;vm.runInContext('checkpointHistory.set(workspaceId,history)',box);
 root=new Element('main');box.phaseCheckpointsView(root);assert.match(root.textContent,/No saved phase reports/);assert.equal(calls,0);

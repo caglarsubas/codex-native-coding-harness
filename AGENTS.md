@@ -391,7 +391,7 @@ not phase acceptance or fresh activity; unknown shared usage stays unknown. Keep
 result axes, original observation times and checkpoint artifact bytes distinct.
 Only the brain prepares reports and uses their controller-scoped CLI; the
 authenticated dashboard may inspect them read-only under WSP-03D below. Owner
-review remains an internal trusted seam. Bind release to the latest unchanged
+review uses the authenticated WSP-03E adapter below. Bind release to the latest unchanged
 report, exact next reviewed mission, settings and expiry in the grant transaction.
 Missing/superseded reviews cannot
 use the old release path. No resume, dispatch, new retry, budget reset, ownership
@@ -407,7 +407,21 @@ changed-source and uncheckable-current-context states separate. Inspection never
 renews report/checkpoint timestamps or establishes acceptance, usage or native
 inactivity. Reads cannot acquire a controller, notify, approve, release or resume.
 Preserve workspace-generation guards, original artifact versions and the closed
-navigation allowlist. No public owner review/release or Play endpoint is added.
+navigation allowlist. These report reads add no public release or Play endpoint.
+
+WSP-03E adds explicit owner checkpoint review/withdrawal, not run authorization.
+See docs/CHECKPOINT-CONTROLS.md. Bind signed five-minute previews to workspace,
+ledger identity, browser session, exact revision/context and explicit confirmation.
+The current report, next reviewed mission, settings and next-intent expiry remain
+mandatory. Inspect proofs only on explicit reads/previews/confirmation; polling
+and chat receive cached closed counts/status only and cannot submit decisions.
+Withdraw one exact review through a retained receipt and durable denial projection;
+validate both inside every subsequent grant transaction. New reviews do not
+supersede old reviews automatically. Withdrawal does not stop a run whose grant
+already committed; use safe Pause. Historical replay never reapplies permission.
+Missing/corrupt history fails closed; no report preparation, native notification,
+task approval, shared-store initialization, admission or Play follows. Quiesce
+older writers before separately authorized rollout; no downgrade safety is claimed.
 
 WSP-05D binds wait decisions to recorded event hashes and adds read-only
 brain-cycle-wait-state. See docs/BRAIN-EVENT-WAITS.md and the source skill's

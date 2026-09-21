@@ -2,7 +2,8 @@
 
 Follow-on WSP-03D adds an authenticated, explicit read-only dashboard inspection
 of these reports: [checkpoint visibility and owner workflow](CHECKPOINT-VISIBILITY-PLAN.md).
-Report preparation remains brain-only; owner review/release remains internal.
+WSP-03E adds [authenticated owner review and withdrawal](CHECKPOINT-CONTROLS.md).
+Report preparation remains brain-only; run authorization/release remains internal.
 
 Plan saved before implementation, from verified PR #47 merge
 `ecee2319de353a09120d77431d42d0d544c35ba0`.
@@ -15,8 +16,8 @@ Plan saved before implementation, from verified PR #47 merge
 - [x] Bind owner review to that report and the exact next reviewed mission,
   settings policy and expiry. Require this review at every subsequent run intent;
   no direct-authorize bypass, stale report reuse or replay reactivation.
-- [x] Expose scoped brain report prepare/read commands only. Owner review remains
-  an internal trusted-caller seam until authenticated dashboard Play is qualified.
+- [x] Expose scoped brain report prepare/read commands only. WSP-03E now wraps
+  the owner-review seam separately; authenticated Play remains unqualified.
 - [x] Test drift, tampering, replay, concurrency, rollback and multi-generation
   accounting continuity locally; retain full-suite verification.
 
@@ -51,8 +52,9 @@ The source CLI provides only `phase-checkpoint-prepare PRIVATE_REQUEST_JSON` and
 `phase-checkpoint-read PRIVATE_REQUEST_JSON`, both following the normal
 `--platform PRIVATE_PLATFORM --workspace WORKSPACE` selection. The controller token
 comes from `ORCHESTRATOR_CONTROLLER_TOKEN`, never the file or output. There is no
-automatic collection, report on every poll, owner-review CLI, HTTP control,
-assistant control or native notification. No shared store is initialized/read
+automatic collection, report on every poll, owner-review CLI, assistant control
+or native notification. WSP-03E's signed owner HTTP adapter is separate from the
+brain-only report CLI. No shared store is initialized/read
 by this local report module, including when accounting has not been onboarded.
 
 | Request | Exact fields |
@@ -92,8 +94,8 @@ exact report artifact bytes without refreshing timestamps or rewriting state.
 ## Review and release
 
 `phase_checkpoints.review(..., actor="dashboard_owner")` is an internal trusted
-integration seam, not authentication. A future public caller must authenticate
-the owner and bind its signed preview before invoking it. The brain cannot review
+integration seam, not authentication. The WSP-03E HTTP adapter authenticates
+the owner and binds its signed preview before invoking it. The brain cannot review
 its report. Review requires the latest report and unchanged run, checkpoint,
 worker/queue/repository state, pending controls and local runner. It also binds
 the exact current owner-reviewed next mission, settings policy and expiry within
@@ -102,6 +104,10 @@ the exact current owner-reviewed next mission, settings policy and expiry within
 Every noninitial `run_authority.authorize` request must include the returned
 `checkpointReviewHash` and those exact mission/review/settings/expiry values.
 The grant transaction rechecks all report bindings and preserved evidence. No
+withdrawn review may authorize a subsequent grant; WSP-03E checks retained
+withdrawal evidence and its projection in this same transaction. Withdrawal does
+not retroactively stop an already-authorized run, and a new review does not cancel
+other recorded reviews. No
 missing-review legacy fallback exists. A later mission edit, report version,
 changed task/control, expired intent or replaced checkpoint refuses. State change
 and grant commit share one SQLite transaction; failures roll back. Concurrent

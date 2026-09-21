@@ -21,7 +21,7 @@ VIEWS = {
     "artifacts": "Artifact library", "roadmap": "Roadmap", "readiness": "Readiness",
     "mission": "Mission & authority configuration (not active)",
     "runReadiness": "Run readiness inspection (read-only; not activation)",
-    "phaseCheckpoints": "Saved phase checkpoint reports (read-only; not release)",
+    "phaseCheckpoints": "Saved phase checkpoint reports and owner review/withdrawal (not Play)",
     "retention": "Task retention policy (owner review and revocation; no direct archive)",
 }
 SYSTEM = """You are the operational assistant inside a local development operations dashboard.
@@ -62,7 +62,10 @@ historical; workspaceChanged or expired means inspect again. An intact report
 does not establish phase acceptance or current native activity. Report notes and
 proof bodies are withheld. Never infer their contents. Phase token limits are
 not measured usage. There is no assistant action to inspect, prepare, review,
-release or continue a phase; link to phaseCheckpoints for owner inspection.
+withdraw, release or continue a phase; link to phaseCheckpoints for owner inspection.
+The owner can explicitly review an exact next-intent scope or withdraw an unused
+review there. Neither starts work. Withdrawal cannot stop an already-authorized
+run; the separate safe-Pause control is required. Counts never prove an active grant.
 Budget inspection is explicit and read-only; link to usage. Cached budget facts
 are historical caller-supplied accounting, not independently measured telemetry.
 Missing, incomplete or stale usage has no available balance. Reservations can
@@ -206,6 +209,11 @@ def context(state, view):
         from .retention_controls import assistant_summary as retention_summary
         facts.append({"id": "F35", "label": "Cached owner retention inspection; historical policy, not archive permission",
                       "data": retention_summary(state["retentionInspection"])})
+    if state.get("checkpointDecisions"):
+        cached = state["checkpointDecisions"]
+        facts.append({"id": "F36", "label": "Cached owner checkpoint decisions; historical, not run permission or current activity",
+            "data": {k: cached[k] for k in ("status", "workspaceRevision", "inspectedAt", "historical", "workspaceChanged",
+                "expired", "executionAuthorized", "recordedReviews", "recordedWithdrawals") if k in cached}})
     # The service sees aliases, not native/ledger IDs, filesystem paths or routes.
     data = {"schemaVersion": 2, "observedAt": time.time(), "snapshotTimeUTC": datetime.now(timezone.utc).isoformat(), "currentView": VIEWS[view], "facts": facts,
             "links": {k: v["label"] for k, v in links.items()},

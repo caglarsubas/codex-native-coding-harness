@@ -71,6 +71,16 @@ See the [saved increment plan and owner workflow](CHECKPOINT-VISIBILITY-PLAN.md)
 
 ## Current increment
 
+- [x] WSP-03E source after verified PR #54: selected-workspace checkpoint review
+  and withdrawal controls, signed five-minute previews, exact report/next-mission/
+  settings/expiry confirmation and durable withdrawal checked in the grant
+  transaction. This completes the owner-decision surface, not milestone 5's
+  new-generation correction/phase-exit qualification or milestone 6's Play.
+  The conditional **8–12 / 10–16** ranges remain unchanged; native evidence
+  qualification still cannot be replaced with more source PRs. See
+  [checkpoint owner controls](CHECKPOINT-CONTROLS.md). No live rollout or Actions.
+  Local verification: 1,446 Python tests, all twelve JavaScript UI suites and
+  disposable two-workspace browser checks passed.
 - [x] WSP-05F source after verified PR #53: selected-workspace retention inspection,
   signed expiring review/revoke previews, explicit cleanup consent and same-session
   transaction-bound owner confirmation. Historical retries do not reapply authority;
@@ -163,8 +173,8 @@ See the [saved increment plan and owner workflow](CHECKPOINT-VISIBILITY-PLAN.md)
 | 2 | Source complete: owner-reviewed adaptive model/effort policy (WSP-04E) | Host capability binding, allowed choices, quality/escalation bounds and requested/applied/observed records qualified in fixtures; speed/Ultra remain gated, live collection/acceptance remain in 3/10 |
 | 3 | Partial: native metadata collector (WSP-04F); complete host/counter source still required | Public metadata reads qualified in fixtures; complete ephemeral membership, whole-process cleanup and non-resetting lifetime usage remain capability-gated, not inferred |
 | 4 | Controlled onboarding and maintenance release | Exact owner review, migrated ownership/baselines, interrupted-release recovery and no implicit upgrade activation |
-| 5 | Partial: checkpoint report/release binding (WSP-03C); new-generation corrections and phase-exit qualification remain | Retained local claims bind an exact owner-reviewed next scope/settings/expiry; no inferred phase acceptance, public release, automatic crossing or usage/attempt reset |
-| 6 | Partial: checkpoint/budget visibility and assistant metadata (WSP-03D / WSP-04D7); Play/phase controls remain | Saved evidence/accounting inspection is read-only, with unknown/stale budget balances suppressed; explicit version-bound start, immediate notification, brain receipt and recovery still require qualification; Pause dominates races |
+| 5 | Partial: checkpoint report/release binding and owner review/withdrawal (WSP-03C / WSP-03E); new-generation corrections and phase-exit qualification remain | Exact report/next-scope/settings/expiry confirmation and durable withdrawal; no inferred phase acceptance, public release, automatic crossing or usage/attempt reset |
+| 6 | Partial: checkpoint/budget visibility, owner checkpoint decisions and assistant metadata (WSP-03D / WSP-03E / WSP-04D7); Play remains | Saved evidence/accounting inspection, explicit owner review/withdrawal and unknown/stale budget balance suppression; version-bound start, immediate notification, brain receipt and recovery still require qualification; Pause dominates races |
 | 7 | Partial: managed-cycle guidance/event-bound waits (WSP-05D) and terminal command path (WSP-04D6); rollout/acceptance remain | Source guidance composes guarded handoffs through terminal accounting and result review, and refuses duplicate unchanged waits. Qualified host evidence, live quiet scheduling and operating-loop acceptance remain gated; no helper scheduler or native polling |
 | 8 | Partial: exact-run delegated retention, owner controls and one-shot archival (WSP-05E / WSP-05F); broader preservation and qualification remain | Signed owner review/revoke, age/attempt bounds and root-only lifecycle qualified in fixtures; descendant/untracked-output safeguards and independently observed safe archival remain |
 | 9 | Partial: canonical portfolio metrics (WSP-09A); broader scale/fairness qualification remains | Same-origin clone and local worktree snapshot totals, explicit coverage, 3,200-row aggregation and two-workspace fixture browser checks; host aliases, runner fairness and full live portfolio qualification remain |
