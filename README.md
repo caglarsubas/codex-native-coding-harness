@@ -261,6 +261,13 @@ Policy changes fence existing run authority; they do not call a model, change
 native settings or start Play. Catalog freshness and separately authorized run
 intent remain mandatory. The dashboard assistant's inference model is separate.
 
+In **Run readiness → Observation endpoint**, [observer setup controls](docs/NATIVE-OBSERVER-CONTROLS.md)
+let the owner inspect, preview and confirm access to an existing private local
+metadata endpoint, or revoke its review. Configuration starts blank and requires
+an existing standard-policy phase allocation; it never discovers or starts a
+server. Saved collection reports retain their original times and explicitly show
+incomplete evidence. No connection, model call or Play follows from these controls.
+
 Never blindly retry a `starting` worker or `processing` native action. Reconcile
 its unique dispatch/request identity against actual native state first.
 

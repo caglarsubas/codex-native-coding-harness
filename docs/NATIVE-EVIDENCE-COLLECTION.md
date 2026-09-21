@@ -71,12 +71,14 @@ methods; the generated schema supplies exact locally available parameter shapes.
 
 ## Owner setup boundary
 
-There is deliberately no owner-review CLI, HTTP or assistant route. Trusted,
-separately authenticated owner code may call `review_endpoint` while dispatch is
+The initial WSP-04F kernel had no owner HTTP route. WSP-04H now adds authenticated
+[owner controls in Run readiness](NATIVE-OBSERVER-CONTROLS.md) for inspection and
+signed review/revoke confirmation only. There is still no owner CLI, assistant
+action or public collection route. Trusted owner code may call `review_endpoint` while dispatch is
 paused, for an exact existing standard-policy allocation. Its request has `id`,
 `expectedRevision`, `allocationId`, `endpoint` and explicit `confirmed: true`.
-The actor string is a trusted caller label, not authentication. Onboarding must
-later supply authenticated version-bound owner controls; the brain cannot review
+The actor string is a trusted caller label, not authentication. The owner adapter
+checks session/CSRF, scope and exact version-bound confirmation; the brain cannot review
 or revoke its own endpoint through its CLI.
 
 The endpoint is the exact result of the internal, non-connecting

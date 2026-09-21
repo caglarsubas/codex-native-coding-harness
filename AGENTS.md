@@ -383,9 +383,25 @@ error bodies. Configured settings are not per-turn telemetry; persisted descenda
 are not complete ephemeral coverage; tracked terminal absence is not OS cleanup;
 account/goal counters are not lifetime phase usage. Keep all four gaps explicit and
 never promote a report into execution, model application, accounting, settlement or
-acceptance. Owner endpoint methods remain internal trusted-caller seams. No live
+acceptance. Owner endpoint methods require a trusted authenticated caller; WSP-04H
+below supplies the owner-only HTTP adapter. No live
 endpoint, installation, private ledger, schedule or maintenance changes follow from
 source delivery. Milestone 3 stays open until the missing host evidence is qualified.
+
+WSP-04H adds selected-workspace owner observation-endpoint controls in Run readiness.
+See docs/NATIVE-OBSERVER-CONTROLS.md. Inspection reads bounded saved metadata only;
+preview fingerprints existing files without execution or connection. Review requires
+paused dispatch and an exact open standard-policy allocation. Bind signed previews
+to browser session, registry/ledger/shared-store identity, revision and endpoint
+fingerprints; use lossless decimal strings for nanosecond identities in browser JSON.
+Confirm under registry/local/shared locks, retaining the shared allocation lock until
+the local receipt is durable. Revocation of an intact review must remain available
+when endpoint files, saved reports or shared accounting are unavailable. Historical
+retries return the original receipt and cannot restore revoked access. Keep drafts
+workspace-local, confirmations unchecked, times original and incomplete coverage
+explicit. Polling/chat see cached closed metadata only. No public collection,
+discovery, connect/start, brain notification, native mutation, accounting setup,
+maintenance release, assistant owner action, installation, schedule change or Play.
 
 WSP-09A adds canonical recorded portfolio counting, not resource identity authority.
 See docs/PORTFOLIO-IDENTITY.md. Capture hashed common-directory and conventional

@@ -224,6 +224,11 @@ def context(state, view):
         facts.append({"id": "F38", "label": "Cached explicit model policy inspection; historical, not applied settings or activation",
             "data": {k: cached[k] for k in ("status", "workspaceRevision", "inspectedAt", "historical", "workspaceChanged",
                 "expired", "executionAuthorized", "recordedPolicies", "recordedProfiles", "revoked", "capabilityStatusAtInspection") if k in cached}})
+    if state.get("observerInspection"):
+        cached = state["observerInspection"]
+        facts.append({"id": "F39", "label": "Cached observer setup and saved report counts; not complete native evidence",
+            "data": {k: cached[k] for k in ("status", "workspaceRevision", "inspectedAt", "historical", "workspaceChanged",
+                "expired", "executionAuthorized", "endpointReviewed", "endpointRevoked", "reportsStatus", "savedReportCount", "completeEvidence") if k in cached}})
     # The service sees aliases, not native/ledger IDs, filesystem paths or routes.
     data = {"schemaVersion": 2, "observedAt": time.time(), "snapshotTimeUTC": datetime.now(timezone.utc).isoformat(), "currentView": VIEWS[view], "facts": facts,
             "links": {k: v["label"] for k, v in links.items()},
