@@ -5,6 +5,11 @@ selection. Create candidates enforce the selected profile's token floor;
 adaptive continuation candidates also need fresh matching settings observations.
 These checks do not select or activate a policy automatically.
 
+Update: [WSP-05D](BRAIN-EVENT-WAITS.md) binds new wait decisions to recorded event
+categories and adds read-only `brain-cycle-wait-state DECISION_HASH`. An unchanged
+wait cannot be appended again under a new request ID. Old decisions remain
+historical/unbound; no automatic migration, schedule change or live rollout follows.
+
 Plan saved before implementation against PR #43 merge
 `7018268a5cbe438fac8c6c6202f206b1e5180050`.
 
@@ -63,6 +68,7 @@ bytes, with no duplicate fields or non-finite values; symlinks are refused.
 | `brain-cycle-inspect` | Read current run, candidates, retained ownership, budget and next handoff hints |
 | `brain-cycle-decide REQUEST_JSON` | Retain an explicit create/continue/handle/wait choice and, if permitted, exact delegated approval |
 | `brain-cycle-read DECISION_HASH` | Read the original decision, rationale, target, version and receipt without renewing it |
+| `brain-cycle-wait-state DECISION_HASH` | Compare recorded event categories and supervision needs without writing or polling native tools |
 | `brain-cycle-reserve DECISION_HASH` | Reserve the selected create target through the existing recoverable shared admission protocol |
 
 Inspection contains no transcript or artifact bodies and never approves, reserves,

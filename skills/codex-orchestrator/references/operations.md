@@ -4,6 +4,11 @@ Use `python3 <installed-skill>/scripts/run.py --help` for exact argument names.
 Commands return JSON; refusals exit 2. The installation file selects the real
 workspace and Python interpreter. No provider API credentials are needed.
 
+For managed run-authority/task-contract/admission scope, read `managed-cycle.md`.
+Its handoff routing supersedes the legacy Dispatch and Runner/completion/pilot
+sections below for those workers. Controller, typed inbox, stop and scheduling
+procedures still apply. Never bypass a managed refusal with a legacy command.
+
 ## Shared resource audit (WSP-04A)
 
 For an explicitly requested platform-wide ownership check, use
@@ -16,8 +21,8 @@ change a ledger or make a reservation. Do not run it as automatic dashboard poll
 
 Results are not an atomic platform snapshot. Missing/unmanaged tasks, SSH aliases,
 URL rewrites and external runner occupancy remain unverified. Unknown is not free
-capacity. The separate admission kernel has no production write route or native
-integration yet: never initialize live allocations, auto-import owners, grant a
+capacity. Shared admission handoffs remain rollout-gated: never initialize live
+allocations, auto-import owners, grant a
 budget or infer approval from it. Keep using existing exact approvals and limits;
 cross-workspace concurrency requires the adoption/run gates in docs/ADMISSION.md.
 

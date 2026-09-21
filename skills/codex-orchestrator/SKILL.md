@@ -24,13 +24,20 @@ Use `workspace-list` to discover registered IDs, then confirm the selected ledge
 brain ID matches this task before any controller operation. Registry registration
 is not onboarding authority, packet approval or permission to start development.
 
+For schema v3/run-authority workspaces, immutable task contracts or admission-managed
+workers, read `references/managed-cycle.md` before the cycle. It composes the
+coordinator, model policy, one-shot handoffs, result review and event-bound waits.
+The legacy reserve/begin/complete procedure below is not a fallback for managed
+work. Missing allocation, qualified evidence or release authority stays blocked;
+source guidance does not authorize live setup, installation or activation.
+
 Mission configuration is not activation. `mission-state` shows proposed scope,
 limits and owner review; even `reviewed` grants no execution authority. If asked
 to prepare a phase proposal, read the Mission configuration section in
 `references/operations.md`. Never replace exact packet approval with this record.
 
-The WSP-04A shared admission kernel is not connected to native dispatch. Its
-capacity records are not approvals or permission to bypass existing limits.
+The shared admission kernel has gated managed handoffs, not live Play. Its
+capacity records alone are not approvals or permission to bypass existing limits.
 For an explicitly requested cross-workspace conflict audit, read the Shared
 resource audit section in `references/operations.md`; never initialize live
 allocations or infer unused capacity from an empty kernel store.
@@ -59,12 +66,16 @@ a native task or satisfy the real pilot requirement.
   personal helper or a generic shell.
 - Use native task creation only for the approved implementation tasks. Create a
   fresh task with the generated inheritance prompt; do not fork the entire brain.
-  Omit model/effort overrides unless the user explicitly selected them.
+  Omit model/effort overrides unless explicitly selected by the user or emitted
+  by the exact owner-reviewed adaptive-policy handoff described in managed-cycle.
 - Never infer completion from a worker's final message. Independently verify exact
   commit/paths, required CI and each required evidence axis. A merge is not live
   acceptance. Retain completed tasks unless explicitly asked to archive.
 
 ## Reconciliation
+
+The sequence here is for legacy exact-approved packets only. Managed scope uses
+`references/managed-cycle.md`; all stop and scheduling rules still apply.
 
 1. Acquire one controller token with an identity including this brain and turn.
    Keep the token in `ORCHESTRATOR_CONTROLLER_TOKEN`, never in prompts or reports.
