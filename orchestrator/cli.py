@@ -60,7 +60,7 @@ def main():
         p = sub.add_parser("native-evidence-" + operation, help="Explicit phase-owned native metadata reads; never activation or complete host evidence")
         p.add_argument("allocation_id")
         if operation == "collect": p.add_argument("request", type=Path)
-    for operation in ("inspect", "decide", "reserve", "read"):
+    for operation in ("inspect", "decide", "reserve", "read", "wait-state"):
         p = sub.add_parser("brain-cycle-" + operation, help="Designated-brain lifecycle decisions; no scheduler or native transport")
         if operation == "decide": p.add_argument("request", type=Path)
         elif operation != "inspect": p.add_argument("decision_hash")
@@ -311,6 +311,7 @@ def main():
         operation = action.removeprefix("brain-cycle-")
         if operation == "inspect": out = api.inspect(token)
         elif operation == "decide": out = api.decide(token, read_request(args.request))
+        elif operation == "wait-state": out = api.wait_state(token, args.decision_hash)
         else: out = getattr(api, operation)(token, args.decision_hash)
     elif action.startswith("correction-handoff-"):
         from .admission import AdmissionStore

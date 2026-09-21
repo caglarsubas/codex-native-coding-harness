@@ -408,3 +408,14 @@ renews report/checkpoint timestamps or establishes acceptance, usage or native
 inactivity. Reads cannot acquire a controller, notify, approve, release or resume.
 Preserve workspace-generation guards, original artifact versions and the closed
 navigation allowlist. No public owner review/release or Play endpoint is added.
+
+WSP-05D binds wait decisions to recorded event hashes and adds read-only
+brain-cycle-wait-state. See docs/BRAIN-EVENT-WAITS.md and the source skill's
+references/managed-cycle.md. Unchanged input does not justify another decision,
+evidence artifact or idle model poll. Quiet eligibility is not native inactivity,
+schedule authority or a send permit; stop, retained/quarantined ownership,
+pending receipts, incomplete result review and explicit listening dominate it.
+Never route managed workers through legacy effect commands. Missing native
+capabilities, terminal adapters and release/Play authority remain gated; the
+guidance is not a rollout, live skill install or background scheduler. Preserve
+old unbound decisions without claiming event coverage or downgrade compatibility.

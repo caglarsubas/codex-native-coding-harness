@@ -180,6 +180,10 @@ class BrainCoordinator:
         with self.bridge.locked(token) as (db, meta), self.store.tx() as kernel:
             return self.context_in(db, meta, kernel)
 
+    def wait_state(self, token, key):
+        from .brain_waits import state
+        return state(self, token, key)
+
     def read(self, token, key):
         with self.bridge.locked(token) as (db, _):
             doc = self.document_in(db, key)
@@ -249,9 +253,18 @@ class BrainCoordinator:
                     require(target and target["canContinue"], "Selected task cannot continue; reconcile its exact state")
                 previous = self.latest_in(db, meta)
                 require(not previous or previous["version"] < 1000, "Brain decision history needs explicit maintenance")
+                boundary = None
+                if choice == "wait":
+                    from .brain_waits import capture, validate
+                    boundary = capture(self, db, meta, kernel, context)
+                    if previous and previous["request"]["choice"] == "wait" and "waitBoundary" in previous:
+                        validate(previous["waitBoundary"])
+                        require(boundary != previous["waitBoundary"],
+                                "No recorded event changed; retain the existing wait and inspect wait-state")
                 doc = {"kind": KIND, "schemaVersion": 1, "workspaceId": self.bridge.workspace_id, "brainId": meta["brainId"],
                        "version": previous["version"] + 1 if previous else 1, "previousHash": digest(previous) if previous else None,
                        "request": request, "runHash": context["runHash"], "target": target, "approvalHash": approval, "at": time.time()}
+                if boundary is not None: doc["waitBoundary"] = boundary
                 key = runs.retain(db, KIND, doc)
                 db.execute("INSERT INTO snapshots VALUES(?,?,?)", (slot(self.bridge.workspace_id, request["id"]), SLOT,
                            canonical({"decisionHash": key})))
