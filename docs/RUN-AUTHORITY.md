@@ -1,5 +1,11 @@
 # WSP-03B4 — run authority kernel
 
+Update: [WSP-03C](PHASE-CHECKPOINTS.md) now requires an exact owner-reviewed retained
+phase checkpoint report for every subsequent generation. `authorize` takes an
+additional `checkpointReviewHash` on release, binding its next mission/review,
+settings and expiry exactly. Initial grants omit it. Historical request replay
+does not restore authority; there is still no public run-activation route.
+
 Update: [WSP-04E](MODEL-POLICY.md) also accepts an exact current owner-reviewed
 adaptive model/effort policy. The native-default-only restriction below describes
 the original increment. Policy review is not run activation; all mission,

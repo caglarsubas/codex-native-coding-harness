@@ -64,6 +64,9 @@ def main():
         p = sub.add_parser("brain-cycle-" + operation, help="Designated-brain lifecycle decisions; no scheduler or native transport")
         if operation == "decide": p.add_argument("request", type=Path)
         elif operation != "inspect": p.add_argument("decision_hash")
+    for operation in ("prepare", "read"):
+        p = sub.add_parser("phase-checkpoint-" + operation, help="Brain-owned retained checkpoint report; no owner review, release or activation")
+        p.add_argument("request", type=Path)
     for name in ("native-create-begin", "native-create-record", "native-create-check", "native-create-state", "native-create-recover"):
         p = sub.add_parser(name, help="Designated-brain one-use native handoff; no transport or run activation")
         p.add_argument("worker_id")
@@ -136,7 +139,7 @@ def main():
         raise Refusal("--workspace requires --platform")
     if args.state and (args.workspace or args.platform):
         raise Refusal("Choose a registered workspace or --state, not both")
-    if (args.action == "run-readiness" or args.action.startswith(("task-contract-", "model-policy-", "native-evidence-", "brain-cycle-", "native-create-", "native-task-", "native-account-", "phase-usage-", "runner-handoff-", "result-handoff-", "archive-handoff-", "correction-handoff-"))) and not (args.platform and args.workspace):
+    if (args.action == "run-readiness" or args.action.startswith(("task-contract-", "model-policy-", "native-evidence-", "brain-cycle-", "phase-checkpoint-", "native-create-", "native-task-", "native-account-", "phase-usage-", "runner-handoff-", "result-handoff-", "archive-handoff-", "correction-handoff-"))) and not (args.platform and args.workspace):
         raise Refusal("This operation requires an explicit registered workspace")
     registry = Registry(args.platform, create=args.action == "workspace-register") if args.platform else None
     if args.action.startswith("platform-reconciliation-"):
@@ -295,6 +298,10 @@ def main():
             if action == "model-policy-state": out = api.state(token, args.worker_id)
             elif action == "model-policy-observe": out = api.observe(token, args.worker_id, read_request(args.request))
             else: out = api.select(token, read_request(args.request))
+    elif action.startswith("phase-checkpoint-"):
+        from . import phase_checkpoints
+        from .result_handoff import read_request
+        out = getattr(phase_checkpoints, action.removeprefix("phase-checkpoint-"))(ledger, token, read_request(args.request))
     elif action.startswith("brain-cycle-"):
         from .admission import AdmissionStore
         from .dispatch_admission import DispatchAdmission

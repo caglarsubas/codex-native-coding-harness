@@ -373,7 +373,7 @@ bridge.begin_creation(sys.argv[2], sys.argv[3])
         before = self.store.snapshot()
         stop = {"commandId": self.fx.fx.command("brain_stop")["id"]}
         checkpoint = self.fx.park(stop)
-        next_run = self.fx.authorize(self.fx.auth_request(checkpoint["documentHash"]))
+        next_run = self.fx.authorize(self.fx.release_request(checkpoint["documentHash"]))
         self.assertEqual(next_run["generation"], 2)
         grant = self.ledger.document(next_run["runHash"])
         self.assertEqual(dispatch.phase_allocation(grant, {"a": [KEY]}), self.binding)

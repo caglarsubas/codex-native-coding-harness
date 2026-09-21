@@ -54,8 +54,20 @@ explains model/effort choices and usage, preserves results, obeys Pause and phas
 gates, and resumes without duplicate work. The final Harness gate also preserves
 its exact packet, clean-room, zero-bill and trusted-runner execution contract.
 
+Progress after PR #47: WSP-03C advances milestone 5 with immutable phase checkpoint
+reports and exact owner-reviewed next-generation release binding. This is source
+and fixture delivery, not public Play. New-generation task correction/rereview,
+measured shared-usage presentation and full phase-exit qualification remain open;
+milestone 3 is still capability-gated. The conditional **8–12 / 10–16** estimates
+are unchanged for this partial milestone. See [phase checkpoints](PHASE-CHECKPOINTS.md).
+
 ## Current increment
 
+- [x] WSP-03C source: parked-phase report artifacts, recorded result/criterion/axis
+  projections, exact owner review and transaction-bound subsequent run release.
+  Replay, changed-source/report refusal and same-phase accounting continuity are
+  covered in local fixtures. Local verification: 1,285 Python tests and eight UI
+  test files passed. No live report, owner release, installation or Play.
 - [x] WSP-09A source: explicit identity-bound measurements, canonical recorded
   snapshot aggregation across clones/worktrees, counting coverage, scoped links,
   independent pagination and local-only refresh controls. Local verification:
@@ -94,7 +106,7 @@ its exact packet, clean-room, zero-bill and trusted-runner execution contract.
 | 2 | Source complete: owner-reviewed adaptive model/effort policy (WSP-04E) | Host capability binding, allowed choices, quality/escalation bounds and requested/applied/observed records qualified in fixtures; speed/Ultra remain gated, live collection/acceptance remain in 3/10 |
 | 3 | Partial: native metadata collector (WSP-04F); complete host/counter source still required | Public metadata reads qualified in fixtures; complete ephemeral membership, whole-process cleanup and non-resetting lifetime usage remain capability-gated, not inferred |
 | 4 | Controlled onboarding and maintenance release | Exact owner review, migrated ownership/baselines, interrupted-release recovery and no implicit upgrade activation |
-| 5 | Phase reports, checkpoint release and bounded new-generation corrections | Reviewed evidence report binds the next scope; no automatic boundary crossing or reset of usage/attempts |
+| 5 | Partial: checkpoint report/release binding (WSP-03C); new-generation corrections and phase-exit qualification remain | Retained local claims bind an exact owner-reviewed next scope/settings/expiry; no inferred phase acceptance, public release, automatic crossing or usage/attempt reset |
 | 6 | Dashboard Play/phase controls and assistant integration | Explicit version-bound start, immediate notification, brain receipt, recovery and truthful blocked states; Pause dominates races |
 | 7 | Native brain operating loop and quiet recovery scheduling | Updated reusable guidance composes all handoffs; no duplicate sends or background helper scheduler; idle owner waits do not poll models |
 | 8 | Delegated retention and complete preservation/archival lifecycle | Selected retention policy, descendant/untracked-output safeguards, preserved knowledge and independently observed safe archival |
