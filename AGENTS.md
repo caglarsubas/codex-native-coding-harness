@@ -445,9 +445,10 @@ WSP-05E adds exact-run owner-reviewed retention delegation. See
 docs/DELEGATED-RETENTION.md. This supersedes explicit-owner-per-archive requirements
 only for the designated brain's policy-bound accepted standard local root tasks.
 No policy means no delegation; phase task-approval authority alone is insufficient.
-Review/revoke remain internal authenticated-owner seams, not public or brain CLI
-authority. Require an exact phase-delegated run, paused owner setup, explicit cleanup
-acknowledgment, accepted measured preservation, age and attempt limits. Each request
+Review/revoke use authenticated-owner seams; WSP-05F below adds their dashboard
+adapter, not brain CLI authority. Require an exact phase-delegated run, paused owner
+setup, explicit cleanup acknowledgment, accepted measured preservation, age and
+attempt limits. Each request
 consumes an immutable per-worker slot and exact-run allowance; cancellation,
 revocation, supersession or uncertainty never resets it or allows an owner-actor
 fallback. Recheck policy at prepare/check while preserving the existing one-shot
@@ -455,4 +456,16 @@ native boundary, fresh root-only safety evidence and all Pause/maintenance gates
 Historical/late outcomes remain recordable after revocation without another permit.
 No token/ownership release, acceptance promotion, native call, retry, cleanup,
 rollout or Actions follows. Quiesce older writers before separately authorized
-installation; owner UI, descendant/output preservation and host qualification remain.
+installation; descendant/output preservation and host qualification remain.
+
+WSP-05F adds selected-workspace owner retention inspection and signed review/revoke
+controls. See docs/RETENTION-CONTROLS.md. Require scoped authentication/CSRF, exact
+revision/context/run/policy/ledger identity, a same-session five-minute preview,
+explicit confirmation and separate cleanup acknowledgment. Verify and commit in
+one transaction; historical receipt replay never reapplies a revoked policy. Keep
+inspection read-only and bounded; polling/chat receive only cached status/numeric
+metadata, never proof reads, policy actions or native calls. An unavailable current
+run cannot gain delegation; a retained intact policy can still be revoked. Do not
+manufacture paused setup, run intent, maintenance release or Play from this page.
+No rollout, live owner policy, native archive, notification, schedule or Actions
+follows source delivery. All one-shot safety and accounting gates remain unchanged.

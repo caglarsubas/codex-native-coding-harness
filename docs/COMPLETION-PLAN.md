@@ -71,6 +71,15 @@ See the [saved increment plan and owner workflow](CHECKPOINT-VISIBILITY-PLAN.md)
 
 ## Current increment
 
+- [x] WSP-05F source after verified PR #53: selected-workspace retention inspection,
+  signed expiring review/revoke previews, explicit cleanup consent and same-session
+  transaction-bound owner confirmation. Historical retries do not reapply authority;
+  chat receives cached facts/navigation only. This closes milestone 8's owner-control
+  portion, not descendant/non-Git output preservation or qualified safe archival.
+  The conditional **8–12 / 10–16** ranges remain unchanged. See
+  [owner retention controls](RETENTION-CONTROLS.md). No live rollout or Actions.
+  Local verification: 1,421 Python tests, all eleven JavaScript UI suites and
+  disposable two-workspace browser checks passed.
 - [x] WSP-05E source: opt-in exact-run owner retention review/revoke, capped
   designated-brain archive requests, accepted preservation binding and existing
   one-shot handoff composition. Revoked policies block new sends; late outcomes
@@ -157,7 +166,7 @@ See the [saved increment plan and owner workflow](CHECKPOINT-VISIBILITY-PLAN.md)
 | 5 | Partial: checkpoint report/release binding (WSP-03C); new-generation corrections and phase-exit qualification remain | Retained local claims bind an exact owner-reviewed next scope/settings/expiry; no inferred phase acceptance, public release, automatic crossing or usage/attempt reset |
 | 6 | Partial: checkpoint/budget visibility and assistant metadata (WSP-03D / WSP-04D7); Play/phase controls remain | Saved evidence/accounting inspection is read-only, with unknown/stale budget balances suppressed; explicit version-bound start, immediate notification, brain receipt and recovery still require qualification; Pause dominates races |
 | 7 | Partial: managed-cycle guidance/event-bound waits (WSP-05D) and terminal command path (WSP-04D6); rollout/acceptance remain | Source guidance composes guarded handoffs through terminal accounting and result review, and refuses duplicate unchanged waits. Qualified host evidence, live quiet scheduling and operating-loop acceptance remain gated; no helper scheduler or native polling |
-| 8 | Partial: exact-run delegated retention and one-shot archival (WSP-05E); broader preservation and qualification remain | Reviewed policy, age/attempt bounds and root-only lifecycle qualified in fixtures; owner UI, descendant/untracked-output safeguards and independently observed safe archival remain |
+| 8 | Partial: exact-run delegated retention, owner controls and one-shot archival (WSP-05E / WSP-05F); broader preservation and qualification remain | Signed owner review/revoke, age/attempt bounds and root-only lifecycle qualified in fixtures; descendant/untracked-output safeguards and independently observed safe archival remain |
 | 9 | Partial: canonical portfolio metrics (WSP-09A); broader scale/fairness qualification remains | Same-origin clone and local worktree snapshot totals, explicit coverage, 3,200-row aggregation and two-workspace fixture browser checks; host aliases, runner fairness and full live portfolio qualification remain |
 | 10 | Standard-workspace supervised acceptance and runtime rollout | Two real workspaces, multiple task cycles, Pause/resume, gates, budget stops and exact installed/running revision independently verified |
 

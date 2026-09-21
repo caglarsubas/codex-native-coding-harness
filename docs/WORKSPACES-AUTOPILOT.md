@@ -741,6 +741,15 @@ or policy revision never resets the exact-run attempt count. This is an internal
 owner seam and brain CLI, not a dashboard control, live archival or full retention
 qualification; descendant/non-Git output preservation remains open.
 
+**WSP-05F** adds [owner retention controls](RETENTION-CONTROLS.md) to the selected
+workspace. Explicit inspection shows saved policy versions, per-run attempts and
+review blockers. Same-session signed five-minute previews require owner confirmation
+and a separate cleanup acknowledgment; transaction-bound retries never restore a
+revoked policy. Revocation cannot undo an already-consumed native send boundary.
+The assistant receives cached historical metadata and links only. This supersedes
+the internal-owner-only UI limitation above, not preservation, host, Pause or Play
+gates. No live installation, policy review, archival, scheduler or billing change.
+
 **WSP-04D1** adds the [brain-owned creation handoff](NATIVE-CREATION-HANDOFF.md):
 a designated-brain CLI emits exact native task arguments for an already admitted
 standard-policy reservation, consumes a current send check once, and binds actual
@@ -824,6 +833,7 @@ integration seam, not live native/host qualification, continuation or archival.
 - [x] WSP-05B: exact-owner standard-policy same-task edit correction CLI with retained brain rationale/findings, one-shot native arguments, cumulative usage/no-progress checks and historical/uncertain recovery; no native call or new-generation continuation.
 - [x] WSP-05C: version-bound brain create/continue/handle/wait decisions, delegated standard-policy approval/reservation and existing native handoff composition; independently reviewed first-packet to next-packet fixture, with unchanged phase/usage boundaries. Native operating loop and live qualification remain separate.
 - [x] WSP-05E: separate exact-run owner retention review/revoke, default no delegation, age/attempt bounds and brain-only request CLI composing the accepted/preserved root-task archive lifecycle; immutable attempts and late outcomes remain valid after revocation without new sends. Owner UI and full preservation/host qualification remain open.
+- [x] WSP-05F: selected-workspace owner inspection/history and signed review/revoke confirmations, explicit cleanup consent, bounded cached assistant facts/navigation and two-workspace UI isolation. Owner controls are source-qualified; complete output/descendant preservation, host evidence and live acceptance remain gated.
 - [x] WSP-04E: owner-reviewed adaptive profile policy, host model/effort catalog binding, complexity quality/token floors, same-task escalation bounds and observed-settings guards at creation/correction/runner seams. Source/fixtures only; speed/Ultra, native collection, dashboard controls and live qualification stay separately gated.
 - [x] WSP-04F: bounded public native metadata collector for an owner-pinned existing endpoint, exact owned roots, descendants and configured settings; explicit incomplete lifetime-counter/whole-process-cleanup/ephemeral-tree/telemetry coverage. Source/fixtures only, not complete milestone 3 or admission evidence.
 - [ ] Mission-scoped task decomposition/admission, inheritance and bounded correction.
