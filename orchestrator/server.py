@@ -64,6 +64,10 @@ class WorkspaceRuntime:
         self.model_controls = ModelControls()
         self.model_inspection = None
         self.model_lock = threading.Lock()
+        from .observer_controls import ObserverControls
+        self.observer_controls = ObserverControls()
+        self.observer_inspection = None
+        self.observer_lock = threading.Lock()
 
     def snapshot(self):
         """Same evidence for workspace and assistant; no model-triggered scans or refresh."""
@@ -93,6 +97,8 @@ class WorkspaceRuntime:
         state["resultReviewInspection"] = rereview_summary(self.rereview_inspection, state["meta"]["revision"])
         from .model_controls import summary as model_summary
         state["modelPolicyInspection"] = model_summary(self.model_inspection, state["meta"]["revision"])
+        from .observer_controls import summary as observer_summary
+        state["observerInspection"] = observer_summary(self.observer_inspection, state["meta"]["revision"])
         if self.registry:
             state["workspace"] = {"id": self.workspace_id,
                 "name": next(w["name"] for w in self.registry.list() if w["id"] == self.workspace_id),
@@ -207,7 +213,7 @@ class Handler(BaseHTTPRequestHandler):
         static["/activity.js"] = ("activity.js", "text/javascript; charset=utf-8")
         static["/decisions.js"] = ("decisions.js", "text/javascript; charset=utf-8")
         static["/decisions.css"] = ("decisions.css", "text/css; charset=utf-8")
-        for file in ("panes.js", "assistant.js", "routing.js", "workspaces.js", "missions.js", "workspace-pause.js", "run-readiness.js", "phase-checkpoints.js", "checkpoint-controls.js", "rereview.js", "model-controls.js", "budget.js", "retention.js", "task-contracts.js", "panes.css"):
+        for file in ("panes.js", "assistant.js", "routing.js", "workspaces.js", "missions.js", "workspace-pause.js", "run-readiness.js", "phase-checkpoints.js", "checkpoint-controls.js", "rereview.js", "model-controls.js", "observer-controls.js", "budget.js", "retention.js", "task-contracts.js", "panes.css"):
             static["/" + file] = (file, "text/javascript; charset=utf-8" if file.endswith(".js") else "text/css; charset=utf-8")
         if path in static:
             file, mime = static[path]
@@ -255,6 +261,17 @@ class Handler(BaseHTTPRequestHandler):
                     return self.respond(200, runtime.rereview_inspection)
                 finally:
                     runtime.rereview_lock.release()
+            if path == "/api/native-observer-controls" and workspace_id:
+                if urlsplit(self.path).query:
+                    return self.respond(400, {"error": "Observer inspection accepts no query parameters"})
+                if not runtime.observer_lock.acquire(blocking=False):
+                    return self.respond(409, {"error": "Observer operation is already in progress"})
+                try:
+                    from .observer_controls import inspect
+                    runtime.observer_inspection = inspect(runtime.registry, runtime.ledger, workspace_id)
+                    return self.respond(200, runtime.observer_inspection)
+                finally:
+                    runtime.observer_lock.release()
             if path == "/api/model-policy-controls" and workspace_id:
                 if urlsplit(self.path).query:
                     return self.respond(400, {"error": "Model policy inspection accepts no query parameters"})
@@ -352,7 +369,7 @@ class Handler(BaseHTTPRequestHandler):
             if not 0 < length <= 32768:
                 return self.respond(413, {"error": "Invalid request size"})
             raw = self.rfile.read(length)
-            if urlsplit(self.path).path.endswith(("/retention/preview", "/retention/confirm", "/checkpoint-decisions/preview", "/checkpoint-decisions/confirm", "/result-review-controls/preview", "/result-review-controls/confirm", "/model-policy-controls/preview", "/model-policy-controls/confirm")):
+            if urlsplit(self.path).path.endswith(("/retention/preview", "/retention/confirm", "/checkpoint-decisions/preview", "/checkpoint-decisions/confirm", "/result-review-controls/preview", "/result-review-controls/confirm", "/model-policy-controls/preview", "/model-policy-controls/confirm", "/native-observer-controls/preview", "/native-observer-controls/confirm")):
                 from .retention_controls import decode
                 body = decode(raw)
             else:
@@ -409,6 +426,20 @@ class Handler(BaseHTTPRequestHandler):
                     return self.respond(200, result)
                 finally:
                     runtime.rereview_lock.release()
+            if path in ("/api/native-observer-controls/preview", "/api/native-observer-controls/confirm") and workspace_id:
+                if urlsplit(self.path).query:
+                    return self.respond(400, {"error": "Observer controls accept no query parameters"})
+                if not runtime.observer_lock.acquire(blocking=False):
+                    return self.respond(409, {"error": "Observer operation is already in progress; inspect before retrying"})
+                try:
+                    args = (runtime.registry, runtime.ledger, workspace_id, body, csrf)
+                    if path.endswith("/preview"):
+                        return self.respond(200, runtime.observer_controls.preview(*args))
+                    result = runtime.observer_controls.confirm(*args)
+                    runtime.observer_inspection = None
+                    return self.respond(200, result)
+                finally:
+                    runtime.observer_lock.release()
             if path in ("/api/model-policy-controls/preview", "/api/model-policy-controls/confirm") and workspace_id:
                 if urlsplit(self.path).query:
                     return self.respond(400, {"error": "Model policy controls accept no query parameters"})

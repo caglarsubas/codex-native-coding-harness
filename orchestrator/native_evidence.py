@@ -1,5 +1,6 @@
 """Phase-owned native metadata collection. Diagnostics, never execution evidence."""
 import copy
+import contextlib
 import json
 import re
 import subprocess
@@ -37,40 +38,58 @@ def endpoint_in(ledger, db):
     return doc
 
 
-def review_endpoint(bridge, request, *, actor):
-    """Internal authenticated-owner seam; intentionally no CLI/HTTP owner route."""
+def validate_endpoint_review_in(ledger, db, workspace_id, allocation, request):
+    require(request["confirmed"] is True and ledger.get(db, "meta", 1)["paused"] is True,
+            "Explicit endpoint review while paused required")
+    identifier(request["allocationId"])
+    require(allocation["id"] == request["allocationId"] and allocation["spec"]["workspaceId"] == workspace_id and
+            allocation["closed"] is False and allocation["fingerprint"] == digest(allocation["spec"]), "Exact open phase required")
+    standard_in(ledger, db, allocation)
+    validate_endpoint(request["endpoint"])
+
+
+def review_endpoint_in(ledger, db, workspace_id, allocation, request, *, actor):
+    """Authenticated owner adapter; caller holds local and shared phase locks."""
     require(actor == "dashboard_owner", "Only the owner may review an observation endpoint")
     request = copy.deepcopy(request)
+    require(db.in_transaction, "Endpoint review requires a transaction")
+    meta, key, fp, prior = runs.request_in(ledger, db, request, actor, "native_endpoint_review",
+        {"allocationId", "endpoint", "confirmed"})
+    if prior: return prior
+    validate_endpoint_review_in(ledger, db, workspace_id, allocation, request)
+    count = db.execute("SELECT count(*) FROM snapshots WHERE kind='native_evidence_endpoint'").fetchone()[0]
+    require(count < 1000 and (not count or meta.get("nativeEvidenceEndpointHash")), "Endpoint history requires explicit recovery")
+    if count:
+        previous = runs.document(db, meta["nativeEvidenceEndpointHash"], "native_evidence_endpoint")
+        require(previous["version"] == count, "Endpoint pointer changed; explicit recovery required")
+    doc = {"kind": "native_evidence_endpoint", "workspaceId": workspace_id, "brainId": meta["brainId"],
+           "actor": actor, "allocationId": allocation["id"], "allocationFingerprint": allocation["fingerprint"],
+           "endpoint": request["endpoint"], "at": time.time(), "version": count+1,
+           "previousHash": meta.get("nativeEvidenceEndpointHash")}
+    value = runs.retain(db, doc["kind"], doc)
+    meta.update(nativeEvidenceEndpointHash=value, nativeEvidenceEndpointRevoked=False)
+    ledger.put(db, "meta", 1, meta)
+    return runs.receipt_in(ledger, db, key, fp, "native_endpoint_review", endpointHash=value)
+
+
+def review_endpoint(bridge, request, *, actor):
+    require(actor == "dashboard_owner", "Only the owner may review an observation endpoint")
     ledger = bridge.ledger
     with ledger.tx() as db:
-        meta, key, fp, prior = runs.request_in(ledger, db, request, actor, "native_endpoint_review",
+        _, _, _, prior = runs.request_in(ledger, db, request, actor, "native_endpoint_review",
             {"allocationId", "endpoint", "confirmed"})
         if prior: return prior
-        require(request["confirmed"] is True and meta["paused"], "Explicit endpoint review while paused required")
-        identifier(request["allocationId"])
         with bridge.store.tx() as kernel:
             allocation = bridge.store.get(kernel, "allocations", request["allocationId"])
-            require(allocation["spec"]["workspaceId"] == bridge.workspace_id and not allocation["closed"], "Exact open phase required")
-            standard_in(ledger, db, allocation)
-        validate_endpoint(request["endpoint"])
-        count = db.execute("SELECT count(*) FROM snapshots WHERE kind='native_evidence_endpoint'").fetchone()[0]
-        require(count < 1000 and (not count or meta.get("nativeEvidenceEndpointHash")), "Endpoint history requires explicit recovery")
-        if count:
-            previous = runs.document(db, meta["nativeEvidenceEndpointHash"], "native_evidence_endpoint")
-            require(previous["version"] == count, "Endpoint pointer changed; explicit recovery required")
-        doc = {"kind": "native_evidence_endpoint", "workspaceId": bridge.workspace_id, "brainId": meta["brainId"],
-               "actor": actor, "allocationId": allocation["id"], "allocationFingerprint": allocation["fingerprint"],
-               "endpoint": request["endpoint"], "at": time.time(), "version": count+1,
-               "previousHash": meta.get("nativeEvidenceEndpointHash")}
-        value = runs.retain(db, doc["kind"], doc)
-        meta.update(nativeEvidenceEndpointHash=value, nativeEvidenceEndpointRevoked=False)
-        ledger.put(db, "meta", 1, meta)
-        return runs.receipt_in(ledger, db, key, fp, "native_endpoint_review", endpointHash=value)
+            receipt = review_endpoint_in(ledger, db, bridge.workspace_id, allocation, request, actor=actor)
+            db.commit()  # Retain the phase lock through the local commit; shared state is not written.
+            return receipt
 
 
-def revoke_endpoint(ledger, request, *, actor):
+def revoke_endpoint(ledger, request, *, actor, _db=None):
     require(actor == "dashboard_owner", "Only the owner may revoke an observation endpoint")
-    with ledger.tx() as db:
+    with (contextlib.nullcontext(_db) if _db is not None else ledger.tx()) as db:
+        require(db.in_transaction, "Endpoint revocation requires a transaction")
         meta, key, fp, prior = runs.request_in(ledger, db, request, actor, "native_endpoint_revoke", {"endpointHash"})
         if prior: return prior
         require(meta.get("nativeEvidenceEndpointHash") == request["endpointHash"], "Exact endpoint required")

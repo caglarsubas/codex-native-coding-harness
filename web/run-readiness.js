@@ -13,6 +13,7 @@ function runInspectionDisclosure(parent,key,label,content){
 }
 function runReadinessView(root){
   if(!state.workspace){root.append(empty('Select a registered workspace','Run readiness belongs to one workspace and its current mission.'));return;}
+  if(typeof observerControlPanel==='function')observerControlPanel(root);
   const report=runInspections.get(workspaceId),pending=runInspectionPending.has(workspaceId);
   const intro=el('section',null,'run-inspection');intro.setAttribute('aria-label','Run readiness inspection');
   intro.append(el('p',state.workspace.name+' · READ ONLY','eyebrow'),el('h2','Inspect before enabling Play'),

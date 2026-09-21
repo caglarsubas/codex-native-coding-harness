@@ -71,6 +71,18 @@ See the [saved increment plan and owner workflow](CHECKPOINT-VISIBILITY-PLAN.md)
 
 ## Current increment
 
+- [x] WSP-04H source after verified PR #58: owner observation-endpoint inspection,
+  signed review/revoke confirmation and original-time saved report metadata in
+  Run readiness. Closes WSP-04F's owner dashboard gap and advances milestone 6;
+  it does not connect, collect, start a server/task/model, notify the brain, update
+  accounting or enable Play. Complete ephemeral membership, lifetime counters,
+  whole-process cleanup and per-turn telemetry remain unqualified. Conditional
+  **8–12 / 10–16** ranges remain unchanged; these source increments cannot remove
+  the external capability gate. See [saved plan and owner workflow](NATIVE-OBSERVER-CONTROLS.md).
+  No live rollout, installation, schedule change or Actions execution.
+  Local verification: 1,542 Python tests, all fifteen JavaScript UI suites,
+  JavaScript syntax, Python compilation and diff whitespace checks passed;
+  disposable browser review/revoke/history and workspace isolation verified.
 - [x] WSP-04G source after verified PR #57: owner model/effort policy controls in
   Mission & authority, recorded-catalog inspection, explicit quality/token floors
   and escalation limits, signed review/revoke previews and atomic confirmation.
@@ -204,10 +216,10 @@ See the [saved increment plan and owner workflow](CHECKPOINT-VISIBILITY-PLAN.md)
 | --- | --- | --- |
 | 1 | Source complete: brain lifecycle coordination, delegated task selection and inheritance (WSP-05C) | Create/continue/handle/wait decisions, exact delegated scope and two-packet progression qualified in fixtures; live operating-loop acceptance remains in 7/10 |
 | 2 | Source complete: owner-reviewed adaptive model/effort policy and dashboard controls (WSP-04E / WSP-04G) | Host capability binding, explicit allowed choices, signed owner review/revoke, quality/escalation bounds and requested/applied/observed records qualified in fixtures; speed/Ultra remain gated, live collection/acceptance remain in 3/10 |
-| 3 | Partial: native metadata collector (WSP-04F); complete host/counter source still required | Public metadata reads qualified in fixtures; complete ephemeral membership, whole-process cleanup and non-resetting lifetime usage remain capability-gated, not inferred |
+| 3 | Partial: native metadata collector and owner endpoint setup (WSP-04F / WSP-04H); complete host/counter source still required | Public metadata reads and non-connecting owner review qualified in fixtures; complete ephemeral membership, whole-process cleanup and non-resetting lifetime usage remain capability-gated, not inferred |
 | 4 | Controlled onboarding and maintenance release | Exact owner review, migrated ownership/baselines, interrupted-release recovery and no implicit upgrade activation |
 | 5 | Partial: checkpoint report/release binding, owner review/withdrawal and settled-result rereview with owner controls (WSP-03C / WSP-03E / WSP-03F / WSP-03G); native corrections and phase-exit qualification remain | Exact next-scope/settings/expiry and same-commit rereview permission, immutable outcomes and durable revocation; no inferred phase acceptance, public release, automatic crossing or usage/attempt reset |
-| 6 | Partial: checkpoint/budget visibility, owner checkpoint/rereview/model-policy decisions and assistant metadata (WSP-03D / WSP-03E / WSP-03G / WSP-04D7 / WSP-04G); Play remains | Saved evidence/accounting inspection, explicit owner review/withdrawal and unknown/stale budget balance suppression; version-bound start, immediate notification, brain receipt and recovery still require qualification; Pause dominates races |
+| 6 | Partial: checkpoint/budget visibility, owner checkpoint/rereview/model-policy/observer decisions and assistant metadata (WSP-03D / WSP-03E / WSP-03G / WSP-04D7 / WSP-04G / WSP-04H); Play remains | Saved evidence/accounting inspection, explicit owner review/withdrawal and unknown/stale budget balance suppression; version-bound start, immediate notification, brain receipt and recovery still require qualification; Pause dominates races |
 | 7 | Partial: managed-cycle guidance/event-bound waits (WSP-05D) and terminal command path (WSP-04D6); rollout/acceptance remain | Source guidance composes guarded handoffs through terminal accounting and result review, and refuses duplicate unchanged waits. Qualified host evidence, live quiet scheduling and operating-loop acceptance remain gated; no helper scheduler or native polling |
 | 8 | Partial: exact-run delegated retention, owner controls and one-shot archival (WSP-05E / WSP-05F); broader preservation and qualification remain | Signed owner review/revoke, age/attempt bounds and root-only lifecycle qualified in fixtures; descendant/untracked-output safeguards and independently observed safe archival remain |
 | 9 | Partial: canonical portfolio metrics (WSP-09A); broader scale/fairness qualification remains | Same-origin clone and local worktree snapshot totals, explicit coverage, 3,200-row aggregation and two-workspace fixture browser checks; host aliases, runner fairness and full live portfolio qualification remain |
