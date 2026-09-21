@@ -42,7 +42,8 @@ writers before any separately authorized rollout; no downgrade safety is claimed
    authorization when the task or current reviewed run is ineligible.
 3. Enter a non-secret reason. For a previously reviewed result the full commit is
    fixed; for an unreviewed settled result supply the existing result's full
-   commit. A base commit, changed correction commit or branch alias is refused.
+   commit. A base commit or branch alias is refused; a previously reviewed commit
+   cannot be changed.
    This form does not query Git or assert the supplied commit's existence.
 4. Select **Preview review permission**, inspect the exact workspace, task,
    phase/generation, commit, previous outcome and expiry, then check the initially
