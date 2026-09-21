@@ -93,8 +93,7 @@ def review_record_in(db, key, workspace_id):
     settlement = runs.document(db, record["request"]["settlementHash"], "ownership_settlement")
     require(intent["workspaceId"] == workspace_id and record["workerId"] == intent["workerId"] == settlement["workerId"] and
             settlement["intentHash"] == record["intentHash"], "Phase result source binding changed")
-    review, _ = result_review.evidence_in(db, intent, settlement, record["request"])
-    require(review == record["review"], "Phase result review evidence changed")
+    result_review.history_in(db, key, intent, settlement)
     return record
 
 

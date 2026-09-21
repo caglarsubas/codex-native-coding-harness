@@ -47,9 +47,13 @@ New reviews require an unfenced, unpaused, unexpired current run and its exact
 still-approved task contract. The automatic settlement hold alone is admissible;
 other changed state refuses. Historical read/replay remains available after Pause
 or expiry but cannot apply a new result. Maintenance blocks `review`, including
-request replay; use the read-only `read` method for an existing receipt. One immutable review outcome
-per closed attempt in this increment; corrections, rereview and cross-generation
-acceptance need a later explicit contract, never deletion of the old receipt.
+request replay; use the read-only `read` method for an existing receipt. The original
+contract allowed one immutable review outcome per closed attempt. Later
+[WSP-03F](GENERATION-RESULT-REVIEW.md) permits an explicit owner-authorized review
+under a later current generation: unchanged result bytes, exact previous outcome,
+current mission coverage, fresh independent evidence and immutable history.
+Accepted outcomes cannot be reopened. Changed-source correction or native resume
+remains a separate contract, never deletion of the old receipt.
 
 Acceptance means the packet's declared criteria and completion axes were recorded
 as verified by the trusted caller. It does not mean all eight axes passed, the
@@ -78,6 +82,7 @@ The closed request is finite JSON, at most 16,000 UTF-8 bytes:
 | `outcome` | `accepted` or `changes_required` |
 | `result` | Exact result document below |
 | `reviewArtifactId` | Retained independent JSON review report |
+| `reviewAuthorityHash` (optional) | Exact WSP-03F owner permission; required for later-generation review and rereview |
 
 Result fields are `seedHash`, `baseSHA`, `commit`, `branch`, `changedPaths`,
 `diffComplete`, `pr`, `ci`, `evidence`, `criteria`, `preservation`, `observedAt`.
@@ -207,8 +212,9 @@ evidence precede a consumed native send check. Dashboard and assistant still do
 not offer managed archive actions. Completed admitted tasks stay in safe-Pause inventories,
 including descendants; acceptance is not a fresh idle observation or archival.
 No cleanup, task closing, worktree deletion, concurrency upgrade or phase advance
-occurs through result review. A new-generation continuation/rereview contract and
-delegated archival policy remain necessary.
+occurs through result review. WSP-03F's review-only permission does not supply a
+new-generation native continuation contract. The separate delegated archival
+policy and its preservation/owner/transport gates still apply.
 
 See [verification](RESULT-REVIEW-VERIFICATION.md). Independent observation
 collection, native transport, Harness acceptance, maintenance migration, exact

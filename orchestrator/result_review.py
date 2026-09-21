@@ -18,6 +18,7 @@ from .ownership_settlement import OwnershipSettlement, local_binding, pair
 from .phase_scope import contained_path
 
 STATUSES = ("verified", "unverified", "not_applicable", "failed")
+CHANGES_REQUIRED = "Result changes required; closed attempt remains held without retry authority"
 
 
 def commit(value):
@@ -34,7 +35,10 @@ def proof_shape(value):
 
 
 def validate(request):
-    exact(request, {"id", "expectedRevision", "settlementHash", "outcome", "result", "reviewArtifactId"})
+    fields = {"id", "expectedRevision", "settlementHash", "outcome", "result", "reviewArtifactId"}
+    if isinstance(request, dict) and "reviewAuthorityHash" in request:
+        fields.add("reviewAuthorityHash"); sha(request["reviewAuthorityHash"])
+    exact(request, fields)
     try: size = len(canonical(request).encode())
     except (TypeError, ValueError, RecursionError) as error:
         raise Refusal("Result review must be bounded finite JSON") from error
@@ -207,13 +211,46 @@ def projection(record):
     return fields
 
 
+def history_in(db, key, intent, settlement):
+    """Newest first, with every prior result and authority proof retained intact."""
+    records = []; seen = set()
+    while key is not None:
+        require(key not in seen and len(records) < 32, "Result review history needs explicit bounded migration")
+        seen.add(key); record = runs.document(db, key, "result_review"); validate(record["request"])
+        require(record["kind"] == "result_review" and record["workerId"] == intent["workerId"] and
+                record["intentHash"] == digest(intent) == settlement["intentHash"] and
+                record["request"]["settlementHash"] == digest(settlement), "Result review identity changed")
+        report, _ = evidence_in(db, intent, settlement, record["request"])
+        require(report == record["review"], "Retained independent report changed")
+        if records:
+            require(record["request"]["outcome"] == "changes_required" and record["at"] <= records[-1]["at"] and
+                    record["request"]["result"]["commit"] == records[-1]["request"]["result"]["commit"], "Invalid prior result outcome, commit or time")
+        if "reviewAuthorityHash" in record["request"]:
+            from .result_reauthorization import ancestry_in, record_in
+            auth = record_in(db, record["request"]["reviewAuthorityHash"]); req = auth["request"]
+            grant = runs.document(db, req["runHash"], "run_authorization")
+            ancestry_in(db, intent, grant)
+            require(record["schemaVersion"] == 2 and auth["status"] == "approved" and
+                    auth["workspaceId"] == intent["workspaceId"] == grant["workspaceId"] and auth["workerId"] == intent["workerId"] and
+                    req["intentHash"] == digest(intent) and req["settlementHash"] == digest(settlement) and
+                    req["commit"] == record["request"]["result"]["commit"] and
+                    req["previousReviewHash"] == record.get("previousReviewHash") and
+                    auth["at"] <= report["observedAt"] <= record["at"] < auth["expiresAt"] == grant["expiresAt"],
+                    "Historical result review authorization changed")
+            key = record.get("previousReviewHash")
+        else:
+            require(record["schemaVersion"] == 1 and "previousReviewHash" not in record, "Result history authority is missing")
+            key = None
+        records.append(record)
+    return records
+
+
 def reviewed_worker_in(db, worker, claim, settlement):
     """Validate a later review without replaying/undoing terminal settlement."""
-    record = runs.document(db, worker.get("resultReviewHash"), "result_review")
-    validate(record["request"])
-    require(record["kind"] == "result_review" and record["workerId"] == worker["id"] and
-            record["intentHash"] == settlement["intentHash"] and record["request"]["settlementHash"] == digest(settlement),
-            "Result review identity changed")
+    intent = runs.document(db, settlement["intentHash"], "dispatch_intent")
+    require(worker["id"] == intent["workerId"] == settlement["workerId"], "Result review worker identity changed")
+    records = history_in(db, worker.get("resultReviewHash"), intent, settlement)
+    require(records, "Result review is missing"); record = records[0]
     expected = copy.deepcopy(settlement["localBinding"])
     expected["status"] = "complete" if record["request"]["outcome"] == "accepted" else "settled"
     expected["dispatchAdmission"].update(stage="settled", claimHash=digest(claim))
@@ -224,9 +261,6 @@ def reviewed_worker_in(db, worker, claim, settlement):
     from .archive_handoff import validate_projection
     validate_projection(db, worker, record)
     if record["request"]["outcome"] == "changes_required": unaccepted_worker(worker)
-    intent = runs.document(db, settlement["intentHash"], "dispatch_intent")
-    report, _ = evidence_in(db, intent, settlement, record["request"])
-    require(report == record["review"], "Retained independent report changed")
     row = db.execute("SELECT data FROM queue WHERE id=?", (intent["queueId"],)).fetchone()
     require(row is not None, "Reviewed queue is missing")
     q = json.loads(row[0])
@@ -253,6 +287,9 @@ class ResultReview:
         return evidence_in(db, intent, settlement, request)
 
     def authority_in(self, db, meta, worker, intent):
+        if "resultReviewAuthorityHash" in worker:
+            from .result_reauthorization import check_in
+            return check_in(self.ledger, db, meta, worker, intent)
         require(meta["paused"] is False, "Dispatch paused; result acceptance is fenced")
         grant = runs.require_current(self.ledger, db, intent["runHash"])
         q = self.ledger.get(db, "queue", intent["queueId"])
@@ -296,8 +333,13 @@ class ResultReview:
                 require(settlement is not None and request["settlementHash"] == digest(settlement), "Exact confirmed-terminal settlement required")
                 if worker.get("resultReviewHash"):
                     record = reviewed_worker_in(db, worker, claim, settlement)
-                    require(record["request"] == request, "Result already reviewed with different content")
-                    return self.receipt(record)
+                    history = history_in(db, digest(record), intent, settlement)
+                    for old in history:
+                        if old["request"]["id"] == request["id"]:
+                            require(old["request"] == request, "Result already reviewed with different content")
+                            return self.receipt(old)
+                    require("reviewAuthorityHash" in request, "Result already reviewed with different content; explicit later-generation authority required")
+                    require(len(history) < 32, "Result review history limit reached")
                 require(worker.get("ownershipSettlementHash") == request["settlementHash"] and
                         worker["status"] == "settled", "Recover local settlement receipt before review")
                 # Existing-receipt branch only: never attach a missing settlement.
@@ -309,18 +351,28 @@ class ResultReview:
                         "Phase allocation binding changed")
                 require(meta["revision"] == request["expectedRevision"], "Workspace changed before result review")
                 q = self.authority_in(db, meta, worker, intent)
+                if "reviewAuthorityHash" in request or "resultReviewAuthorityHash" in worker:
+                    require("reviewAuthorityHash" in request, "Explicit result review authority hash required")
+                    from .result_reauthorization import check_in, record_in
+                    check_in(self.ledger, db, meta, worker, intent, key=request["reviewAuthorityHash"], commit=request["result"]["commit"])
                 report, times = self.evidence_in(db, intent, settlement, request)
+                if "reviewAuthorityHash" in request:
+                    auth = record_in(db, request["reviewAuthorityHash"])
+                    require(report["observedAt"] >= auth["at"], "Independent review must follow new owner authorization")
                 policy = self.store.get(kernel, "meta", 1)["policy"]
                 for at in times: self.store.fresh(at, policy)
             record = {"kind": "result_review", "schemaVersion": 1, "workerId": worker_id,
                       "intentHash": digest(intent), "request": copy.deepcopy(request), "review": report, "at": time.time()}
+            if "reviewAuthorityHash" in request:
+                require(record["at"] < auth["expiresAt"], "Result review permission expired before retention")
+                record.update(schemaVersion=2, previousReviewHash=worker.get("resultReviewHash"))
             key = runs.retain(db, "result_review", record)
             worker.update(projection(record), updatedAt=record["at"])
             self.ledger.put(db, "workers", worker_id, worker)
             q.update(resultReviewHash=key, held=request["outcome"] != "accepted",
                      status="complete" if request["outcome"] == "accepted" else "blocked",
                      reason="Declared packet result accepted; other evidence axes remain separate" if request["outcome"] == "accepted"
-                     else "Result changes required; closed attempt remains held without retry authority")
+                     else CHANGES_REQUIRED)
             if request["outcome"] == "accepted": q["completedAt"] = record["at"]
             self.ledger.put(db, "queue", q["id"], q)
             self.ledger.event(db, "result_reviewed", {"workerId": worker_id, "reviewHash": key, "outcome": request["outcome"]})

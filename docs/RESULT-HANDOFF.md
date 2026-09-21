@@ -161,10 +161,17 @@ the same ID refuses. Source/GitHub exact replay keeps its existing no-I/O behavi
 State and proof reads are also historical and non-mutating. They never call Git,
 GitHub, native tools or inference. State output is bounded to 128,000 bytes.
 
-Review keeps its existing one-outcome-per-attempt transaction and replay rules.
+Review keeps its atomic outcome and historical replay rules.
 Maintenance fences even review replay; use `state` for the existing outcome.
-Rejected attempts cannot add new proof, recollect or rereview through this path.
-Do not delete old history to rearm one. Fresh source/CI collection and acceptance
+Without separate permission, rejected attempts cannot add proof, recollect or
+rereview. [WSP-03F](GENERATION-RESULT-REVIEW.md) adds an internal exact-owner
+review-only permission under a later current generation. It allows these same
+collectors at the unchanged commit and requires `reviewAuthorityHash` on the new
+review request. The independent report must follow that permission. State adds
+newest-first `reviewHistory` and historical `reviewAuthority` metadata; neither
+claims current eligibility or native activity. Prior outcomes remain byte-verified
+and cannot be restored by replay. No owner permission HTTP/CLI is added here.
+Do not delete old history to rearm an attempt. Fresh source/CI collection and acceptance
 are not safe-Pause, host cleanup, archival, pilot qualification or execution authority.
 
 No installed skill/helper is upgraded by this source delivery. Before future
