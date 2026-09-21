@@ -67,6 +67,8 @@ function paginated(root, rows, headers, cells) {
 }
 
 function usage(root) {
+  budgetView(root);
+  root.append(section("Historical log analytics", "Separate from phase admission accounting. Refreshing logs does not change a budget or reconcile reservations."));
   observationFilters(root);
   const usage = state.observations.usage;
   if (!usage || usage.status === "unavailable") {

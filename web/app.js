@@ -49,6 +49,7 @@ function overview(root) {
  workspacePausePanel(root);
  missionSummary(root);
  checkpointSummary(root);
+ budgetSummary(root);
  workflowSummary(root);
  brainActivity(root);
  readinessSummary(root);

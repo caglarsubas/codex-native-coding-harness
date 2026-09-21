@@ -25,3 +25,15 @@
 .task-contract-panel{display:grid;gap:16px;min-width:0}.task-review{overflow-wrap:anywhere}
 .run-check{display:grid;gap:8px;padding:16px 0;border-bottom:1px solid var(--rule)}.run-check .badge{justify-self:start}
 .run-check p,.run-inspection p{max-width:72ch}.run-checks+.section-heading{margin-top:40px}
+/* Budget rows reuse the operations-ledger table; no implied utilization chart. */
+.budget-view { margin-block-end: 3rem; padding-block-end: 2rem; border-bottom: 1px solid var(--rule); }
+.budget-phase { margin-block: 2rem; }
+.budget-view p { max-width: 72ch; }
+.budget-warning { padding: .75rem 1rem; background: var(--warn-bg); color: var(--warning); }
+.budget-details { margin-block: 1rem; }
+.budget-details summary { cursor: pointer; padding-block: .75rem; }
+.budget-phase td:nth-child(2) { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.budget-phase h3 { margin-bottom: .5rem; overflow-wrap: anywhere; }
+.budget-phase>p { margin-bottom: 1rem; }
+.budget-details p+p { margin-top: .75rem; }
+.budget-details summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
