@@ -76,6 +76,10 @@ class BrainCoordinator:
                 row["next"] = "result-handoff-state"
                 if worker.get("resultReviewHash"):
                     row["next"] = "inspect_retained_result"
+                    if worker["status"] == "complete" and not worker.get("archived") and (
+                            meta.get("retentionPolicyHash") or worker.get("archiveHandoffHash")):
+                        # A navigation hint only, never eligibility or an archive permit.
+                        row["next"] = "archive-handoff-state"
                 return row
             if row["stage"] in ("intent", "reserved"):
                 row["next"] = "recover_reservation" if row["stage"] == "intent" or not effects_ready else "native-create-begin"
