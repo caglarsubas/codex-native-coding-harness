@@ -43,10 +43,11 @@ needs qualified descendant admission. A host can advertise it without this adapt
 claiming permission to use it. No model names, prices or automatic rankings are
 hard-coded in the implementation.
 
-Owner policy review is an internal trusted-caller interface, like run authority;
-the actor label alone is not authentication. Future owner-facing integration must
-authenticate the owner and bind the exact version-confirmed preview. A controller
-CLI must never expose owner review/revoke as a brain operation.
+Owner policy review requires an authenticated trusted caller; the actor label
+alone is not authentication. [WSP-04G owner controls](MODEL-POLICY-CONTROLS.md)
+add a selected-workspace HTTP adapter with exact signed preview/confirmation in
+Mission & authority. A controller CLI must never expose owner review/revoke as a
+brain operation. No live activation follows from either source increment.
 
 Before separate activation, quiesce older writers and regenerate prepared handoffs.
 No mixed-version or downgrade compatibility is claimed. Source, merge, installed
@@ -126,9 +127,9 @@ Adaptive correction preparation adds `modelSelectionHash` to the existing
 correction request. Reusing the current selection keeps settings; a retained
 escalation selection changes them. Native-default corrections retain their old
 request shape and omit model/effort overrides. There is deliberately **no owner
-review/revoke CLI, HTTP or assistant route**. Internal owner methods are
-`model_policy.review` and `model_policy.revoke`; future authenticated dashboard
-integration must bind exact owner confirmation, not trust a browser actor string.
+review/revoke CLI or assistant route**. Owner methods `model_policy.review` and
+`model_policy.revoke` now share an atomic transaction with the authenticated
+WSP-04G dashboard adapter; browser actor strings are not authorization.
 
 ## Freshness, recovery and accounting
 

@@ -4,6 +4,7 @@ Capability/application observations are trusted-controller assertions, not host
 attestation. Internal owner methods require a separately authenticated caller.
 """
 import copy
+import contextlib
 import re
 import time
 
@@ -16,6 +17,7 @@ EFFORTS = {"none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"}
 COMPLEXITY = ("routine", "standard", "complex", "critical")
 CAP_AGE = 300
 SETTING_AGE = 60
+REVIEW_FIELDS = {"missionHash", "reviewReceiptHash", "capabilityHash", "profiles", "qualityFloors", "maxEscalations", "confirmed"}
 
 
 def name(value):
@@ -92,31 +94,39 @@ def supported(cap, value):
             "Requested model/effort is unavailable on the observed host")
 
 
-def review(ledger, request, *, actor):
+def validate_review_in(ledger, db, request):
+    """Shared read-only validation for owner preview and atomic review."""
+    meta = ledger.get(db, "meta", 1)
+    require(request["confirmed"] is True and meta["paused"], "Explicit owner confirmation while paused required")
+    source = runs.mission_source(ledger, db); task_contracts.reviewed_phase(source)
+    require(request["missionHash"] == source["mission"]["documentHash"] and
+            request["reviewReceiptHash"] == source["mission"]["receiptHash"], "Exact reviewed mission required")
+    cap = capability_in(ledger, db)
+    require(digest(cap) == request["capabilityHash"], "Exact current capability observation required")
+    exact(request["qualityFloors"], set(COMPLEXITY))
+    floors = [integer(request["qualityFloors"][c], 1, 4) for c in COMPLEXITY]
+    require(floors == sorted(floors), "Complexity quality floors must not decrease")
+    integer(request["maxEscalations"], 0, 2)
+    require(isinstance(request["profiles"], list) and 1 <= len(request["profiles"]) <= 16, "Bounded approved profiles required")
+    for profile in request["profiles"]:
+        exact(profile, {"id", "settings", "quality", "minimumWorkTokens"}); name(profile["id"])
+        supported(cap, profile["settings"]); integer(profile["quality"], 1, 4); integer(profile["minimumWorkTokens"], 1, 1_000_000_000)
+        require(profile["settings"]["effort"] != "ultra", "Automatic-delegation effort needs qualified descendant admission")
+    require(len({p["id"] for p in request["profiles"]}) == len(request["profiles"]), "Duplicate profile ID")
+    require(len({digest(p["settings"]) for p in request["profiles"]}) == len(request["profiles"]), "Duplicate profile settings")
+    require(any(p["quality"] >= max(floors) for p in request["profiles"]), "No profile meets the highest quality floor")
+    return cap
+
+
+def review(ledger, request, *, actor, _db=None):
     require(actor == "dashboard_owner", "Only the owner can review model policy")
     request = copy.deepcopy(request)
-    with ledger.tx() as db:
+    with (contextlib.nullcontext(_db) if _db is not None else ledger.tx()) as db:
+        require(db.in_transaction, "Model policy review requires a transaction")
         meta, key, fp, prior = runs.request_in(ledger, db, request, actor, "model_policy_review",
-            {"missionHash", "reviewReceiptHash", "capabilityHash", "profiles", "qualityFloors", "maxEscalations", "confirmed"})
+            REVIEW_FIELDS)
         if prior: return prior
-        require(request["confirmed"] is True and meta["paused"], "Explicit owner confirmation while paused required")
-        source = runs.mission_source(ledger, db); task_contracts.reviewed_phase(source)
-        require(request["missionHash"] == source["mission"]["documentHash"] and
-                request["reviewReceiptHash"] == source["mission"]["receiptHash"], "Exact reviewed mission required")
-        cap = capability_in(ledger, db)
-        require(digest(cap) == request["capabilityHash"], "Exact current capability observation required")
-        exact(request["qualityFloors"], set(COMPLEXITY))
-        floors = [integer(request["qualityFloors"][c], 1, 4) for c in COMPLEXITY]
-        require(floors == sorted(floors), "Complexity quality floors must not decrease")
-        integer(request["maxEscalations"], 0, 2)
-        require(isinstance(request["profiles"], list) and 1 <= len(request["profiles"]) <= 16, "Bounded approved profiles required")
-        for profile in request["profiles"]:
-            exact(profile, {"id", "settings", "quality", "minimumWorkTokens"}); name(profile["id"])
-            supported(cap, profile["settings"]); integer(profile["quality"], 1, 4); integer(profile["minimumWorkTokens"], 1, 1_000_000_000)
-            require(profile["settings"]["effort"] != "ultra", "Automatic-delegation effort needs qualified descendant admission")
-        require(len({p["id"] for p in request["profiles"]}) == len(request["profiles"]), "Duplicate profile ID")
-        require(len({digest(p["settings"]) for p in request["profiles"]}) == len(request["profiles"]), "Duplicate profile settings")
-        require(any(p["quality"] >= max(floors) for p in request["profiles"]), "No profile meets the highest quality floor")
+        cap = validate_review_in(ledger, db, request)
         doc = {"kind": "model_policy", "workspaceId": missions.workspace(ledger), "brainId": meta["brainId"],
                "actor": actor, "missionHash": request["missionHash"], "reviewReceiptHash": request["reviewReceiptHash"],
                "catalogHash": cap["catalogHash"], "profiles": copy.deepcopy(request["profiles"]),
@@ -129,10 +139,11 @@ def review(ledger, request, *, actor):
         return runs.receipt_in(ledger, db, key, fp, "model_policy_review", policyHash=value)
 
 
-def revoke(ledger, request, *, actor):
+def revoke(ledger, request, *, actor, _db=None):
     require(actor == "dashboard_owner", "Only the owner can revoke model policy")
     request = copy.deepcopy(request)
-    with ledger.tx() as db:
+    with (contextlib.nullcontext(_db) if _db is not None else ledger.tx()) as db:
+        require(db.in_transaction, "Model policy revocation requires a transaction")
         meta, key, fp, prior = runs.request_in(ledger, db, request, actor, "model_policy_revoke", {"policyHash", "reason"})
         if prior: return prior
         sha(request["policyHash"]); missions.text(request["reason"], "Revocation reason")

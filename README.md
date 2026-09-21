@@ -254,6 +254,13 @@ dependency. Event-driven waiting pauses model polling while awaiting owner input
 new dashboard events wake the same brain. A paused heartbeat cannot recover a
 failed notification, which stays visible for manual recovery.
 
+In **Mission & authority**, [model & effort policy controls](docs/MODEL-POLICY-CONTROLS.md)
+let the owner inspect a recorded catalog, explicitly choose profile quality/token
+floors and escalation limits, then preview and confirm review or revocation.
+Policy changes fence existing run authority; they do not call a model, change
+native settings or start Play. Catalog freshness and separately authorized run
+intent remain mandatory. The dashboard assistant's inference model is separate.
+
 Never blindly retry a `starting` worker or `processing` native action. Reconcile
 its unique dispatch/request identity against actual native state first.
 
