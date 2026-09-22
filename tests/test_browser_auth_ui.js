@@ -16,7 +16,7 @@ const box={console,URLSearchParams,Number,String,Map,clearInterval(){},setInterv
   assistantConnectionChanged(){},connected:true,state:{},csrf:'workspace-token',workspaceGeneration:0,
   api:async(path,options)=>{requests.push({path,options});return {csrf:'global-token',remembered:false,rememberDays:0,expiresAt:999};},
   location:{hash:'#/w/harness/conversation',pathname:'/',search:'',reload(){reloads++;}},
-  history:{replaceState(){}},initializeWorkspaces:async()=>{},refresh:async()=>{},applyDashboardRoute(){},busy:false,selected:null};
+  history:{replaceState(){}},initializeDashboardNavigation(){},resetDashboardNavigation(){},initializeWorkspaces:async()=>{},refresh:async()=>{},applyDashboardRoute(){},busy:false,selected:null};
 vm.createContext(box);vm.runInContext(fs.readFileSync('web/auth.js','utf8'),box);
 const run=code=>vm.runInContext(code,box),all=root=>[root,...root.children.flatMap(x=>x instanceof Element?all(x):[])];
 (async()=>{

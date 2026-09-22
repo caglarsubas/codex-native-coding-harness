@@ -40,6 +40,12 @@ See the [completion checklist](docs/STANDARD-PROJECT-COMPLETION.md).
   awareness and expiring, state-bound, owner-confirmed action previews.
 - Three collapsible panes, draggable/keyboard splitters and remembered layout;
   focused single-pane navigation on narrow screens.
+- A top-toolbar **Back** button follows this tab's visited dashboard pages and
+  project switches, including linked artifacts and decisions. It survives reloads,
+  cooperates with browser Back/Forward, and is disabled at the first dashboard
+  entry or while a request is in flight. Browser navigation waits for an in-flight
+  request; it does not cancel work. History contains routes only, never chat or
+  credentials; at most 100 prior routes are tracked per entry.
 - Private development projects with isolated ledgers, scoped assistant/actions,
   versioned project introductions and an All projects comparison. The selector
   mirrors the retained native Codex project inventory; newly listed projects stay
