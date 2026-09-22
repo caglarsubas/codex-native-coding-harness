@@ -122,13 +122,18 @@ PyYAML. Do not install dependencies during a restricted execution run.
    Open the private URL in `.state/dashboard-session.json` in a Codex browser
    panel. It uses a local bootstrap token in the fragment, clears that fragment,
    and establishes an HttpOnly, SameSite session. Never publish the private URL.
+   Choose **Remember this browser** in the top bar to stay signed in for 7, 30,
+   or 90 days, including through server restarts. Then bookmark the ordinary
+   workspace URL. **Browser access** offers renewal, sign-out and explicit
+   all-browser revocation. See [Browser access](docs/BROWSER-ACCESS.md).
    The server binds only `127.0.0.1`; it is not a network-deployment server.
 4. In the designated brain, invoke `$codex-orchestrator` for **read-only onboarding**.
    Keep dispatch paused until a real packet is explicitly approved and verified.
 
 Closing the browser does not stop a brain or worker. Stopping the local server
-does not cancel tasks. Restarting it rotates dashboard authentication, not ledger
-state. Keep the computer and Codex app running for local scheduled work.
+does not cancel tasks. Restarting rotates the private bootstrap link and temporary
+sessions, but preserves unexpired remembered browser sessions and ledger state.
+Keep the computer and Codex app running for local scheduled work.
 
 ## Control semantics
 

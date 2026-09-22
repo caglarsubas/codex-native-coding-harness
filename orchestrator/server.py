@@ -17,9 +17,9 @@ from .inference import ENV_FILE, public_status
 from .provenance import Provenance
 from .activity import BrainActivity
 from .notification import BrainNotifier, NOTIFY_KINDS
+from .browser_auth import BrowserAuth, UNAUTHENTICATED, UNAVAILABLE
 
 WEB = Path(__file__).resolve().parent.parent / "web"
-COOKIE = "orchestrator_session"
 
 
 class WorkspaceRuntime:
@@ -129,8 +129,11 @@ class Dashboard(ThreadingHTTPServer, WorkspaceRuntime):
         self.registry = registry
         self.origin = f"http://127.0.0.1:{self.server_port}"
         self.bootstrap = secrets.token_urlsafe(32)
-        self.sessions = {}
-        self.session_lock = threading.Lock()
+        try:
+            self.browser_auth = BrowserAuth(registry.root if registry else ledger.root, self.origin)
+        except Exception:
+            self.server_close()
+            raise
         self.runtime_lock = threading.Lock()
         self.runtimes = {}
         self.runtime_options = (inference_env, runtime_root, notification_cli)
@@ -181,18 +184,17 @@ class Handler(BaseHTTPRequestHandler):
     def host_ok(self):
         return self.headers.get("Host") == urlsplit(self.server.origin).netloc
 
-    def session(self):
+    def session_id(self):
         cookie = SimpleCookie()
         try:
             cookie.load(self.headers.get("Cookie", ""))
-            sid = cookie[COOKIE].value if COOKIE in cookie else ""
+            name = self.server.browser_auth.cookie
+            return cookie[name].value if name in cookie else ""
         except Exception:
-            return None
-        with self.server.session_lock:
-            session = self.server.sessions.get(sid)
-            if session and session["expires"] > time.time():
-                return session
-        return None
+            return ""
+
+    def session(self):
+        return self.server.browser_auth.session(self.session_id())
 
     def route(self, path):
         if path.startswith("/api/workspaces/"):
@@ -218,17 +220,21 @@ class Handler(BaseHTTPRequestHandler):
         static["/decisions.js"] = ("decisions.js", "text/javascript; charset=utf-8")
         static["/decisions.css"] = ("decisions.css", "text/css; charset=utf-8")
         static["/conversation.js"] = ("conversation.js", "text/javascript; charset=utf-8")
+        static["/auth.js"] = ("auth.js", "text/javascript; charset=utf-8")
         for file in ("panes.js", "assistant.js", "routing.js", "workspaces.js", "missions.js", "standard.js", "workspace-pause.js", "run-readiness.js", "phase-checkpoints.js", "checkpoint-controls.js", "rereview.js", "model-controls.js", "observer-controls.js", "budget.js", "retention.js", "task-contracts.js", "panes.css"):
             static["/" + file] = (file, "text/javascript; charset=utf-8" if file.endswith(".js") else "text/css; charset=utf-8")
         if path in static:
             file, mime = static[path]
             return self.respond(200, (WEB / file).read_bytes(), mime)
-        session = self.session()
+        try:
+            session = self.session()
+        except Refusal:
+            return self.respond(503, {"error": UNAVAILABLE})
         if not session:
-            return self.respond(401, {"error": "Open the private dashboard link from the local session file."})
+            return self.respond(401, {"error": UNAUTHENTICATED, "authRequired": True})
         try:
             if path == "/api/session":
-                return self.respond(200, {"csrf": session["csrf"]})
+                return self.respond(200, self.server.browser_auth.public(session))
             if path == "/api/workspaces":
                 return self.respond(200, {"enabled": self.server.registry is not None,
                     "workspaces": [w for w in self.server.registry.list() if w["id"] in self.server.served_workspaces]
@@ -388,16 +394,31 @@ class Handler(BaseHTTPRequestHandler):
             if self.path == "/api/login":
                 if not isinstance(body, dict) or not isinstance(body.get("token"), str) or not secrets.compare_digest(body["token"], self.server.bootstrap):
                     return self.respond(403, {"error": "Invalid local session token"})
-                sid, csrf = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
-                with self.server.session_lock:
-                    self.server.sessions = {key: value for key, value in self.server.sessions.items() if value["expires"] > time.time()}
-                    if len(self.server.sessions) >= 32:
-                        return self.respond(429, {"error": "Local session limit reached"})
-                    self.server.sessions[sid] = {"csrf": csrf, "expires": time.time() + 8 * 3600}
-                return self.respond(200, {"csrf": csrf}, headers={"Set-Cookie": f"{COOKIE}={sid}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800"})
+                if set(body) - {"token", "rememberDays"}:
+                    raise Refusal("Expected token and optional rememberDays")
+                auth = self.server.browser_auth
+                # Reopening a private link must not downgrade an already remembered browser.
+                current = self.session()
+                days = body.get("rememberDays", current["days"] if current else 0)
+                sid, session = auth.issue(days, self.session_id() if current else None)
+                return self.respond(200, auth.public(session), headers={"Set-Cookie": auth.cookie_header(sid, session)})
             session = self.session()
             if not session:
-                return self.respond(403, {"error": "Session and CSRF token required"})
+                return self.respond(403, {"error": "Session and CSRF token required", "authRequired": True})
+            if self.path in ("/api/session/remember", "/api/logout", "/api/sessions/revoke"):
+                if not secrets.compare_digest(self.headers.get("X-CSRF-Token", ""), session["csrf"]):
+                    return self.respond(403, {"error": "Browser session and CSRF token required"})
+                auth = self.server.browser_auth
+                if self.path == "/api/session/remember":
+                    if not isinstance(body, dict) or set(body) != {"rememberDays"}:
+                        raise Refusal("Expected rememberDays")
+                    sid, updated = auth.issue(body["rememberDays"], self.session_id())
+                    return self.respond(200, auth.public(updated), headers={"Set-Cookie": auth.cookie_header(sid, updated)})
+                all_browsers = self.path == "/api/sessions/revoke"
+                if (all_browsers and (not isinstance(body, dict) or set(body) != {"confirmed"} or body["confirmed"] is not True)) or (not all_browsers and body != {}):
+                    raise Refusal("Explicit confirmation required to sign out all browsers" if all_browsers else "Expected an empty logout request")
+                auth.revoke(self.session_id(), all_browsers)
+                return self.respond(200, {"signedOut": True}, headers={"Set-Cookie": auth.cookie_header("")})
             runtime, path, workspace_id = self.route(urlsplit(self.path).path)
             csrf = scoped_csrf(session, workspace_id)
             if not secrets.compare_digest(self.headers.get("X-CSRF-Token", ""), csrf):

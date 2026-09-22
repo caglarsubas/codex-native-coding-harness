@@ -1,5 +1,6 @@
 .state/
 .platform/
+browser-auth/
 .planeon/
 reports/
 __pycache__/

@@ -22,7 +22,7 @@ async function api(path,options={}) {
   const r=await fetch(global?path:workspacePath(path),{credentials:"same-origin",cache:"no-store",...requestOptions});
   const body=await r.json();
   if(generation!==workspaceGeneration&&!global){const error=new Error("Workspace changed; old response discarded");error.workspaceChanged=true;throw error;}
-  if(!r.ok){const error=new Error(body.error||"Local request failed");error.status=r.status;throw error;}return body;
+  if(!r.ok){const error=new Error(body.error||"Local request failed");error.status=r.status;error.authRequired=r.status===401||body.authRequired===true;if(error.authRequired&&typeof browserSignedOut==='function')browserSignedOut();throw error;}return body;
  }catch(error){if(generation!==workspaceGeneration&&!global)error.workspaceChanged=true;throw error;}
  finally{if(write){workspaceWrites--;updateWorkspaceSelector();}}
 }
@@ -130,6 +130,3 @@ function render() {
 document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>navigateView(b.dataset.view)));
 $('pause').onclick=()=>command(state.workspace?workspacePausePresentation(state).kind:state.meta.paused?'resume':'pause');$('reconcile').onclick=()=>command('reconcile');$('refresh').onclick=refresh;
 const initialTheme=localStorage.getItem('orchestrator-theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.dataset.theme=initialTheme;$('theme').onclick=()=>{const next=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=next;localStorage.setItem('orchestrator-theme',next);};
-async function start(){try{const token=new URLSearchParams(location.hash.slice(1)).get('token');if(token){history.replaceState(null,'',location.pathname);csrf=(await api('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})})).csrf;}else csrf=(await api('/api/session',{global:true})).csrf;await initializeWorkspaces();await refresh();applyDashboardRoute(false);setInterval(()=>{const editing=document.activeElement?.matches('input,select,textarea');if(!busy&&!selected&&!editing&&document.visibilityState==='visible')refresh();},5000);}catch(e){showNotice(e.message,true);$('connection').textContent='Authentication required';$('pause').disabled=true;$('reconcile').disabled=true;}}
-// All deferred view modules must be ready before the first authenticated render.
-document.addEventListener('DOMContentLoaded',start,{once:true});
