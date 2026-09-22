@@ -21,9 +21,9 @@ function applyDashboardRoute(activateWorkspace=true){
   const route=location.hash?dashboardRoute(location.hash):{view:'overview',id:null};
   if(!route){if(location.hash.startsWith("#/"))showNotice("This dashboard link is not recognized.",true);return;}
   if(route.workspaceId&&route.workspaceId!==workspaceId){switchWorkspace(route.workspaceId,route);return;}
-  if(!state)return;
+  if(!state&&!unconfiguredProject())return;
   activateWorkspace=activateWorkspace||Boolean(route.id);
-  if(route.id&&route.view==="artifacts"&&!state.observations?.artifacts.some(a=>a.id===route.id)){
+  if(route.id&&route.view==="artifacts"&&!state?.observations?.artifacts.some(a=>a.id===route.id)){
     navigateView("artifacts",null,false,activateWorkspace);showNotice("The linked artifact is not in the retained library. No file was opened.",true);return;
   }
   navigateView(route.view,route.id,false,activateWorkspace);

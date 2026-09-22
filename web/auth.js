@@ -8,13 +8,15 @@ function browserSignedOut(message='Open the current private dashboard link to si
   $('mode').textContent='Sign-in required';$('connection').textContent='Authentication required';
   $('pause').disabled=true;$('reconcile').disabled=true;
   $('workspace-picker').hidden=true;
-  $('title').textContent='Sign in';$('subtitle').textContent='Your local workspace, ready when you are.';
+  $('title').textContent='Sign in';$('subtitle').textContent='Your local project, ready when you are.';
   if(authMode==='account')renderAccountSignIn();
   else $('content').replaceChildren(empty('Connect this browser',message),el('p','After signing in, open Browser access and choose Remember this browser.','muted'));
   // A signed-out tab must not continue displaying private assistant content.
   $('assistant-log').querySelectorAll('.chat-turn').forEach(node=>node.remove());
   $('assistant-context-preview').textContent='';$('assistant-question').value='';
   if(typeof workspaceTabs!=='undefined')workspaceTabs.clear();
+  if(typeof workspaceList!=='undefined'){workspaceList=[];projectCatalog=null;workspaceId=null;}
+  if(typeof brainDrafts!=='undefined')brainDrafts.clear();
   if(typeof assistantHistory!=='undefined'){assistantHistory=[];assistantActions.clear();}
   assistantConnectionChanged();
 }
@@ -107,7 +109,7 @@ async function start(){
       root.hidden=!root.hidden;$('browser-access').setAttribute('aria-expanded',String(!root.hidden));
     };
     await initializeWorkspaces();await refresh();applyDashboardRoute(false);
-    if(connected)dashboardPoll=setInterval(()=>{const editing=document.activeElement?.matches('input,select,textarea');if(!busy&&!authBusy&&!selected&&!editing&&document.visibilityState==='visible')refresh();},5000);
+    if(connected||unconfiguredProject())dashboardPoll=setInterval(()=>{const editing=document.activeElement?.matches('input,select,textarea');if(!busy&&!authBusy&&!selected&&!editing&&document.visibilityState==='visible')refresh();},5000);
   }catch(error){
     if(error.authRequired){browserSignedOut();$('notice').hidden=true;return;}
     showNotice(error.message,true);$('pause').disabled=true;$('reconcile').disabled=true;

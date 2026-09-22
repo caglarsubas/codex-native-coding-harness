@@ -8,13 +8,13 @@ function workspacePausePresentation(snapshot, now=Date.now()/1000) {
     && activity.fresh && activity.status==='idle' && activity.observedAt>=pause.checkpointAt
     && activity.observedAt<=now && now-activity.observedAt<=120);
   const pending=control.phase==='resume_requested';
-  return {label:observed?'Paused at checkpoint':saved?'Checkpoint saved · activity not confirmed':legacySaved?'Earlier brain checkpoint saved':stopped?'Pausing safely':pending?'Brain resume requested':'Workspace control',
-    button:stopped?(saved||legacySaved?'Resume brain from checkpoint':'Pausing safely…'):'Pause workspace',
+  return {label:observed?'Paused at checkpoint':saved?'Checkpoint saved · activity not confirmed':legacySaved?'Earlier brain checkpoint saved':stopped?'Pausing safely':pending?'Brain resume requested':'Project control',
+    button:stopped?(saved||legacySaved?'Resume brain from checkpoint':'Pausing safely…'):'Pause project',
     kind:stopped?'brain_resume':'brain_stop', disabled:!snapshot.meta.brainId || (stopped&&!saved&&!legacySaved),
     observedPaused:observed,
     detail:observed?'Workers have checkpoint evidence and the brain was observed idle. Ownership is retained.'
       :saved?'The safe checkpoint is retained. Current native inactivity is not fully confirmed; saved evidence does not become fresh on refresh.'
-      :legacySaved?'This earlier brain checkpoint predates workspace-wide descendant checks. Resume remains explicit; no workspace-wide inactivity is inferred.'
+      :legacySaved?'This earlier brain checkpoint predates project-wide descendant checks. Resume remains explicit; no project-wide inactivity is inferred.'
       :stopped?'New work is fenced. The brain continues safety-only coordination until tasks, runner and schedule reach a safe checkpoint.'
       :pending?'The existing brain will recover its checkpoint. Worker dispatch remains unchanged; this is not autonomous Play.'
       :'Pause the brain and its tasks at safe checkpoints. Running tools finish their bounded step; no process is killed.'};
@@ -22,7 +22,7 @@ function workspacePausePresentation(snapshot, now=Date.now()/1000) {
 function workspacePausePanel(root) {
   if(!state.workspace)return;
   const presentation=workspacePausePresentation(state), pause=state.workspacePause||{};
-  const panel=el('section',null,'workspace-pause');panel.setAttribute('aria-label','Workspace pause progress');
+  const panel=el('section',null,'workspace-pause');panel.setAttribute('aria-label','Project pause progress');
   panel.append(el('p',state.workspace.name,'eyebrow'),el('h2',presentation.label),el('p',presentation.detail));
   if(state.meta.brainControl?.desired!=='stopped') {
     const wake=button('Wake brain now',()=>command('brain_resume'));

@@ -19,12 +19,12 @@ function all(root){return [root,...root.children.flatMap(x=>x instanceof Element
   let nodes=all(render());await nodes.find(n=>n.text==='Review Play').click();
   nodes=all(render());let confirm=nodes.find(n=>n.text==='Confirm play');assert.equal(confirm.disabled,true);
   let check=nodes.find(n=>n.type==='checkbox');check.checked=true;check.onchange();assert.equal(confirm.disabled,false);
-  box.workspaceId='beta';assert.ok(!all(render()).some(n=>n.text==='Confirm play'),'Workspace preview isolation');
+  box.workspaceId='beta';assert.ok(!all(render()).some(n=>n.text==='Confirm play'),'Project preview isolation');
   box.workspaceId='alpha';await confirm.click();assert.equal(sent.filter(s=>s.path.endsWith('confirm')).length,1);
   box.state.standard.run={id:'run',status:'running',phaseId:'p',tasks:[],limits:{maxTasks:2,checkpointReserveTokens:10},brainUsageCoverage:'not_observed'};
   box.state.standard.observedTokens=null;nodes=all(render());assert.ok(nodes.some(n=>String(n.text).includes('Not observed')));
   assert.ok(nodes.some(n=>n.text==='Pause at safe checkpoint'));
   box.state.standard.run.status='stopping';assert.equal(all(render()).find(n=>n.text==='Pause at safe checkpoint').disabled,true);
   box.state.standard.run.status='paused';assert.ok(all(render()).some(n=>n.text==='Review Resume'));
-  console.log('Standard UI: explicit confirmation, workspace separation, unknown usage and checkpoint controls passed');
+  console.log('Standard UI: explicit confirmation, project separation, unknown usage and checkpoint controls passed');
 })().catch(error=>{console.error(error);process.exitCode=1;});

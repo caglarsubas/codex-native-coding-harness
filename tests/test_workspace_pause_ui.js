@@ -3,7 +3,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('nod
 const box={Date};vm.createContext(box);vm.runInContext(fs.readFileSync('web/workspace-pause.js','utf8'),box);
 const state={meta:{brainId:'fixture',brainControl:{desired:'running',phase:'ready'}},workspacePause:{status:'not_requested'}};
 const present=()=>box.workspacePausePresentation(state,100);
-assert.equal(present().kind,'brain_stop');assert.equal(present().button,'Pause workspace');assert.equal(present().disabled,false);
+assert.equal(present().kind,'brain_stop');assert.equal(present().button,'Pause project');assert.equal(present().disabled,false);
 state.meta.brainControl={protocol:'workspace_pause_v1',desired:'stopped',phase:'checkpointing'};
 state.workspacePause={status:'pausing',blockers:[{code:'inventory_missing'}]};
 assert.equal(present().disabled,true);assert.equal(present().observedPaused,false);assert.equal(present().label,'Pausing safely');
@@ -21,4 +21,4 @@ state.meta.brainControl={desired:'stopped',phase:'parked'};state.workspacePause=
 assert.equal(present().disabled,false);assert.equal(present().label,'Earlier brain checkpoint saved');assert.equal(present().observedPaused,false);
 state.meta.brainControl={desired:'running',phase:'resume_requested'};assert.equal(present().disabled,false);
 assert.equal(present().kind,'brain_stop','Pause must still supersede an unreceived resume');
-console.log('Workspace Pause control, legacy checkpoint and fresh native inactivity checks passed');
+console.log('Project Pause control, legacy checkpoint and fresh native inactivity checks passed');

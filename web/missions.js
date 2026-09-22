@@ -25,7 +25,7 @@ function missionDocument(parent,hash,label){
 function missionView(root){
   if(typeof standardPanel==='function')standardPanel(root);
   const m=state.mission;
-  if(!m){root.append(empty('Select a registered workspace','Mission configuration belongs to one workspace and its designated brain.'));return;}
+  if(!m){root.append(empty('Select a registered project','Mission configuration belongs to one project and its designated brain.'));return;}
   const status=el('section',null,'mission-status');
   status.append(el('p','CONFIGURATION, NOT EXECUTION AUTHORITY','eyebrow'),el('h2',m.document?`Version ${m.version} · ${m.effectiveStatus.replaceAll('_',' ')}`:'No mission configured'));
   status.append(el('p','Saving or reviewing a configuration does not start development, approve packets, enforce these proposed limits, change a model or notify the brain. Existing exact packet approvals and dispatch controls are unchanged.','checkpoint'));
@@ -101,7 +101,7 @@ function missionEditor(root,m){
     check.onchange=()=>{phase.scope=check.checked?[...phase.scope,row]:phase.scope.filter(s=>s.repository!==repo.id);update();};
     group.append(ops);form.append(group);
   }
-  if(!state.repositories.length)form.append(el('p','No repositories are registered in this workspace. Register a repository before saving a phase.','muted'));
+  if(!state.repositories.length)form.append(el('p','No repositories are registered in this project. Register a repository before saving a phase.','muted'));
   form.append(section('Proposed authority & limits','No defaults for token or task allowances: choose them explicitly.'));
   const modeLabel=el('label','Packet approval mode'),mode=el('select');for(const [value,label] of Object.entries(missionModes)){const option=el('option',label);option.value=value;mode.append(option);}mode.value=a.approvalMode;mode.onchange=()=>a.approvalMode=mode.value;modeLabel.append(mode);form.append(modeLabel);
   form.append(el('p','Harness scopes require exact owner approval. A phase-delegated configuration is allowed only for standard-policy repositories, and remains inactive in this release.','muted'));

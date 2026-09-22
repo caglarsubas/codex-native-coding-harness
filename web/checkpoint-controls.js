@@ -68,7 +68,7 @@ function checkpointDecisionConfirmation(root,entry){
   const d=entry.proposal.document,r=d.request,review=d.operation==='review',wrap=el('section',null,'mission-review retention-preview');
   wrap.id='checkpoint-decision-confirmation';wrap.tabIndex=-1;
   wrap.append(section(review?'Confirm checkpoint review':'Confirm withdrawal',`Preview expires ${when(d.expiresAt)}. Nothing has changed yet.`),
-    table(['Exact scope','To be confirmed'],[['Workspace',d.workspaceId],['Report SHA-256',d.scope.reportHash],['Next mission SHA-256',d.scope.missionHash],...(review?[
+    table(['Exact scope','To be confirmed'],[['Project',d.workspaceId],['Report SHA-256',d.scope.reportHash],['Next mission SHA-256',d.scope.missionHash],...(review?[
       ['Settings',JSON.stringify(r.settingsPolicy)],['Next-intent expiry',when(r.expiresAt)]
     ]:[['Review SHA-256',r.checkpointReviewHash],['Reason',r.reason]])]),
     callout(review?'Review is not Play':'Already-authorized runs are unchanged',review?'This records your review of the exact checkpoint, next mission and settings. It does not authorize a run or clear admission, maintenance, native evidence or phase-acceptance gates.':'This withdraws only the selected review for future run grants. It does not stop or revoke a run already authorized; use safe Pause separately. Other reviews remain unchanged.'));
@@ -101,7 +101,7 @@ async function checkpointDecisionPost(path,payload,done){
 async function previewCheckpointDecision(payload){
   const generation=workspaceGeneration;
   const saved=await checkpointDecisionPost('/api/checkpoint-decisions/preview',payload,proposal=>{
-    if(proposal.document.workspaceId!==workspaceId)throw new Error('Preview belongs to another workspace');
+    if(proposal.document.workspaceId!==workspaceId)throw new Error('Preview belongs to another project');
     checkpointPreviews.set(workspaceId,{proposal,generation,uncertain:false});selected='checkpoint-confirm';
   });
   if(saved&&generation===workspaceGeneration&&view==='phaseCheckpoints'&&typeof document!=='undefined')document.getElementById('checkpoint-decision-confirmation')?.focus();

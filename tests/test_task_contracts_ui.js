@@ -15,5 +15,5 @@ vm.runInContext("let workspaceId='a',workspaceGeneration=1;",box);
 let resolve;box.api=url=>{assert.equal(url,'/api/task-contract?queueId=a%3ATEST-001');return new Promise(r=>resolve=r)};
 const panel=node('root');box.taskContractPanel(panel,{id:'a:TEST-001',taskContract:{hash:'fixture'}});
 vm.runInContext("workspaceId='b';workspaceGeneration++",box);
-resolve({status:'bound',document:{version:1,spec:{rationale:'foreign workspace text'}}});
-Promise.resolve().then(()=>{assert(!JSON.stringify(panel).includes('foreign workspace text'));console.log('Task contract presentation, legacy approval fence and stale-response checks passed');}).catch(e=>{console.error(e);process.exitCode=1});
+resolve({status:'bound',document:{version:1,spec:{rationale:'foreign project text'}}});
+Promise.resolve().then(()=>{assert(!JSON.stringify(panel).includes('foreign project text'));console.log('Task contract presentation, legacy approval fence and stale-response checks passed');}).catch(e=>{console.error(e);process.exitCode=1});

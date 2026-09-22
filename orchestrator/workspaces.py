@@ -246,10 +246,13 @@ class Registry:
         """Recorded cross-workspace measurements only. Never scan or notify on read."""
         from .repository import aggregate
         from . import portfolio_metrics
+        from .projects import catalog
+        names = {p["id"]: p["name"] for p in catalog(self)["projects"] if p["managed"]}
         rows, repositories, sessions, workers, artifacts, roadmaps = [], [], {}, {}, {}, {}
         conflicts = set()
         for workspace in self.list():
             wid = workspace["id"]
+            workspace = {**workspace, "name": names.get(wid, workspace["name"])}
             if workspace_ids is not None and wid not in workspace_ids:
                 continue
             try:

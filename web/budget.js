@@ -3,7 +3,7 @@ const budgetReports=new Map(),budgetPending=new Map(),budgetDetails=new Map();
 const budgetIssues={phase_binding_unavailable:'Phase binding is unavailable',usage_evidence_incomplete:'Some session evidence is incomplete',membership_changed:'Task membership changed after the sample',usage_account_changed:'Usage account binding changed',phase_journal_not_observed:'No complete phase-usage journal is recorded',usage_coverage_incomplete:'Brain, worker or review coverage is incomplete',usage_not_observed:'Usage has not been observed',usage_stale_or_future:'The oldest usage sample is stale or future-dated'};
 function budgetFreshness(report,snapshot,now=Date.now()/1000){
   if(!report)return {stale:true,label:'Not inspected in this tab'};
-  if(report.workspaceRevision!==snapshot.meta.revision)return {stale:true,label:'Workspace changed since inspection · inspect again'};
+  if(report.workspaceRevision!==snapshot.meta.revision)return {stale:true,label:'Project changed since inspection · inspect again'};
   if(now<report.inspectedAt||now-report.inspectedAt>60)return {stale:true,label:'Earlier accounting snapshot · inspect again'};
   return {stale:false,label:'Saved accounting at inspection · shared state has not been rechecked'};
 }
@@ -21,16 +21,16 @@ function budgetView(root){
   if(!state.workspace)return;
   const report=budgetReports.get(workspaceId),pending=budgetPending.has(workspaceId);
   const panel=el('section',null,'budget-view');panel.setAttribute('aria-label','Phase budget and shared account inspection');
-  const intro=el('div',null,'section-heading'),heading=el('div');heading.append(el('p','SELECTED WORKSPACE · READ ONLY','eyebrow'),el('h2','Phase budget & reservations'));
+  const intro=el('div',null,'section-heading'),heading=el('div');heading.append(el('p','SELECTED PROJECT · READ ONLY','eyebrow'),el('h2','Phase budget & reservations'));
   const load=button(pending?'Reading saved accounting…':report?'Inspect accounting again':'Inspect saved accounting',()=>inspectBudget(),'primary');load.disabled=pending||!connected;
-  intro.append(heading,load);panel.append(intro,el('p','Read the existing shared ledger for this workspace. This does not collect native token samples, initialize a budget or start work.','muted'));
+  intro.append(heading,load);panel.append(intro,el('p','Read the existing shared ledger for this project. This does not collect native token samples, initialize a budget or start work.','muted'));
   root.append(panel);
   if(!report){panel.append(empty('Budget accounting has not been inspected','Open this view safely without starting a scan. Use Inspect saved accounting to read the current retained records.'));return;}
   panel.append(el('p',budgetFreshness(report,state).label+' · '+when(report.inspectedAt),'metric-note'));
   if(report.status==='not_initialized'){panel.append(empty('Shared accounting is not initialized','No admission ledger exists here. A reviewed mission budget is configuration, not a reservation or measured balance. Setup requires the separate owner-reviewed onboarding procedure.'));return;}
   if(report.status==='unavailable'){panel.append(callout('Accounting is unavailable',report.detail||'No trustworthy balance is shown. Ask the brain/operator to reconcile the saved accounting.'));return;}
   panel.append(el('p',report.boundary,'muted'));
-  if(!report.allocations.length)panel.append(empty('No phase allocation for this workspace','No phase allowance is inferred from configuration. Other workspaces’ allocations are not shown or borrowed.'));
+  if(!report.allocations.length)panel.append(empty('No phase allocation for this project','No phase allowance is inferred from configuration. Other projects’ allocations are not shown or borrowed.'));
   report.allocations.forEach((row,index)=>{
     const group=el('section',null,'budget-phase'),balance=budgetBalance(row,report,state);
     group.append(el('h3',row.phaseId||'Unbound phase allocation'),el('p',`${row.closed?'Closed allocation':'Recorded allocation'} · ${row.heldClaims} held / ${row.recordedClaims} task attempts · oldest sample: ${when(row.observedAt)}`,'muted'));

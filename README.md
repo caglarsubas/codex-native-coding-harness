@@ -40,8 +40,10 @@ See the [completion checklist](docs/STANDARD-PROJECT-COMPLETION.md).
   awareness and expiring, state-bound, owner-confirmed action previews.
 - Three collapsible panes, draggable/keyboard splitters and remembered layout;
   focused single-pane navigation on narrow screens.
-- Private development workspaces with isolated ledgers, scoped assistant/actions,
-  versioned project introductions and an All workspaces comparison. See
+- Private development projects with isolated ledgers, scoped assistant/actions,
+  versioned project introductions and an All projects comparison. The selector
+  mirrors the retained native Codex project inventory; newly listed projects stay
+  unconfigured until explicitly bound. See [project catalog synchronization](docs/PROJECT-CATALOG.md) and
   [workspace setup and current limits](docs/WORKSPACES.md); continuous phase
   autopilot remains tracked separately, not implied by registration.
 - Mission/phase configuration and exact owner review, deliberately inactive. A

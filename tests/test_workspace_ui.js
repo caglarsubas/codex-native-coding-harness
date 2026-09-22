@@ -19,7 +19,7 @@ vm.runInContext(api,box);
 const pending=run("api('/api/state')");
 run("workspaceId='beta';workspaceGeneration++");
 resolve({ok:true,json:async()=>({workspace:{id:'alpha'}})});
-pending.then(()=>assert.fail('Old workspace response leaked'),error=>{
+pending.then(()=>assert.fail('Old project response leaked'),error=>{
   assert.equal(error.workspaceChanged,true);
-  console.log('Workspace routing and stale-response isolation checks passed');
+  console.log('Project routing and stale-response isolation checks passed');
 }).catch(error=>{console.error(error);process.exitCode=1;});

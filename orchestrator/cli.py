@@ -23,6 +23,12 @@ def main():
         sub.add_parser(name)
     for name in ("workspace-list", "workspace-verify-backup", "workspace-profile"):
         sub.add_parser(name)
+    sub.add_parser("project-list", help="Read the retained native Codex project catalog")
+    p = sub.add_parser("project-sync", help="Import the complete native list_projects result; never onboard or start work")
+    p.add_argument("result", type=Path); p.add_argument("--observed-at", type=float, required=True)
+    p = sub.add_parser("project-bind", help="Owner mapping of an existing ledger to one exact Codex project")
+    p.add_argument("id"); p.add_argument("--host-id", required=True); p.add_argument("--project-id", required=True)
+    p.add_argument("--catalog-hash", required=True); p.add_argument("--confirm", action="store_true")
     sub.add_parser("platform-resources", help="Explicit read-only repository identity and ownership audit; not admission")
     sub.add_parser("platform-enrollment-preview", help="Review exact workspace enrollment scope; no writes or activation")
     sub.add_parser("platform-enrollment-status", help="Inspect retained enrollment stages and owners")
@@ -159,6 +165,19 @@ def main():
     if (args.action == "run-readiness" or args.action.startswith(("task-contract-", "model-policy-", "native-evidence-", "brain-cycle-", "phase-checkpoint-", "native-create-", "native-task-", "native-account-", "phase-usage-", "runner-handoff-", "terminal-handoff-", "result-handoff-", "archive-handoff-", "correction-handoff-"))) and not (args.platform and args.workspace):
         raise Refusal("This operation requires an explicit registered workspace")
     registry = Registry(args.platform, create=args.action == "workspace-register") if args.platform else None
+    if args.action in ("project-list", "project-sync", "project-bind"):
+        if not registry or args.workspace:
+            raise Refusal("Project catalog operations require --platform; omit --workspace")
+        from . import projects
+        if args.action == "project-sync":
+            from .observations import read_regular
+            path = args.result.absolute()
+            raw = read_regular(path, path.parent, 1_000_000)
+            projects.record(registry, json.loads(raw), args.observed_at)
+        elif args.action == "project-bind":
+            if not args.confirm: raise Refusal("Explicit --confirm required; binding does not start work")
+            projects.bind(registry, args.id, args.host_id, args.project_id, args.catalog_hash)
+        print(json.dumps(projects.catalog(registry), ensure_ascii=False, indent=2)); return
     if args.action.startswith("platform-reconciliation-"):
         if not registry or args.workspace:
             raise Refusal("Reconciliation is platform-wide: supply --platform and omit --workspace")

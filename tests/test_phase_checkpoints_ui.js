@@ -7,7 +7,7 @@ assert.equal(box.dashboardRoute('#/w/alpha/phaseCheckpoints/'+'a'.repeat(64)),nu
 const result={workspaceRevision:1,inspectedAt:90},state={meta:{revision:1}};
 assert.match(box.checkpointFreshness(null,state),/Not inspected/);
 assert.match(box.checkpointFreshness(result,state,100),/not live activity/);
-assert.match(box.checkpointFreshness(result,{meta:{revision:2}},100),/Workspace changed/);
+assert.match(box.checkpointFreshness(result,{meta:{revision:2}},100),/Project changed/);
 assert.match(box.checkpointFreshness(result,state,151),/Earlier inspection/);
 assert.match(box.checkpointFreshness(result,state,89),/Earlier inspection/);
 const source=fs.readFileSync('web/phase-checkpoints.js','utf8');
@@ -51,6 +51,6 @@ async function test(){
   assert.equal(vm.runInContext('checkpointReports.get("alpha").status',box),'unavailable');
   box.api=async()=>({...history,status:'empty',total:0});await box.loadPhaseCheckpoints();
   assert.equal(vm.runInContext('checkpointReports.has("alpha")',box),false);
-  console.log('Checkpoint routing, copy, read-only rendering, freshness and workspace-race checks passed');
+  console.log('Checkpoint routing, copy, read-only rendering, freshness and project-race checks passed');
 }
 test().catch(error=>{console.error(error);process.exitCode=1});

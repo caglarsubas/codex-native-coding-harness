@@ -42,7 +42,7 @@ function observerEditor(root,r){
 }
 function observerConfirmation(root,entry){
   const p=entry.proposal.document,review=p.operation==='review',wrap=el('section',null,'mission-review retention-preview');wrap.id='observer-confirmation';wrap.tabIndex=-1;
-  wrap.append(section(review?'Confirm metadata-read access':'Confirm endpoint revocation',`Workspace ${p.workspaceId} · expires ${when(p.expiresAt)}. Nothing has been changed yet.`));
+  wrap.append(section(review?'Confirm metadata-read access':'Confirm endpoint revocation',`Project ${p.workspaceId} · expires ${when(p.expiresAt)}. Nothing has been changed yet.`));
   if(review){wrap.append(el('p','Allocation: '+p.allocation.allocationId,'mission-hash'));observerEndpoint(wrap,p.request.endpoint);}
   else wrap.append(el('p','Exact endpoint review SHA-256: '+p.request.endpointHash,'mono mission-hash'));
   wrap.append(callout('No connection or execution from this confirmation',review?'This grants the brain only the existing bounded metadata-read path to the exact endpoint. It does not start a server, collect now, run tasks, change usage or enable Play.':'This blocks later collection but cannot cancel a read already in flight. It does not stop native tasks or delete saved evidence.'));

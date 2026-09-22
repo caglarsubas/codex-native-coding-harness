@@ -4,7 +4,7 @@ const retentionReports=new Map(),retentionDrafts=new Map(),retentionPreviews=new
 function retentionCurrent(entry){return entry&&entry.generation===workspaceGeneration;}
 function retentionStale(report){return report.workspaceRevision!==state.meta.revision||!(Date.now()/1000-report.inspectedAt>=0&&Date.now()/1000-report.inspectedAt<=60);}
 function retentionView(root){
-  if(!state.workspace){root.append(empty('Select a registered workspace','Retention belongs to one workspace and one exact run.'));return;}
+  if(!state.workspace){root.append(empty('Select a registered project','Retention belongs to one project and one exact run.'));return;}
   const report=retentionReports.get(workspaceId),pending=retentionPending.has(workspaceId);
   const intro=el('section',null,'mission-status');intro.append(el('p',state.workspace.name+' · OWNER CONTROL','eyebrow'),el('h2','Keep completed work recoverable'),
     el('p','Delegation is off unless you review a policy for an already-authorized run. This page does not archive a task, enable Play or release a checkpoint.'));
@@ -61,14 +61,14 @@ function retentionEditor(root,report,operation){
 function retentionConfirmation(root,entry){
   const doc=entry.proposal.document,review=doc.operation==='review',r=doc.request,wrap=el('section',null,'mission-review retention-preview');
   wrap.append(section(review?'Confirm this retention policy':'Confirm revocation',`Preview expires ${when(doc.expiresAt)}. Nothing has been changed by preparing it.`),
-    table(['Exact scope','To be confirmed'],[['Workspace',doc.workspaceId],['Run',`${doc.run.phaseId} · generation ${doc.run.generation}`],...(review?[
+    table(['Exact scope','To be confirmed'],[['Project',doc.workspaceId],['Run',`${doc.run.phaseId} · generation ${doc.run.generation}`],...(review?[
       ['Archive request limit',num(r.maxArchives)],['Minimum retention',`${num(r.minimumRetentionSeconds)} seconds after acceptance`]
     ]:[['Policy',r.policyHash],['Reason',r.reason]])]));
   if(review)wrap.append(callout('Archival can remove a managed worktree','You are delegating archive requests for accepted, preserved root tasks in this exact run. Git bundles alone do not preserve untracked files, external payloads or native transcripts. The brain must independently verify preservation and fresh inactivity before a one-shot archive check.'));
   else wrap.append(callout('In-flight calls are not undone','Revocation stops new delegated requests and unsent archive checks. It does not interrupt tasks or reverse archival already sent.'));
   const checks=[];
   function acknowledgment(text){const label=el('label'),check=el('input');check.type='checkbox';check.checked=false;label.append(check,el('span',text));wrap.append(label);checks.push(check);return check;}
-  acknowledgment(review?'I reviewed this exact run and these limits; future requests may be approved within them.':'I want to revoke this exact policy. Other workspace authority is unchanged.');
+  acknowledgment(review?'I reviewed this exact run and these limits; future requests may be approved within them.':'I want to revoke this exact policy. Other project authority is unchanged.');
   if(review)acknowledgment('I explicitly acknowledge that native archival can clean up the managed worktree after preservation checks.');
   const submit=button(entry.uncertain?'Retry the same confirmation':review?'Approve retention for this run':'Revoke delegation',()=>{
     if(checks.every(c=>c.checked))confirmRetention(entry,{confirmed:true,cleanupAcknowledged:review});
@@ -101,7 +101,7 @@ async function retentionPost(path,payload,done){
 async function previewRetention(payload){
   const generation=workspaceGeneration;
   return retentionPost('/api/retention/preview',payload,proposal=>{
-    if(proposal.document.workspaceId!==workspaceId)throw new Error('Preview belongs to another workspace');
+    if(proposal.document.workspaceId!==workspaceId)throw new Error('Preview belongs to another project');
     retentionPreviews.set(workspaceId,{proposal,generation,uncertain:false});selected='retention-confirm';
   });
 }
