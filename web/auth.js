@@ -4,6 +4,7 @@ let browserSession=null, dashboardPoll=null, authBusy=false, authMode=null;
 function browserSignedOut(message='Open the current private dashboard link to sign in.'){
   clearInterval(dashboardPoll);dashboardPoll=null;
   connected=false;state=null;csrf=null;browserSession=null;workspaceGeneration++;
+  resetDashboardNavigation();
   $('browser-access').hidden=true;$('browser-access-panel').hidden=true;
   $('mode').textContent='Sign-in required';$('connection').textContent='Authentication required';
   $('pause').disabled=true;$('reconcile').disabled=true;
@@ -108,7 +109,8 @@ async function start(){
       }
       root.hidden=!root.hidden;$('browser-access').setAttribute('aria-expanded',String(!root.hidden));
     };
-    await initializeWorkspaces();await refresh();applyDashboardRoute(false);
+    await initializeWorkspaces();await refresh();await applyDashboardRoute(false);
+    if(connected||unconfiguredProject())initializeDashboardNavigation();
     if(connected||unconfiguredProject())dashboardPoll=setInterval(()=>{const editing=document.activeElement?.matches('input,select,textarea');if(!busy&&!authBusy&&!selected&&!editing&&document.visibilityState==='visible')refresh();},5000);
   }catch(error){
     if(error.authRequired){browserSignedOut();$('notice').hidden=true;return;}

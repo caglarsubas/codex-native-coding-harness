@@ -13,7 +13,7 @@ function workspacePath(path,id=workspaceId){
 }
 function workspaceHref(target,id=null,wid=workspaceId){return '#/'+(wid?'w/'+wid+'/':'')+target+(id?'/'+id:'');}
 function workspaceLocked(){return busy||workspaceWrites>0||workspaceSwitching||assistantPending||[...assistantActions.values()].some(a=>a.sending);}
-function updateWorkspaceSelector(){const select=$('workspace-select');if(select)select.disabled=workspaceLocked();}
+function updateWorkspaceSelector(){const select=$('workspace-select');if(select)select.disabled=workspaceLocked();updateNavigationButton();}
 function saveWorkspaceTab(){
   if(!workspaceId)return;
   workspaceTabs.set(workspaceId,{history:assistantHistory,turns:assistantTurns,tokens:assistantTokens,missing:assistantMissingUsage,
@@ -63,14 +63,15 @@ async function selectWorkspaceIdentity(id){
   if(!unconfiguredProject())csrf=(await api('/api/session')).csrf;
   try{sessionStorage.setItem('orchestrator-workspace',id);}catch{}
 }
-async function switchWorkspace(id,route=null){
+async function switchWorkspace(id,route=null,updateAddress=true){
+  if(updateAddress&&navigationPending){showNotice('Wait for page navigation to finish.',true);$('workspace-select').value=workspaceId;return false;}
   if(workspaceLocked()){showNotice('Wait for the in-flight request before switching projects. Nothing has been moved or cancelled.',true);$('workspace-select').value=workspaceId;return false;}
   if(!workspaceList.some(w=>w.id===id)){showNotice('Unknown project. No data was opened.',true);return false;}
   workspaceSwitching=true;updateWorkspaceSelector();saveWorkspaceTab();
   try{
     restoreWorkspaceTab(id);await selectWorkspaceIdentity(id);await refresh();
     if(!connected&&!unconfiguredProject())return false;
-    navigateView(route?.view||'overview',route?.id||null,true);
+    navigateView(route?.view||'overview',route?.id||null,updateAddress);
     return true;
   }catch(error){showNotice(error.message,true);return false;}
   finally{workspaceSwitching=false;updateWorkspaceSelector();}
