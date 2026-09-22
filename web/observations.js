@@ -226,7 +226,9 @@ function roadmapDocument(root,plan,proposal=false,index=0) {
 function roadmapReviewPlay(root) {
   const workspace=state.workspace, standard=state.standard;
   if(!workspace)return;
-  if(workspace.projectProfile!=='standard'){
+  // projectProfile is the editorial introduction, not an execution policy.
+  const repositories=state.repositories;
+  if(!Array.isArray(repositories)||!repositories.length||!repositories.every(repo=>repo.policyProfile==='standard')){
     root.append(section('Review & Play','Unavailable for this project'));
     root.append(el('p','This project is not configured for the cooperative standard policy. Roadmap records remain read-only; they cannot opt a Harness or other project into standard Play.','muted'));
     return;

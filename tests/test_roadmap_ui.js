@@ -13,7 +13,7 @@ const box={titles:{},workspaceId:'alpha',setInterval(){},el:(tag,text)=>new Node
   section:(title,subtitle)=>new Node('h2',title+' '+(subtitle||'')),when:String,
   table:(headers,rows)=>Object.assign(new Node('table'),{headers,rows}),textCell:(a,b)=>a+' '+b,
   button:(label,click)=>Object.assign(new Node('button',label),{click}),empty:(a,b)=>new Node('p',a+' '+b),
-  navigateView:(view,id)=>navigation={view,id},state:{meta:{paused:true},workspace:{projectProfile:'standard'},standard:{available:false,blocker:'Review an exact mission first',catalog:null,run:null},mission:{effectiveStatus:'not_configured'},observations:{artifacts:[]}}};
+  navigateView:(view,id)=>navigation={view,id},state:{meta:{paused:true},workspace:{id:'alpha',projectProfile:{version:0,profile:null}},repositories:[{id:'fixture',policyProfile:'standard'}],standard:{available:false,blocker:'Review an exact mission first',catalog:null,run:null},mission:{effectiveStatus:'not_configured'},observations:{artifacts:[]}}};
 vm.createContext(box);vm.runInContext(fs.readFileSync('web/observations.js','utf8'),box);
 const run=code=>vm.runInContext(code,box),nodes=root=>[root,...root.children.flatMap(nodes)],text=root=>nodes(root).map(n=>n.text).join('\n');
 const plan={repository:'fixture',path:'docs/plan.md',title:'Main plan',status:'observed',at:1,commit:'a'.repeat(40),documentId:'b'.repeat(64),documentVersion:2,items:[],
@@ -33,6 +33,18 @@ run('observationFilters=()=>{};inRepo=()=>true');box.root=new Node('main');box.s
 assert.match(text(box.root),/1 \/ 1 configured sources readable/);assert.match(text(box.root),/does not mean no drafts exist/);
 assert.match(text(box.root),/Review & Play/);assert.match(text(box.root),/Reviewing a mission does not start work/);assert.match(text(box.root),/Review an exact mission first/);
 nodes(box.root).find(n=>n.text==='Review mission & prerequisites').click();assert.deepEqual(navigation,{view:'mission',id:undefined});
-box.state.workspace.projectProfile='harness';box.root=new Node('main');run('roadmap(root)');assert.match(text(box.root),/Unavailable for this project/);assert.match(text(box.root),/cannot opt a Harness/);
+assert(!nodes(box.root).some(n=>n.text==='Open Review Play'));
+box.state.standard.available=true;box.root=new Node('main');run('roadmap(root)');
+nodes(box.root).find(n=>n.text==='Open Review Play').click();assert.deepEqual(navigation,{view:'overview',id:undefined});
+box.state.standard.run={status:'paused'};box.root=new Node('main');run('roadmap(root)');
+assert.match(text(box.root),/A cooperative phase is already recorded/);
+nodes(box.root).find(n=>n.text==='Open current phase').click();assert.deepEqual(navigation,{view:'overview',id:undefined});
+box.state.standard.run=null;box.state.standard.available=false;
+for(const repositories of [[{policyProfile:'harness'}],[{policyProfile:'standard'},{policyProfile:'harness'}],[],undefined]){
+  box.state.repositories=repositories;box.root=new Node('main');run('roadmap(root)');
+  assert.match(text(box.root),/Unavailable for this project/);assert.match(text(box.root),/cannot opt a Harness/);
+  assert(!nodes(box.root).some(n=>n.text==='Review mission & prerequisites'||n.text==='Open Review Play'));
+}
+box.state.workspace=null;box.root=new Node('main');run('roadmap(root)');assert(!text(box.root).includes('Review & Play'));
 assert(!fs.readFileSync('web/observations.js','utf8').includes('innerHTML'));
 console.log('Roadmap UI: honest empty counts, literal current excerpts, Review & Play gates, proposals, versions, legacy snapshots and source links passed');
