@@ -1,0 +1,5 @@
+# Allowlist: private state, .env, Git history and repositories never enter builds.
+**
+!Dockerfile
+!deployment/
+!deployment/gateway.py

@@ -123,11 +123,13 @@ class Dashboard(ThreadingHTTPServer, WorkspaceRuntime):
     daemon_threads = True
 
     def __init__(self, ledger, port=8768, inference_env=ENV_FILE, runtime_root=WEB.parent,
-                 notification_cli=None, registry=None):
+                 notification_cli=None, registry=None, public_port=None):
+        if public_port is not None and (type(public_port) is not int or not 1 <= public_port <= 65535):
+            raise ValueError("Public port must be an integer between 1 and 65535")
         ThreadingHTTPServer.__init__(self, ("127.0.0.1", port), Handler)
         WorkspaceRuntime.__init__(self, ledger, inference_env, runtime_root, notification_cli)
         self.registry = registry
-        self.origin = f"http://127.0.0.1:{self.server_port}"
+        self.origin = f"http://127.0.0.1:{public_port if public_port is not None else self.server_port}"
         self.bootstrap = secrets.token_urlsafe(32)
         try:
             self.browser_auth = BrowserAuth(registry.root if registry else ledger.root, self.origin)
@@ -211,6 +213,8 @@ class Handler(BaseHTTPRequestHandler):
         if not self.host_ok():
             return self.respond(403, {"error": "Host refused"})
         path = urlsplit(self.path).path
+        if path == "/healthz":
+            return self.respond(200, {"status": "ok", "service": "codex-orchestrator"})
         static = {"/": ("index.html", "text/html; charset=utf-8"), "/app.js": ("app.js", "text/javascript; charset=utf-8"), "/style.css": ("style.css", "text/css; charset=utf-8")}
         static["/observations.js"] = ("observations.js", "text/javascript; charset=utf-8")
         static["/inference.js"] = ("inference.js", "text/javascript; charset=utf-8")
@@ -595,7 +599,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.respond(400, {"error": "Malformed request: " + str(error)})
 
 
-def serve(ledger, port, notification_cli=None, registry=None, inference_env=None):
+def serve(ledger, port, notification_cli=None, registry=None, inference_env=None, public_port=None):
     # Every registered ledger has a single dashboard owner. New registrations
     # become served only after a restart and lock acquisition, never on a GET.
     import fcntl
@@ -612,7 +616,8 @@ def serve(ledger, port, notification_cli=None, registry=None, inference_env=None
             except BlockingIOError as error:
                 raise Refusal("Dashboard already running for a registered ledger") from error
         server = Dashboard(ledger, port, notification_cli=notification_cli, registry=registry,
-                           inference_env=inference_env if inference_env is not None else ENV_FILE)
+                           inference_env=inference_env if inference_env is not None else ENV_FILE,
+                           public_port=public_port)
         # Freeze the exact locked set, including a registration that races startup.
         if registry:
             server.served_workspaces = {w["id"] for w in registered}
