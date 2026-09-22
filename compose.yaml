@@ -1,0 +1,30 @@
+name: codex-orchestrator
+services:
+  gateway:
+    build: .
+    image: codex-orchestrator-gateway:local
+    restart: unless-stopped
+    init: true
+    user: "65532:65532"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    cpus: 0.5
+    mem_limit: 128m
+    pids_limit: 64
+    ports:
+      - "127.0.0.1:${ORCHESTRATOR_PUBLIC_PORT:-8768}:8080"
+    environment:
+      GATEWAY_PUBLIC_PORT: "${ORCHESTRATOR_PUBLIC_PORT:-8768}"
+      GATEWAY_BACKEND_PORT: "${ORCHESTRATOR_BACKEND_PORT:-8767}"
+    healthcheck:
+      test: [CMD, python, /app/gateway.py, --healthcheck]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "1m"
+        max-file: "2"

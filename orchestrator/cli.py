@@ -146,6 +146,7 @@ def main():
     p = sub.add_parser("ack"); p.add_argument("id"); p.add_argument("result"); p.add_argument("--failed", action="store_true")
     p = sub.add_parser("pilot"); p.add_argument("id"); p.add_argument("evidence")
     p = sub.add_parser("serve"); p.add_argument("--port", type=int, default=8768)
+    p.add_argument("--public-port", type=int, help="Exact loopback browser port when using the local Compose gateway; backend still binds only loopback")
     p.add_argument("--notify-brain", type=Path, metavar="CODEX_CLI", help="Opt in to immediate decision notification using an absolute installed Codex CLI path")
     p.add_argument("--inference-env", type=Path, help="Existing private inference configuration; never a browser-selected path")
     args = parser.parse_args()
@@ -222,7 +223,7 @@ def main():
         workspaces = registry.list()
         if not workspaces:
             raise Refusal("Register at least one workspace before serving")
-        serve(registry.ledger(workspaces[0]["id"]), args.port, notification_cli=args.notify_brain, registry=registry, inference_env=args.inference_env)
+        serve(registry.ledger(workspaces[0]["id"]), args.port, notification_cli=args.notify_brain, registry=registry, inference_env=args.inference_env, public_port=args.public_port)
         return
     if registry and not args.workspace:
         raise Refusal("Select an exact --workspace; no default portfolio is inferred")
@@ -482,7 +483,7 @@ def main():
         out = {"markdown": str(path), "json": str(path.with_suffix(".json"))}
     elif action == "serve":
         from .server import serve
-        serve(ledger, args.port, notification_cli=args.notify_brain, registry=registry, inference_env=args.inference_env); return
+        serve(ledger, args.port, notification_cli=args.notify_brain, registry=registry, inference_env=args.inference_env, public_port=args.public_port); return
     print(json.dumps(out if out is not None else {"ok": True}, ensure_ascii=False, indent=2))
 
 
