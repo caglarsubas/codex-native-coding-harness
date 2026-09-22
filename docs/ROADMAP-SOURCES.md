@@ -4,6 +4,12 @@ The Roadmap page is a read-only source catalog, not an execution queue or a
 project-completion score. Narrative plans without checkboxes show **Checklist
 completion not available**, not `0 / 0`.
 
+For a selected configured standard project, the page also shows the recorded
+Review & Play prerequisites and routes to the existing mission review flow. It
+does not open a Play preview itself: the owner reviews that exact preview and
+confirms it separately. Harness and nonconfigured projects remain outside the
+standard protocol; roadmap reading never changes their policy.
+
 ## Published sources
 
 Add registered repository IDs and repository-relative Markdown paths to
