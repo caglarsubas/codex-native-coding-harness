@@ -52,7 +52,7 @@ function rereviewEditor(root,report,operation){
 }
 function rereviewConfirmation(root,entry){
   const doc=entry.proposal.document,r=doc.request,approve=doc.operation==='authorize',wrap=el('section',null,'mission-review retention-preview');wrap.id='rereview-confirmation';wrap.tabIndex=-1;
-  wrap.append(section(approve?'Confirm this review permission':'Confirm permission revocation',`Preview expires ${when(doc.expiresAt)}. Nothing has changed yet.`),table(['Exact scope','To be confirmed'],[['Workspace',doc.workspaceId],['Task',doc.scope.task?.packetId||r.workerId],...(approve?[
+  wrap.append(section(approve?'Confirm this review permission':'Confirm permission revocation',`Preview expires ${when(doc.expiresAt)}. Nothing has changed yet.`),table(['Exact scope','To be confirmed'],[['Project',doc.workspaceId],['Task',doc.scope.task?.packetId||r.workerId],...(approve?[
     ['Commit',r.commit],['Current phase',doc.scope.run.phaseId],['Current run generation',doc.scope.run.generation],['Previous review',r.previousReviewHash||'None'],['Permission expires',when(doc.scope.run.expiresAt)]
   ]:[['Permission SHA-256',r.authorityHash]]),['Reason',r.reason]]),callout('Review permission is not acceptance',approve?'The brain must still collect fresh evidence and independently review the unchanged result. No implementation task is opened or resumed; budget and prior outcomes are unchanged.':'New review work is blocked. Any review already committed remains valid; revocation cannot undo acceptance. Use Pause separately to stop development safely.'));
   const label=el('label'),check=el('input');check.type='checkbox';check.checked=false;label.append(check,el('span',approve?'I authorize one review of this exact settled result in the stated phase.':'I revoke this exact review permission without undoing a recorded result.'));wrap.append(label);
@@ -84,7 +84,7 @@ async function rereviewPost(path,payload,done){
 async function previewRereview(payload){
   const generation=workspaceGeneration,key=rereviewKey();
   const saved=await rereviewPost('/api/result-review-controls/preview',payload,proposal=>{
-    if(proposal.document.workspaceId!==workspaceId||proposal.document.request.workerId!==rereviewWorkers.get(workspaceId))throw new Error('Preview belongs to another workspace or task');
+    if(proposal.document.workspaceId!==workspaceId||proposal.document.request.workerId!==rereviewWorkers.get(workspaceId))throw new Error('Preview belongs to another project or task');
     rereviewPreviews.set(key,{proposal,generation,uncertain:false});selected='rereview-confirm';
   });
   if(saved&&generation===workspaceGeneration&&view==='workers'&&typeof document!=='undefined')document.getElementById('rereview-confirmation')?.focus();return saved;

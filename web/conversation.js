@@ -1,8 +1,8 @@
 "use strict";
-Object.assign(titles,{conversation:['Brain conversation','Talk to this project’s existing Codex brain. Messages and replies stay in this workspace.']});
+Object.assign(titles,{conversation:['Brain conversation','Talk to this project’s existing Codex brain. Messages and replies stay in this project.']});
 const brainDrafts=new Map(),brainPages=new Map();
 function brainMessageState(message){
-  if(message.reply)return {label:'Replied',detail:'The workspace brain retained this reply.'};
+  if(message.reply)return {label:'Replied',detail:'The project brain retained this reply.'};
   if(message.receivedAt)return {label:'Received · reply pending',detail:'The brain received your message. Its reply has not been retained yet.'};
   const n=message.notification;
   if(n?.status==='accepted')return {label:'Sent to Codex',detail:'Waiting for the brain’s receipt. If it is busy, Codex finishes its active turn first.'};
@@ -27,9 +27,9 @@ function conversationView(root){
   const actions=el('div',null,'inline-actions');actions.append(button('Decision inbox',()=>navigateView('decisions')),button('Approved queue',()=>navigateView('queue')),button('Artifact library',()=>navigateView('artifacts')));head.append(actions);root.append(head);
   const stopping=['stop_requested','checkpointing','parked'].includes(state.meta.brainControl?.phase)||['stopping','paused'].includes(state.standard?.run?.status);
   if(stopping)root.append(callout('Brain paused or stopping','Messages stay saved. Use the explicit Resume control to continue from its checkpoint; sending a message does not resume work.'));
-  const history=el('section',null,'brain-history');history.setAttribute('aria-label','Workspace brain messages');history.append(el('p','Loading saved conversation…'));root.append(history);
-  const form=el('form',null,'brain-composer'),label=el('label','Message your workspace brain'),input=el('textarea');input.id='brain-message';input.rows=5;input.maxLength=8000;input.required=true;input.value=draft.text;label.htmlFor=input.id;form.append(label,input);
-  const checkLabel=el('label',null,'decision-confirm'),check=el('input');check.type='checkbox';check.checked=draft.confirmed;checkLabel.append(check,el('span','Send to this workspace’s existing Codex brain. Packet, phase and access approvals still use their review controls.'));form.append(checkLabel);
+  const history=el('section',null,'brain-history');history.setAttribute('aria-label','Project brain messages');history.append(el('p','Loading saved conversation…'));root.append(history);
+  const form=el('form',null,'brain-composer'),label=el('label','Message your project brain'),input=el('textarea');input.id='brain-message';input.rows=5;input.maxLength=8000;input.required=true;input.value=draft.text;label.htmlFor=input.id;form.append(label,input);
+  const checkLabel=el('label',null,'decision-confirm'),check=el('input');check.type='checkbox';check.checked=draft.confirmed;checkLabel.append(check,el('span','Send to this project’s existing Codex brain. Packet, phase and access approvals still use their review controls.'));form.append(checkLabel);
   const send=el('button',draft.request?'Retry same saved request':'Send to brain','primary');send.type='submit';
   const status=el('p','No secrets. Your message is retained locally and read by this Codex task. Sending may consume your existing Codex allowance.','muted');form.append(status,send);root.append(form);
   let awaiting=true;
@@ -53,7 +53,7 @@ function conversationView(root){
     for(const message of data.messages){
       const article=el('article',null,'brain-exchange'),delivery=brainMessageState(message);
       article.append(el('h3','You'),el('p',when(message.createdAt),'muted'),el('p',message.message,'brain-message-text'),badge(delivery.label),el('p',delivery.detail,'muted'));
-      if(message.reply){article.append(el('h3','Workspace brain'),el('p',when(message.reply.at),'muted'),el('p',message.reply.message,'brain-message-text'));
+      if(message.reply){article.append(el('h3','Project brain'),el('p',when(message.reply.at),'muted'),el('p',message.reply.message,'brain-message-text'));
         const links=el('div',null,'inline-actions');
         for(const id of message.reply.artifactIds){const item=state.observations?.artifacts?.find(a=>a.id===id);links.append(button(item?'Read '+item.name+' · v'+item.version:'Open retained artifact',()=>navigateView('artifacts',id)));}
         for(const id of message.reply.decisionIds)links.append(button('Review decision',()=>navigateView('decisions',id)));

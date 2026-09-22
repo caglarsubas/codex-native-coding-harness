@@ -21,7 +21,7 @@ async function api(path,options={}) {
  try{
   const r=await fetch(global?path:workspacePath(path),{credentials:"same-origin",cache:"no-store",...requestOptions});
   const body=await r.json();
-  if(generation!==workspaceGeneration&&!global){const error=new Error("Workspace changed; old response discarded");error.workspaceChanged=true;throw error;}
+  if(generation!==workspaceGeneration&&!global){const error=new Error("Project changed; old response discarded");error.workspaceChanged=true;throw error;}
   if(!r.ok){const error=new Error(body.error||"Local request failed");error.status=r.status;error.authRequired=r.status===401||body.authRequired===true;if(error.authRequired&&typeof browserSignedOut==='function')browserSignedOut();throw error;}return body;
  }catch(error){if(generation!==workspaceGeneration&&!global)error.workspaceChanged=true;throw error;}
  finally{if(write){workspaceWrites--;updateWorkspaceSelector();}}
@@ -42,7 +42,7 @@ async function command(kind,payload={}) {
  }catch(e){if(e.message.includes("State changed"))controlRequests.delete(key);showNotice(e.message+" Refresh before retrying; uncertain requests retain the same ID.",true);}
  finally{busy=false;render();updateWorkspaceSelector();}
 }
-async function refresh() {try{state=await api("/api/state");connected=true;$('connection').textContent="Ledger connected · "+new Date().toLocaleTimeString();render();}catch(e){if(e.workspaceChanged)return;connected=false;$('connection').textContent="Ledger disconnected";showNotice(e.message,true);$('pause').disabled=true;$('reconcile').disabled=true;}finally{if(typeof assistantConnectionChanged==='function')assistantConnectionChanged();}}
+async function refresh() {if(unconfiguredProject()){renderUnconfiguredProject();assistantConnectionChanged();return;}try{state=await api("/api/state");connected=true;$('export-report').hidden=false;$('connection').textContent="Ledger connected · "+new Date().toLocaleTimeString();render();}catch(e){if(e.workspaceChanged)return;connected=false;$('connection').textContent="Ledger disconnected";showNotice(e.message,true);$('pause').disabled=true;$('reconcile').disabled=true;}finally{if(typeof assistantConnectionChanged==='function')assistantConnectionChanged();}}
 function overview(root) {
  const m=state.meta,active=state.workers.filter(w=>!['complete'].includes(w.status));
  projectIntroduction(root);
@@ -106,7 +106,7 @@ function metrics(root) {
  const summary=state.summary.aggregate;root.append(callout("Measured text, not a productivity score", "Counts include blank and comment lines in tracked UTF-8 files. Vendor/build/generated folders, lockfiles, binaries, symlinks and files over 2 MiB are excluded. Clones and worktrees at the same identified commit count once; different commits remain separate snapshots."));
  const strip=el("div",null,"summary-strip");[[num(summary.lines),"counted physical lines"],[num(summary.characters),"Unicode characters"],[num(summary.files),"text files"],[num(summary.measuredRepositories),"counted code snapshots"]].forEach(([v,l])=>{const s=el("div");s.append(el("strong",v),el("span",l));strip.append(s);});root.append(strip);
  codeCountingCoverage(root,state.summary.coverage);
- const refreshCode=button("Refresh local observations",()=>observe(false));refreshCode.disabled=state.observationJob?.status==='running';root.append(refreshCode,el('p',state.observationJob?.status==='running'?'Reading local observations for this workspace…':state.observationJob?.status==='failed'?'Observation refresh failed. Open Git & delivery for details.':'Runs the existing local observation scan for this workspace only. No GitHub query, task dispatch or automatic refresh.','metric-note'));
+ const refreshCode=button("Refresh local observations",()=>observe(false));refreshCode.disabled=state.observationJob?.status==='running';root.append(refreshCode,el('p',state.observationJob?.status==='running'?'Reading local observations for this project…':state.observationJob?.status==='failed'?'Observation refresh failed. Open Git & delivery for details.':'Runs the existing local observation scan for this project only. No GitHub query, task dispatch or automatic refresh.','metric-note'));
  root.append(section("Repository distribution","Alias rows overlap. Do not add them together. Refresh observations explicitly to update these records."));root.append(table(["Repository / commit","Source lines","Test lines","Docs lines","All text lines","Characters","Observation / counting"],state.summary.repositories.map(m=>[textCell(m.repository,m.commit?.slice(0,12)||m.reason),num(m.groups.source?.lines),num(m.groups.tests?.lines),num(m.groups.docs?.lines),m.status==='measured'?num(m.lines):"—",m.status==='measured'?num(m.characters):"—",textCell(m.status,codeCountingLabel(m.counting))])));
  root.append(section("Managed delivery"));root.append(table(["Measurement","Value"],[["Managed tasks",num(summary.managedTasks)],["Completed packets",num(summary.completedPackets)],["Mean cycle time",summary.meanCycleSeconds===null?"Unavailable until completion":Math.round(summary.meanCycleSeconds/60)+" minutes"]]));
  if(state.delivery){root.append(table(["Repository","Tasks","Done / 7 days","Blocked minutes","Runner wait minutes","No-progress cycles"],state.delivery.repositories.map(r=>[r.repository,num(r.tasks),num(r.completedLast7Days),num(Math.round(r.blockedSeconds/60)),num(Math.round(r.runnerWaitSeconds/60)),num(r.noProgressCycles)])));}
@@ -114,6 +114,7 @@ function metrics(root) {
  if(state.metrics.length>state.summary.repositories.length){root.append(section("Snapshot history"));root.append(table(["Repository","Captured","Commit","Lines"],[...state.metrics].sort((a,b)=>b.at-a.at).slice(0,50).map(m=>[m.repository,when(m.at),m.commit?.slice(0,12)||"—",m.status==='measured'?num(m.lines):"—"])));}
 }
 function render() {
+ if(unconfiguredProject()){renderUnconfiguredProject();return;}
  if(!state)return;
  document.querySelector(".page-actions").hidden=['workspaces','mission','runReadiness','phaseCheckpoints','retention'].includes(view);
  const m=state.meta,dispatch=dispatchPresentation(m,state.commands),primary=state.workspace?workspacePausePresentation(state):dispatch;

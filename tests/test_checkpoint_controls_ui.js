@@ -55,6 +55,6 @@ async function test(){
   await box.confirmCheckpointDecision(entry);assert.equal(saves,1);
   const withdrawal={...proposal,document:{...proposal.document,operation:'withdraw',scope:oldReview,request:{checkpointReviewHash:oldReview.checkpointReviewHash,reason:'<script>literal</script>'}}};box.withdrawal=withdrawal;
   run('checkpointPreviews.set(workspaceId,{proposal:withdrawal,generation:workspaceGeneration})');result=rendered();assert.equal(result.nodes.filter(n=>n.type==='checkbox').length,1);assert(result.nodes.some(n=>n.text==='Withdraw this review'));assert.match(result.root.textContent,/does not stop or revoke a run already authorized/);assert.match(result.root.textContent,/<script>literal/);
-  console.log('Checkpoint owner UI: explicit choices, confirmation, workspace guards, stable settings and immutable retries passed');
+  console.log('Checkpoint owner UI: explicit choices, confirmation, project guards, stable settings and immutable retries passed');
 }
 test().catch(error=>{console.error(error);process.exitCode=1});

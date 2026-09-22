@@ -43,7 +43,7 @@ function assistantActionState(action,current=state,now=Date.now()/1000){
   if(action.cancelled)return {locked:true,label:'Not submitted',detail:'You dismissed this preview. Nothing was changed.'};
   if(action.rejected)return {locked:true,label:'Confirmation refused',detail:action.rejected+' Ask for a new preview after reviewing the current state.'};
   if(action.sending)return {locked:true,label:'Submitting confirmed action…',detail:'Waiting for the ledger receipt. Do not submit another copy.'};
-  if(action.uncertain)return {locked:false,label:'Receipt not confirmed',detail:'Check Control requests in the workspace. You can retry this exact confirmation; its command ID will not change.'};
+  if(action.uncertain)return {locked:false,label:'Receipt not confirmed',detail:'Check Control requests in the project. You can retry this exact confirmation; its command ID will not change.'};
   if(now>doc.expiresAt)return {locked:true,label:'Preview expired',detail:'Ask again to review current state. Nothing was submitted from this preview.'};
   if(current?.meta?.revision!==doc.command.expectedRevision)return {locked:true,label:'State changed',detail:'Ask again to review the latest state before confirming. No control was submitted from this preview.'};
   return {locked:false,label:'Awaiting your confirmation',detail:'Review the exact action and target below. Sending a chat message is not confirmation.'};
@@ -76,7 +76,7 @@ function assistantActionPreview(item,proposal){
   const controls=el('div',null,'assistant-actions'),confirm=el('button',null,'primary'),dismiss=el('button','Dismiss preview');
   confirm.type=dismiss.type='button';controls.append(dismiss,confirm);section.append(status,controls);
   const route=dashboardRoute(preview.href);
-  if(route){const link=el('a','Review in workspace →');link.href=workspaceHref(route.view,route.id);link.onclick=e=>{e.preventDefault();navigateView(route.view,route.id);};section.append(link);}
+  if(route){const link=el('a','Review in project →');link.href=workspaceHref(route.view,route.id);link.onclick=e=>{e.preventDefault();navigateView(route.view,route.id);};section.append(link);}
   const action={proposal,element:section,status,confirm,dismiss,sending:false,cancelled:false,uncertain:false,receipt:null};
   assistantActions.set(doc.command.id,action);
   dismiss.onclick=()=>{action.cancelled=true;refreshAssistantActions();};

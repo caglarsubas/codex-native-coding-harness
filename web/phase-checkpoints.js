@@ -1,10 +1,10 @@
 "use strict";
 Object.assign(titles,{phaseCheckpoints:['Phase checkpoints','Inspect what was saved before deciding what comes next.']});
 const checkpointHistory=new Map(),checkpointReports=new Map(),checkpointPending=new Map(),checkpointDetails=new Map();
-const checkpointContext={matches_recorded_checkpoint:'Matches the recorded parked checkpoint',workspace_changed:'Workspace evidence changed · prepare a new report',superseded:'Earlier report · no longer the latest',checkpoint_unavailable:'Current parked checkpoint cannot be verified',not_checked:'Evidence could not be inspected'};
+const checkpointContext={matches_recorded_checkpoint:'Matches the recorded parked checkpoint',workspace_changed:'Project evidence changed · prepare a new report',superseded:'Earlier report · no longer the latest',checkpoint_unavailable:'Current parked checkpoint cannot be verified',not_checked:'Evidence could not be inspected'};
 function checkpointFreshness(result,snapshot,now=Date.now()/1000){
   if(!result)return 'Not inspected in this tab';
-  if(result.workspaceRevision!==snapshot.meta.revision)return 'Workspace changed since inspection · inspect again';
+  if(result.workspaceRevision!==snapshot.meta.revision)return 'Project changed since inspection · inspect again';
   if(now<result.inspectedAt||now-result.inspectedAt>60)return 'Earlier inspection · inspect again';
   return 'Inspection of saved local evidence · not live activity';
 }
@@ -18,18 +18,18 @@ function checkpointDisclosure(parent,key,label,body){
   details.append(el('summary',label),body);details.addEventListener('toggle',()=>checkpointDetails.set(id,details.open));parent.append(details);
 }
 function phaseCheckpointsView(root){
-  if(!state.workspace){root.append(empty('Select a registered workspace','Checkpoint reports belong to one workspace.'));return;}
+  if(!state.workspace){root.append(empty('Select a registered project','Checkpoint reports belong to one project.'));return;}
   const body=el('div',null,'phase-checkpoint-view');root.append(body);root=body;
   if(typeof checkpointDecisionView==='function')checkpointDecisionView(root);
   const history=checkpointHistory.get(workspaceId),result=checkpointReports.get(workspaceId),pending=checkpointPending.has(workspaceId);
   const intro=el('section',null,'run-inspection');intro.setAttribute('aria-label','Saved phase checkpoint inspection');
   intro.append(el('p',state.workspace.name+' · READ ONLY','eyebrow'),el('h2','What was preserved at the checkpoint?'),el('p','Load the saved versions, then inspect a report and its retained evidence. This does not observe native activity, measure usage, prepare a report or continue development.'));
   const load=button(pending?'Reading saved evidence…':history?'Reload report history':'Load report history',()=>loadPhaseCheckpoints(),'primary');load.disabled=pending||!connected;intro.append(load);root.append(intro);
-  if(!history){root.append(empty('No report history loaded','Opening this page does not inspect or change the workspace. Load history when you want to review its saved phase reports.'));if(result)checkpointReportView(root,result);return;}
+  if(!history){root.append(empty('No report history loaded','Opening this page does not inspect or change the project. Load history when you want to review its saved phase reports.'));if(result)checkpointReportView(root,result);return;}
   root.append(el('p',checkpointFreshness(history,state)+' · '+when(history.inspectedAt),'muted'));
   if(history.status==='history_limit'){root.append(callout('History exceeds the inspection limit',`${history.total} reports are retained; the inspection limit is ${history.limit}. No partial history is shown. Ask the operator for a bounded history migration; no records were removed.`));return;}
   if(history.unavailable)root.append(callout('Some report metadata is unavailable',`${history.unavailable} of ${history.total} records have missing or invalid metadata. Their creation order cannot be established. Ask the brain/operator to restore the retained evidence; reloading cannot repair it.`));
-  if(history.total&&!history.latestAvailable)root.append(callout('Latest report is unavailable','The latest report pointer does not identify a readable entry in this workspace. Earlier reports cannot stand in for it.'));
+  if(history.total&&!history.latestAvailable)root.append(callout('Latest report is unavailable','The latest report pointer does not identify a readable entry in this project. Earlier reports cannot stand in for it.'));
   if(!history.total){root.append(empty('No saved phase reports','A parked brain checkpoint is not yet a phase report. The designated brain must prepare the report from an exact parked run checkpoint. This page cannot create it or resume work.'));return;}
   root.append(section('Saved versions','Oldest first by report save time. Versions are per run; every row is historical until explicitly inspected.'));
   const versions=el('ol',null,'checkpoint-history');

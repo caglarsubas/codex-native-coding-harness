@@ -57,6 +57,6 @@ async function test(){
   assert(controls.some(n=>n.textContent.includes('<script>literal reason</script>')));
   const routeBox={window:{addEventListener(){}}};vm.createContext(routeBox);vm.runInContext(fs.readFileSync('web/routing.js','utf8'),routeBox);
   assert.equal(routeBox.dashboardRoute('#/w/alpha/retention').view,'retention');assert.equal(routeBox.dashboardRoute('#/retention/'+ 'a'.repeat(64)),null);
-  console.log('Retention UI: explicit reads, unchecked confirmations, workspace races, scoped drafts and immutable retries passed');
+  console.log('Retention UI: explicit reads, unchecked confirmations, project races, scoped drafts and immutable retries passed');
 }
 test().catch(error=>{console.error(error);process.exitCode=1});

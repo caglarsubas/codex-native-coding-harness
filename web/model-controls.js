@@ -71,7 +71,7 @@ function modelRevokeEditor(root,r){
 }
 function modelConfirmation(root,entry){
   const d=entry.proposal.document,r=d.request,review=d.operation==='review',wrap=el('section',null,'mission-review retention-preview');wrap.id='model-policy-confirmation';wrap.tabIndex=-1;
-  wrap.append(section(review?'Confirm model policy':'Confirm policy revocation',`Preview expires ${when(d.expiresAt)}. No policy change has been recorded yet.`),el('p','Workspace: '+d.workspaceId));
+  wrap.append(section(review?'Confirm model policy':'Confirm policy revocation',`Preview expires ${when(d.expiresAt)}. No policy change has been recorded yet.`),el('p','Project: '+d.workspaceId));
   if(review){wrap.append(el('p','Reviewed phase: '+d.scope.mission.phaseId),modelProfileTable(r.profiles),el('p','Quality floors: '+modelComplexities.map(c=>c+' '+r.qualityFloors[c]).join(' · ')),el('p','Maximum per-task escalations: '+r.maxEscalations),el('p','Capability observed: '+when(d.scope.capability.observedAt)));}
   else wrap.append(el('p','Policy SHA-256: '+r.policyHash,'mono mission-hash'),el('p',r.reason));
   wrap.append(callout('Existing run authority will be fenced','No model is called, task switched, usage reset or Play started. Policy review does not stop native work at a checkpoint; use Pause separately. A subsequent run still needs exact owner authorization.'));

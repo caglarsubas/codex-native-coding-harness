@@ -1,18 +1,18 @@
 "use strict";
 Object.assign(titles,{runReadiness:['Run readiness','What is configured, what needs evidence, and what still needs implementation.']});
 const runInspections=new Map(),runInspectionPending=new Map(),runInspectionDetails=new Map();
-const runCheckTitles={mission_binding:'Current mission binding',owner_review:'Exact owner review',brain_identity:'Designated brain',execution_mode:'Development approval mode',project_mappings:'Native project mappings',pause_checkpoint:'Pause checkpoint',controller_idle:'Recorded controller ownership',platform_baseline:'Platform inventory & usage evidence',packet_coverage:'Packet inspection coverage',run_activation:'Run activation & recovery',phase_release:'Phase approval & release',native_admission:'Resource & token admission',task_policy:'Task operations & execution settings',native_pilot:'Supervised native acceptance',workspace_changed:'Concurrent workspace change'};
+const runCheckTitles={mission_binding:'Current mission binding',owner_review:'Exact owner review',brain_identity:'Designated brain',execution_mode:'Development approval mode',project_mappings:'Native project mappings',pause_checkpoint:'Pause checkpoint',controller_idle:'Recorded controller ownership',platform_baseline:'Platform inventory & usage evidence',packet_coverage:'Packet inspection coverage',run_activation:'Run activation & recovery',phase_release:'Phase approval & release',native_admission:'Resource & token admission',task_policy:'Task operations & execution settings',native_pilot:'Supervised native acceptance',workspace_changed:'Concurrent project change'};
 function runInspectionState(report,snapshot,now=Date.now()/1000){
   if(!report)return {label:'Not inspected',stale:false};
   const changed=report.workspaceRevision!==snapshot.meta.revision;
-  return {label:changed?'Workspace changed · inspect again':now-report.generatedAt>60||now<report.generatedAt?'Earlier inspection · inspect again':'Recorded inspection · not clearance',stale:changed||now-report.generatedAt>60||now<report.generatedAt};
+  return {label:changed?'Project changed · inspect again':now-report.generatedAt>60||now<report.generatedAt?'Earlier inspection · inspect again':'Recorded inspection · not clearance',stale:changed||now-report.generatedAt>60||now<report.generatedAt};
 }
 function runInspectionDisclosure(parent,key,label,content){
   const details=el('details'),id=workspaceId+':'+key;details.open=runInspectionDetails.get(id)||false;
   details.append(el('summary',label),content);details.addEventListener('toggle',()=>runInspectionDetails.set(id,details.open));parent.append(details);
 }
 function runReadinessView(root){
-  if(!state.workspace){root.append(empty('Select a registered workspace','Run readiness belongs to one workspace and its current mission.'));return;}
+  if(!state.workspace){root.append(empty('Select a registered project','Run readiness belongs to one project and its current mission.'));return;}
   if(typeof observerControlPanel==='function')observerControlPanel(root);
   const report=runInspections.get(workspaceId),pending=runInspectionPending.has(workspaceId);
   const intro=el('section',null,'run-inspection');intro.setAttribute('aria-label','Run readiness inspection');

@@ -1,5 +1,17 @@
 # Codex Orchestrator — personal tooling
 
+## Codex project catalog (2026-09-22)
+
+User-facing projects correspond to native Codex projects. Internal workspace
+IDs/routes remain compatible. `project-sync` imports only the actual complete
+native `list_projects` observation, preserving its time; never infer it from
+directories or task titles. `project-bind` is an explicit owner mapping of an
+existing ledger, not registration, activation or authority. Catalog-only projects
+have no operational controls. Preserve removed project history separately. Reads
+do not discover, notify or create state. See docs/PROJECT-CATALOG.md. A dashboard
+sync request uses the existing explicitly confirmed brain conversation, not a new
+transport, scheduler, implicit Resume or installed-skill update.
+
 ## Workspace conversation (2026-09-21)
 
 The owner requested project selection and routine Codex interaction through the

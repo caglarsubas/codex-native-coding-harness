@@ -51,6 +51,6 @@ async function test(){
   // Export uses the inspected workspace, not whichever workspace is now selected.
   let anchor;box.document={body:new Element('body'),createElement:tag=>(anchor=new Element(tag))};
   vm.runInContext("workspaceId='beta'",box);box.downloadBudget(report);assert.equal(anchor.download,'budget-alpha.json');
-  console.log('Budget read-only rendering, unknown/zero/negative values, freshness, workspace races and scoped export checks passed');
+  console.log('Budget read-only rendering, unknown/zero/negative values, freshness, project races and scoped export checks passed');
 }
 test().catch(error=>{console.error(error);process.exitCode=1});

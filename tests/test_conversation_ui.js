@@ -34,5 +34,5 @@ async function render(){const root=new Element('root');box.conversationView(root
   pending=1;nodes=await render();assert.equal(nodes.find(n=>n.type==='submit').disabled,true);
   const source=fs.readFileSync('web/conversation.js','utf8');assert(!source.includes('innerHTML'));
   assert(source.includes("navigateView('artifacts',id)"));assert(source.includes("navigateView('decisions',id)"));
-  console.log('Conversation UI: workspace drafts, explicit confirmation, immutable retry, receipt labels and pending guard passed');
+  console.log('Conversation UI: project drafts, explicit confirmation, immutable retry, receipt labels and pending guard passed');
 })().catch(error=>{console.error(error);process.exitCode=1;});

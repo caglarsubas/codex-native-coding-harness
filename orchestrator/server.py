@@ -103,9 +103,10 @@ class WorkspaceRuntime:
         state["observerInspection"] = observer_summary(self.observer_inspection, state["meta"]["revision"])
         if self.registry:
             from .standard import read as standard_read
+            from .projects import display_name
             state["standard"] = standard_read(self.ledger)
             state["workspace"] = {"id": self.workspace_id,
-                "name": next(w["name"] for w in self.registry.list() if w["id"] == self.workspace_id),
+                "name": display_name(self.registry, self.workspace_id, next(w["name"] for w in self.registry.list() if w["id"] == self.workspace_id)),
                 "projectProfile": self.registry.profile(self.workspace_id)}
         return state
 
@@ -250,7 +251,9 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/session":
                 return self.respond(200, self.server.browser_auth.public(session))
             if path == "/api/workspaces":
+                from .projects import catalog
                 return self.respond(200, {"enabled": self.server.registry is not None,
+                    "catalog": catalog(self.server.registry, self.server.served_workspaces) if self.server.registry else None,
                     "workspaces": [w for w in self.server.registry.list() if w["id"] in self.server.served_workspaces]
                         if self.server.registry else []})
             if path == "/api/workspaces/summary" and self.server.registry:
