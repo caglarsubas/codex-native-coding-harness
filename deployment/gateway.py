@@ -103,7 +103,7 @@ class Handler(BaseHTTPRequestHandler):
             # Closed response headers preserve cookies/security, not upstream routing.
             allowed = {"content-type", "content-length", "cache-control", "set-cookie",
                        "content-security-policy", "x-content-type-options", "referrer-policy",
-                       "x-frame-options", "content-disposition"}
+                       "x-frame-options", "content-disposition", "retry-after"}
             for name, value in response.getheaders():
                 if name.lower() in allowed:
                     self.send_header(name, value)

@@ -363,6 +363,7 @@ approvals, tokens, live databases or conversation transcripts.
 ## Documentation
 
 - [Docker Compose gateway with native Mac backend](docs/DOCKER-COMPOSE.md)
+- [Local account sign-in and password reset](docs/LOCAL-ACCOUNT.md)
 - [Operator runbook](skills/codex-orchestrator/references/operations.md)
 - [Record contracts](docs/RECORDS.md)
 - [Acceptance and known boundaries](docs/ACCEPTANCE.md)

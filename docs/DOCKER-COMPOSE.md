@@ -36,13 +36,18 @@ your current native deployment; do not initialize another empty workspace.
    docker compose --env-file /dev/null ps
    ```
 
-4. Open the private URL in the existing platform's `dashboard-session.json` once
+4. For conventional sign-in, [configure a local account](LOCAL-ACCOUNT.md) and add
+   `--account-file /absolute/private/platform/browser-auth/account.json` to every
+   native startup command. Open the normal dashboard URL and sign in; no private
+   link is required in this mode.
+
+   For deployments without an account, open the private URL in the existing platform's `dashboard-session.json` once
    per browser. Select **Remember this browser** to retain authentication across
    gateway/backend restarts. The private root and public port must stay the same.
    Never share or commit that link. No token is needed in Compose configuration.
 
-After pairing, bookmark `http://127.0.0.1:8768/`. Both Chrome and the Codex browser
-have separate cookie stores and must each be paired. A temporary login still
+Bookmark `http://127.0.0.1:8768/`. Both Chrome and the Codex browser
+have separate cookie stores and must each sign in. A temporary login still
 expires on backend restart; remembered sessions remain revocable and time-limited.
 
 Docker Desktop shows the `codex-orchestrator` Compose application. The gateway
@@ -101,7 +106,8 @@ There are no new GitHub Actions workflows or paid APIs.
 
 To remove the gateway, use `docker compose --env-file /dev/null down` (no data
 volumes exist). Stop the identified backend safely and restart **the same current
-source** directly on `--port 8768`, omitting `--public-port`. Existing remembered
+source** directly on `--port 8768`, omitting `--public-port` and preserving
+`--account-file` when configured. Existing remembered
 cookies still bind to the same public origin/private root. Do not downgrade the
 application or restore old ledgers over newer receipts as part of network rollback.
 
