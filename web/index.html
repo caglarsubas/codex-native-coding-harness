@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="/decisions.css">
   <link rel="stylesheet" href="/panes.css">
   <script src="/app.js" defer></script>
+  <script src="/auth.js" defer></script>
   <script src="/observations.js" defer></script>
   <script src="/inference.js" defer></script>
   <script src="/readiness.js" defer></script>
@@ -76,9 +77,10 @@
   <section id="workspace-pane" class="pane workspace-pane" aria-label="Workspace pane">
   <button class="pane-expand" data-pane-toggle="workspace" aria-label="Expand workspace" hidden>Workspace →</button>
   <div class="workspace pane-body">
-    <header class="topbar"><span id="mode">Awaiting authenticated connection</span><div><button id="refresh">Refresh</button><a id="export-report" class="button" href="/api/export" download>Export report</a></div></header>
+    <header class="topbar"><span id="mode">Awaiting authenticated connection</span><div><button id="browser-access" aria-controls="browser-access-panel" aria-expanded="false" hidden>Browser access</button><button id="refresh">Refresh</button><a id="export-report" class="button" href="/api/export" download>Export report</a></div></header>
+    <section id="browser-access-panel" class="browser-access-panel" aria-label="Browser access" hidden></section>
     <main id="main" tabindex="-1">
-      <div class="page-heading"><div><p class="eyebrow">CONTROL / OBSERVE / VERIFY</p><h1 id="title">Operations overview</h1><p id="subtitle">A clear view of what is authorized, active, and proven.</p></div><div class="page-actions"><button id="pause">Pause dispatch</button><button id="reconcile" class="primary">Request reconciliation</button></div></div>
+      <div class="page-heading"><div><p class="eyebrow">CONTROL / OBSERVE / VERIFY</p><h1 id="title">Operations overview</h1><p id="subtitle">A clear view of what is authorized, active, and proven.</p></div><div class="page-actions"><button id="pause" disabled>Pause dispatch</button><button id="reconcile" class="primary" disabled>Request reconciliation</button></div></div>
       <div id="notice" role="status" aria-live="polite" hidden></div>
       <section id="content" aria-label="Selected dashboard view"><div class="empty"><h2>Connecting securely</h2><p>Use the private dashboard link generated on this computer. No repository or task data is exposed before authentication.</p></div></section>
     </main>
