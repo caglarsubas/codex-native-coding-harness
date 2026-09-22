@@ -14,6 +14,7 @@ import time
 
 from .core import Refusal, canonical, digest, require, safe_relative
 from .repository import blob, git, head, measure
+from .roadmaps import roadmap_content, checklist_scope
 
 TOKENS = ("input_tokens", "cached_input_tokens", "output_tokens", "reasoning_output_tokens", "total_tokens")
 EXTENSIONS = {".md", ".txt", ".json", ".csv", ".html", ".svg", ".png", ".jpg", ".jpeg", ".webp", ".pdf", ".docx", ".xlsx", ".pptx"}
@@ -75,10 +76,13 @@ def config(ledger):
     if not path.exists():
         return {"codexHome": None, "artifactRoots": [], "roadmaps": []}
     value = json.loads(path.read_text())
-    require(set(value) <= {"codexHome", "artifactRoots", "roadmaps"}, "Unknown observation setting")
+    require(set(value) <= {"codexHome", "artifactRoots", "roadmaps", "roadmapDrafts"}, "Unknown observation setting")
     for root in value.get("artifactRoots", []):
         require(set(root) == {"repository", "path"} and Path(root["path"]).is_absolute(), "Explicit artifact roots required")
         require(len(Path(root["path"]).parts) >= 4, "Artifact root is too broad")
+    for key in ("roadmaps", "roadmapDrafts"):
+        specs = value.get(key, [])
+        require(isinstance(specs, list) and len(specs) <= 32, "Roadmap source limit is 32 per kind")
     return value
 
 
@@ -405,20 +409,37 @@ def first_status_table(text):
     return None
 
 
-def roadmap_observation(db, spec, repos):
-    record = {**spec, "at": time.time(), "status": "unavailable", "items": []}
+def roadmap_observation(db, spec, repos, roots=None, draft=False):
+    record = {**spec, "at": time.time(), "status": "unavailable", "items": [],
+              "sourceKind": "proposal" if draft else "published"}
     try:
+        require(set(spec) <= {"repository", "path", "title", "currentSectionPrefixes", "historyBoundary"}, "Unknown roadmap source setting")
+        require(all(isinstance(spec.get(k), str) and spec[k] for k in ("repository", "path")), "Roadmap repository and path required")
+        require("title" not in spec or isinstance(spec["title"], str), "Invalid roadmap title")
+        prefixes = spec.get("currentSectionPrefixes", [])
+        require(isinstance(prefixes, list) and len(prefixes) <= 8 and all(isinstance(p, str) and 0 < len(p) <= 200 for p in prefixes), "Invalid current section prefixes")
+        require("historyBoundary" not in spec or isinstance(spec["historyBoundary"], str) and 0 < len(spec["historyBoundary"]) <= 200, "Invalid history boundary")
         repo = next(r for r in repos if r["id"] == spec["repository"])
-        safe_relative(spec["path"])
-        commit = head(repo["path"], repo["ref"])
-        raw = blob(repo["path"], commit, spec["path"])
+        commit = None
+        if draft:
+            root = next((r for r in roots or [] if r["repository"] == spec["repository"] and contained(spec["path"], r["path"])), None)
+            require(root is not None and Path(spec["path"]).is_absolute(), "Proposal must be inside this repository's configured artifact root")
+            require(Path(spec["path"]).suffix.lower() == ".md", "Proposal must be Markdown")
+            raw = read_regular(spec["path"], root["path"], MAX_ARTIFACT)
+        else:
+            safe_relative(spec["path"])
+            commit = head(repo["path"], repo["ref"])
+            raw = blob(repo["path"], commit, spec["path"])
         require(len(raw) <= MAX_ARTIFACT, "Roadmap too large")
-        document = capture(db, "roadmap:" + spec["repository"] + ":" + spec["path"], raw,
-            {"name": Path(spec["path"]).name, "repository": spec["repository"], "path": spec["path"],
-                "provenance": "git_roadmap", "commit": commit, "references": [], "createdAt": None, "orderAt": time.time()})
         text = raw.decode("utf-8")
-        record.update(status="observed", commit=commit, documentId=document["id"], items=parse_checklist(text), statusTable=first_status_table(text))
-    except (Refusal, OSError, subprocess.SubprocessError, UnicodeError, StopIteration) as error:
+        content = roadmap_content(text, spec)
+        document = capture(db, ("roadmap-draft:" if draft else "roadmap:") + spec["repository"] + ":" + spec["path"], raw,
+            {"name": Path(spec["path"]).name, "repository": spec["repository"], "path": spec["path"],
+                "provenance": "local_roadmap_proposal" if draft else "git_roadmap", "commit": commit, "references": [], "createdAt": None, "orderAt": time.time()})
+        items = [{**item, "scope": checklist_scope(item, content)} for item in parse_checklist(text)]
+        record.update(status="observed", commit=commit, documentId=document["id"], documentVersion=document["version"],
+                      sha256=document["sha256"], items=items, content=content, ref=None if draft else repo["ref"])
+    except (Refusal, OSError, subprocess.SubprocessError, UnicodeError, StopIteration, TypeError, KeyError) as error:
         record["reason"] = str(error)
     return record
 
@@ -481,7 +502,8 @@ def refresh_observations(ledger, remote=False):
             save(db, "usage", usage)
             errors.extend(capture_artifacts(db, roots))
             plans = [roadmap_observation(db, spec, repos) for spec in settings.get("roadmaps", [])]
-            save(db, "roadmaps", {"at": time.time(), "plans": plans})
+            drafts = [roadmap_observation(db, spec, repos, roots, draft=True) for spec in settings.get("roadmapDrafts", [])]
+            save(db, "roadmaps", {"at": time.time(), "plans": plans, "drafts": drafts})
             result = {"at": time.time(), "status": "partial" if errors else "complete", "remoteRequested": remote,
                 "importedRecords": imported, "unchangedFiles": skipped, "errors": errors, "usageConfigured": bool(codex_home)}
             save(db, "refresh", result)

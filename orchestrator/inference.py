@@ -269,6 +269,7 @@ def projection(state):
     remote_records = [r for r in remote_records if r and r.get("remoteAt")]
     prs = [pr for r in remote_records for pr in r.get("pullRequests", [])]
     plans = obs.get("roadmaps", {}).get("plans", [])
+    countable_plans = [p for p in plans if p.get("content", {}).get("classificationComplete") is not False]
     usage = obs.get("usage") or {}
     counts = usage.get("aggregate", {})
     facts = [
@@ -293,8 +294,10 @@ def projection(state):
             "oldestObservationAt": min((r["remoteAt"] for r in remote_records), default=None), "prStates": dict(Counter(p["state"] for p in prs)),
             "limitPerRepository": 100}},
         {"id": "F7", "label": "Recorded plans and retained artifacts", "data": {"plansObserved": sum(p["status"] == "observed" for p in plans),
-            "plansUnavailable": sum(p["status"] != "observed" for p in plans), "checklistItems": sum(len(p["items"]) for p in plans),
-            "checkedItems": sum(i["checked"] for p in plans for i in p["items"]),
+            "plansUnavailable": sum(p["status"] != "observed" for p in plans), "checklistItems": sum(i.get("scope") != "historical" for p in countable_plans for i in p["items"]),
+            "checkedItems": sum(i["checked"] for p in countable_plans for i in p["items"] if i.get("scope") != "historical"),
+            "plansWithoutChecklists": sum(p["status"] == "observed" and not p["items"] for p in plans),
+            "draftProposals": len(obs.get("roadmaps", {}).get("drafts", [])),
             "artifactVersionsExcludingBriefs": sum(a.get("key") != "inference:executive-summary" for a in obs.get("artifacts", []))}},
         {"id": "F8", "label": "Observation freshness", "data": {"lastLocalObservationAt": (obs.get("refresh") or {}).get("at"),
             "lastLocalObservationStatus": (obs.get("refresh") or {}).get("status", "not_observed"), "brainFreshnessLimitSeconds": 1800,
@@ -304,7 +307,7 @@ def projection(state):
         "limitations": ["No code, transcript, artifact contents, paths, task IDs or credentials supplied.",
             "Historical usage follows initial task cwd; no per-product causal allocation.",
             "Worktree dirtiness is not failure. Merge does not imply CI, deployment or tenant acceptance.",
-            "Plan checkmarks are recorded claims. Native attachment and historical file coverage is incomplete."]}
+            "Plan checkmarks are recorded claims, not project completion. Narrative plans lack checkbox totals; unpublished proposals and historical items are excluded. Native attachment and historical file coverage is incomplete."]}
 
 
 def validate_response(response, facts, config):

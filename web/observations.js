@@ -8,7 +8,7 @@ Object.assign(titles, {
   usage:["Token usage", "Local usage by repository, task, model and reasoning effort."],
   gitStatus:["Git & delivery", "From working tree to remote branch and pull request."],
   artifacts:["Artifact library", "Read preserved outputs across tasks, in order and by version."],
-  roadmap:["Roadmap", "Versioned plans and recorded checklist progress."]
+  roadmap:["Roadmap", "Published plans, recorded milestones and separate proposals."]
 });
 
 function observationFilters(root) {
@@ -168,27 +168,75 @@ function artifacts(root) {
   if (selected) artifactReader(root, selected);
 }
 
+const roadmapOpen = new Set();
+function roadmapChecklist(root,items,proposal=false) {
+  if(!items.length){root.append(el('p','Checklist completion not available — this source uses narrative or tables, not checkboxes.','metric-note'));return;}
+  const done=items.filter(i=>i.checked).length;
+  root.append(el('p',`${done} / ${items.length} ${proposal?'proposal checkboxes marked':'source checkboxes marked complete'} · ${Math.round(100*done/items.length)}% of this checklist only`,'metric-note'));
+  const progress=el('progress');progress.max=items.length;progress.value=done;progress.setAttribute('aria-label','Source checklist completion, not project acceptance');root.append(progress);
+  const details=el('details');details.append(el('summary','Read checklist items'),table(['Recorded state','Item','Section / line'],items.map(i=>[i.checked?'Marked complete':'Open',i.label,textCell(i.section,'Line '+i.line)])));root.append(details);
+}
+function roadmapTables(root,tables) {
+  for(const t of tables){
+    root.append(el('h4',t.heading+' · line '+t.line),table(t.headers,t.rows));
+    if(t.omittedRows)root.append(el('p',t.omittedRows+' rows omitted or unsupported. Read the retained source for the complete table.','muted'));
+  }
+}
+function roadmapDocument(root,plan,proposal=false,index=0) {
+  const key=(workspaceId||'')+':'+plan.repository+':'+plan.path;
+  const details=el('details',null,'roadmap-document');details.open=roadmapOpen.has(key)||(!proposal&&index===0&&!roadmapOpen.has(key+':closed'));
+  details.addEventListener('toggle',()=>{if(!details.isConnected)return;if(details.open){roadmapOpen.add(key);roadmapOpen.delete(key+':closed');}else{roadmapOpen.delete(key);roadmapOpen.add(key+':closed');}});
+  details.append(el('summary',plan.title||plan.path.split('/').pop()));
+  details.append(el('p',plan.repository+' · '+(proposal?'Private proposal · not published':(plan.ref||'Configured Git ref')+' · '+(plan.commit?.slice(0,12)||'revision unavailable'))+' · observed '+when(plan.at),'muted'));
+  root.append(details);
+  if(plan.status!=='observed'){details.append(el('p','Source unavailable: '+(plan.reason||'No observation retained.')));return details;}
+  const content=plan.content;
+  if(!content)details.append(el('p','Legacy snapshot: refresh local observations to classify current sections and historical checkpoints. No table is assumed current.','muted'));
+  const items=(plan.items||[]).filter(i=>i.scope!=='historical');
+  if(content?.classificationComplete===false)details.append(el('p','Checklist summary withheld until the source mapping is repaired. Read the retained source.','metric-note'));
+  else roadmapChecklist(details,items,proposal);
+  if(content){
+    for(const issue of content.issues)details.append(el('p',issue,'muted'));
+    if(content.highlights.length){
+      details.append(el('h3',proposal?'Proposal excerpts — not adopted':'Current sections — as recorded in this source'));
+      for(const h of content.highlights){
+        details.append(el('h4',h.heading+' · line '+h.line));
+        // Tables have their own readable rendering below, with the same source lines.
+        const prose=h.text.split('\n').filter(line=>!line.trim().startsWith('|')).join('\n').trim();
+        if(prose)details.append(el('p',prose,'roadmap-excerpt'));
+        if(h.truncated)details.append(el('p','Excerpt shortened. Read the full retained source.','muted'));
+      }
+    }
+    roadmapTables(details,content.tables.filter(t=>t.scope==='current'));
+    const other=content.tables.filter(t=>t.scope==='document');
+    if(other.length){const d=el('details');d.append(el('summary','Other source tables · currency not classified'));roadmapTables(d,other);details.append(d);}
+    const historical=content.tables.filter(t=>t.scope==='historical'),oldItems=(plan.items||[]).filter(i=>i.scope==='historical');
+    if(content.historyStart){const d=el('details');d.append(el('summary','Historical checkpoints · not current status'),el('p','The configured history boundary starts at line '+content.historyStart+'. Historical claims are excluded from the checklist above.','muted'));roadmapTables(d,historical);if(oldItems.length)roadmapChecklist(d,oldItems,proposal);if(!historical.length&&!oldItems.length)d.append(el('p','Read the source to inspect historical narrative checkpoints.'));details.append(d);}
+    if(content.omittedTables||content.omittedHighlights)details.append(el('p','Display limits reached: '+content.omittedTables+' tables and '+content.omittedHighlights+' excerpts omitted. Read the full source.','muted'));
+  }else if(plan.statusTable){const d=el('details');d.append(el('summary','Previously captured table · currency unknown'),table(plan.statusTable.headers,plan.statusTable.rows));details.append(d);}
+  if(proposal)details.append(el('p','Retaining or reading this proposal does not publish it, approve a packet or start development.','muted'));
+  const actions=el('div',null,'inline-actions');
+  actions.append(button('Read source'+(plan.documentVersion?' · v'+plan.documentVersion:''),()=>navigateView('artifacts',plan.documentId)));
+  details.append(actions);
+  const current=state.observations.artifacts.find(a=>a.id===plan.documentId);
+  const versions=current?state.observations.artifacts.filter(a=>a.key===current.key):[];
+  if(versions.length>1){const d=el('details');d.append(el('summary','Retained source versions · '+versions.length));for(const a of versions)d.append(button('Read v'+a.version+' · '+when(a.observedAt),()=>navigateView('artifacts',a.id)));details.append(d);}
+  return details;
+}
 function roadmap(root) {
   observationFilters(root);
-  const plans = state.observations.roadmaps.plans.filter(inRepo);
-  root.append(callout("Recorded progress is not execution authority", "Checklists are read from configured Git revisions. A checked item is the plan author's recorded claim, not independent acceptance. Update the plan in its repository; this view never approves work or checks off items automatically."));
-  if (!plans.length) { root.append(empty("No roadmap sources configured", "Add explicit repository-relative Markdown checklist paths in observations.json. Plans without checkboxes remain readable source documents.")); return; }
-  for (const plan of plans) {
-    root.append(section(plan.title || plan.path, plan.repository + " · " + (plan.commit?.slice(0,12) || "unavailable") + " · " + when(plan.at)));
-    if (plan.status === "unavailable") { root.append(el("p", plan.reason, "muted")); continue; }
-    const done = plan.items.filter(i => i.checked).length;
-    root.append(el("p", `${done} / ${plan.items.length} recorded complete${plan.items.length ? " · " + Math.round(100 * done / plan.items.length) + "%" : " · no Markdown checkboxes in this source"}`, "metric-note"));
-    if (plan.items.length) {
-      const progress = el("progress"); progress.max=plan.items.length; progress.value=done; progress.setAttribute("aria-label", "Recorded checklist completion"); root.append(progress);
-      root.append(table(["Recorded state", "Checklist item", "Section / line"], plan.items.map(item => [item.checked ? "☑ Recorded complete" : "☐ Open", item.label, textCell(item.section, "Line " + item.line)])));
-    }
-    if (plan.statusTable) {
-      root.append(el("p", "First status table, recorded verbatim; older tables are not combined.", "metric-note"));
-      root.append(table(plan.statusTable.headers, plan.statusTable.rows));
-    }
-    root.append(button("Read plan source", () => { selected=plan.documentId; render(); }));
-  }
-  if (selected) artifactReader(root, selected);
+  const data=state.observations.roadmaps,plans=data.plans.filter(inRepo),drafts=(data.drafts||[]).filter(inRepo);
+  root.append(el('p','Source claims, not execution authority. Published documents, historical checkpoints and private proposals remain separate. No item is automatically approved or completed.','roadmap-boundary'));
+  root.append(section('Published roadmap sources',plans.filter(p=>p.status==='observed').length+' / '+plans.length+' configured sources readable · '+drafts.length+' configured private proposals'));
+  root.append(el('p','Coverage is limited to explicitly configured sources; linked documents and Codex conversations are not imported automatically. Git refs may be stale; the observation time is not a publication date.','muted'));
+  if(!plans.length)root.append(empty('No published roadmap sources configured','Add the repository-relative Markdown paths in observations.json. Narrative plans and tables are supported; checkboxes are optional.'));
+  const documents=el('div');
+  const rows=plans.map((plan,index)=>{const panel=roadmapDocument(documents,plan,false,index);return [button(plan.title||plan.path,()=>{panel.open=true;roadmapOpen.add((workspaceId||'')+':'+plan.repository+':'+plan.path);panel.scrollIntoView({block:'start'});panel.querySelector('summary').focus();}),plan.repository,plan.status==='observed'?'Readable':'Unavailable',plan.commit?.slice(0,12)||'Unknown'];});
+  if(rows.length)root.append(table(['Document','Repository','Coverage','Source revision'],rows));
+  root.append(documents);
+  root.append(section('Private proposals — not published','Separate from the published roadmap and its completion counts.'));
+  if(!drafts.length)root.append(el('p','No private proposals configured. This does not mean no drafts exist in Codex. An operator can add an exact Markdown path from an approved artifact root to roadmapDrafts in observations.json.','muted'));
+  drafts.forEach((p,index)=>roadmapDocument(root,p,true,index));
 }
 
 setInterval(() => {
