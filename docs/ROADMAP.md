@@ -3,6 +3,17 @@
 This is recorded implementation progress, not deployment, pilot, or product
 acceptance authority. Items change through reviewed repository edits.
 
+## Roadmap source coverage — source implementation
+
+- [x] Catalog explicitly configured narrative, checklist and table-based plans
+- [x] Keep configured current sections separate from historical checkpoints
+- [x] Replace missing checklist totals with an explicit unavailable label
+- [x] Retain private proposal versions without publication or approval
+- [x] Provide source/version navigation, coverage gaps and bounded literal excerpts
+
+These are dashboard capabilities, not completion of the plans they display.
+See [roadmap source configuration](ROADMAP-SOURCES.md) for refresh and boundaries.
+
 ## Foundation — v1
 
 - [x] Reusable portfolio configuration and repository-specific policies

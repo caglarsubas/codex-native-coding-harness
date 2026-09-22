@@ -1,0 +1,12 @@
+{
+  "roadmaps": [
+    {"repository": "harness-meta", "path": "docs/MASTER_DEVELOPMENT_PLAN.md", "title": "Harness master development plan", "currentSectionPrefixes": ["Current "], "historyBoundary": "Retained planning and historical checkpoints"},
+    {"repository": "harness-meta", "path": "docs/DEVELOPMENT_STATUS.md", "title": "Harness recorded development status", "currentSectionPrefixes": ["Current "], "historyBoundary": "Retained planning and historical checkpoints"},
+    {"repository": "harness-meta", "path": "docs/alpha-2/HOST_INTERFACE_PUBLICATION.md", "title": "W01 interface checkpoint and unresolved gates", "currentSectionPrefixes": ["Current position", "Unresolved adoption gates"]},
+    {"repository": "harness-meta", "path": "docs/alpha-2/PROVIDER_ADOPTION_ROADMAP.md", "title": "Provider adoption and repository ownership"},
+    {"repository": "harness-meta", "path": "docs/alpha-2/HARNESS_PAPER_REPOSITORY_MAP.md", "title": "Harness, research and repository map"},
+    {"repository": "harness-meta", "path": "docs/READINESS_INDEX.md", "title": "Implementation readiness index"},
+    {"repository": "harness-meta", "path": "docs/alpha-2/CANONICAL_REPAIR_PLAN.md", "title": "Alpha 2 canonical repair plan"}
+  ],
+  "roadmapDrafts": []
+}

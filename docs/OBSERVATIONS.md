@@ -1,5 +1,8 @@
 # Observation contracts
 
+For narrative roadmaps, scoped current/historical sections and separate private
+proposals, see [Roadmap sources](ROADMAP-SOURCES.md).
+
 Observations are private, read-only evidence. Refresh never changes dispatch,
 approval, Git history, product files or a native task. The dashboard polls saved
 results; a refresh button starts one non-overlapping collection job. An optional
