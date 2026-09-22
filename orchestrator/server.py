@@ -123,7 +123,7 @@ class Dashboard(ThreadingHTTPServer, WorkspaceRuntime):
     daemon_threads = True
 
     def __init__(self, ledger, port=8768, inference_env=ENV_FILE, runtime_root=WEB.parent,
-                 notification_cli=None, registry=None, public_port=None):
+                 notification_cli=None, registry=None, public_port=None, account_file=None):
         if public_port is not None and (type(public_port) is not int or not 1 <= public_port <= 65535):
             raise ValueError("Public port must be an integer between 1 and 65535")
         ThreadingHTTPServer.__init__(self, ("127.0.0.1", port), Handler)
@@ -131,8 +131,14 @@ class Dashboard(ThreadingHTTPServer, WorkspaceRuntime):
         self.registry = registry
         self.origin = f"http://127.0.0.1:{public_port if public_port is not None else self.server_port}"
         self.bootstrap = secrets.token_urlsafe(32)
+        self.account = None
         try:
-            self.browser_auth = BrowserAuth(registry.root if registry else ledger.root, self.origin)
+            if account_file is not None:
+                from .account import LocalAccount
+                self.account = LocalAccount(account_file)
+                self.bootstrap = None  # No token-link fallback in account mode.
+            auth_origin = self.origin + ("\naccount:" + self.account.identity if self.account else "")
+            self.browser_auth = BrowserAuth(registry.root if registry else ledger.root, auth_origin)
         except Exception:
             self.server_close()
             raise
@@ -196,6 +202,8 @@ class Handler(BaseHTTPRequestHandler):
             return ""
 
     def session(self):
+        if self.server.account:
+            self.server.account.ensure_current()
         return self.server.browser_auth.session(self.session_id())
 
     def route(self, path):
@@ -215,6 +223,8 @@ class Handler(BaseHTTPRequestHandler):
         path = urlsplit(self.path).path
         if path == "/healthz":
             return self.respond(200, {"status": "ok", "service": "codex-orchestrator"})
+        if path == "/api/auth/options":
+            return self.respond(200, {"mode": "account" if self.server.account else "private-link"})
         static = {"/": ("index.html", "text/html; charset=utf-8"), "/app.js": ("app.js", "text/javascript; charset=utf-8"), "/style.css": ("style.css", "text/css; charset=utf-8")}
         static["/observations.js"] = ("observations.js", "text/javascript; charset=utf-8")
         static["/inference.js"] = ("inference.js", "text/javascript; charset=utf-8")
@@ -235,7 +245,7 @@ class Handler(BaseHTTPRequestHandler):
         except Refusal:
             return self.respond(503, {"error": UNAVAILABLE})
         if not session:
-            return self.respond(401, {"error": UNAUTHENTICATED, "authRequired": True})
+            return self.respond(401, {"error": "Sign in with your local account." if self.server.account else UNAUTHENTICATED, "authRequired": True})
         try:
             if path == "/api/session":
                 return self.respond(200, self.server.browser_auth.public(session))
@@ -396,10 +406,25 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 body = json.loads(raw)
             if self.path == "/api/login":
-                if not isinstance(body, dict) or not isinstance(body.get("token"), str) or not secrets.compare_digest(body["token"], self.server.bootstrap):
-                    return self.respond(403, {"error": "Invalid local session token"})
-                if set(body) - {"token", "rememberDays"}:
-                    raise Refusal("Expected token and optional rememberDays")
+                if self.server.account:
+                    from .account import Throttled, UNAVAILABLE as ACCOUNT_UNAVAILABLE
+                    from .browser_auth import remember_days
+                    if not isinstance(body, dict) or set(body) - {"username", "password", "rememberDays"}:
+                        return self.respond(403, {"error": "Account name or password is incorrect."})
+                    remember_days(body.get("rememberDays", 0))
+                    try:
+                        verified = self.server.account.verify(body.get("username"), body.get("password"))
+                    except Throttled as error:
+                        return self.respond(429, {"error": str(error)}, headers={"Retry-After": "300"})
+                    except Refusal:
+                        return self.respond(503, {"error": ACCOUNT_UNAVAILABLE})
+                    if not verified:
+                        return self.respond(403, {"error": "Account name or password is incorrect."})
+                else:
+                    if not isinstance(body, dict) or not isinstance(body.get("token"), str) or not secrets.compare_digest(body["token"], self.server.bootstrap):
+                        return self.respond(403, {"error": "Invalid local session token"})
+                    if set(body) - {"token", "rememberDays"}:
+                        raise Refusal("Expected token and optional rememberDays")
                 auth = self.server.browser_auth
                 # Reopening a private link must not downgrade an already remembered browser.
                 current = self.session()
@@ -599,7 +624,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.respond(400, {"error": "Malformed request: " + str(error)})
 
 
-def serve(ledger, port, notification_cli=None, registry=None, inference_env=None, public_port=None):
+def serve(ledger, port, notification_cli=None, registry=None, inference_env=None, public_port=None, account_file=None):
     # Every registered ledger has a single dashboard owner. New registrations
     # become served only after a restart and lock acquisition, never on a GET.
     import fcntl
@@ -617,14 +642,15 @@ def serve(ledger, port, notification_cli=None, registry=None, inference_env=None
                 raise Refusal("Dashboard already running for a registered ledger") from error
         server = Dashboard(ledger, port, notification_cli=notification_cli, registry=registry,
                            inference_env=inference_env if inference_env is not None else ENV_FILE,
-                           public_port=public_port)
+                           public_port=public_port, account_file=account_file)
         # Freeze the exact locked set, including a registration that races startup.
         if registry:
             server.served_workspaces = {w["id"] for w in registered}
         session_file = (registry.root if registry else ledger.root) / "dashboard-session.json"
         fd = os.open(session_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         with os.fdopen(fd, "w") as stream:
-            json.dump({"url": server.origin + "/#token=" + server.bootstrap, "pid": os.getpid(), "startedAt": time.time()}, stream)
+            json.dump({"url": server.origin + ("/" if server.account else "/#token=" + server.bootstrap),
+                       "authMode": "account" if server.account else "private-link", "pid": os.getpid(), "startedAt": time.time()}, stream)
         print(json.dumps({"dashboard": server.origin, "privateSessionFile": str(session_file)}), flush=True)
         try:
             server.serve_forever(poll_interval=0.5)

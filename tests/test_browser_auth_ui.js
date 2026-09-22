@@ -21,14 +21,14 @@ vm.createContext(box);vm.runInContext(fs.readFileSync('web/auth.js','utf8'),box)
 const run=code=>vm.runInContext(code,box),all=root=>[root,...root.children.flatMap(x=>x instanceof Element?all(x):[])];
 (async()=>{
   await run('start()');
-  assert.equal(requests[0].path,'/api/session');assert.equal(requests[0].options.global,true);
+  assert.equal(requests[0].path,'/api/auth/options');assert.equal(requests[1].path,'/api/session');assert.equal(requests[1].options.global,true);
   assert.equal(box.location.hash,'#/w/harness/conversation','Bookmark route must survive sign-in');
   let panel=all(nodes.get('browser-access-panel'));
   assert.equal(panel.find(n=>n.tag==='select').value,'30');
   assert.equal(panel.find(n=>n.type==='checkbox').checked,false);
   const revoke=panel.find(n=>n.text==='Sign out all browsers');assert.equal(revoke.disabled,true);
   // Revoke cannot submit through a programmatic click without confirmation.
-  revoke.click();assert.equal(requests.length,1);
+  revoke.click();assert.equal(requests.length,2);
   const form=panel.find(n=>n.tag==='form');
   form.onsubmit({preventDefault(){}});await new Promise(resolve=>setImmediate(resolve));
   const remember=requests.find(r=>r.path==='/api/session/remember');
@@ -38,6 +38,22 @@ const run=code=>vm.runInContext(code,box),all=root=>[root,...root.children.flatM
   locked=true;const before=requests.length;await run("changeBrowserAccess('/api/logout',{})");assert.equal(requests.length,before);
   run('browserSignedOut()');assert.equal(box.state,null);assert.equal(box.connected,false);
   assert.equal(nodes.get('browser-access').hidden,true);assert.equal(nodes.get('pause').disabled,true);
+  run("authMode='account';browserSignedOut()");
+  let signIn=all(nodes.get('content')),accountForm=signIn.find(n=>n.tag==='form');
+  const accountName=signIn.find(n=>n.name==='username'),password=signIn.find(n=>n.name==='password');
+  assert.equal(password.type,'password');assert.equal(password.autocomplete,'current-password');
+  assert.equal(accountName.autocomplete,'username');assert.equal(signIn.find(n=>n.type==='checkbox').checked,false);
+  accountName.value='owner@example.test';password.value='fixture-only-password';
+  await accountForm.onsubmit({preventDefault(){}});
+  const login=requests.find(r=>r.path==='/api/login');
+  assert.deepEqual(JSON.parse(login.options.body),{username:'owner@example.test',password:'fixture-only-password',rememberDays:0});
+  assert.equal(password.value,'');assert.equal(box.location.hash,'#/w/harness/conversation');
+  box.api=async()=>{throw new Error('Account name or password is incorrect.');};
+  run("authMode='account';browserSignedOut()");
+  signIn=all(nodes.get('content'));accountForm=signIn.find(n=>n.tag==='form');
+  const failedPassword=signIn.find(n=>n.name==='password');failedPassword.value='wrong';
+  await accountForm.onsubmit({preventDefault(){}});
+  assert.equal(failedPassword.value,'');assert.equal(signIn.find(n=>n.id==='signin-error').hidden,false);
   const source=fs.readFileSync('web/auth.js','utf8');
   for(const forbidden of ['localStorage','sessionStorage','innerHTML'])assert(!source.includes(forbidden));
   console.log('Browser access UI: opt-in, global CSRF, revocation confirmation, bookmark preservation and sign-out passed');
