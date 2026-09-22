@@ -223,10 +223,47 @@ function roadmapDocument(root,plan,proposal=false,index=0) {
   if(versions.length>1){const d=el('details');d.append(el('summary','Retained source versions · '+versions.length));for(const a of versions)d.append(button('Read v'+a.version+' · '+when(a.observedAt),()=>navigateView('artifacts',a.id)));details.append(d);}
   return details;
 }
+function roadmapReviewPlay(root) {
+  const workspace=state.workspace, standard=state.standard;
+  if(!workspace)return;
+  if(workspace.projectProfile!=='standard'){
+    root.append(section('Review & Play','Unavailable for this project'));
+    root.append(el('p','This project is not configured for the cooperative standard policy. Roadmap records remain read-only; they cannot opt a Harness or other project into standard Play.','muted'));
+    return;
+  }
+  const mission=state.mission, document=mission?.document, delegated=document?.spec?.authority?.approvalMode==='phase_delegated';
+  const catalog=standard?.catalog;
+  const run=standard?.run;
+  root.append(section('Review & Play','Prepare one bounded next phase — never the whole roadmap.'));
+  const panel=el('section',null,'detail roadmap-review-play');
+  if(run){
+    panel.append(el('h3','A cooperative phase is already recorded'),el('p','Review, Pause and checkpoint controls for this exact phase remain on Overview. A roadmap item cannot restart it, reset its allowance, or authorize another phase.','muted'));
+    panel.append(button('Open current phase',()=>navigateView('overview')));
+  }else{
+    panel.append(el('h3',standard?.available?'Ready to review Play':'Review the prerequisites first'));
+    panel.append(el('p','Reviewing a mission does not start work. After the separate Review Play preview, the owner must explicitly confirm the exact phase, observed-usage boundary, limits and recorded model/effort catalog.','muted'));
+    const phaseState=mission?.effectiveStatus==='reviewed'&&document?'Reviewed exact phase':'Missing: review an exact mission phase';
+    const catalogState=catalog?'Recorded native model/effort catalog':'Missing: the designated brain must record the native catalog';
+    panel.append(table(['Prerequisite','Recorded state'],[
+      ['Project policy','Standard cooperative project'],
+      ['Exact mission',phaseState],
+      ['Phase delegation',delegated?'Phase-delegated authority recorded':'Missing: phase-delegated authority is required'],
+      ['Native catalog',catalogState],
+      ['Dispatch / run',state.meta.paused?'Paused · no run started':'Resolve dispatch state before review']
+    ]));
+    if(standard?.blocker)panel.append(el('p','Current gate: '+standard.blocker,'checkpoint'));
+    const actions=el('div',null,'inline-actions');
+    actions.append(button('Review mission & prerequisites',()=>navigateView('mission')));
+    if(standard?.available)actions.append(button('Open Review Play',()=>navigateView('overview'),'primary'));
+    panel.append(actions);
+  }
+  root.append(panel);
+}
 function roadmap(root) {
   observationFilters(root);
   const data=state.observations.roadmaps,plans=data.plans.filter(inRepo),drafts=(data.drafts||[]).filter(inRepo);
   root.append(el('p','Source claims, not execution authority. Published documents, historical checkpoints and private proposals remain separate. No item is automatically approved or completed.','roadmap-boundary'));
+  roadmapReviewPlay(root);
   root.append(section('Published roadmap sources',plans.filter(p=>p.status==='observed').length+' / '+plans.length+' configured sources readable · '+drafts.length+' configured private proposals'));
   root.append(el('p','Coverage is limited to explicitly configured sources; linked documents and Codex conversations are not imported automatically. Git refs may be stale; the observation time is not a publication date.','muted'));
   if(!plans.length)root.append(empty('No published roadmap sources configured','Add the repository-relative Markdown paths in observations.json. Narrative plans and tables are supported; checkboxes are optional.'));

@@ -13,7 +13,7 @@ const box={titles:{},workspaceId:'alpha',setInterval(){},el:(tag,text)=>new Node
   section:(title,subtitle)=>new Node('h2',title+' '+(subtitle||'')),when:String,
   table:(headers,rows)=>Object.assign(new Node('table'),{headers,rows}),textCell:(a,b)=>a+' '+b,
   button:(label,click)=>Object.assign(new Node('button',label),{click}),empty:(a,b)=>new Node('p',a+' '+b),
-  navigateView:(view,id)=>navigation={view,id},state:{observations:{artifacts:[]}}};
+  navigateView:(view,id)=>navigation={view,id},state:{meta:{paused:true},workspace:{projectProfile:'standard'},standard:{available:false,blocker:'Review an exact mission first',catalog:null,run:null},mission:{effectiveStatus:'not_configured'},observations:{artifacts:[]}}};
 vm.createContext(box);vm.runInContext(fs.readFileSync('web/observations.js','utf8'),box);
 const run=code=>vm.runInContext(code,box),nodes=root=>[root,...root.children.flatMap(nodes)],text=root=>nodes(root).map(n=>n.text).join('\n');
 const plan={repository:'fixture',path:'docs/plan.md',title:'Main plan',status:'observed',at:1,commit:'a'.repeat(40),documentId:'b'.repeat(64),documentVersion:2,items:[],
@@ -31,5 +31,8 @@ assert(!nodes(box.root).some(n=>n.text==='Current sections — as recorded in th
 box.root=new Node('main');box.plan={...plan,content:null,statusTable:{headers:['Status'],rows:[['OLD']]}};run('roadmapDocument(root,plan)');assert.match(text(box.root),/currency unknown/);
 run('observationFilters=()=>{};inRepo=()=>true');box.root=new Node('main');box.state.observations.roadmaps={plans:[plan],drafts:[]};run('roadmap(root)');
 assert.match(text(box.root),/1 \/ 1 configured sources readable/);assert.match(text(box.root),/does not mean no drafts exist/);
+assert.match(text(box.root),/Review & Play/);assert.match(text(box.root),/Reviewing a mission does not start work/);assert.match(text(box.root),/Review an exact mission first/);
+nodes(box.root).find(n=>n.text==='Review mission & prerequisites').click();assert.deepEqual(navigation,{view:'mission',id:undefined});
+box.state.workspace.projectProfile='harness';box.root=new Node('main');run('roadmap(root)');assert.match(text(box.root),/Unavailable for this project/);assert.match(text(box.root),/cannot opt a Harness/);
 assert(!fs.readFileSync('web/observations.js','utf8').includes('innerHTML'));
-console.log('Roadmap UI: honest empty counts, literal current excerpts, collapsed history, proposals, versions, legacy snapshots and source links passed');
+console.log('Roadmap UI: honest empty counts, literal current excerpts, Review & Play gates, proposals, versions, legacy snapshots and source links passed');

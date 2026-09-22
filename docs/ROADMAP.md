@@ -10,6 +10,7 @@ acceptance authority. Items change through reviewed repository edits.
 - [x] Replace missing checklist totals with an explicit unavailable label
 - [x] Retain private proposal versions without publication or approval
 - [x] Provide source/version navigation, coverage gaps and bounded literal excerpts
+- [x] Surface Review & Play prerequisites for configured standard projects, with separate review and owner confirmation
 
 These are dashboard capabilities, not completion of the plans they display.
 See [roadmap source configuration](ROADMAP-SOURCES.md) for refresh and boundaries.
