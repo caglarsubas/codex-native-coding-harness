@@ -8,7 +8,7 @@ import unittest
 import uuid
 from unittest.mock import patch
 
-from orchestrator.core import Ledger, Refusal
+from orchestrator.core import Ledger, Refusal, digest
 from orchestrator import conversation
 from orchestrator.decisions import inbox, publish
 from orchestrator.notification import BrainNotifier
@@ -24,6 +24,69 @@ def envelope(ledger, **payload):
 
 
 class ConversationTest(unittest.TestCase):
+    def retain_phase(self, run_id='run-1', brain=BRAIN):
+        result = {'taskId': 'task-1', 'runId': run_id, 'at': 42,
+                  'evidence': {'summary': 'Awaiting owner review <script>',
+                               'source': 'https://github.com/example/product/pull/71',
+                               'tests': '1631 passed', 'preservation': 'Retained'}}
+        key = digest(result)
+        run = {'id': run_id, 'protocol': 'standard_cooperative_v1', 'brainId': brain,
+               'phaseId': 'phase-1', 'status': 'completed',
+               'checkpoint': {'at': 43, 'summary': 'Review PR then checkpoint'},
+               'tasks': [{'id': 'task-1', 'title': 'Implement feature', 'repository': 'fixture',
+                          'status': 'completed', 'result': key, 'finishedAt': 42}]}
+        with self.ledger.tx() as db:
+            db.execute('INSERT INTO snapshots VALUES(?,?,?)', (key, 'standard_result', json.dumps(result)))
+            meta = self.ledger.get(db, 'meta', 1); meta['standardRun'] = run; self.ledger.put(db, 'meta', 1, meta)
+            record = {'run': run, 'at': 43}
+            db.execute('INSERT INTO snapshots VALUES(?,?,?)', (digest(record), 'standard_run', json.dumps(record)))
+        return key
+
+    def test_phase_outcomes_read_only_and_pr_freshness(self):
+        self.retain_phase()
+        with self.ledger.connect() as db: before = list(db.iterdump())
+        data = conversation.read(self.ledger)['activity']
+        self.assertEqual(len(data['phases']), 1)  # current/history deduplicated
+        task = data['phases'][0]['tasks'][0]
+        self.assertEqual(task['evidence']['tests'], '1631 passed')
+        self.assertEqual(task['pullRequests'][0]['state'], 'unknown')
+        with self.ledger.connect() as db: self.assertEqual(list(db.iterdump()), before)
+        self.assertEqual(conversation.read(self.ledger)['activity'], data)
+        self.assertIsNone(conversation.read(self.ledger, 1)['activity'])
+        observed = {'remoteStatus': 'measured', 'remoteAt': 44, 'pullRequests': [
+            {'url': 'https://github.com/example/product/pull/71', 'state': 'merged'}]}
+        with self.ledger.tx() as db:
+            db.execute('INSERT OR REPLACE INTO observation_records VALUES(?,?)', ('git:fixture', json.dumps(observed)))
+        pr = conversation.read(self.ledger)['activity']['phases'][0]['tasks'][0]['pullRequests'][0]
+        self.assertEqual((pr['state'], pr['observedAt']), ('merged', 44))
+        with self.ledger.tx() as db:
+            db.execute('UPDATE observation_records SET data=? WHERE id=?',
+                       (json.dumps({'remoteStatus': 'unavailable', 'previousRemote': observed}), 'git:fixture'))
+        pr = conversation.read(self.ledger)['activity']['phases'][0]['tasks'][0]['pullRequests'][0]
+        self.assertEqual((pr['state'], pr['observedAt'], pr['refreshStatus']), ('merged', 44, 'unavailable'))
+
+    def test_changed_result_is_not_promoted_and_foreign_brain_is_omitted(self):
+        key = self.retain_phase()
+        with self.ledger.tx() as db:
+            db.execute('UPDATE snapshots SET data=? WHERE id=?', ('{}', key))
+        task = conversation.read(self.ledger)['activity']['phases'][0]['tasks'][0]
+        self.assertIsNone(task['evidence']); self.assertEqual(task['pullRequests'], [])
+        self.assertIn('unavailable', task['issue'])
+        with self.ledger.tx() as db:
+            meta = self.ledger.get(db, 'meta', 1); meta['brainId'] = 'other'; self.ledger.put(db, 'meta', 1, meta)
+        self.assertEqual(conversation.read(self.ledger)['activity']['phases'], [])
+
+    def test_link_allowlist_and_bounded_history(self):
+        from orchestrator.conversation_activity import pull_links
+        self.assertEqual(pull_links('https://github.com/example/product/pull/71. '
+            'https://github.com.evil.test/example/product/pull/71 '
+            'https://github.com/example/product/pull/71?token=secret javascript:alert(1)'),
+            ['https://github.com/example/product/pull/71'])
+        for n in range(6): self.retain_phase('run-'+str(n))
+        activity = conversation.read(self.ledger)['activity']
+        self.assertEqual(len(activity['phases']), 5); self.assertTrue(activity['limited'])
+        self.assertEqual(activity['phases'][0]['id'], 'run-5')
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.ledger = Ledger(Path(self.tmp.name) / "state")
