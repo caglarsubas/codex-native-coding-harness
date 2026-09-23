@@ -121,7 +121,7 @@ class AssistantTest(unittest.TestCase):
         after = self.ledger.snapshot()
         before.pop("serverTime"); after.pop("serverTime")
         self.assertEqual(before, after)
-        self.assertEqual(result["context"]["currentView"], "Operations overview")
+        self.assertEqual(result["context"]["currentView"], "Session map (recorded brain responsibilities and task details)")
 
     def test_lock_shared_with_briefs_and_no_automatic_retry(self):
         with open(self.ledger.root / "inference.lock", "a") as lock, patch("orchestrator.assistant.Client.request") as call:

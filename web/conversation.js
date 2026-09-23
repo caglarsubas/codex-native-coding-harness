@@ -34,8 +34,8 @@ function conversationActivity(root,activity){
     root.append(article);
   }
   for(const issue of activity.issues||[])root.append(el('p',issue,'checkpoint'));
-  if(activity.limited)root.append(el('p','Older phase versions are outside this bounded view; retained documents remain in Overview history.','muted'));
-  const actions=el('div',null,'inline-actions');actions.append(button('Git & delivery · refresh PR status',()=>navigateView('gitStatus')),button('Phase & run details',()=>navigateView('overview')));root.append(actions);
+  if(activity.limited)root.append(el('p','Older phase versions are outside this bounded view; retained documents remain in Controls & setup history.','muted'));
+  const actions=el('div',null,'inline-actions');actions.append(button('Git & delivery · refresh PR status',()=>navigateView('gitStatus')),button('Phase & run details',()=>navigateView('operations')));root.append(actions);
 }
 function brainMessageState(message){
   if(message.reply)return {label:'Replied',detail:'The project brain retained this reply.'};

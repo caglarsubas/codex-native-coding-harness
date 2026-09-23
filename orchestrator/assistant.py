@@ -15,7 +15,8 @@ from .assistant_state import BOUNDARIES, CAPABILITIES, extend_context
 
 VIEWS = {
     "conversation": "Workspace brain conversation (direct Codex messages and retained replies)",
-    "overview": "Operations overview", "decisions": "Decision inbox",
+    "overview": "Session map (recorded brain responsibilities and task details)",
+    "operations": "Controls & setup", "decisions": "Decision inbox",
     "queue": "Approved queue", "workers": "Workers & evidence",
     "knowledge": "Knowledge continuity", "metrics": "Portfolio metrics",
     "usage": "Token usage", "gitStatus": "Git & delivery",

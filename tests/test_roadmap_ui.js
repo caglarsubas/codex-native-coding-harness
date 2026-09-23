@@ -38,10 +38,10 @@ assert.match(text(box.root),/Review & Play/);assert.match(text(box.root),/Review
 nodes(box.root).find(n=>n.text==='Review mission & prerequisites').click();assert.deepEqual(navigation,{view:'mission',id:undefined});
 assert(!nodes(box.root).some(n=>n.text==='Open Review Play'));
 box.state.standard.available=true;box.root=new Node('main');run('roadmap(root)');
-nodes(box.root).find(n=>n.text==='Open Review Play').click();assert.deepEqual(navigation,{view:'overview',id:undefined});
+nodes(box.root).find(n=>n.text==='Open Review Play').click();assert.deepEqual(navigation,{view:'operations',id:undefined});
 box.state.standard.run={status:'paused'};box.root=new Node('main');run('roadmap(root)');
 assert.match(text(box.root),/A cooperative phase is already recorded/);
-nodes(box.root).find(n=>n.text==='Open current phase').click();assert.deepEqual(navigation,{view:'overview',id:undefined});
+nodes(box.root).find(n=>n.text==='Open current phase').click();assert.deepEqual(navigation,{view:'operations',id:undefined});
 box.state.standard.run=null;box.state.standard.available=false;
 for(const repositories of [[{policyProfile:'harness'}],[{policyProfile:'standard'},{policyProfile:'harness'}],[],undefined]){
   box.state.repositories=repositories;box.root=new Node('main');run('roadmap(root)');

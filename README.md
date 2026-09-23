@@ -38,8 +38,13 @@ See the [completion checklist](docs/STANDARD-PROJECT-COMPLETION.md).
 - Contextual AI assistant with bounded, transient chat and server-validated links
   to dashboard views, decisions and artifact versions; bounded operational/capability
   awareness and expiring, state-bound, owner-confirmed action previews.
+- A [session map](docs/SESSION-MAP.md) as the landing page: the project brain,
+  registered tasks, selectable responsibility connections, and details below.
+  Search, state filters, a list alternative and fresh-activity animation make
+  recorded work easier to follow; stale and uncertain states stay explicit.
 - Three collapsible panes, draggable/keyboard splitters and remembered layout;
-  focused single-pane navigation on narrow screens.
+  the advisory assistant starts collapsed for new layouts. Existing preferences
+  are preserved, with focused single-pane navigation on narrow screens.
 - A top-toolbar **Back** button follows this tab's visited dashboard pages and
   project switches, including linked artifacts and decisions. It survives reloads,
   cooperates with browser Back/Forward, and is disabled at the first dashboard
@@ -76,7 +81,12 @@ dispatch/rerun jobs or provision paid CI: the owner requires no extra Actions
 billing. Read-only GitHub evidence checks do not execute workflows. Missing CI
 remains unavailable, never silently replaced by local-test success.
 
-Use the top **Navigation / Workspace / AI assistant** controls to show or collapse
+Start with **Session map**. Click a node or connection to inspect its overview,
+conversation, evidence or metadata below the graph. The brain’s **Controls** tab
+exposes existing reviewed phase controls. **Plan & controls → Controls & setup**
+retains the full operations view.
+
+Use the top **Navigation / Project / AI assistant** controls to show or collapse
 panes. Drag either divider, or focus it and use Left/Right (Shift for larger
 steps; Home/End for limits). **Reset layout** restores defaults. Type in the right
 panel and choose **Send** (or Cmd/Ctrl+Enter). Suggested questions only fill the

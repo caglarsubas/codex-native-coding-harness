@@ -75,6 +75,7 @@ class ServerTest(unittest.TestCase):
             call.assert_not_called()
             self.assertEqual(self.request("/api/assistant",{**body,"model":"external"},auth)[0],409)
             self.assertEqual(self.request("/api/assistant/context?view=unknown",headers=auth)[0],400)
+            self.assertEqual(self.request("/api/assistant/context?view=operations",headers=auth)[0],200)
             self.assertEqual(self.request("/api/assistant/context?view=usage&view=queue",headers=auth)[0],400)
             status,_,raw=self.request("/api/assistant",body,auth)
             self.assertEqual(status,200)
@@ -84,7 +85,7 @@ class ServerTest(unittest.TestCase):
         after=self.ledger.snapshot()
         before.pop("serverTime"); after.pop("serverTime")
         self.assertEqual(before,after)
-        for path in ("/assistant.js","/panes.js","/routing.js","/panes.css"):
+        for path in ("/assistant.js","/panes.js","/routing.js","/panes.css","/session-map.js","/session-map.css"):
             self.assertEqual(self.request(path)[0],200)
 
     def test_unknown_command_and_bad_revision_rejected(self):

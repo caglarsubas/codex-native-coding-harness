@@ -18,6 +18,7 @@ function browserSignedOut(message='Open the current private dashboard link to si
   if(typeof workspaceTabs!=='undefined')workspaceTabs.clear();
   if(typeof workspaceList!=='undefined'){workspaceList=[];projectCatalog=null;workspaceId=null;}
   if(typeof brainDrafts!=='undefined')brainDrafts.clear();
+  if(typeof sessionMapPreferences!=='undefined')sessionMapPreferences.clear();
   if(typeof assistantHistory!=='undefined'){assistantHistory=[];assistantActions.clear();}
   assistantConnectionChanged();
 }

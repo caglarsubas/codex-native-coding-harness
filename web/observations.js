@@ -284,8 +284,8 @@ function roadmapReviewPlay(root) {
   root.append(section('Review & Play','Prepare one bounded next phase — never the whole roadmap.'));
   const panel=el('section',null,'detail roadmap-review-play');
   if(run){
-    panel.append(el('h3','A cooperative phase is already recorded'),el('p','Review, Pause and checkpoint controls for this exact phase remain on Overview. A roadmap item cannot restart it, reset its allowance, or authorize another phase.','muted'));
-    panel.append(button('Open current phase',()=>navigateView('overview')));
+    panel.append(el('h3','A cooperative phase is already recorded'),el('p','Review, Pause and checkpoint controls for this exact phase remain in Controls & setup. A roadmap item cannot restart it, reset its allowance, or authorize another phase.','muted'));
+    panel.append(button('Open current phase',()=>navigateView('operations')));
   }else{
     panel.append(el('h3',standard?.available?'Ready to review Play':'Review the prerequisites first'));
     panel.append(el('p','Reviewing a mission does not start work. After the separate Review Play preview, the owner must explicitly confirm the exact phase, observed-usage boundary, limits and recorded model/effort catalog.','muted'));
@@ -301,7 +301,7 @@ function roadmapReviewPlay(root) {
     if(standard?.blocker)panel.append(el('p','Current gate: '+standard.blocker,'checkpoint'));
     const actions=el('div',null,'inline-actions');
     actions.append(button('Review mission & prerequisites',()=>navigateView('mission')));
-    if(standard?.available)actions.append(button('Open Review Play',()=>navigateView('overview'),'primary'));
+    if(standard?.available)actions.append(button('Open Review Play',()=>navigateView('operations'),'primary'));
     panel.append(actions);
   }
   root.append(panel);

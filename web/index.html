@@ -4,10 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <title>Codex Orchestrator · Operations ledger</title>
+  <title>Codex Orchestrator · Session map</title>
   <link rel="stylesheet" href="/style.css">
   <link rel="stylesheet" href="/decisions.css">
   <link rel="stylesheet" href="/panes.css">
+  <link rel="stylesheet" href="/session-map.css">
   <script src="/app.js" defer></script>
   <script src="/auth.js" defer></script>
   <script src="/observations.js" defer></script>
@@ -22,6 +23,7 @@
   <script src="/assistant.js" defer></script>
   <script src="/workspaces.js" defer></script>
   <script src="/conversation.js" defer></script>
+  <script src="/session-map.js" defer></script>
   <script src="/missions.js" defer></script>
   <script src="/standard.js" defer></script>
   <script src="/task-contracts.js" defer></script>
@@ -51,25 +53,32 @@
   <button class="pane-expand" data-pane-toggle="navigation" aria-label="Expand navigation" hidden>Menu →</button>
   <aside class="rail pane-body">
     <a class="brand" href="/" aria-label="Codex Orchestrator home"><span class="brand-mark" aria-hidden="true">co.</span><span>Codex<br>Orchestrator</span></a>
-    <p class="eyebrow">LOCAL OPERATIONS LEDGER</p>
+    <p class="eyebrow">YOUR DEVELOPMENT WORKSPACE</p>
     <div id="workspace-picker" class="workspace-picker" hidden><label for="workspace-select">Project</label><select id="workspace-select" aria-label="Project"></select><button id="all-workspaces" data-view="workspaces">All projects</button></div>
     <nav aria-label="Dashboard views">
-      <button data-view="overview" aria-current="page"><span>01</span> Overview</button>
+      <button data-view="overview" aria-current="page"><span>◎</span> Session map</button>
       <button data-view="conversation"><span>↳</span> Brain conversation</button>
-      <button data-view="mission" id="mission-nav" hidden><span>↳</span> Mission & authority</button>
-      <button data-view="runReadiness" id="run-readiness-nav" hidden><span>↳</span> Run readiness</button>
-      <button data-view="phaseCheckpoints" id="phase-checkpoints-nav" hidden><span>↳</span> Phase checkpoints</button>
-      <button data-view="retention" id="retention-nav" hidden><span>↳</span> Task retention</button>
-      <button data-view="decisions"><span>↳</span> Decision inbox</button>
-      <button data-view="queue"><span>02</span> Approved queue</button>
-      <button data-view="workers"><span>03</span> Workers & evidence</button>
-      <button data-view="knowledge"><span>04</span> Knowledge</button>
-      <button data-view="metrics"><span>05</span> Portfolio metrics</button>
-      <button data-view="usage"><span>06</span> Token usage</button>
-      <button data-view="gitStatus"><span>07</span> Git & delivery</button>
-      <button data-view="artifacts"><span>08</span> Artifact library</button>
-      <button data-view="roadmap"><span>09</span> Roadmap</button>
-      <button data-view="readiness"><span>10</span> Readiness</button>
+      <button data-view="decisions"><span>◇</span> Decisions</button>
+      <button data-view="roadmap"><span>↗</span> Roadmap</button>
+      <details class="nav-group"><summary>Work & evidence</summary>
+        <button data-view="workers">Tasks & evidence</button>
+        <button data-view="queue">Approved queue</button>
+        <button data-view="gitStatus">Git & delivery</button>
+        <button data-view="artifacts">Artifact library</button>
+        <button data-view="knowledge">Knowledge & history</button>
+      </details>
+      <details class="nav-group"><summary>Plan & controls</summary>
+        <button data-view="operations">Controls & setup</button>
+        <button data-view="mission" id="mission-nav" hidden>Mission & authority</button>
+        <button data-view="runReadiness" id="run-readiness-nav" hidden>Run readiness</button>
+        <button data-view="phaseCheckpoints" id="phase-checkpoints-nav" hidden>Phase checkpoints</button>
+        <button data-view="retention" id="retention-nav" hidden>Task retention</button>
+        <button data-view="readiness">Readiness</button>
+      </details>
+      <details class="nav-group"><summary>Measurements</summary>
+        <button data-view="usage">Token usage</button>
+        <button data-view="metrics">Portfolio metrics</button>
+      </details>
     </nav>
     <div class="rail-bottom"><p>One brain.<br>Bounded implementation tasks.<br>Explicit evidence.</p><button id="theme" class="rail-action">Switch theme</button><span id="connection">Connecting to local ledger…</span></div>
   </aside>
@@ -81,7 +90,7 @@
     <header class="topbar"><span id="mode">Awaiting authenticated connection</span><div><button id="browser-access" aria-controls="browser-access-panel" aria-expanded="false" hidden>Browser access</button><button id="refresh">Refresh</button><a id="export-report" class="button" href="/api/export" download>Export report</a></div></header>
     <section id="browser-access-panel" class="browser-access-panel" aria-label="Browser access" hidden></section>
     <main id="main" tabindex="-1">
-      <div class="page-heading"><div><p class="eyebrow">CONTROL / OBSERVE / VERIFY</p><h1 id="title">Operations overview</h1><p id="subtitle">A clear view of what is authorized, active, and proven.</p></div><div class="page-actions"><button id="pause" disabled>Pause dispatch</button><button id="reconcile" class="primary" disabled>Request reconciliation</button></div></div>
+      <div class="page-heading"><div><p class="eyebrow">PROJECT WORKSPACE</p><h1 id="title">Session map</h1><p id="subtitle">Follow your brain, its tasks, and what needs you next.</p></div><div class="page-actions"><button id="pause" disabled>Pause dispatch</button><button id="reconcile" class="primary" disabled>Request reconciliation</button></div></div>
       <div id="notice" role="status" aria-live="polite" hidden></div>
       <section id="content" aria-label="Selected dashboard view"><div class="empty"><h2>Connecting securely</h2><p>Checking local sign-in. No repository or task data is exposed before authentication.</p></div></section>
     </main>
