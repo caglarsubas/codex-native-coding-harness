@@ -108,3 +108,30 @@
   .session-filter-panel,.session-filter-result,.session-viewport-controls { padding-inline:16px; }
   .session-pan-hint { max-width:30ch; }
 }
+/* Activity is separate from lifecycle and control state. */
+.session-node-heading .session-node-role { flex:1; }
+.session-activity-indicator { display:inline-flex; align-items:center; gap:6px; flex-shrink:0; white-space:nowrap; font-size:11px; line-height:1.4; font-weight:600; color:var(--muted); }
+.session-activity-ring { box-sizing:border-box; width:13px; height:13px; border:1.5px solid currentColor; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font:9px/1 sans-serif; flex-shrink:0; }
+.session-activity-indicator[data-activity=active] { color:var(--node-active); }
+.session-activity-indicator[data-activity=active] .session-activity-ring { border-color:currentColor; border-right-color:transparent; border-bottom-color:color-mix(in oklch,currentColor 25%,transparent); }
+.session-activity-indicator[data-activity=idle] .session-activity-ring::after { content:''; width:3px; height:3px; border-radius:50%; background:currentColor; }
+.session-activity-indicator[data-activity=stale] .session-activity-ring,.session-activity-indicator[data-activity=unknown] .session-activity-ring,.session-activity-indicator[data-activity=disconnected] .session-activity-ring { border-style:dashed; }
+.session-activity-indicator[data-activity=attention],.session-activity-indicator[data-activity=pending] { color:var(--warning); }
+.session-activity-indicator[data-activity=complete] { color:var(--accent); }
+.session-node-heading .session-activity-indicator { margin-inline-start:6px; font-size:10px; }
+.session-edge-label { display:grid; gap:6px; justify-items:center; min-width:108px; top:24px; }
+.session-edge-label .session-activity-indicator { font-size:10px; }
+.session-node[data-activity=active] { border-color:var(--node-active); }
+.session-connection[data-activity=active] { stroke:var(--node-active); stroke-width:2.5; }
+.session-connection[data-activity=idle] { stroke:var(--muted); stroke-dasharray:none; }
+.session-connection[data-activity=stale],.session-connection[data-activity=unknown],.session-connection[data-activity=disconnected] { stroke:var(--rule); stroke-dasharray:3 5; }
+.session-legend .session-activity-indicator::before,.session-legend .session-activity-indicator span::before { content:none; }
+.session-activity-detail { display:flex; align-items:center; flex-wrap:wrap; gap:8px 16px; padding:12px 14px; background:var(--paper); border-radius:6px; font-size:11px; color:var(--muted); }
+.session-activity-detail p { flex-basis:100%; font-size:12px; }
+@media(prefers-reduced-motion:no-preference) {
+  .session-activity-indicator[data-activity=active] .session-activity-ring { animation:session-activity-spin 1.1s linear infinite; }
+  @keyframes session-activity-spin { to { transform:rotate(360deg); } }
+}
+@media(prefers-reduced-motion:reduce) {
+  .session-activity-ring,.session-connection,.session-node .session-status::before { animation:none !important; }
+}

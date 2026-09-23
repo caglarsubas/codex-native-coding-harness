@@ -16,6 +16,7 @@ TAIL_BYTES = 256 * 1024
 HEADER_BYTES = 64 * 1024
 MAX_ENTRIES = 20000
 MAX_FILES = 64
+MAX_TASKS = 32
 FRESH_SECONDS = 120
 IDENTITY = re.compile(r"[a-zA-Z0-9_-]{1,100}")
 LABELS = {
@@ -45,6 +46,7 @@ def open_regular(path):
 
 
 def candidates(home, brain):
+    identities = (brain,) if isinstance(brain, str) else tuple(brain)
     found, count = [], 0
     for folder in (home / "sessions", home / "archived_sessions"):
         if folder.is_symlink():
@@ -60,11 +62,57 @@ def candidates(home, brain):
             dirs[:] = [d for d in dirs if not Path(directory, d).is_symlink()]
             for name in files:
                 # Continuation files may add an underscore plus another UUID.
-                if name.startswith("rollout-") and name.endswith(".jsonl") and brain in name:
+                if name.startswith("rollout-") and name.endswith(".jsonl") and any(identity in name for identity in identities):
                     found.append(Path(directory, name))
                     if len(found) > MAX_FILES:
                         raise ValueError("Segment limit")
     return found
+
+
+def metadata_text(path):
+    with open_regular(path) as stream:
+        raw = stream.read(4097)
+    if len(raw) > 4096:
+        raise ValueError("Git pointer exceeds bound")
+    text = raw.decode("utf-8").strip()
+    if not text or "\n" in text or "\x00" in text:
+        raise ValueError("Invalid Git pointer")
+    return text
+
+
+def common_directory(root):
+    """Fixed Git pointer files only. No Git command, config, source or objects."""
+    root = Path(root)
+    if not root.is_absolute() or root != root.resolve(strict=True):
+        raise ValueError("Noncanonical checkout")
+    marker = root / ".git"
+    if marker.is_symlink():
+        raise ValueError("Symlink Git marker")
+    if marker.is_dir():
+        return marker
+    text = metadata_text(marker)
+    if not text.startswith("gitdir: "):
+        raise ValueError("Invalid worktree marker")
+    gitdir = (root / text[8:]).resolve(strict=True)
+    common = (gitdir / metadata_text(gitdir / "commondir")).resolve(strict=True)
+    if gitdir.parent != common / "worktrees" or not common.is_dir():
+        raise ValueError("Not a linked worktree")
+    backlink = Path(metadata_text(gitdir / "gitdir"))
+    if not backlink.is_absolute() or backlink != marker:
+        raise ValueError("Worktree backlink mismatch")
+    return common
+
+
+def scoped_directory(cwd, roots):
+    if any(contained(cwd, root) for root in roots):
+        return True
+    # A native task may start at a linked checkout outside the primary path.
+    # Require its reciprocal Git registration, never trust the header path alone.
+    try:
+        common = common_directory(cwd)
+        return any(common == common_directory(root) for root in roots)
+    except (OSError, ValueError, UnicodeError):
+        return False
 
 
 def classify(record, brain):
@@ -108,7 +156,7 @@ def read_segment(path, brain, roots, now):
         if header.get("type") != "session_meta" or p.get("id") != brain:
             return []  # A filename match alone never authorizes reading the tail.
         cwd = p.get("cwd")
-        if not isinstance(cwd, str) or not any(contained(cwd, r) for r in roots):
+        if not isinstance(cwd, str) or not scoped_directory(cwd, roots):
             return []
         size = os.fstat(stream.fileno()).st_size
         start = max(stream.tell(), size - TAIL_BYTES)
@@ -129,6 +177,63 @@ def read_segment(path, brain, roots, now):
                 raise ValueError("Future activity timestamp")
             events.append(value)
     return events
+
+
+class TaskActivity:
+    """Transient metadata for exact registered workers; never ledger evidence."""
+    def __init__(self, ledger):
+        self.ledger, self.lock = ledger, threading.Lock()
+        self.key, self.checked, self.cached = None, 0, {}
+
+    def snapshot(self, state, now=None):
+        now = time.time() if now is None else now
+        repos = {r["id"]: r.get("path") for r in state["repositories"]}
+        owned = {}
+        for task in ((state.get("standard") or {}).get("run") or {}).get("tasks", []) + state.get("workers", []):
+            identity, root = task.get("threadId"), repos.get(task.get("repository"))
+            if (not isinstance(identity, str) or not IDENTITY.fullmatch(identity) or not root or
+                    task.get("archived") or task.get("status") in ("complete", "completed", "not_created")):
+                continue
+            if identity in owned and owned[identity] != root:
+                return {}  # Ambiguous ownership cannot authorize a log read.
+            owned[identity] = root
+        if not owned or len(owned) > MAX_TASKS:
+            return {}
+        unavailable = {identity: {"status": "unknown", "fresh": False, "observedAt": None,
+                       "source": "unavailable", "reason": "Task activity is unavailable; check the native task."} for identity in owned}
+        try:
+            home = config(self.ledger).get("codexHome")
+            if not home:
+                return {}  # No local adapter configured; recorded native status remains usable.
+            home = Path(home)
+            if not home.is_absolute() or ".." in home.parts or home.is_symlink():
+                return unavailable
+            key = (str(home), tuple(sorted(owned.items())))
+            with self.lock:
+                if key != self.key or not 0 <= now - self.checked < 3:
+                    found = candidates(home, owned)
+                    cache = {}
+                    for identity, root in owned.items():
+                        try:
+                            events = []
+                            for path in found:
+                                if identity in path.name:
+                                    events.extend(read_segment(path, identity, (root,), now))
+                            last = max(events, key=lambda e: e["at"]) if events else None
+                            cache[identity] = {"source": "local_task_events", "observedAt": last["at"] if last else None,
+                                "lastKnownStatus": {"finished": "idle", "interrupted": "interrupted", "failed": "failed"}.get(last["kind"], "running") if last else None,
+                                "reason": "Bounded local task event metadata; not a live native status connection."}
+                        except (OSError, ValueError, TypeError, UnicodeError):
+                            cache[identity] = unavailable[identity]
+                    self.cached, self.key, self.checked = cache, key, now
+                result = {}
+                for identity, record in self.cached.items():
+                    at = record.get("observedAt")
+                    fresh = at is not None and 0 <= now - at < FRESH_SECONDS
+                    result[identity] = {**record, "fresh": fresh, "status": record.get("lastKnownStatus") if fresh else "unknown"}
+                return result
+        except (OSError, ValueError, TypeError, KeyError, Refusal):
+            return unavailable
 
 
 class BrainActivity:

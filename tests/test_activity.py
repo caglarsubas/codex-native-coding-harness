@@ -176,4 +176,121 @@ class ActivityTest(unittest.TestCase):
         with self.assertRaises(Refusal): native_observation(self.ledger, record)
 
 
+class ScopedTaskActivityTest(unittest.TestCase):
+    setUp = ActivityTest.setUp
+    tearDown = ActivityTest.tearDown
+    event = ActivityTest.event
+    log = ActivityTest.log
+    snapshot = ActivityTest.snapshot
+
+    def linked(self, name='linked'):
+        tree = self.root / name
+        tree.mkdir()
+        gitdir = self.repo / '.git' / 'worktrees' / name
+        gitdir.mkdir(parents=True)
+        (tree / '.git').write_text('gitdir: '+str(gitdir)+'\n')
+        (gitdir / 'commondir').write_text('../..\n')
+        (gitdir / 'gitdir').write_text(str(tree / '.git')+'\n')
+        return tree, gitdir
+
+    def task_state(self):
+        state = self.ledger.snapshot()
+        state['standard'] = {'run': {'tasks': [{'id': 'task', 'repository': 'repo', 'threadId': 'worker-test', 'status': 'active'}]}}
+        return state
+
+    def worker_log(self, cwd=None, identity='worker-test', events=None):
+        path = self.logs / ('rollout-date-'+identity+'.jsonl')
+        header = {'type': 'session_meta', 'payload': {'id': identity, 'cwd': str(cwd or self.repo)}}
+        path.write_text('\n'.join(json.dumps(row) for row in [header, *(events or [self.event('token_count', message='PRIVATE')])])+'\n')
+        return path
+
+    def test_brain_linked_worktree_is_scoped_by_reciprocal_git_metadata(self):
+        tree, _ = self.linked()
+        self.log([self.event('token_count')], cwd=tree)
+        self.assertEqual(self.snapshot()['status'], 'running')
+
+    def test_forged_or_foreign_worktree_cannot_authorize_tail(self):
+        tree, gitdir = self.linked()
+        self.log([self.event('token_count')], cwd=tree)
+        (gitdir / 'gitdir').write_text(str(self.root / 'foreign' / '.git'))
+        self.assertEqual(self.snapshot()['status'], 'unknown')
+        (gitdir / 'gitdir').write_text(str(tree / '.git'))
+        foreign = self.root / 'foreign'
+        foreign.mkdir(); (foreign / '.git').mkdir()
+        (gitdir / 'commondir').write_text(str(foreign / '.git'))
+        self.reader = BrainActivity(self.ledger)
+        self.assertEqual(self.snapshot()['status'], 'unknown')
+
+    def test_symlink_worktree_marker_is_refused(self):
+        tree, _ = self.linked()
+        marker = tree / '.git'
+        target = tree / 'marker'
+        marker.rename(target); marker.symlink_to(target)
+        self.log([self.event('token_count')], cwd=tree)
+        self.assertEqual(self.snapshot()['status'], 'unknown')
+
+    def test_registered_worker_metadata_is_transient_scoped_and_expires(self):
+        from orchestrator.activity import TaskActivity
+        tree, _ = self.linked()
+        self.worker_log(cwd=tree)
+        state = self.task_state(); before = json.dumps(state, sort_keys=True)
+        reader = TaskActivity(self.ledger)
+        first = reader.snapshot(state, self.now)
+        self.assertEqual(first['worker-test']['status'], 'running')
+        self.assertNotIn('PRIVATE', json.dumps(first))
+        self.assertNotIn(str(tree), json.dumps(first))
+        self.assertEqual(json.dumps(state, sort_keys=True), before)
+        later = reader.snapshot(state, self.now+121)
+        self.assertFalse(later['worker-test']['fresh'])
+        self.assertEqual(later['worker-test']['status'], 'unknown')
+        self.assertEqual(first['worker-test']['observedAt'], later['worker-test']['observedAt'])
+
+    def test_pending_terminal_and_unregistered_logs_are_not_read(self):
+        from orchestrator.activity import TaskActivity
+        self.worker_log(identity='foreign')
+        state = self.task_state()
+        state['standard']['run']['tasks'] = [
+            {'id': 'pending', 'repository': 'repo', 'clientThreadId': 'foreign'},
+            {'id': 'done', 'repository': 'repo', 'threadId': 'foreign', 'status': 'completed'}]
+        with patch('orchestrator.activity.open_regular') as reader:
+            self.assertEqual(TaskActivity(self.ledger).snapshot(state, self.now), {})
+            reader.assert_not_called()
+
+    def test_unconfigured_local_adapter_preserves_native_observation_fallback(self):
+        from orchestrator.activity import TaskActivity
+        with patch('orchestrator.activity.config', return_value={}):
+            self.assertEqual(TaskActivity(self.ledger).snapshot(self.task_state(), self.now), {})
+
+    def test_worker_root_is_its_own_repository_not_any_project_repo(self):
+        from orchestrator.activity import TaskActivity
+        foreign = self.root / 'foreign'; foreign.mkdir()
+        self.worker_log(cwd=foreign)
+        state = self.task_state()
+        state['repositories'].append({'id': 'foreign', 'path': str(foreign)})
+        self.assertEqual(TaskActivity(self.ledger).snapshot(state, self.now)['worker-test']['status'], 'unknown')
+
+    def test_changed_scope_evicts_previous_task_and_read_failure_clears_activity(self):
+        from orchestrator.activity import TaskActivity
+        path = self.worker_log()
+        state = self.task_state(); reader = TaskActivity(self.ledger)
+        self.assertEqual(reader.snapshot(state, self.now)['worker-test']['status'], 'running')
+        path.write_text('invalid header\n')
+        failed = reader.snapshot(state, self.now+4)['worker-test']
+        self.assertEqual(failed['source'], 'unavailable')
+        self.assertIsNone(failed['observedAt'])
+        state['standard']['run']['tasks'][0]['threadId'] = 'new-task'
+        self.assertEqual(set(reader.snapshot(state, self.now+4)), {'new-task'})
+
+    def test_task_budget_and_future_events_cannot_report_active(self):
+        from orchestrator.activity import TaskActivity, MAX_TASKS
+        state = self.task_state()
+        state['workers'] = [{'repository':'repo','threadId':'task-'+str(i)} for i in range(MAX_TASKS)]
+        with patch('orchestrator.activity.candidates') as discover:
+            self.assertEqual(TaskActivity(self.ledger).snapshot(state, self.now), {})
+            discover.assert_not_called()
+        state = self.task_state()
+        self.worker_log(events=[self.event('token_count', self.now+60)])
+        self.assertEqual(TaskActivity(self.ledger).snapshot(state, self.now)['worker-test']['status'], 'unknown')
+
+
 if __name__ == "__main__": unittest.main()
