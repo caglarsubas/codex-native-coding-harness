@@ -1,5 +1,26 @@
 # Workspace brain conversation
 
+## Project outcomes in the conversation
+
+The newest conversation page includes a read-only **Project activity** section
+above message replies. It shows the latest five retained cooperative phases
+(bounded to 100 recorded versions), checkpoint summaries, task outcomes, source,
+test and preservation evidence, and exact GitHub PR links found in retained results.
+This makes run completion visible even when Play was a typed control rather than
+a chat message; it does not rewrite an earlier reply or require another model turn.
+
+PR state comes only from saved, same-project Git observations with their original
+timestamps. Without an observation it is explicitly unknown. Use **Git & delivery
+→ Refresh GitHub status**, then return to the conversation to see the updated
+observation. A failed refresh leaves older observations labelled as such. Open,
+closed and merged have distinct next actions; phase completion never implies PR
+merge or deployment. Result reads validate their retained digest and task/run IDs.
+
+This is not a complete Codex transcript: native-only messages, security prompts,
+and unrecorded legacy/strict outcomes are not mirrored. No native calls, GitHub
+requests, approvals, merge actions, or model calls are performed by reading this
+feed. Inference context does not receive these full result bodies.
+
 Owner request, 2026-09-21: select the real multi-repository project and manage
 routine Codex interaction in the dashboard, not in the tooling-development chat.
 

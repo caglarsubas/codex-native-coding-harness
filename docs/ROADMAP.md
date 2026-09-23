@@ -1,5 +1,7 @@
 # Codex-native orchestration roadmap
 
+- [x] Show retained cooperative phase outcomes, PR links and observed merge status in Brain conversation, separate from saved replies and deployment evidence.
+
 This is recorded implementation progress, not deployment, pilot, or product
 acceptance authority. Items change through reviewed repository edits.
 

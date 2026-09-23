@@ -77,6 +77,7 @@ def reply(ledger, token, command_id, result):
 
 
 def read(ledger, page=0):
+    from .conversation_activity import snapshot as activity_snapshot
     require(type(page) is int and 0 <= page <= 1_000_000, "Invalid conversation page")
     with contextlib.closing(ledger.connect()) as db:
         db.execute("BEGIN")
@@ -86,6 +87,7 @@ def read(ledger, page=0):
         selected = messages[page * 30:(page + 1) * 30]
         return {"brainId": meta["brainId"], "page": page, "hasOlder": len(messages) > (page + 1) * 30,
                 "total": len(messages), "pending": sum(pending(c) for c in messages), "boundary": BOUNDARY,
+                "activity": activity_snapshot(db, meta) if page == 0 else None,
                 "messages": [{"id": c["id"], "brainId": c["payload"]["brainId"],
                     "message": c["payload"]["message"], "createdAt": c["createdAt"],
                     "receivedAt": c.get("conversationReceivedAt"), "notification": c.get("notification"),

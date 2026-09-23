@@ -1,6 +1,42 @@
 "use strict";
 Object.assign(titles,{conversation:['Brain conversation','Talk to this project’s existing Codex brain. Messages and replies stay in this project.']});
 const brainDrafts=new Map(),brainPages=new Map();
+function conversationActivity(root,activity){
+  if(!activity)return;
+  root.append(section('Project activity','Run outcomes and next actions — separate from message replies'));
+  root.append(el('p',activity.boundary,'muted'));
+  if(!activity.phases.length)root.append(el('p','No retained cooperative phase outcomes yet. Native-only messages are not imported here.','muted'));
+  for(const phase of activity.phases){
+    const article=el('article',null,'brain-exchange');
+    article.append(el('h3','Phase '+phase.phaseId+' · '+phase.status),el('p','Recorded '+when(phase.at),'muted'));
+    if(phase.checkpoint)article.append(el('p',phase.checkpoint,'brain-message-text'));
+    for(const task of phase.tasks){
+      article.append(el('h4',task.title),el('p',task.repository+' · '+task.status,'muted'));
+      if(task.issue)article.append(el('p',task.issue,'checkpoint'));
+      if(task.evidence){
+        article.append(el('p',task.evidence.summary,'brain-message-text'));
+        const details=el('details');details.append(el('summary','Source, tests & preservation'));
+        for(const key of ['source','tests','preservation'])details.append(el('h4',key),el('p',task.evidence[key],'brain-message-text'));
+        article.append(details);
+      }
+      for(const pr of task.pullRequests){
+        // Result text is inert. Only exact public GitHub PR URLs become links.
+        if(!/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/pull\/[1-9][0-9]*$/.test(pr.url))continue;
+        const link=el('a','Open PR #'+pr.url.split('/').pop(),'button');link.href=pr.url;link.target='_blank';link.rel='noopener noreferrer';article.append(link);
+        const known=['open','closed','merged'].includes(pr.state),label=known?pr.state:'not observed';
+        article.append(el('p','GitHub state: '+label+(pr.observedAt?' · observed '+when(pr.observedAt):' · refresh GitHub status in Git & delivery'),'muted'));
+        if(pr.refreshStatus==='unavailable')article.append(el('p','Latest GitHub refresh failed. Any state above is an older observation.','checkpoint'));
+        const next=pr.state==='open'?'Next: review the PR and merge manually when ready.':pr.state==='merged'?'Next: verify rollout separately; merged does not mean deployed.':pr.state==='closed'?'Next: review the closed PR outcome before planning more work.':'Next: check the PR state before deciding whether to merge.';
+        article.append(el('p',next,'checkpoint'));
+      }
+      if(task.result&&/^[a-f0-9]{64}$/.test(task.result))missionDocument(article,task.result,'Read retained task result');
+    }
+    root.append(article);
+  }
+  for(const issue of activity.issues||[])root.append(el('p',issue,'checkpoint'));
+  if(activity.limited)root.append(el('p','Older phase versions are outside this bounded view; retained documents remain in Overview history.','muted'));
+  const actions=el('div',null,'inline-actions');actions.append(button('Git & delivery · refresh PR status',()=>navigateView('gitStatus')),button('Phase & run details',()=>navigateView('overview')));root.append(actions);
+}
 function brainMessageState(message){
   if(message.reply)return {label:'Replied',detail:'The project brain retained this reply.'};
   if(message.receivedAt)return {label:'Received · reply pending',detail:'The brain received your message. Its reply has not been retained yet.'};
@@ -23,7 +59,7 @@ function conversationEntry(root){
 function conversationView(root){
   const key=workspaceId||'legacy',draft=brainDrafts.get(key)||{text:'',confirmed:false,request:null};brainDrafts.set(key,draft);
   const head=el('section');head.append(el('p',(state.workspace?.name||'Current portfolio')+' · '+(state.brainActivity?.title||'Configured Codex brain'),'eyebrow'));
-  head.append(el('p','This is the project brain in Codex, not the advisory inference assistant. Only platform messages and retained replies appear here; this is not a full Codex transcript.','checkpoint'));
+  head.append(el('p','This is the project brain in Codex, not the advisory inference assistant. Project outcomes, platform messages and retained replies appear here; this is not a full Codex transcript.','checkpoint'));
   const actions=el('div',null,'inline-actions');actions.append(button('Decision inbox',()=>navigateView('decisions')),button('Approved queue',()=>navigateView('queue')),button('Artifact library',()=>navigateView('artifacts')));head.append(actions);root.append(head);
   const stopping=['stop_requested','checkpointing','parked'].includes(state.meta.brainControl?.phase)||['stopping','paused'].includes(state.standard?.run?.status);
   if(stopping)root.append(callout('Brain paused or stopping','Messages stay saved. Use the explicit Resume control to continue from its checkpoint; sending a message does not resume work.'));
@@ -46,7 +82,8 @@ function conversationView(root){
   };
   const page=brainPages.get(key)||0;
   api('/api/brain-conversation?page='+page).then(data=>{
-    if(!history.isConnected)return;awaiting=data.pending>0;validate();history.replaceChildren();
+    if(!history.isConnected||key!==(workspaceId||'legacy'))return;awaiting=data.pending>0;validate();history.replaceChildren();
+    conversationActivity(history,data.activity);
     if(awaiting)status.textContent='A message is awaiting the brain’s reply. You can still use decisions, Pause and Resume; do not submit duplicate work.';
     history.append(section('Conversation',data.total+' saved '+(data.total===1?'message':'messages')+' · original timestamps'));
     if(!data.messages.length)history.append(empty('Start here','Ask what is happening or describe your next scoped request. The answer will appear here when the brain retains it.'));
