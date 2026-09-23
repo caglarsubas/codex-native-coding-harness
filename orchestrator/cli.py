@@ -53,6 +53,25 @@ def main():
     p = sub.add_parser("workspace-profile-set"); p.add_argument("profile", type=Path); p.add_argument("--version", type=int, required=True)
     sub.add_parser("mission-state", help="Read workspace mission configuration; not execution authority")
     sub.add_parser("standard-state", help="Read cooperative run, task journal and usage gaps")
+    p = sub.add_parser("standard-usage-refresh", help="Collect local counters for the exact registered standard run")
+    p.add_argument("run_id")
+    sub.add_parser("brain-handoff-status", help="Read the prepared/reviewed replacement state")
+    p = sub.add_parser("brain-handoff-candidate", help="Old brain records one native replacement task")
+    p.add_argument("request", type=Path)
+    p = sub.add_parser("brain-handoff-receipt", help="Replacement records package understanding before owner rebinding")
+    p.add_argument("request", type=Path)
+    p = sub.add_parser("brain-handoff-recover", help="Owner repair of an interrupted, ledger-committed registry rebind only")
+    p.add_argument("handoff_id"); p.add_argument("--confirm", action="store_true")
+    for name in ("knowledge-status", "knowledge-refresh", "knowledge-search", "knowledge-source", "knowledge-direct-source", "knowledge-records", "knowledge-related"):
+        p = sub.add_parser(name, help="Project-scoped private source index; no model or native effects")
+        p.add_argument("repository")
+        if name in ("knowledge-search", "knowledge-records"): p.add_argument("query")
+        if name == "knowledge-source":
+            p.add_argument("index_hash"); p.add_argument("path"); p.add_argument("line", type=int)
+        if name == "knowledge-direct-source":
+            p.add_argument("commit"); p.add_argument("blob"); p.add_argument("path"); p.add_argument("line", type=int)
+        if name == "knowledge-related":
+            p.add_argument("index_hash"); p.add_argument("path")
     sub.add_parser("brain-messages", help="Read durable workspace conversation without waking the brain")
     p = sub.add_parser("brain-message-receive"); p.add_argument("id")
     p = sub.add_parser("brain-message-reply"); p.add_argument("id"); p.add_argument("reply", type=Path)
@@ -238,6 +257,12 @@ def main():
         elif args.action == "workspace-profile": out = registry.profile(args.workspace)
         else: out = registry.save_profile(args.workspace, json.loads(args.profile.read_text()), args.version)
         print(json.dumps(out, ensure_ascii=False, indent=2)); return
+    if args.action == "brain-handoff-recover":
+        if not registry or not args.workspace:
+            raise Refusal("Select the exact registered project for handoff recovery")
+        from .brain_handoff import recover_registry
+        out = recover_registry(registry, args.workspace, args.handoff_id, args.confirm)
+        print(json.dumps(out, ensure_ascii=False, indent=2)); return
     if registry and args.action == "serve" and not args.workspace:
         from .server import serve
         workspaces = registry.list()
@@ -302,6 +327,35 @@ def main():
     elif action == "standard-state":
         from .standard import read as standard_read
         out = standard_read(ledger)
+    elif action == "standard-usage-refresh":
+        if not registry or not args.workspace:
+            raise Refusal("Explicit registered standard workspace required")
+        from .brain_memory import refresh
+        out = refresh(ledger, args.run_id)
+    elif action.startswith("brain-handoff-"):
+        if not registry or not args.workspace:
+            raise Refusal("Explicit registered standard project required")
+        from . import brain_handoff
+        if action == "brain-handoff-status": out = brain_handoff.status(ledger)
+        else:
+            from .observations import read_regular
+            path = args.request.absolute()
+            request = json.loads(read_regular(path, path.parent, 16000))
+            if action == "brain-handoff-candidate":
+                from .standard import private_token
+                out = brain_handoff.candidate(ledger, token or private_token(ledger), request)
+            else: out = brain_handoff.receipt(ledger, request)
+    elif action.startswith("knowledge-"):
+        if not registry or not args.workspace:
+            raise Refusal("Knowledge operations require an explicit registered project")
+        from . import project_knowledge
+        operation = action.removeprefix("knowledge-")
+        if operation == "search": out = project_knowledge.search(ledger, args.repository, args.query)
+        elif operation == "records": out = project_knowledge.record_links(ledger, args.repository, args.query)
+        elif operation == "related": out = project_knowledge.related(ledger, args.repository, args.index_hash, args.path)
+        elif operation == "direct-source": out = project_knowledge.direct_source(ledger, args.repository, args.commit, args.blob, args.path, args.line)
+        elif operation == "source": out = project_knowledge.source(ledger, args.repository, args.index_hash, args.path, args.line)
+        else: out = getattr(project_knowledge, operation)(ledger, args.repository)
     elif action in ("standard-acquire", "standard-release"):
         from .standard import acquire_private, release_private
         if not registry or not args.workspace:

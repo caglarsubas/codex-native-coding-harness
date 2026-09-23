@@ -112,6 +112,13 @@ def extend_context(state, facts, view="overview"):
                         "branch": short(p.get("branch"), 120), "observedAt": remote.get("remoteAt")})
     fact(20, "Bounded branch observations; push state is not inferred from local tracking", bounded(branches[:16 if view == "gitStatus" else 3], len(branches)))
     fact(21, "Bounded pull request observations; merge is separate from CI, runtime and acceptance", bounded(prs[:16 if view == "gitStatus" else 3], len(prs)))
+    knowledge = state.get("knowledgeMetadata") or {"status": "unavailable", "repositories": []}
+    fact(41, "Private project knowledge index metadata only; inspect citations in Knowledge, no code excerpts supplied", {
+        "status": knowledge.get("status"), "freshness": knowledge.get("freshness", "not_checked"),
+        "repositories": [fields(row, "repository indexHash commit observedAt providerStatus")
+                         for row in knowledge.get("repositories", [])[:4]],
+        "omitted": knowledge.get("omitted", 0) + max(0, len(knowledge.get("repositories", [])) - 4),
+        "view": "knowledge"})
 
 
 CAPABILITIES = [
@@ -119,7 +126,7 @@ CAPABILITIES = [
     {"view": "decisions", "capability": "Version-bound suggested or free-text owner answers, outcomes, follow-up proposals and event-driven/periodic waiting"},
     {"view": "queue", "capability": "Inspect inheritance and exact hashes, approve one packet, hold/release and prioritize; only the brain dispatches after fresh gates"},
     {"view": "workers", "capability": "Inspect managed workers and eight independent evidence axes; request checkpoint or archive verified preserved work"},
-    {"view": "knowledge", "capability": "Read retained knowledge and checkpoint documents; no automatic retrieval of file bodies into chat"},
+    {"view": "knowledge", "capability": "Search versioned source citations and retained record links; chat sees metadata only, never code excerpts"},
     {"view": "metrics", "capability": "Aggregate and per-repository tracked-text files, LOC, characters, lifecycle measurements; observations may be missing/stale"},
     {"view": "usage", "capability": "Retained Codex token/cache, model/effort, message and task statistics; attribution is initial cwd, not a bill or causal productivity"},
     {"view": "gitStatus", "capability": "Observed worktrees, branches, ahead/behind, pushes, pull requests and merges; observation refresh is explicit"},

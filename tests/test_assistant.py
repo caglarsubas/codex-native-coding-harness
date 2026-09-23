@@ -60,6 +60,19 @@ class AssistantTest(unittest.TestCase):
         self.assertEqual(rows[0]["status"], "open")
         self.assertLess(len(canonical(data).encode()), 24000)
 
+    def test_knowledge_context_has_metadata_and_navigation_only(self):
+        state = self.ledger.snapshot()
+        state['knowledgeMetadata'] = {'status': 'retained_metadata', 'freshness': 'not_checked',
+                                      'repositories': [{'repository': 'app', 'indexHash': 'a' * 64,
+                                                        'commit': 'b' * 40, 'providerStatus': 'ready',
+                                                        'observedAt': 123, 'excerpt': 'withheld-code-secret'}],
+                                      'omitted': 0}
+        data, links = context(state, 'knowledge')
+        fact = next(f for f in data['facts'] if f['id'] == 'F41')
+        self.assertEqual(fact['data']['repositories'][0]['repository'], 'app')
+        self.assertNotIn('withheld-code-secret', canonical(data))
+        self.assertEqual(links['knowledge']['href'], '#/knowledge')
+
     def test_phase_checkpoint_context_is_historical_and_links_only_to_inspection(self):
         state = self.ledger.snapshot()
         state["phaseCheckpoints"] = {"status": "intact", "kind": "report", "historical": True,

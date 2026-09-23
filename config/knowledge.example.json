@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "repositories": {
+    "example-standard-repository": ["src/", "tests/"]
+  },
+  "graphify": null
+}

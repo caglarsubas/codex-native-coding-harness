@@ -34,11 +34,27 @@ function all(root){return [root,...root.children.flatMap(x=>x instanceof Element
   }
   box.state.standard.run.status='stopping';assert.equal(all(render()).find(n=>n.text==='Pause at safe checkpoint').disabled,true);
   box.state.standard.run.status='paused';assert.ok(all(render()).some(n=>n.text==='Review Resume'));
+  box.state.standard.run.usageGuardVersion=1;
+  box.state.standard.measuredUsage={tokens:{input_tokens:100,cached_input_tokens:50,output_tokens:20,reasoning_output_tokens:5,total_tokens:120},
+    collectedAt:1,coverage:'gapped',gaps:['missing_prefix'],remainingMeasured:null};
+  assert.ok(all(render()).some(n=>n.tag==='table'&&n.text.includes('Measured remaining')&&n.text.includes('Unknown')));
+  box.state.brainHandoff={handoff:null};
+  const priorApi=box.api;
+  box.api=async(path,opts)=>{
+    if(path.endsWith('/brain-handoff/preview')){sent.push({path,body:JSON.parse(opts.body)});return {preview:{expiresAt:100},package:{kind:'fixture'},signature:'signed'};}
+    if(path.endsWith('/brain-handoff/confirm')){sent.push({path,body:JSON.parse(opts.body)});return {result:'Prepared'};}
+    return priorApi(path,opts);};
+  await all(render()).find(n=>n.text==='Review brain handoff').click();
+  nodes=all(render());const handoffConfirm=nodes.find(n=>n.text==='Confirm handoff preparation');
+  assert.equal(handoffConfirm.disabled,true);
+  const handoffBox=nodes.filter(n=>n.type==='checkbox').at(-1);handoffBox.checked=true;handoffBox.onchange();
+  assert.equal(handoffConfirm.disabled,false);await handoffConfirm.click();
+  assert.ok(sent.some(s=>s.path.endsWith('/brain-handoff/confirm')));
   box.state.standard={available:false,catalogRequired:true,contextHash:'missing',boundary:'Partial observations',catalog:null,run:null,
     blocker:'Brain must record the available native model/effort catalog (valid for 24 hours)',catalogRefresh:null};
   nodes=all(render());const prepare=nodes.find(n=>n.text==='Review Play');assert.equal(prepare.disabled,false);
   await prepare.click();assert.equal(sent.filter(s=>s.path.endsWith('catalog-refresh')).length,1);
-  assert.equal(sent.filter(s=>s.path.endsWith('preview')).length,1,'Capability collection does not bypass the separate Play preview');
+  assert.equal(sent.filter(s=>s.path==='/api/standard/preview').length,1,'Capability collection does not bypass the separate Play preview');
   box.state.standard.catalogRefresh={id:'request',status:'queued',createdAt:Date.now()/1000,result:'Waiting',notification:{status:'accepted'},deliveryAttempts:1,maxDeliveryAttempts:3};
   nodes=all(render());assert.equal(nodes.find(n=>n.textContent==='Waiting for native capabilities').disabled,true);
   assert.ok(nodes.some(n=>String(n.text).includes('Waiting for the designated brain')));

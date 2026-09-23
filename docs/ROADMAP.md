@@ -220,6 +220,19 @@ The former rolling iteration forecast is retired in favor of the finite
 - [x] Real two-workspace pilot and final expanded regression/acceptance report: [1,562 local Python tests, 16 JavaScript suites and native pilot results](STANDARD-PROJECT-ACCEPTANCE.md).
 - [ ] Owner merge; separately requested rollout into non-disposable workspaces.
 
+## Durable project knowledge and bounded brain context
+
+See [the architecture and sequence](PROJECT-KNOWLEDGE.md) and
+[per-item evidence ledger](PROJECT-KNOWLEDGE-VERIFICATION.md). These are
+standard-project tooling increments. Source delivery, installation, live
+activation and strict Harness qualification are separate.
+
+- [ ] KNW-01: phase-attributed local usage with explicit gaps, high-water accounting, checkpoint context and fresh admission checks
+- [ ] KNW-02: private, versioned project knowledge index with optional pinned Graphify code-only provider and authoritative record links
+- [ ] KNW-03: bounded project-scoped search, citations, freshness and Knowledge page/brain CLI access
+- [ ] KNW-04: immutable checkpoint package and owner-confirmed safe brain handoff with preserved authority and usage
+- [ ] KNW-05: full local regression, 20-question retrieval evaluation, disposable-project handoff and separate rollout evidence
+
 ## Other future increments — not yet authorized implementation packets
 
 - [ ] Native attachment coverage beyond retained local file references

@@ -85,6 +85,9 @@ Only decisions marked needsOwnerInput=true await a new answer. A blocked histori
 decision can already have an owner answer and follow-up; do not call it open or
 unanswered. No dependency graph or artifact contents are supplied: never invent
 dependencies between decisions or make claims about what an artifact proves/contains.
+Knowledge index metadata may be supplied, but no source excerpts or graph
+relationships are in this chat. Link to Knowledge for scoped citation review;
+an index timestamp is not proof that HEAD or the checkout is current.
 Owners can answer a decision in free text; choosing a suggested option is optional.
 Owner answer bodies and selected options are withheld. Never guess which option was chosen.
 Use activity.source, observedAt and fresh for activity claims; stale activity is unknown,

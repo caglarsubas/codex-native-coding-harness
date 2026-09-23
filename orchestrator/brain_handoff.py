@@ -1,0 +1,336 @@
+"""Owner-reviewed cooperative brain handoff; native creation remains in Codex."""
+import hashlib
+import hmac
+import json
+from pathlib import Path
+import re
+import secrets
+import time
+import uuid
+
+from .core import Refusal, canonical, digest, require
+from .standard import PROTOCOL, TERMINAL, read_db, save
+from .decisions import authorize_brain
+
+UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\Z")
+
+
+def _project(registry, workspace, db=None):
+    from .projects import _read
+    if db is None:
+        with registry.tx() as connection:
+            return _project(registry, workspace, connection)
+    catalog, bindings = _read(db)
+    require(catalog is not None, "Native project catalog required")
+    match = [(key, value) for key, value in bindings.items() if value["workspaceId"] == workspace]
+    require(len(match) == 1, "Exactly one native project binding required")
+    key, binding = match[0]
+    owner = db.execute("SELECT brain FROM workspaces WHERE id=?", (workspace,)).fetchone()
+    require(owner is not None and binding["brainId"] == owner["brain"], "Native project brain binding changed")
+    project = next((p for p in catalog["projects"] if p["key"] == key), None)
+    require(project is not None and project["locationHash"] == binding["locationHash"], "Native project identity changed")
+    return {"key": key, "projectId": project["projectId"], "hostId": project["hostId"],
+            "locationHash": project["locationHash"], "catalogHash": catalog["hash"]}
+
+
+def _safe(ledger, db, allow_controller=False):
+    meta = ledger.get(db, "meta", 1)
+    run = meta.get("standardRun")
+    require(run and run["protocol"] == PROTOCOL and run["brainId"] == meta["brainId"]
+            and run["status"] in ("paused", "completed", "blocked") and run.get("checkpoint"),
+            "A saved standard checkpoint is required")
+    if not allow_controller:
+        require(meta["controller"] is None and not (ledger.root / "standard-controller.json").exists(),
+                "Release the old brain controller before handoff")
+    require(all(t["status"] in TERMINAL for t in run["tasks"]), "Registered native tasks remain unsettled")
+    require(not any(m["status"] in ("prepared", "issued", "uncertain") for m in run.get("merges", [])),
+            "Unresolved merge handoff")
+    require(not any(t.get("effectIssued") and not t.get("threadId") and t["status"] != "not_created" for t in run["tasks"]),
+            "Unresolved native creation")
+    require(meta.get("heartbeat", {}).get("status") in ("PAUSED", "not_configured"),
+            "Pause the previous brain heartbeat and record its native status")
+    from .conversation import pending as pending_message
+    require(not any(pending_message(command) for command in ledger.all(db, "commands")),
+            "Resolve pending brain conversation before handoff")
+    require(not any(command["kind"] == "decision_response" and command["status"] in ("queued", "processing")
+                    for command in ledger.all(db, "commands")), "Resolve in-flight decisions before handoff")
+    from .enrollment import fence_exists
+    require(not fence_exists(ledger.root) and "admissionBinding" not in meta,
+            "Strict enrollment is outside cooperative handoff")
+    return meta, run
+
+
+def package(ledger, db, run, project):
+    from . import project_knowledge
+    knowledge_cfg = project_knowledge.config(ledger)
+    references = []
+    for repository in sorted((knowledge_cfg or {}).get("repositories", {})):
+        manifest = project_knowledge._manifest(ledger, repository)
+        references.append({"repository": repository, "indexHash": manifest["documentHash"] if manifest else None,
+                           "commit": manifest["commit"] if manifest else None,
+                           "observedAt": manifest["at"] if manifest else None,
+                           "boundary": "Rebuildable search aid, not current source or authority"})
+    open_decisions = sorted(({"id": decision["id"], "status": decision["status"]}
+                             for decision in ledger.all(db, "decisions") if decision["status"] in ("open", "answered")),
+                            key=lambda row: row["id"])
+    require(len(open_decisions) <= 50, "Too many unresolved decisions for a bounded handoff")
+    value = {"kind": "standard_brain_handoff_v1", "runId": run["id"], "oldBrainId": run["brainId"],
+            "project": project, "missionHash": run["missionHash"], "reviewHash": run["reviewHash"],
+            "phaseId": run["phaseId"], "checkpoint": run["checkpoint"], "limits": run["limits"],
+            "usageHighWater": run.get("usageHighWater"), "closeoutHighWater": run.get("closeoutHighWater"),
+            "closeoutDocumentHash": digest(run["closeoutReport"]) if run.get("closeoutReport") else None,
+            "usageCoverage": (run.get("usageReport") or {}).get("coverage", "unknown"),
+            "usageDocumentHash": digest(run["usageReport"]) if run.get("usageReport") else None,
+            "tasks": [{key: task.get(key) for key in ("id", "title", "threadId", "status", "seedHash", "result")}
+                      for task in run["tasks"]],
+            "merges": [{key: merge.get(key) for key in ("requestId", "status", "bindingHash", "observationHash")}
+                       for merge in run.get("merges", [])],
+            "decisions": open_decisions,
+            "memoryHash": run.get("memoryHash"),
+            "knowledgeReferences": references,
+            "boundary": "Checkpoint context only. Verify current ledger and Git state. No Play, Resume, budget reset, approval or native effect is granted."}
+    require(len(canonical(value).encode()) <= 64_000, "Handoff package exceeds reviewed bound")
+    return value
+
+
+class Controls:
+    def __init__(self):
+        self.key = secrets.token_bytes(32)
+
+    def sign(self, value):
+        return hmac.new(self.key, canonical(value).encode(), hashlib.sha256).hexdigest()
+
+    def preview(self, registry, ledger, session):
+        workspace = ledger.workspace_id
+        project = _project(registry, workspace)
+        with read_db(ledger.db) as db:
+            meta, run = _safe(ledger, db)
+            require(not meta.get("brainHandoff") or meta["brainHandoff"]["status"] in ("cancelled", "complete"),
+                    "Another brain handoff is pending")
+            content = package(ledger, db, run, project)
+            reviewed = {"id": str(uuid.uuid4()), "workspace": workspace, "sessionHash": digest(session),
+                        "oldBrainId": meta["brainId"], "runId": run["id"], "runRevision": run["revision"],
+                        "packageHash": digest(content), "project": project, "expiresAt": time.time()+300}
+        return {"preview": reviewed, "package": content, "signature": self.sign(reviewed)}
+
+    def confirm(self, registry, ledger, body, session):
+        require(isinstance(body, dict) and set(body) == {"preview", "package", "signature", "confirmed"}
+                and body["confirmed"] is True, "Exact owner confirmation required")
+        doc = body["preview"]
+        require(isinstance(doc, dict) and hmac.compare_digest(self.sign(doc), body["signature"])
+                and doc["sessionHash"] == digest(session) and doc["workspace"] == ledger.workspace_id
+                and time.time() < doc["expiresAt"], "Handoff preview expired or changed")
+        require(digest(body["package"]) == doc["packageHash"], "Handoff package changed")
+        with registry.tx() as registry_db, ledger.tx() as db:
+            project = _project(registry, ledger.workspace_id, registry_db)
+            meta, run = _safe(ledger, db)
+            require(project == doc["project"] and meta["brainId"] == doc["oldBrainId"]
+                    and run["id"] == doc["runId"] and run["revision"] == doc["runRevision"],
+                    "Project or checkpoint changed")
+            require(digest(package(ledger, db, run, project)) == doc["packageHash"], "Package is stale")
+            prior = meta.get("brainHandoff")
+            require(not prior or prior["status"] in ("cancelled", "complete"), "Handoff already pending")
+            db.execute("INSERT OR IGNORE INTO snapshots VALUES(?,?,?)", (doc["packageHash"], "brain_handoff_package", canonical(body["package"])))
+            handoff = {"id": doc["id"], "status": "prepared", "oldBrainId": doc["oldBrainId"],
+                       "packageHash": doc["packageHash"], "project": project, "runId": run["id"],
+                       "createdAt": time.time(), "candidate": None, "receipt": None}
+            meta["brainHandoff"] = handoff
+            ledger.put(db, "meta", 1, meta)
+            command = {"id": doc["id"], "kind": "brain_handoff", "actor": "dashboard", "status": "queued",
+                       "createdAt": time.time(), "payload": {"runId": run["id"], "packageHash": doc["packageHash"]},
+                       "result": "Owner reviewed handoff package; designated brain must create one replacement task"}
+            ledger.put(db, "commands", doc["id"], command)
+            ledger.event(db, "brain_handoff_prepared", {"id": doc["id"], "packageHash": doc["packageHash"]})
+        return command
+
+    def finalize_preview(self, registry, ledger, session):
+        with read_db(ledger.db) as db:
+            meta, run = _safe(ledger, db)
+            handoff = meta.get("brainHandoff")
+            require(handoff and handoff["status"] == "received" and handoff["receipt"],
+                    "Replacement task receipt is not recorded")
+            project = _project(registry, ledger.workspace_id)
+            require(project == handoff["project"], "Native project binding changed")
+            review = {"workspace": ledger.workspace_id, "sessionHash": digest(session),
+                      "handoffId": handoff["id"], "handoffHash": digest(handoff),
+                      "runId": run["id"], "runRevision": run["revision"],
+                      "oldBrainId": meta["brainId"], "newBrainId": handoff["candidate"]["taskId"],
+                      "expiresAt": time.time()+300}
+        return {"preview": review, "handoff": handoff, "signature": self.sign(review)}
+
+    def finalize(self, registry, ledger, body, session):
+        require(isinstance(body, dict) and set(body) == {"preview", "signature", "confirmed"}
+                and body["confirmed"] is True, "Final owner confirmation required")
+        doc = body["preview"]
+        require(isinstance(doc, dict) and hmac.compare_digest(self.sign(doc), body["signature"])
+                and doc["workspace"] == ledger.workspace_id and doc["sessionHash"] == digest(session)
+                and time.time() < doc["expiresAt"], "Final handoff review expired")
+        with registry.tx() as registry_db, ledger.tx() as db:
+            meta, run = _safe(ledger, db)
+            handoff = meta.get("brainHandoff")
+            require(handoff and handoff["status"] == "received" and digest(handoff) == doc["handoffHash"]
+                    and run["revision"] == doc["runRevision"] and run["id"] == doc["runId"]
+                    and meta["brainId"] == doc["oldBrainId"] and handoff["candidate"]["taskId"] == doc["newBrainId"],
+                    "Handoff or checkpoint changed; inspect again")
+            require(_project(registry, ledger.workspace_id, registry_db) == handoff["project"], "Project binding changed")
+            row = registry_db.execute("SELECT name,data FROM workspaces WHERE id=?", (ledger.workspace_id,)).fetchone()
+            require(row is not None, "Registered project unavailable")
+            new_id = doc["newBrainId"]
+            require(not registry_db.execute("SELECT 1 FROM workspaces WHERE brain=?", (new_id,)).fetchone(),
+                    "Replacement already owns another project")
+            old = meta["brainId"]
+            at = time.time()
+            run.setdefault("brainSegments", [{"id": old, "start": run["startedAt"], "end": at}])
+            if run["brainSegments"][-1]["id"] == old:
+                run["brainSegments"][-1]["end"] = at
+            run["brainSegments"].append({"id": new_id, "start": at, "end": None})
+            run["brainId"] = new_id
+            run.pop("usageReport", None)  # Old high-water and per-session evidence remain.
+            meta["brainId"] = new_id
+            handoff.update(status="complete", completedAt=at)
+            meta["brainHandoff"] = handoff
+            command = ledger.get(db, "commands", handoff["id"])
+            command.update(status="completed", completedAt=at,
+                           result="Owner confirmed exact replacement brain after native receipt; phase remains paused")
+            ledger.put(db, "commands", handoff["id"], command)
+            save(ledger, db, meta, run, "brain_handoff")
+            row_data = json.loads(row["data"])
+            row_data["brainId"] = new_id
+            row_data.setdefault("brainHistory", []).append({"id": old, "endedAt": at, "handoffId": handoff["id"]})
+            registry_db.execute("UPDATE workspaces SET brain=?,data=? WHERE id=?", (new_id, canonical(row_data), ledger.workspace_id))
+            binding = registry_db.execute("SELECT project_key,data FROM project_bindings WHERE workspace=?", (ledger.workspace_id,)).fetchone()
+            if binding:
+                value = json.loads(binding["data"])
+                value["brainId"] = new_id
+                registry_db.execute("UPDATE project_bindings SET data=? WHERE project_key=?", (canonical(value), binding["project_key"]))
+        return {"status": "complete", "oldBrainId": old, "newBrainId": new_id,
+                "runId": run["id"], "projectId": handoff["project"]["projectId"],
+                "boundary": "Checkpoint retained; Play and Resume remain separate owner controls"}
+
+
+def candidate(ledger, token, value):
+    require(isinstance(value, dict) and set(value) == {"handoffId", "taskId", "projectId", "hostId", "observation"},
+            "Exact candidate and native observation required")
+    require(isinstance(value["taskId"], str) and UUID.fullmatch(value["taskId"]), "Native task UUID required")
+    require(isinstance(value["observation"], str) and 20 <= len(value["observation"]) <= 2000,
+            "Describe the native project/task observation")
+    with ledger.tx() as db:
+        meta = authorize_brain(ledger, db, token)
+        _safe(ledger, db, allow_controller=True)
+        handoff = meta.get("brainHandoff")
+        require(handoff and handoff["id"] == value["handoffId"] and handoff["status"] in ("prepared", "candidate"),
+                "Exact prepared handoff required")
+        require(value["taskId"] != meta["brainId"] and value["projectId"] == handoff["project"]["projectId"]
+                and value["hostId"] == handoff["project"]["hostId"], "Replacement task belongs to another project")
+        if handoff["candidate"]:
+            require(handoff["candidate"] == value, "Native creation is one-shot; reconcile instead of retrying")
+            return handoff
+        handoff.update(candidate=value, status="candidate")
+        meta["brainHandoff"] = handoff
+        ledger.put(db, "meta", 1, meta)
+        ledger.event(db, "brain_handoff_candidate", {"id": value["handoffId"], "taskId": value["taskId"]})
+        return handoff
+
+
+def receipt(ledger, value):
+    require(isinstance(value, dict) and set(value) == {"handoffId", "taskId", "packageHash", "summary"},
+            "Exact replacement receipt required")
+    require(isinstance(value["summary"], str) and 20 <= len(value["summary"]) <= 2000,
+            "Bounded replacement understanding required")
+    with ledger.tx() as db:
+        meta, run = _safe(ledger, db)
+        handoff = meta.get("brainHandoff")
+        require(handoff and handoff["id"] == value["handoffId"] and handoff["status"] in ("candidate", "received")
+                and handoff["candidate"]["taskId"] == value["taskId"]
+                and handoff["packageHash"] == value["packageHash"], "Exact candidate/package receipt required")
+        if handoff["receipt"]:
+            require(handoff["receipt"] == value, "Replacement receipt changed")
+            return handoff
+        from .activity import candidates, open_regular
+        from .observations import config as observation_config
+        from .standard import git_root
+        home = observation_config(ledger).get("codexHome")
+        require(home and Path(home).is_absolute(), "Configured local Codex log root required")
+        paths = candidates(Path(home), value["taskId"])
+        require(paths, "Replacement native session has not been observed locally")
+        observed = False
+        for path in paths:
+            with open_regular(path) as stream:
+                header = json.loads(stream.readline(8193))
+            payload = header.get("payload", {})
+            if header.get("type") != "session_meta" or payload.get("id") != value["taskId"] or payload.get("forked_from_id"):
+                continue
+            cwd = payload.get("cwd")
+            if isinstance(cwd, str) and Path(cwd).is_absolute():
+                try:
+                    if git_root(cwd) in run["identities"].values():
+                        observed = True
+                        break
+                except (OSError, Refusal, ValueError):
+                    pass
+        require(observed, "Replacement task checkout does not match the reviewed repository identity")
+        handoff.update(receipt=value, status="received", receivedAt=time.time())
+        meta["brainHandoff"] = handoff
+        ledger.put(db, "meta", 1, meta)
+        ledger.event(db, "brain_handoff_received", {"id": value["handoffId"], "taskId": value["taskId"]})
+        return handoff
+
+
+def status(ledger):
+    with read_db(ledger.db) as db:
+        meta = ledger.get(db, "meta", 1)
+        return {"brainId": meta["brainId"], "handoff": meta.get("brainHandoff"),
+                "runId": (meta.get("standardRun") or {}).get("id")}
+
+
+def recover_registry(registry, workspace, handoff_id, confirmed):
+    """Finish only a ledger-committed rebind after an interrupted second DB commit.
+
+    The ledger commits first. An interruption can leave the registry on the old
+    brain; root_for then fails closed. This exact repair makes no native effect.
+    """
+    require(confirmed is True and isinstance(handoff_id, str) and UUID.fullmatch(handoff_id),
+            "Exact owner-confirmed handoff recovery required")
+    from .core import Ledger
+    from .workspaces import inspect_ledger
+    with registry.tx() as db:
+        row = db.execute("SELECT root,brain,data FROM workspaces WHERE id=?", (workspace,)).fetchone()
+        require(row is not None, "Registered project unavailable")
+        data = json.loads(row["data"])
+        inspected = inspect_ledger(row["root"])
+        require(inspected["databaseIdentity"] == data["databaseIdentity"], "Registered ledger identity changed")
+        ledger = Ledger(row["root"])
+        with read_db(ledger.db) as ledger_db:
+            meta = ledger.get(ledger_db, "meta", 1)
+            handoff = meta.get("brainHandoff")
+            run = meta.get("standardRun")
+            require(handoff and handoff["id"] == handoff_id and handoff["status"] == "complete"
+                    and run and run["brainId"] == meta["brainId"]
+                    and handoff["candidate"]["taskId"] == meta["brainId"],
+                    "No exact ledger-committed brain handoff to recover")
+            require(meta["controller"] is None and all(task["status"] in TERMINAL for task in run["tasks"]),
+                    "Recovery requires the saved safe checkpoint")
+            old, new = handoff["oldBrainId"], meta["brainId"]
+        binding = db.execute("SELECT project_key,data FROM project_bindings WHERE workspace=?", (workspace,)).fetchone()
+        require(binding is not None, "Native project binding unavailable")
+        binding_data = json.loads(binding["data"])
+        require(binding["project_key"] == handoff["project"]["key"]
+                and binding_data["locationHash"] == handoff["project"]["locationHash"],
+                "Native project binding changed")
+        if row["brain"] == new:
+            require(binding_data["brainId"] == new and data["brainId"] == new,
+                    "Partial registry binding needs manual review")
+            return {"status": "already_consistent", "brainId": new}
+        require(row["brain"] == old and data["brainId"] == old and binding_data["brainId"] == old,
+                "Registry is not at the reviewed old brain")
+        require(not db.execute("SELECT 1 FROM workspaces WHERE brain=?", (new,)).fetchone(),
+                "Replacement brain already owns another project")
+        data["brainId"] = new
+        data.setdefault("brainHistory", []).append({"id": old, "endedAt": handoff["completedAt"],
+                                                     "handoffId": handoff_id})
+        binding_data["brainId"] = new
+        db.execute("UPDATE workspaces SET brain=?,data=? WHERE id=?", (new, canonical(data), workspace))
+        db.execute("UPDATE project_bindings SET data=? WHERE project_key=?",
+                   (canonical(binding_data), binding["project_key"]))
+    return {"status": "recovered", "oldBrainId": old, "newBrainId": new,
+            "boundary": "Registry rebind only; no Play, Resume, approval or native effect"}

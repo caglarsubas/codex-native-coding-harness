@@ -93,7 +93,8 @@ function workers(root) {
  d.append(actions,section("Evidence axes"));const axes=el("div",null,"axes");Object.entries(w.evidence).forEach(([axis,v])=>{const e=el("span",axis+": "+v.status);e.dataset.verified=String(v.status==='verified');e.title=v.reference||"No verified evidence";axes.append(e);});d.append(axes);if(selected===w.id&&canArchiveWorker(w)){d.append(callout("Archive this completed task?", "Archiving can trigger cleanup of a Codex-managed worktree. Only proceed after commits are pushed and evidence is preserved. This is not a stop or delete operation."),button("Confirm archive request",()=>command("archive",{workerId:w.id})));}root.append(d);});
 }
 function knowledge(root) {
- if(state.standard?.run){standardPanel(root);return;}
+ if(state.standard?.run){standardPanel(root);if(typeof projectKnowledge==='function')projectKnowledge(root);return;}
+ if(typeof projectKnowledge==='function')projectKnowledge(root);
  brainActivity(root,true);
  root.append(section("Current checkpoint",when(state.meta.lastReconciled)),el("p",state.meta.checkpoint,"checkpoint"));
  root.append(section("Immutable inheritance & results"));
