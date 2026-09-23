@@ -204,6 +204,10 @@ and `docs/STANDARD-MERGE.md` in the source checkout. Manual merge remains the
 default and manual repository policy still refuses delegation. Only the designated
 brain may cross-check and consume the single head-bound merge handoff. Never
 resend unknown delivery or promote merged into CI/runtime/phase acceptance.
+Use the returned synchronous `gh api` merge PUT with exact SHA only; never
+substitute queue-capable `gh pr merge` or an asynchronous/auto-merge fallback.
+Enabled/unknown effective queue or PR auto-merge refuses, as do full policy drift,
+optional rerun ambiguity and post-remote local branch/origin/layout changes.
 Before any such Play, update the installed launcher from its stale schema-1-only
 source to the exact compatible merged source under separate rollout authority.
 Source delivery itself stops at an open PR for manual merge and installs nothing.

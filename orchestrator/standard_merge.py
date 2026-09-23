@@ -7,17 +7,22 @@ import base64
 import fnmatch
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
+import selectors
+import shutil
+import subprocess
+import tempfile
 import time
 from urllib.parse import quote
 
 from . import missions, standard
-from .core import ACTIVE, canonical, digest, require
+from .core import ACTIVE, Refusal, canonical, digest, require
 from .decisions import authorize_brain
 from .enrollment import record_in
 from .github_evidence import (api_read, pr_target, pull_projection, policy_projection,
-                              checks_projection, ci_projection, inventory)
+                              checks_projection, ci_projection, inventory, API_VERSION)
 from .resources import git_metadata
 from .source_observation import (oid, branch_ref, layout, check_objects, object_view,
                                  git_read, commit_tree, changes, ref_value)
@@ -78,12 +83,117 @@ def remote_identity(path):
     return match[1].lower()
 
 
+def source_binding(repo, task, binding, expected=None):
+    """Pin/recheck mutable local metadata independently of the object evidence."""
+    root = Path(repo["path"])
+    common = Path(git_metadata(root, "rev-parse", "--path-format=absolute", "--git-common-dir")).resolve(strict=True)
+    stat = common.stat()
+    key = "repo-local:" + digest({"device": stat.st_dev, "inode": stat.st_ino})
+    common, objects, pin = layout(root, key)
+    slug, _, _ = pr_target(binding["prUrl"])
+    require(standard.git_root(root) == task["repositoryIdentity"] and remote_identity(common) == slug,
+            "Repository identity or origin changed")
+    require(ref_value(common, branch_ref(binding["headBranch"])) == binding["headSHA"],
+            "Local result branch head drifted")
+    value = {"commonKey": key, "layoutHash": pin, "origin": slug}
+    require(expected is None or value == expected, "Repository layout changed after collection")
+    return value
+
+
+def queue_read(binding, deadline):
+    """Fixed public GraphQL query: effective queue state includes classic rules.
+
+    REST classic protection omits this setting. Unknown/partial GraphQL responses
+    are never a negative observation. This transport cannot accept arbitrary RPC.
+    """
+    slug, number, _ = pr_target(binding["prUrl"])
+    owner, repo = slug.split("/")
+    query = ("query { repository(owner:" + json.dumps(owner) + ",name:" + json.dumps(repo) +
+             ") { nameWithOwner pullRequest(number:" + str(number) + ") { number url "
+             "baseRefName baseRefOid headRefName headRefOid isMergeQueueEnabled isInMergeQueue "
+             "autoMergeRequest { enabledAt } } } }")
+    executable = shutil.which("gh")
+    require(executable and Path(executable).is_absolute(), "Installed GitHub CLI unavailable")
+    env = {k: v for k, v in os.environ.items() if k in (
+        "HOME", "PATH", "GH_TOKEN", "GITHUB_TOKEN", "GH_CONFIG_DIR", "XDG_CONFIG_HOME",
+        "SSL_CERT_FILE", "SSL_CERT_DIR", "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY")}
+    env.update(GH_PROMPT_DISABLED="1", GH_NO_UPDATE_NOTIFIER="1", GH_PAGER="cat", LC_ALL="C")
+    argv = [executable, "api", "--hostname", "github.com", "--method", "POST", "graphql", "-f", "query="+query]
+    data = bytearray(); stop = min(deadline, time.monotonic()+5)
+    try:
+        with tempfile.TemporaryDirectory(prefix="codex-merge-queue-read-") as folder:
+            with subprocess.Popen(argv, cwd=folder, env=env, stdin=subprocess.DEVNULL,
+                                  stdout=subprocess.PIPE, stderr=subprocess.DEVNULL) as proc:
+                try:
+                    with selectors.DefaultSelector() as selector:
+                        selector.register(proc.stdout, selectors.EVENT_READ)
+                        while True:
+                            remaining = stop-time.monotonic()
+                            require(remaining > 0 and selector.select(remaining), "Queue observation timed out")
+                            chunk = os.read(proc.stdout.fileno(), min(8192, 16385-len(data)))
+                            if not chunk: break
+                            data.extend(chunk)
+                            require(len(data) <= 16384, "Queue response exceeds its bound")
+                    proc.wait(timeout=max(.01, stop-time.monotonic()))
+                    require(proc.returncode == 0, "Queue observation unavailable")
+                except BaseException:
+                    if proc.poll() is None: proc.kill()
+                    proc.wait()
+                    raise
+        def unique(pairs):
+            result = {}
+            for key, value in pairs:
+                require(key not in result, "Duplicate queue response field")
+                result[key] = value
+            return result
+        result = json.loads(data, object_pairs_hook=unique)
+        canonical(result)
+        return result
+    except (OSError, ValueError, RecursionError, subprocess.SubprocessError):
+        raise Refusal("Queue observation unavailable or unsupported") from None
+
+
+def queue_projection(raw, binding):
+    require(isinstance(raw, dict) and not raw.get("errors") and isinstance(raw.get("data"), dict),
+            "Effective merge queue observation unavailable")
+    repo = raw["data"].get("repository")
+    slug, number, _ = pr_target(binding["prUrl"])
+    require(isinstance(repo, dict) and isinstance(repo.get("nameWithOwner"), str) and repo["nameWithOwner"].lower() == slug,
+            "Queue repository binding unavailable")
+    pr = repo.get("pullRequest")
+    require(isinstance(pr, dict) and all(pr.get(k) == v for k, v in {
+        "number": number, "url": binding["prUrl"], "baseRefName": binding["baseBranch"],
+        "baseRefOid": binding["baseSHA"], "headRefName": binding["headBranch"], "headRefOid": binding["headSHA"]}.items()),
+        "Queue PR binding changed or unavailable")
+    require(pr.get("isMergeQueueEnabled") is False and pr.get("isInMergeQueue") is False and
+            "autoMergeRequest" in pr and pr["autoMergeRequest"] is None,
+            "Effective merge queue or deferred auto-merge enabled or unknown")
+    return {"effectiveQueue": "disabled", "queued": False, "autoMerge": "disabled", "responseHash": digest(raw)}
+
+
+def unambiguous_checks(checks):
+    # Check the entire inventory, including optional contexts and other providers.
+    rows = checks["runs"] + checks["statuses"]
+    require(len({r["name"] for r in rows}) == len(rows),
+            "Complete check inventory has provider/rerun ambiguity")
+
+
+def merge_argv(binding):
+    # The synchronous endpoint has no enqueue/enable-auto-merge behavior, unlike
+    # gh pr merge. Never use the asynchronous endpoint, fallback or retry.
+    slug, number, _ = pr_target(binding["prUrl"])
+    return ["gh", "api", "--hostname", "github.com", "--method", "PUT",
+            "-H", "Accept: application/vnd.github+json", "-H", "X-GitHub-Api-Version: "+API_VERSION,
+            f"repos/{slug}/pulls/{number}/merge", "-f", "sha="+binding["headSHA"], "-f", "merge_method=merge"]
+
+
 def source(repo, task, binding):
     """Retain complete bounded changed-source bytes and inventories from exact objects."""
     started = time.time()
     # Derive the existing isolated reader's common-dir key from the pinned local
     # directory, then check the standard identity again after all I/O.
-    root = Path(repo["path"]).resolve(strict=True)
+    local_binding = source_binding(repo, task, binding)
+    root = Path(repo["path"])
     common = Path(git_metadata(root, "rev-parse", "--path-format=absolute", "--git-common-dir")).resolve(strict=True)
     stat = common.stat()
     key = "repo-local:" + digest({"device": stat.st_dev, "inode": stat.st_ino})
@@ -114,7 +224,8 @@ def source(repo, task, binding):
         base_paths = git_read(view, ["ls-tree", "-r", "--name-only", "-z", binding["baseSHA"]], bound=1_000_000).decode().rstrip("\0").split("\0")
     require(layout(root, key)[2] == pin and standard.git_root(root) == task["repositoryIdentity"] and remote_identity(common) == slug and
             ref_value(common, branch_ref(binding["headBranch"])) == binding["headSHA"], "Repository changed during collection")
-    return {"headSHA": binding["headSHA"], "baseSHA": binding["baseSHA"], "tree": tree,
+    source_binding(repo, task, binding, local_binding)
+    return {"localBinding": local_binding, "headSHA": binding["headSHA"], "baseSHA": binding["baseSHA"], "tree": tree,
             "changes": changed, "blobsBase64": blobs, "patchBase64": base64.b64encode(patch).decode(),
             "patchSHA256": hashlib.sha256(patch).hexdigest(), "paths": paths,
             "baseWorkflows": [p for p in base_paths if p.startswith(".github/workflows/")],
@@ -145,13 +256,24 @@ def remote(binding, *, terminal=False):
             require(branch.get("commit", {}).get("sha") == binding["baseSHA"] and type(branch.get("protected")) is bool, "Base branch changed or policy unknown")
             classic = get("branches/"+target+"/protection") if branch["protected"] else {"required_status_checks": None}
             rules = get("rules/branches/"+target+"?per_page=100&page=1")
+            require(rules is None or isinstance(rules, list) and len(rules) < 100,
+                    "Effective rule inventory unavailable or exceeds its complete bound")
+            queue = queue_projection(queue_read(binding, deadline), binding)
             policy = policy_projection(classic, rules)
             commit = binding["headSHA"]
             suites = get("commits/"+commit+"/check-suites?per_page=100&page=1")
             require(all(s.get("status") == "completed" and s.get("conclusion") == "success" for s in inventory(suites, "check_suites")), "Check suite missing, pending or failed")
-            checks = checks_projection(suites,
-                get("commits/"+commit+"/check-runs?filter=all&per_page=100&page=1"),
-                get("commits/"+commit+"/status?per_page=100&page=1"), commit, slug)
+            runs = get("commits/"+commit+"/check-runs?filter=all&per_page=100&page=1")
+            statuses = get("commits/"+commit+"/status?per_page=100&page=1")
+            # Combined status keeps only the latest context. Inspect the history
+            # too, refusing a full page because this API provides no total count.
+            history = get("commits/"+commit+"/statuses?per_page=100&page=1")
+            require(isinstance(history, list) and len(history) < 100,
+                    "Complete status history unavailable or exceeds its bound")
+            checks = checks_projection(suites, runs, statuses, commit, slug)
+            all_checks = checks_projection(suites, runs, {**statuses, "total_count": len(history), "statuses": history}, commit, slug)
+            require(checks == all_checks, "Combined status hides historical checks")
+            unambiguous_checks(checks)
             workflows = inventory(get("actions/workflows?per_page=100&page=1"), "workflows")
             ci, status, issues = ci_projection(policy, checks, commit)
             require(set(checks["suiteIds"]) == {r["suiteId"] for r in checks["runs"]}, "Check-suite run coverage incomplete")
@@ -160,9 +282,17 @@ def remote(binding, *, terminal=False):
                 if required["appId"] is None:
                     candidates += [r for r in checks["statuses"] if r["name"] == required["context"]]
                 require(len(candidates) == 1, "Required check missing or provider/rerun ambiguous")
-            observed.update(policy=policy, checks=checks, ci=ci, ciStatus=status, issues=issues,
+            observed.update(policy=policy, queue=queue,
+                            policyBindings={"branch": digest(branch), "classic": digest(classic), "rules": digest(rules),
+                                            "classicState": ("unavailable" if classic is None else "observed") if branch["protected"] else "unprotected",
+                                            "rulesState": "unavailable" if rules is None else "observed",
+                                            "issues": policy["issues"]},
+                            checkBindings={"suites": digest(suites), "runs": digest(runs),
+                                           "statuses": digest(statuses), "history": digest(history)},
+                            checks=checks, ci=ci, ciStatus=status, issues=issues,
                             workflowCount=len(workflows), workflowHash=digest(workflows))
         rounds.append(observed)
+    require(time.monotonic() <= deadline, "Merge inspection deadline exceeded")
     require(rounds[0] == rounds[1], "PR, policy or checks changed during verification")
     return {**rounds[0], "observedAt": started, "atomicSnapshot": False}
 
@@ -306,6 +436,7 @@ def brain(registry, ledger, token, request):
             registry_guard(registry_db=rdb, ledger=ledger, task=task, binding=binding)
             validate_evidence(request["evidence"], current, task, binding, measured)
             fresh(report["observedAt"])
+            source_binding(repo, task, binding, measured["localBinding"])
         if operation == "merge_prepare":
             value = {"request": request, "binding": binding, "workspaceId": missions.workspace(ledger),
                      "runId": run["id"], "taskId": task["id"], "resultHash": task["result"],
@@ -325,6 +456,7 @@ def brain(registry, ledger, token, request):
             value = document(ledger, db, entry["bindingHash"])
             original = document(ledger, db, value["sourceHash"])
             require({k:v for k,v in original.items() if k != "observedAt"} == {k:v for k,v in measured.items() if k != "observedAt"}, "Preserved source drifted")
+            source_binding(repo, task, binding, measured["localBinding"])
             entry.update(status="issued", issuedAt=time.time())
         elif operation == "merge_reconcile" and entry["status"] in ("issued", "uncertain"):
             entry["status"] = "uncertain"  # Open is not proof a delayed send cannot execute.
@@ -336,5 +468,5 @@ def brain(registry, ledger, token, request):
         standard.save(ledger, db, meta, current, operation)
         response = {"merge": entry, "boundary": BOUNDARY}
         if operation == "merge_check" and entry["status"] == "issued":
-            response["argv"] = ["gh", "pr", "merge", binding["prUrl"], "--merge", "--match-head-commit", binding["headSHA"]]
+            response["argv"] = merge_argv(binding)
         return response

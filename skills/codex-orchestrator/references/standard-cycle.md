@@ -153,10 +153,16 @@ work does not authorize installation, policy migration, live changes or activati
    never means passing CI. Prepare grants no effect permission.
 3. `merge_check` with the same run/task/request and fresh evidence. It rechecks
    authority after I/O and commits the one-shot issued boundary. Only the first
-   successful response emits fixed `gh pr merge ... --merge --match-head-commit`
+   successful response emits fixed synchronous `gh api --method PUT .../merge`
    argv. Re-read latest state immediately before executing it once. Pause, brain
    stop or changed authority wins; do not execute, retain uncertainty. Never retry
    a lost check response or add flags/commands to the emitted argv.
+   Use only the exact returned synchronous PUT arguments, with the pinned `sha`
+   and `merge_method=merge`. Never substitute `gh pr merge`, an asynchronous
+   endpoint, queue/auto-merge, admin bypass or a fallback. Effective classic/ruleset
+   queue state and PR auto-merge must be positively disabled in both rounds;
+   unknown refuses. Full policy/check metadata must agree, and optional duplicate
+   contexts/reruns refuse too. Local branch/origin/layout are rechecked after I/O.
 4. `merge_receipt` with delivery `acknowledged`, `unknown` or `failed` retains
    uncertainty; `merge_reconcile` observes the exact PR. Open after issue stays
    uncertain, closed/unmerged is not-merged, exact remote merge is merged. Late

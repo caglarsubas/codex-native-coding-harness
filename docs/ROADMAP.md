@@ -236,6 +236,8 @@ OpenClaw integration remains deferred.
 - [x] Immutable exact-result/source/PR journal and designated-brain one-shot merge handoff.
 - [x] Fresh bounded GitHub policy/check/workflow inspection, complete local evidence,
   uncertainty reconciliation, dashboard history and refusal/race tests.
+- [x] Correction coverage for effective queue/auto-merge refusal, synchronous-only
+  effect, post-remote local identity checks, full policy metadata drift and optional reruns.
 - [ ] Manual owner merge of this enabling PR.
 - [ ] Separately authorized launcher rollout from stale schema-1-only source to the
   exact compatible merged source, with older writers quiesced.

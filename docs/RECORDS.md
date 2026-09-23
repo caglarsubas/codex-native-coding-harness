@@ -125,6 +125,12 @@ requires standard phase delegation and the existing checks-based repository poli
 Standard result evidence may add an exact `headSHA`. Merge binding, source,
 observation and delivery receipt snapshots are content-addressed and immutable;
 `standardRun.merges` projects their current state and original observation time.
+Source records additionally pin `localBinding` (common-directory key, layout hash,
+canonical origin), revalidated after remote I/O. Observation reports retain
+`policyBindings`, `checkBindings` and effective `queue` metadata/hashes rather than
+raw GitHub bodies. Missing/unsupported coverage remains a refusal. The emitted
+one-shot effect uses the synchronous SHA-bound REST merge endpoint via `gh api`;
+no queue, auto-merge or asynchronous fallback is allowed.
 One run consumes one immutable PR/request slot. Issued/uncertain journals retain
 ownership without another argv or automatic retry. See [STANDARD-MERGE.md](STANDARD-MERGE.md)
 for fields, evidence bounds, absence handling and launcher rollout prerequisites.

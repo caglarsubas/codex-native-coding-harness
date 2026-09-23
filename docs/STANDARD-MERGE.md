@@ -12,8 +12,11 @@ retain their existing restrictions.
 **Rollout prerequisite:** before any future merge-enabled Play, stop older writers
 and update the installed launcher from its stale schema-1-only source to the exact
 compatible merged source. Verify the launcher resolves that revision and supports
-the standard schema-v4 protocol. Source delivery does not install anything, update
-live state, change repository policy, restart the dashboard or activate a phase.
+the standard schema-v4 protocol. Old prepared handoffs must be quiesced; their
+source records lack the new local layout binding and cannot be promoted to
+issuance. Already issued boundaries remain one-shot and require outcome
+reconciliation. Source delivery does not install anything, update live state,
+change repository policy, restart the dashboard or activate a phase.
 This enabling phase itself stops at an open PR for manual owner merge.
 
 ## Authority and evidence
@@ -22,7 +25,9 @@ Only the existing designated brain can use the `standard-brain` operations below
 The helper never executes a merge. It takes the normal registry/ledger locks,
 checks current authority, releases them for bounded read-only collection, and
 rechecks the exact revision, owner review, mission, run, repository identity and
-registered-task state before committing a handoff. Pause can commit during I/O.
+registered-task state before committing a handoff. The exact branch tip, origin and
+retained common-directory/layout binding are checked again under these locks after
+remote I/O, immediately before durable issuance. Pause can commit during I/O.
 A stopped/expired/completed run, brain stop, changed binding, failed independent
 review or unresolved registered task refuses new permission. A pending merge
 blocks another task claim in that phase and claims on that repository in other
@@ -52,13 +57,26 @@ tests or workflow. The immutable result, review and retained patch all bind the
 same exact head.
 
 GitHub inspection uses existing credentials through the bounded installed `gh api`
-GET reader. Two matching rounds verify repository/PR identity, open/non-draft
-state, exact base/head, mergeability, base branch policy, effective rules, complete
+GET reader, plus one fixed bounded public GraphQL query per round for effective
+queue and PR auto-merge state. This query covers classic protection as well as
+rulesets; REST classic protection alone omits the queue setting. Missing, null,
+unsupported, errored or enabled queue state, queue membership, and existing
+auto-merge requests refuse permission. Two matching rounds verify repository/PR
+identity, open/non-draft state, exact base/head, mergeability, base branch policy,
+effective rules, complete
 check suites/runs/statuses and workflow inventory. Unknown protection, unsupported
 rules, missing/pending/failed checks, provider/rerun ambiguity, truncated inventory
 or drift refuse permission. No endpoint failure means no policy. Only a positive
 unprotected-branch observation can establish absence of classic protection;
-effective rules must still be available.
+effective rules must still be available. Canonical hashes bind the entire bounded
+branch, classic-protection and effective-rule responses, including review counts,
+strictness, restrictions, bypass metadata and unknown fields; availability and
+unsupported-policy issues remain explicit. Check response hashes are compared too.
+Duplicate context names across any runs/providers/statuses refuse before required
+check selection, including optional successful reruns in the no-workflow path.
+The complete bounded status history must agree with combined status; a full history
+page (or full effective-rule page) refuses because those endpoints have no total
+count. No raw API bodies are retained.
 
 When no required checks are configured, permission requires a positive empty
 GitHub workflow inventory and no workflow paths in either exact base or head,
@@ -122,8 +140,18 @@ sample or summarize a partial test run as complete.
 The sole issued argv is:
 
 ```text
-gh pr merge https://github.com/OWNER/REPO/pull/NUMBER --merge --match-head-commit EXACT_HEAD_SHA
+gh api --hostname github.com --method PUT -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" repos/OWNER/REPO/pulls/NUMBER/merge -f sha=EXACT_HEAD_SHA -f merge_method=merge
 ```
+
+This is the [synchronous merge endpoint](https://docs.github.com/en/rest/pulls/pulls#merge-a-pull-request),
+with an exact server-enforced head SHA. It cannot request enqueueing or enable
+auto-merge. If effective queue protection races the check, GitHub must refuse the
+direct merge under its enforced protections; no fallback or asynchronous merge
+endpoint is permitted. The former `gh pr merge` argv is unqualified because
+[the CLI can enqueue or enable auto-merge](https://cli.github.com/manual/gh_pr_merge)
+for queue-protected branches without an explicit `--auto` flag. A local fixture
+verifies command selection and refusal/no-resend handling, not live GitHub policy
+enforcement. Existing server-side actor exemptions are not changed or overridden.
 
 Immediately before the one external call, the brain checks the latest state for
 Pause/review changes and verifies the request still owns the issued boundary. It

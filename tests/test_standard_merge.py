@@ -3,6 +3,8 @@ import base64
 import copy
 import json
 import subprocess
+import tempfile
+from pathlib import Path
 import time
 import unittest
 import uuid
@@ -83,9 +85,16 @@ class StandardMergeTest(unittest.TestCase):
             'commits/'+self.head+'/check-suites?per_page=100&page=1': {'total_count': 0, 'check_suites': []},
             'commits/'+self.head+'/check-runs?filter=all&per_page=100&page=1': {'total_count': 0, 'check_runs': []},
             'commits/'+self.head+'/status?per_page=100&page=1': {'sha': self.head, 'repository': {'full_name': 'fixture/project'}, 'total_count': 0, 'statuses': []},
+            'commits/'+self.head+'/statuses?per_page=100&page=1': [],
             'actions/workflows?per_page=100&page=1': {'total_count': 0, 'workflows': []}}
         self.reader = patch.object(merge, 'api_read', side_effect=lambda endpoint, deadline: copy.deepcopy(self.responses[endpoint.removeprefix('repos/fixture/project/')]))
         self.reader.start(); self.addCleanup(self.reader.stop)
+        self.queue = {'data': {'repository': {'nameWithOwner': 'fixture/project', 'pullRequest': {
+            'number': 7, 'url': self.binding['prUrl'], 'baseRefName': 'main', 'baseRefOid': self.base,
+            'headRefName': 'codex/fixture', 'headRefOid': self.head, 'isMergeQueueEnabled': False,
+            'isInMergeQueue': False, 'autoMergeRequest': None}}}}
+        queue_reader = patch.object(merge, 'queue_read', side_effect=lambda *a: copy.deepcopy(self.queue))
+        queue_reader.start(); self.addCleanup(queue_reader.stop)
         self.request_id = str(uuid.uuid4())
 
     def op(self, operation, **changes):
@@ -112,7 +121,9 @@ class StandardMergeTest(unittest.TestCase):
         with patch.object(merge, 'remote', side_effect=AssertionError('Replay must not collect')):
             self.assertTrue(self.op('merge_prepare')['replay'])
         issued = self.op('merge_check')
-        self.assertEqual(issued['argv'], ['gh', 'pr', 'merge', self.binding['prUrl'], '--merge', '--match-head-commit', self.head])
+        self.assertEqual(issued['argv'], ['gh', 'api', '--hostname', 'github.com', '--method', 'PUT',
+            '-H', 'Accept: application/vnd.github+json', '-H', 'X-GitHub-Api-Version: '+merge.API_VERSION,
+            'repos/fixture/project/pulls/7/merge', '-f', 'sha='+self.head, '-f', 'merge_method=merge'])
         self.assertNotIn('argv', self.op('merge_check'))
         receipt = self.op('merge_receipt', delivery='unknown')
         self.assertEqual(receipt['merge']['status'], 'uncertain')
@@ -298,12 +309,208 @@ class StandardMergeTest(unittest.TestCase):
         self.git('update-ref', 'refs/heads/codex/fixture', self.base)
         with self.assertRaises(Refusal): self.op('merge_prepare')
 
+    def test_post_remote_head_origin_and_layout_drift_refuse_issuance(self):
+        self.op('merge_prepare')
+        real = merge.remote
+        mutations = [
+            (lambda: self.git('update-ref', 'refs/heads/codex/fixture', self.base),
+             lambda: self.git('update-ref', 'refs/heads/codex/fixture', self.head)),
+            (lambda: self.git('remote', 'set-url', 'origin', 'git@github.com:foreign/project.git'),
+             lambda: self.git('remote', 'set-url', 'origin', 'git@github.com:fixture/project.git')),
+            # Replacing object storage preserves standard.git_root's identity.
+            (lambda: (self.repo/'.git/objects').rename(self.repo/'.git/objects-old'),
+             lambda: (self.repo/'.git/objects-old').rename(self.repo/'.git/objects')),
+        ]
+        for mutate, restore in mutations:
+            def drift(*a, **kw):
+                result = real(*a, **kw)
+                mutate()
+                if not (self.repo/'.git/objects').exists():
+                    (self.repo/'.git/objects').mkdir()
+                return result
+            try:
+                with patch.object(merge, 'remote', side_effect=drift), self.assertRaises(Refusal):
+                    self.op('merge_check')
+                self.assertEqual(read(self.ledger)['run']['merges'][0]['status'], 'prepared')
+            finally:
+                if (self.repo/'.git/objects-old').exists(): (self.repo/'.git/objects').rmdir()
+                restore()
+        self.assertIn('argv', self.op('merge_check'))
+
+    def test_policy_metadata_drift_beyond_required_names_refuses(self):
+        self.responses['branches/main']['protected'] = True
+        classic = {'required_status_checks': None, 'enforce_admins': {'enabled': True},
+                   'required_pull_request_reviews': {'required_approving_review_count': 1},
+                   'restrictions': {'users': [], 'teams': [], 'apps': []}}
+        self.responses['branches/main/protection'] = classic
+        rules_key = 'rules/branches/main?per_page=100&page=1'
+        self.responses[rules_key] = [{'type': 'pull_request', 'ruleset_id': 1,
+                                     'parameters': {'required_approving_review_count': 1}}]
+        self.op('merge_prepare')
+        original = merge.api_read
+        changes = [
+            ('branches/main/protection', lambda r: r['enforce_admins'].update(enabled=False)),
+            ('branches/main/protection', lambda r: r['required_pull_request_reviews'].update(required_approving_review_count=2)),
+            ('branches/main/protection', lambda r: r['restrictions']['teams'].append({'id': 8})),
+            ('branches/main/protection', lambda r: r.update(future_policy={'enabled': True})),
+            (rules_key, lambda r: r[0]['parameters'].update(required_approving_review_count=2)),
+            (rules_key, lambda r: r[0].update(ruleset_id=2)),
+            (rules_key, lambda r: r.append({'type': 'future_rule'})),
+        ]
+        for suffix, mutate in changes:
+            calls = 0
+            def drift(endpoint, deadline):
+                nonlocal calls
+                result = original(endpoint, deadline)
+                if endpoint.endswith(suffix):
+                    calls += 1
+                    if calls == 2: mutate(result)
+                return result
+            with self.subTest(suffix=suffix), patch.object(merge, 'api_read', side_effect=drift):
+                with self.assertRaisesRegex(Refusal, 'changed during verification'): self.op('merge_check')
+            self.assertEqual(read(self.ledger)['run']['merges'][0]['status'], 'prepared')
+
+    def test_policy_unavailable_or_unsupported_is_not_absence(self):
+        self.op('merge_prepare')
+        original = merge.api_read
+        for missing in ('rules/branches/main?per_page=100&page=1', 'branches/main/protection'):
+            self.responses['branches/main']['protected'] = missing.endswith('protection')
+            def unavailable(endpoint, deadline):
+                if endpoint.endswith(missing): raise Refusal('Fixture endpoint unavailable')
+                return original(endpoint, deadline)
+            with patch.object(merge, 'api_read', side_effect=unavailable), self.assertRaises(Refusal):
+                self.op('merge_check')
+        self.responses['branches/main']['protected'] = False
+        key = 'rules/branches/main?per_page=100&page=1'
+        for value in (None, [{'type': 'unsupported_rule'}]):
+            self.responses[key] = value
+            with self.assertRaises(Refusal): self.op('merge_check')
+        self.assertEqual(read(self.ledger)['run']['merges'][0]['status'], 'prepared')
+
+    def test_effective_queue_classic_ruleset_unknown_and_auto_merge_refuse(self):
+        self.op('merge_prepare')
+        pr = self.queue['data']['repository']['pullRequest']
+        for field in ('isMergeQueueEnabled', 'isInMergeQueue', 'autoMergeRequest'):
+            original = pr[field]
+            for value in (True, None, 'unknown', {'enabledAt': 'fixture'}):
+                if value is None and field == 'autoMergeRequest': continue
+                pr[field] = value
+                with self.subTest(field=field, value=value), self.assertRaises(Refusal): self.op('merge_check')
+            del pr[field]
+            with self.assertRaises(Refusal): self.op('merge_check')
+            pr[field] = original
+        # Effective queue enabled even though REST classic response has no queue field.
+        self.responses['branches/main']['protected'] = True
+        self.responses['branches/main/protection'] = {'required_status_checks': None}
+        pr['isMergeQueueEnabled'] = True
+        with self.assertRaises(Refusal): self.op('merge_check')
+        pr['isMergeQueueEnabled'] = False
+        self.responses['rules/branches/main?per_page=100&page=1'] = [{'type': 'merge_queue', 'parameters': {}}]
+        with self.assertRaises(Refusal): self.op('merge_check')
+        self.responses['rules/branches/main?per_page=100&page=1'] = []
+        for value in (None, {}, {'errors': [{'message': 'Unsupported field'}], 'data': self.queue['data']},
+                      {'data': {'repository': None}}):
+            with patch.object(merge, 'queue_read', return_value=value), self.assertRaises(Refusal): self.op('merge_check')
+        self.assertEqual(read(self.ledger)['run']['merges'][0]['status'], 'prepared')
+
+    def test_queue_round_race_and_post_issue_effect_has_no_deferred_fallback(self):
+        self.op('merge_prepare')
+        first = copy.deepcopy(self.queue); second = copy.deepcopy(first)
+        second['data']['repository']['pullRequest']['isMergeQueueEnabled'] = True
+        with patch.object(merge, 'queue_read', side_effect=[first, second]), self.assertRaises(Refusal):
+            self.op('merge_check')
+        issued = self.op('merge_check')
+        # Simulate policy changing after issuance. The disposable endpoint model
+        # refuses a synchronous PUT; no gh-pr-merge/queue/auto mutation is available.
+        calls = []
+        def server(argv):
+            calls.append(argv)
+            self.assertEqual(argv[argv.index('--method')+1], 'PUT')
+            self.assertIn('repos/fixture/project/pulls/7/merge', argv)
+            self.assertIn('sha='+self.head, argv)
+            self.assertEqual(argv[-2:], ['-f', 'merge_method=merge'])
+            return {'status': 405, 'merged': False, 'queued': False, 'autoMerge': False}
+        result = server(issued['argv'])
+        self.assertFalse(result['queued'] or result['autoMerge'])
+        self.op('merge_receipt', delivery='failed')
+        self.assertNotIn('argv', self.op('merge_check'))
+        self.assertEqual(self.op('merge_reconcile')['merge']['status'], 'uncertain')
+        self.assertEqual(len(calls), 1)
+
+    def test_optional_successful_reruns_and_provider_collisions_refuse(self):
+        suites = self.responses['commits/'+self.head+'/check-suites?per_page=100&page=1']
+        runs = self.responses['commits/'+self.head+'/check-runs?filter=all&per_page=100&page=1']
+        suites.update(total_count=1, check_suites=[{'id': 2, 'head_sha': self.head, 'status': 'completed', 'conclusion': 'success'}])
+        row = {'id': 3, 'head_sha': self.head, 'app': {'id': 1}, 'check_suite': {'id': 2},
+               'name': 'optional', 'status': 'completed', 'conclusion': 'success'}
+        for app in (1, 9):
+            runs.update(total_count=2, check_runs=[row, {**row, 'id': 4, 'app': {'id': app}}])
+            with self.assertRaisesRegex(Refusal, 'inventory.*ambiguity'): self.op('merge_prepare')
+        runs.update(total_count=1, check_runs=[row])
+        status = {'id': 5, 'context': 'optional', 'state': 'success'}
+        self.responses['commits/'+self.head+'/status?per_page=100&page=1'].update(total_count=1, statuses=[status])
+        self.responses['commits/'+self.head+'/statuses?per_page=100&page=1'] = [status]
+        with self.assertRaisesRegex(Refusal, 'inventory.*ambiguity'): self.op('merge_prepare')
+        # Combined status hides older reruns, which the history must also reject.
+        self.responses['commits/'+self.head+'/statuses?per_page=100&page=1'].append({**status, 'id': 6})
+        with self.assertRaisesRegex(Refusal, 'Ambiguous combined'): self.op('merge_prepare')
+
+    def test_full_rule_or_status_history_page_is_not_complete(self):
+        key = 'rules/branches/main?per_page=100&page=1'
+        self.responses[key] = [{'type': 'pull_request', 'parameters': {}}] * 100
+        with self.assertRaises(Refusal): self.op('merge_prepare')
+        self.responses[key] = []
+        self.responses['commits/'+self.head+'/statuses?per_page=100&page=1'] = [
+            {'id': n+1, 'context': str(n), 'state': 'success'} for n in range(100)]
+        with self.assertRaises(Refusal): self.op('merge_prepare')
+
+    def test_full_check_metadata_drift_is_compared(self):
+        self.op('merge_prepare')
+        original = merge.api_read
+        calls = 0
+        def drift(endpoint, deadline):
+            nonlocal calls
+            result = original(endpoint, deadline)
+            if '/check-runs?' in endpoint:
+                calls += 1
+                if calls == 2: result['future_coverage'] = 'unknown'
+            return result
+        with patch.object(merge, 'api_read', side_effect=drift), self.assertRaisesRegex(Refusal, 'changed during verification'):
+            self.op('merge_check')
+
     def test_foreign_origin_and_unsupported_policy_refused(self):
         self.git('remote', 'set-url', 'origin', 'git@github.com:other/project.git')
         with self.assertRaises(Refusal): self.op('merge_prepare')
         self.git('remote', 'set-url', 'origin', 'git@github.com:fixture/project.git')
         self.responses['rules/branches/main?per_page=100&page=1'] = [{'type': 'unknown_rule'}]
         with self.assertRaises(Refusal): self.op('merge_prepare')
+
+
+class QueueTransportTest(unittest.TestCase):
+    def test_fixed_bounded_query_transport_and_failures(self):
+        binding = {'prUrl': 'https://github.com/fixture/project/pull/7'}
+        # Disposable CLI fixture: exercise the real pipe/JSON reader with no network.
+        with tempfile.TemporaryDirectory() as folder:
+            executable = Path(folder)/'gh'
+            def fixture(body):
+                executable.write_text('#!/usr/bin/env python3\nimport sys\n' + body)
+                executable.chmod(0o700)
+            fixture("assert sys.argv[1:7] == ['api', '--hostname', 'github.com', '--method', 'POST', 'graphql']\n"
+                    "assert sys.argv[7] == '-f'\n"
+                    "q = sys.argv[8]\n"
+                    "assert q.startswith('query=query { repository(') and 'mutation' not in q\n"
+                    "assert all(f in q for f in ['isMergeQueueEnabled', 'isInMergeQueue', 'autoMergeRequest'])\n"
+                    "print('{\"data\":{}}')\n")
+            with patch.object(merge.shutil, 'which', return_value=str(executable)):
+                self.assertEqual(merge.queue_read(binding, time.monotonic()+5), {'data': {}})
+                for body in ("print('{bad json}')\n", "print('{\"data\":{},\"data\":null}')\n",
+                             "print('x' * 20000)\n", "sys.exit(1)\n"):
+                    fixture(body)
+                    with self.subTest(body=body), self.assertRaises(Refusal):
+                        merge.queue_read(binding, time.monotonic()+5)
+                fixture("import time\ntime.sleep(1)\n")
+                with self.assertRaises(Refusal):
+                    merge.queue_read(binding, time.monotonic()+.05)
 
 
 if __name__ == '__main__': unittest.main()
