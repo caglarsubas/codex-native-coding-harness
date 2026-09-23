@@ -89,10 +89,19 @@ def validate(spec, repositories):
     scope.sort(key=lambda s: s["repository"])
     repo_bindings = bindings(repositories, scope)
     authority = spec["authority"]
-    require(isinstance(authority, dict) and set(authority) == {"approvalMode", "maxParallelTasks", "maxTasks", "tokenBudget", "checkpointReserveTokens"},
+    require(isinstance(authority, dict) and set(authority) in ({"approvalMode", "maxParallelTasks", "maxTasks", "tokenBudget", "checkpointReserveTokens"}, {"approvalMode", "maxParallelTasks", "maxTasks", "tokenBudget", "checkpointReserveTokens", "mergeMode"}),
             "Authority fields must match the v1 contract")
     require(authority["approvalMode"] in MODES, "Unknown approval mode")
     clean_authority = {"approvalMode": authority["approvalMode"]}
+    if "mergeMode" in authority:
+        require(authority["mergeMode"] in ("manual", "brain_exact_pr_v1"), "Unknown phase merge mode")
+        clean_authority["mergeMode"] = authority["mergeMode"]
+    if authority.get("mergeMode") == "brain_exact_pr_v1":
+        require(authority["approvalMode"] == "phase_delegated" and
+                all(b["policyProfile"] == "standard" for b in repo_bindings),
+                "Merge delegation requires a standard phase-delegated mission")
+        require(sum("merge" in s["operations"] for s in scope) == 1,
+                "Merge delegation requires exactly one repository with merge scope")
     for key, upper in (("maxParallelTasks", 16), ("maxTasks", 1000), ("tokenBudget", 1_000_000_000), ("checkpointReserveTokens", 1_000_000_000)):
         clean_authority[key] = integer(authority[key], key, 1, upper)
     require(authority["maxParallelTasks"] <= authority["maxTasks"], "Parallel task limit exceeds total task limit")

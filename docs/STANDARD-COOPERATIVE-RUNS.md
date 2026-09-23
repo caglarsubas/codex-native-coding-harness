@@ -17,7 +17,8 @@ relaxation of the strict managed/Harness protocols documented elsewhere.
 2. In **Mission & authority**, save and review a phase: goal, success criteria,
    exclusions, repository paths, operations, owner checkpoint, parallel/task
    limits, token allowance and checkpoint reserve. Select phase delegation only
-   if the brain may approve bounded implementation seeds. Merge stays manual.
+   if the brain may approve bounded implementation seeds. Merge stays manual by
+   default; the separate future exact-PR opt-in is described below.
 3. The first **Review Play** automatically retains a fixed, read-only capability
    request and notifies that workspace's existing brain. The brain follows the
    source [standard cycle](../skills/codex-orchestrator/references/standard-cycle.md),
@@ -103,3 +104,18 @@ The supported native interface was qualified against installed Codex
 Read metadata, token notifications and tracked terminals do not establish the
 strict whole-lifecycle guarantees. This is why the standard and Harness contracts
 are distinct, not why a strict gate should be marked verified.
+
+## Future exact-PR merge opt-in
+
+Manual merge remains the default. A separately reviewed future standard phase may
+opt in to [the one-shot exact-PR merge handoff](STANDARD-MERGE.md), subject to its
+existing checks-based repository policy. The brain independently cross-checks the
+completed task/result, retained source, fresh GitHub policy/checks and local tests;
+only its first check response can emit fixed head-matched `gh` merge arguments.
+Unknown delivery is retained and observed, never resent. Dashboard merge history
+is separate from CI, runtime and phase acceptance.
+
+Before such a Play, the installed launcher must be updated from its stale
+schema-1-only source to the exact compatible merged source, with older writers
+quiesced. Shipping this source does not install, migrate, restart or activate a
+workspace. This enabling phase stops at an open PR for manual merge.

@@ -46,6 +46,7 @@ function missionView(root){
     const binding=m.document.repositoryBindings.find(r=>r.repository===row.repository);
     return [row.repository,row.allowedPaths.join('\n'),textCell(row.operations.join(', '),`${binding.policyProfile} · ${binding.mergePolicy} merge`)];
   })));
+  root.append(el('p',a.mergeMode==='brain_exact_pr_v1'?'Merge opt-in: designated brain may cross-check and issue one exact PR merge in a separately activated standard phase. Existing repository policy still applies.':'Merge mode: manual (default).'));
   root.append(section('Proposed limits','Not active, reserved or enforced in this release.'));
   root.append(table(['Setting','Proposed value'],[['Packet approval',missionModes[a.approvalMode]],['Parallel tasks',num(a.maxParallelTasks)],['Total tasks in this phase',num(a.maxTasks)],['Phase token allocation',num(a.tokenBudget)],['Included checkpoint reserve',num(a.checkpointReserveTokens)]]));
   root.append(el('p','Token allocations will include brain, workers, review and checkpoint headroom. They are not a subscription bill or a provider-enforced hard stop. Model, effort and speed routing are not configured by this form.','muted'));
@@ -126,6 +127,10 @@ function missionEditor(root,m){
   }
   if(!state.repositories.length)form.append(el('p','No repositories are registered in this project. Register a repository before saving a phase.','muted'));
   form.append(section('Proposed authority & limits','No defaults for token or task allowances: choose them explicitly.'));
+  const mergeLabel=el('label','Phase merge mode'),mergeMode=el('select');
+  for(const [value,label] of [['manual','Manual merge (default)'],['brain_exact_pr_v1','Designated brain · one exact PR']]){const option=el('option',label);option.value=value;mergeMode.append(option);}
+  mergeMode.value=a.mergeMode||'manual';mergeMode.onchange=()=>a.mergeMode=mergeMode.value;mergeLabel.append(mergeMode);form.append(mergeLabel);
+  form.append(el('p','Opt-in requires phase delegation, exactly one standard repository with merge scope and a checks-based repository policy. Manual repository policy remains a refusal. Before future merge-enabled Play, update the installed launcher to the exact compatible merged source; the stale schema-1-only launcher cannot operate this protocol.','muted'));
   const modeLabel=el('label','Packet approval mode'),mode=el('select');for(const [value,label] of Object.entries(missionModes)){const option=el('option',label);option.value=value;mode.append(option);}mode.value=a.approvalMode;mode.onchange=()=>a.approvalMode=mode.value;modeLabel.append(mode);form.append(modeLabel);
   form.append(el('p','Harness scopes require exact owner approval. A phase-delegated configuration is allowed only for standard-policy repositories, and remains inactive in this release.','muted'));
   for(const [key,label,max] of [['maxParallelTasks','Maximum parallel tasks',16],['maxTasks','Maximum tasks in this phase',1000],['tokenBudget','Phase token allocation',1000000000],['checkpointReserveTokens','Checkpoint reserve · included in the allocation',1000000000]])field(label,a[key],v=>a[key]=v,{type:'number',max});

@@ -106,7 +106,9 @@ def eligible(ledger, db):
     m = missions.state_in(ledger, db)
     require(m["effectiveStatus"] == "reviewed", "Review an exact mission first")
     require(m["document"]["spec"]["authority"]["approvalMode"] == "phase_delegated", "Standard Play needs explicitly reviewed phase-delegated authority")
-    require(not any("merge" in s["operations"] for s in m["document"]["spec"]["phase"]["scope"]), "Cooperative runs retain manual merge")
+    require(not any("merge" in s["operations"] for s in m["document"]["spec"]["phase"]["scope"]) or
+            m["document"]["spec"]["authority"].get("mergeMode") == "brain_exact_pr_v1",
+            "Cooperative merge needs an explicit reviewed phase opt-in")
     return meta, m
 
 
@@ -279,11 +281,13 @@ class Controls:
             elif op == "resume":
                 require(run and run["status"] == "paused" and not any(t["status"] not in TERMINAL for t in run["tasks"]), "Retain a safe checkpoint before resuming")
                 require(not current_blockers(ledger, db, run), "Run expired or mission changed; review a new phase")
+                require(not any(m["status"] in ("issued", "uncertain") for m in run.get("merges", [])), "Reconcile the unresolved merge before Resume")
                 run["status"] = "running"
             else:
                 require(projection(ledger, db)["available"], "Standard Play prerequisites are missing")
                 require(run is None or run["status"] in ("completed", "blocked"), "Existing run needs its checkpoint or Resume")
                 require(run is None or not any(t["status"] not in TERMINAL for t in run["tasks"]), "Unresolved native tasks retain ownership")
+                require(run is None or not any(m["status"] in ("issued", "uncertain") for m in run.get("merges", [])), "Unresolved merge retains its run")
                 meta, m = eligible(ledger, db)
                 spec = m["document"]["spec"]
                 require(run is None or run["phaseId"] != spec["phase"]["id"], "Same-phase usage/attempts cannot be reset; use Resume or review a genuinely new phase")
@@ -306,6 +310,9 @@ def brain(registry, ledger, token, request):
     """Strictly typed journal operations; supplied observations remain observations."""
     require(isinstance(request, dict) and len(canonical(request).encode()) <= 65536, "Bounded JSON request required")
     operation = request.get("operation")
+    if isinstance(operation, str) and operation.startswith("merge_"):
+        from .standard_merge import brain as merge_brain
+        return merge_brain(registry, ledger, token, request)
     with registry.tx() as registry_db, ledger.tx() as db:
         meta = authorize_brain(ledger, db, token)
         require(record_in(registry_db) is None, "Strict platform enrollment blocks cooperative effects")
@@ -377,6 +384,7 @@ def brain(registry, ledger, token, request):
         elif operation == "claim":
             exact(request, "operation runId id repository title paths instructions acceptance model effort rationale allowance")
             require(run["status"] == "running" and not current_blockers(ledger, db, run), "Run is stopped, expired or stale")
+            require(not any(m["status"] in ("prepared", "issued", "uncertain") for m in run.get("merges", [])), "Merge handoff owns the phase checkpoint")
             require(not any(t["id"] == request["id"] for t in run["tasks"]), "Task intent already exists; reconcile, never recreate")
             missions.text(request["id"], "Task ID", 80)
             require(len(run["tasks"]) < run["limits"]["maxTasks"], "Phase task limit reached")
@@ -401,6 +409,7 @@ def brain(registry, ledger, token, request):
                     other_meta = ledger.get(other, "meta", 1)
                     require(not any(w["status"] in ACTIVE for w in ledger.all(other, "workers")), "Another workspace has legacy/strict owners; use a separate standard registry")
                     owners.extend(t for t in (other_meta.get("standardRun") or {}).get("tasks", []) if t["status"] not in TERMINAL)
+                    require(not any(m["repositoryIdentity"] == identity and m["status"] in ("prepared", "issued", "uncertain") for m in (other_meta.get("standardRun") or {}).get("merges", [])), "Repository has an unresolved merge handoff")
             require(len(owners) < 16, "Registered platform task capacity occupied (16)")
             require(not any(t["repositoryIdentity"] == identity for t in owners), "Repository is owned by a registered task")
             task = {k: request[k] for k in ("id", "repository", "title", "paths", "model", "effort", "rationale", "allowance")}
@@ -480,7 +489,10 @@ def brain(registry, ledger, token, request):
             require(task.get("nativeStatus") in ("idle", "completed", "failed") and task.get("trackedTerminals") == "none"
                     and time.time()-task.get("observedAt", 0) < 300, "Fresh finished-task and tracked-terminal observation required; not whole-tree proof")
             evidence = request["evidence"]
-            exact(evidence, "source tests artifacts preservation summary")
+            require(isinstance(evidence, dict) and set(evidence) in ({"source", "tests", "artifacts", "preservation", "summary"}, {"source", "tests", "artifacts", "preservation", "summary", "headSHA"}), "Unexpected result evidence fields")
+            if "headSHA" in evidence:
+                from .source_observation import oid
+                oid(evidence["headSHA"])
             require(isinstance(evidence["artifacts"], list) and len(evidence["artifacts"]) <= 30, "Bounded artifact hashes required")
             for key in evidence["artifacts"]:
                 require(isinstance(key, str) and (db.execute("SELECT 1 FROM snapshots WHERE id=?", (key,)).fetchone()
@@ -502,6 +514,8 @@ def brain(registry, ledger, token, request):
             exact(request, "operation runId outcome summary brainObservedTokens")
             require(request["outcome"] in ("paused", "completed", "blocked"), "Checkpoint outcome required")
             require(not any(t["status"] not in TERMINAL for t in run["tasks"]), "Unresolved registered tasks retain ownership")
+            if request["outcome"] in ("completed", "blocked"):
+                require(not any(m["status"] in ("prepared", "issued", "uncertain") for m in run.get("merges", [])), "Reconcile merge before closing the phase")
             if request["outcome"] == "completed":
                 require(run["tasks"] and all(t["status"] == "completed" for t in run["tasks"]), "A completed phase needs verified tasks")
             observed = request["brainObservedTokens"]

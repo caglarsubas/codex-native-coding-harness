@@ -24,6 +24,14 @@ function all(root){return [root,...root.children.flatMap(x=>x instanceof Element
   box.state.standard.run={id:'run',status:'running',phaseId:'p',tasks:[],limits:{maxTasks:2,checkpointReserveTokens:10},brainUsageCoverage:'not_observed'};
   box.state.standard.observedTokens=null;nodes=all(render());assert.ok(nodes.some(n=>String(n.text).includes('Not observed')));
   assert.ok(nodes.some(n=>n.text==='Pause at safe checkpoint'));
+  assert.ok(nodes.some(n=>String(n.text).includes('manual (default)')));
+  box.state.standard.run.limits.mergeMode='brain_exact_pr_v1';
+  for(const status of ['prepared','issued','uncertain','merged','not-merged']){
+    box.state.standard.run.merges=[{requestId:'m',status,prUrl:'https://github.com/fixture/project/pull/7',headSHA:'a'.repeat(40),bindingHash:'b'.repeat(64)}];
+    nodes=all(render());assert.ok(nodes.some(n=>String(n.text).includes(status)));
+    assert.ok(nodes.some(n=>String(n.text).includes('requires independent checks')));
+    assert.ok(!nodes.some(n=>n.tag==='button'&&String(n.text).includes('Merge')),'Dashboard cannot send a merge');
+  }
   box.state.standard.run.status='stopping';assert.equal(all(render()).find(n=>n.text==='Pause at safe checkpoint').disabled,true);
   box.state.standard.run.status='paused';assert.ok(all(render()).some(n=>n.text==='Review Resume'));
   box.state.standard={available:false,catalogRequired:true,contextHash:'missing',boundary:'Partial observations',catalog:null,run:null,
