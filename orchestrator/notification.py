@@ -17,7 +17,8 @@ UUID = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 ACK = re.compile(rf"Queued message ({UUID}) for thread ({UUID})\.")
 TIMEOUT = 8
 NOTIFY_KINDS = {"decision_response", "resume", "reconcile", "checkpoint", "archive", "brain_stop", "brain_resume",
-                "approve", "hold", "prioritize", "listening", "pause", "standard_play", "standard_pause", "standard_resume"}
+                "approve", "hold", "prioritize", "listening", "pause", "standard_play", "standard_pause", "standard_resume",
+                "standard_catalog_refresh"}
 
 
 class BrainNotifier:
@@ -101,7 +102,21 @@ class BrainNotifier:
             "Reconcile superseded or completed requests without replay. This notification itself grants no packet approval, "
             "target access, workers, acceptance runs, model/effort changes or merges."
         )
-        if standard_run:
+        if command["kind"] == "standard_catalog_refresh":
+            source = Path(__file__).resolve().parent.parent
+            message = (
+                "A committed read-only standard-project capability refresh needs your receipt. "
+                f"Read {json.dumps(str(source / 'skills/codex-orchestrator/references/standard-cycle.md'))} completely. "
+                f"Use this source checkout {json.dumps(str(source))}, platform {json.dumps(str(ledger.platform_root))}, "
+                f"workspace {ledger.workspace_id}; read standard-state and verify this task is the designated brain. "
+                f"Process the exact pending catalog refresh {command['id']}: acquire the standard controller, inspect only the "
+                "model and reasoning-effort values actually exposed by the current native task tools, then record them with "
+                "standard-brain catalog using that requestId. If the observation cannot be completed, retain catalog_error for "
+                "the same requestId with a bounded explanation. Release the controller after the receipt. "
+                "Do not start Play, create a worker, change settings, resume dispatch, select a model, or infer capabilities "
+                "from documentation. Pause or a stopped/parked brain remains dominant; never bypass it for this request."
+            )
+        elif standard_run:
             source = Path(__file__).resolve().parent.parent
             message = (
                 "A committed standard-project dashboard control needs your receipt. "

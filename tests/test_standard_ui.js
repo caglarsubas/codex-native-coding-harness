@@ -5,7 +5,7 @@ class Element{
   append(...children){this.children.push(...children);}
 }
 const messages=[],sent=[];
-const box={Map,JSON,Math,String,workspaceId:'alpha',busy:false,connected:true,csrf:'fixture',selected:null,
+const box={Map,Set,JSON,Math,String,crypto:{randomUUID:()=>`request-${sent.length}`},setTimeout:()=>1,workspaceId:'alpha',busy:false,connected:true,csrf:'fixture',selected:null,
   state:{standard:{available:true,contextHash:'h',boundary:'Partial observations',catalog:{models:[{model:'native',efforts:['low']}]},run:null},mission:null},
   el:(tag,text)=>new Element(tag,text),button:(text,callback)=>Object.assign(new Element('button',text),{click:callback}),
   section:(text)=>new Element('h2',text),table:(heads,rows)=>new Element('table',JSON.stringify(rows)),
@@ -26,5 +26,13 @@ function all(root){return [root,...root.children.flatMap(x=>x instanceof Element
   assert.ok(nodes.some(n=>n.text==='Pause at safe checkpoint'));
   box.state.standard.run.status='stopping';assert.equal(all(render()).find(n=>n.text==='Pause at safe checkpoint').disabled,true);
   box.state.standard.run.status='paused';assert.ok(all(render()).some(n=>n.text==='Review Resume'));
+  box.state.standard={available:false,catalogRequired:true,contextHash:'missing',boundary:'Partial observations',catalog:null,run:null,
+    blocker:'Brain must record the available native model/effort catalog (valid for 24 hours)',catalogRefresh:null};
+  nodes=all(render());const prepare=nodes.find(n=>n.text==='Review Play');assert.equal(prepare.disabled,false);
+  await prepare.click();assert.equal(sent.filter(s=>s.path.endsWith('catalog-refresh')).length,1);
+  assert.equal(sent.filter(s=>s.path.endsWith('preview')).length,1,'Capability collection does not bypass the separate Play preview');
+  box.state.standard.catalogRefresh={id:'request',status:'queued',createdAt:Date.now()/1000,result:'Waiting',notification:{status:'accepted'},deliveryAttempts:1,maxDeliveryAttempts:3};
+  nodes=all(render());assert.equal(nodes.find(n=>n.textContent==='Waiting for native capabilities').disabled,true);
+  assert.ok(nodes.some(n=>String(n.text).includes('Waiting for the designated brain')));
   console.log('Standard UI: explicit confirmation, project separation, unknown usage and checkpoint controls passed');
 })().catch(error=>{console.error(error);process.exitCode=1;});

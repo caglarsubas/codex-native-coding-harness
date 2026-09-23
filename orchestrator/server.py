@@ -464,6 +464,11 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/mission" and workspace_id:
                 from .missions import change
                 return self.respond(200, change(runtime.ledger, body))
+            if path == "/api/standard/catalog-refresh" and workspace_id:
+                if urlsplit(self.path).query:
+                    raise Refusal("Catalog refresh accepts no query parameters")
+                from .standard import request_catalog_refresh
+                return self.respond(200, runtime.notify_control(request_catalog_refresh(runtime.ledger, body)))
             if path in ("/api/standard/preview", "/api/standard/confirm") and workspace_id:
                 if urlsplit(self.path).query:
                     raise Refusal("Standard controls accept no query parameters")
