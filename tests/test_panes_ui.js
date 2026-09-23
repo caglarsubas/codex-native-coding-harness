@@ -3,7 +3,7 @@ const sandbox={TextEncoder,window:{addEventListener(){}},localStorage:{getItem()
 vm.createContext(sandbox);
 for(const file of ['panes.js','routing.js','assistant.js'])vm.runInContext(fs.readFileSync('web/'+file,'utf8'),sandbox);
 const run=code=>vm.runInContext(code,sandbox);
-assert.equal(run('paneGeometry(1440,defaultPanes()).widths.workspace'),854);
+assert.equal(run('paneGeometry(1440,defaultPanes()).widths.workspace'),1160);
 // Every combination of collapsed panes fits, including old/corrupt saved widths.
 for(const width of [320,390,719,720,760,800,1024,1280,1920])for(let mask=0;mask<8;mask++)for(const focus of ['navigation','workspace','assistant']){
   const layout=run(`paneGeometry(${width},cleanPanePreferences({navigation:999,assistant:999,collapsed:{navigation:${!!(mask&1)},workspace:${!!(mask&2)},assistant:${!!(mask&4)}},focus:'${focus}'}))`);
@@ -14,9 +14,11 @@ for(const width of [320,390,719,720,760,800,1024,1280,1920])for(let mask=0;mask<
 }
 assert.equal(run('cleanPanePreferences({navigation:-100,assistant:"bad"}).navigation'),180);
 assert.equal(run('cleanPanePreferences({navigation:-100,assistant:"bad"}).assistant'),350);
-assert.equal(run('paneGeometry(760,defaultPanes()).closed.navigation'),true);
+assert.equal(run('paneGeometry(760,defaultPanes()).closed.navigation'),false);
 assert.equal(run('paneGeometry(760,{...defaultPanes(),focus:"navigation"}).closed.navigation'),false);
 assert.equal(run('defaultPanes().collapsed.navigation'),false);
+assert.equal(run('defaultPanes().collapsed.assistant'),true);
+assert.equal(run('cleanPanePreferences({collapsed:{assistant:false}}).collapsed.assistant'),false);
 for(const hash of ['#token=secret','#/unknown','#/decisions/../../secret','#/artifacts/%3Cscript%3E','https://external.example','#/overview/'+ 'a'.repeat(64)]){
   assert.equal(run(`dashboardRoute(${JSON.stringify(hash)})`),null);
 }
