@@ -3,6 +3,7 @@
 Run: python3 tests/manual_session_map_fixture.py
 """
 from pathlib import Path
+import argparse
 import sys
 import tempfile
 import time
@@ -30,29 +31,42 @@ def snapshot(runtime):
                    {'at': now - 96, 'label': 'Implementation task registered'},
                    {'at': now - 300, 'label': 'Phase scope reviewed'}]}
     state['workers'] = [
-        {'id': 'task-ui', 'packetId': 'Build the session map', 'repository': 'dashboard',
+        {'id': 'task-ui', 'packetId': 'WSP-UI-01', 'title': 'Build the session map', 'repository': 'dashboard',
          'status': 'running', 'threadId': 'fixture-ui', 'nativeStatus': 'active', 'observedAt': now - 20,
          'createdAt': now - 900, 'note': 'Make the brain, its tasks and responsibilities visible in one place.',
-         'evidence': {}, 'paths': ['web/session-map.js', 'web/session-map.css']},
-        {'id': 'task-review', 'packetId': 'Review keyboard navigation', 'repository': 'accessibility',
+         'commit': 'a'*40, 'branch': 'codex/map', 'pr': 'https://github.com/example/dashboard/pull/17',
+         'evidence': {'ci': {'status': 'verified', 'reference': 'Synthetic CI proof'}}, 'paths': ['web/session-map.js', 'web/session-map.css']},
+        {'id': 'task-review', 'packetId': 'WSP-UI-02', 'title': 'Review keyboard navigation', 'repository': 'accessibility',
          'status': 'blocked', 'threadId': 'fixture-review', 'createdAt': now - 800,
-         'note': 'Review required: preserve focus when a status update arrives.', 'evidence': {}},
-        {'id': 'task-tests', 'packetId': 'Verify the task lifecycle', 'repository': 'verification',
+         'note': 'Review required: preserve focus when a status update arrives.', 'evidence': {'ci': {'status': 'failed', 'reference': 'Synthetic failed CI proof'}}},
+        {'id': 'task-tests', 'packetId': 'WSP-UI-03', 'title': 'Verify the task lifecycle', 'repository': 'verification',
          'status': 'complete', 'threadId': 'fixture-tests', 'createdAt': now - 1200, 'completedAt': now - 100,
          'note': 'Synthetic completed-task example. Archival has not been observed.',
-         'evidence': {'tests': {'status': 'verified', 'reference': 'Synthetic fixture result'},
+         'commit': 'b'*40,
+         'evidence': {'ci': {'status': 'not_applicable'}, 'tests': {'status': 'verified', 'reference': 'Synthetic fixture result'},
                       'runtime': {'status': 'unverified'}}},
-        {'id': 'task-pending', 'packetId': 'Check responsive layouts', 'repository': 'dashboard-mobile',
+        {'id': 'task-pending', 'title': 'Check responsive layouts', 'repository': 'dashboard-mobile',
          'status': 'starting', 'threadId': None, 'clientThreadId': 'fixture-pending',
          'createdAt': now - 60, 'note': 'Waiting for a confirmed native task identity.', 'evidence': {}},
-        {'id': 'task-archived', 'packetId': 'Preserve the previous layout', 'repository': 'history',
+        {'id': 'task-archived', 'packetId': 'WSP-UI-00', 'title': 'Preserve the previous layout', 'repository': 'history',
          'status': 'complete', 'threadId': 'fixture-history', 'archived': True,
-         'createdAt': now - 3600, 'completedAt': now - 1800, 'evidence': {}}
+         'createdAt': now - 50*86400, 'completedAt': now - 40*86400, 'evidence': {}}
     ]
+    state['observations']['git'] = [
+        {'repository': 'dashboard', 'status': 'measured', 'at': now-120, 'remoteStatus': 'observed', 'remoteAt': now-120,
+         'worktrees': [], 'branches': [{'branch': 'codex/map', 'commit': 'a'*40, 'remoteCommit': 'a'*40}],
+         'pullRequests': [{'number': 17, 'url': 'https://github.com/example/dashboard/pull/17', 'title': 'Build the map',
+                           'state': 'open', 'draft': False, 'head': 'a'*40, 'branch': 'codex/map'}]},
+        {'repository': 'verification', 'status': 'measured', 'at': now-200, 'remoteStatus': 'observed', 'remoteAt': now-200,
+         'worktrees': [], 'branches': [], 'pullRequests': [{'number': 9, 'url': 'https://github.com/example/verification/pull/9',
+          'title': 'Task lifecycle', 'state': 'merged', 'draft': False, 'head': 'b'*40, 'mergeCommit': 'c'*40}]}]
     return state
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--port', type=int, default=8794)
+    args = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix='session-map-preview-') as directory:
         root = Path(directory).resolve()
         registry = Registry(root / 'registry', create=True)
@@ -60,7 +74,7 @@ if __name__ == '__main__':
             ledger = Ledger(root / identity)
             ledger.initialize({'schemaVersion': 1, 'brainId': 'fixture-brain-' + identity, 'repositories': []})
             registry.register(identity, name, ledger.root)
-        server = Dashboard(registry.ledger('map-preview'), 8794, inference_env=root / '.env', runtime_root=root, registry=registry)
+        server = Dashboard(registry.ledger('map-preview'), args.port, inference_env=root / '.env', runtime_root=root, registry=registry)
         server.bootstrap = 'disposable-session-map-preview'
         print(server.origin + '/#token=' + server.bootstrap, flush=True)
         with patch.object(WorkspaceRuntime, 'snapshot', snapshot):

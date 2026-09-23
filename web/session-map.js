@@ -6,6 +6,35 @@ Object.assign(titles, {
 // Presentation only: saved records never become execution or parentage authority.
 const sessionMapPreferences=new Map();
 const SESSION_PAGE_SIZE=4;
+const SESSION_FILTERS={repository:'all',commit:'all',pr:'all',ci:'all',roadmap:'all',activity:'all',from:'',through:'',sort:'recorded'};
+const SESSION_COMMIT_LABELS={recorded:'Commit recorded',matches_remote:'Matches remote tip',differs_remote:'Differs from remote tip',unknown:'Unknown'};
+const SESSION_PR_LABELS={draft:'Draft',open:'Open',merged:'Merged',closed:'Closed',linked:'Linked · status unknown',unknown:'Unknown'};
+const SESSION_CI_LABELS={verified:'Verified evidence',failed:'Failed evidence',not_applicable:'Not applicable',unverified:'Unverified / not recorded'};
+function sessionTimestamp(value){return typeof value==='number'&&Number.isFinite(value)&&value>0?value:null;}
+function sessionDelivery(task,snapshot,source,now){
+  const git=(snapshot.observations?.git||[]).find(r=>r.repository===task.repository);
+  const local=git?.status==='measured'?git:null;
+  const worktree=task.worktree?local?.worktrees?.find(w=>w.path===task.worktree):null;
+  const branch=task.branch||worktree?.branch||null;
+  const branchRecord=branch?local?.branches?.find(b=>b.branch===branch):null;
+  const sha=value=>typeof value==='string'&&/^[a-f0-9]{40}$/i.test(value)?value:null;
+  const commit=sha(task.commit)||sha(worktree?.commit)||sha(branchRecord?.commit);
+  // A failed refresh must not silently recover an older successful observation.
+  const remote=git?.remoteStatus==='observed'?git:git?.remoteStatus==='not_requested'&&git.previousRemote?.remoteStatus==='observed'?git.previousRemote:null;
+  const observed=sessionTimestamp(remote?.remoteAt),remoteAt=observed!==null&&observed<=now?observed:null;
+  const pulls=remoteAt?(remote.pullRequests||[]).filter(p=>task.pr?p.url===task.pr:commit&&(p.head===commit||p.mergeCommit===commit)):[];
+  const pr=pulls.length===1?pulls[0]:null;
+  const prStatus=pr&&['open','closed','merged'].includes(pr.state)?pr.state==='open'&&pr.draft?'draft':pr.state:task.pr?'linked':'unknown';
+  const remoteBranch=branch?remote?.branches?.find(b=>b.branch===branch):null;
+  const commitStatus=!commit?'unknown':remoteAt&&sha(remoteBranch?.remoteCommit)?remoteBranch.remoteCommit===commit?'matches_remote':'differs_remote':'recorded';
+  const ci=task.evidence?.ci;
+  const ciStatus=ci&&Object.hasOwn(SESSION_CI_LABELS,ci.status)&&!(ci.status==='verified'&&!ci.reference)?ci.status:'unverified';
+  const roadmapId=(source==='standard'?snapshot.standard?.run?.phaseId:task.packetId)||null;
+  const timestamps=['updatedAt','observedAt','finishedAt','completedAt','issuedAt','createdAt'].map(k=>sessionTimestamp(task[k])).filter(at=>at!==null&&at<=now);
+  return {commit,branch,commitStatus,prStatus,prNumber:pr?.number||null,prUrl:pr?.url||task.pr||null,remoteAt,
+    remoteUnavailable:git?.remoteStatus==='unavailable',ciStatus,ciReference:ci?.reference||null,roadmapId,
+    roadmapKind:source==='standard'?'Phase ID':'Packet ID',lastActivity:timestamps.length?Math.max(...timestamps):null};
+}
 function sessionFresh(at,now){return Number.isFinite(at)&&at>0&&now>=at&&now-at<120;}
 function sessionTaskState(task,now){
   if(task.archived===true)return {group:'history',label:'Archived · recorded',tone:'history',moving:false};
@@ -31,16 +60,46 @@ function sessionGraphModel(snapshot,now=Date.now()/1000){
       if(seen.has(identity))continue;seen.add(identity);
       const status=sessionTaskState(task,now);
       tasks.push({id:source+':'+task.id,kind:'task',source,title:task.title||task.packetId||'Registered task',
-        threadId:task.threadId,repository:task.repository||'Repository not recorded',raw:task,...status,
+        threadId:task.threadId,repository:task.repository||'Repository not recorded',raw:task,...status,delivery:sessionDelivery(task,snapshot,source,now),
         relation:task.archived?'Retained history':task.status==='not_created'?'Attempt closed':status.tone==='done'?'Result recorded':!task.threadId?'Creation pending':'Delegates scope'});
     }
   }
   const groups={all:tasks.length,open:0,attention:0,history:0};tasks.forEach(t=>groups[t.group]++);
   return {brain,tasks,groups};
 }
-function sessionVisibleTasks(model,prefs){
-  const query=prefs.query.trim().toLocaleLowerCase();
-  return model.tasks.filter(n=>(prefs.filter==='all'||n.group===prefs.filter)&&(!query||[n.title,n.repository,n.threadId||'',n.label].join(' ').toLocaleLowerCase().includes(query)));
+function sessionDateBoundary(value,end=false){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(value||''))return null;
+  const [year,month,day]=value.split('-').map(Number),date=new Date(year,month-1,day);
+  if(date.getFullYear()!==year||date.getMonth()!==month-1||date.getDate()!==day)return null;
+  if(end)date.setDate(date.getDate()+1);
+  return date.getTime()/1000;
+}
+function sessionVisibleTasks(model,prefs,now=Date.now()/1000){
+  const query=(prefs.query||'').trim().toLocaleLowerCase(),f={...SESSION_FILTERS,...prefs.facets};
+  const from=sessionDateBoundary(f.from),through=sessionDateBoundary(f.through,true);
+  const rows=model.tasks.filter(n=>{
+    const d=n.delivery;
+    if(prefs.filter&&prefs.filter!=='all'&&n.group!==prefs.filter)return false;
+    if(query&&![n.title,n.repository,n.raw.id,n.threadId,n.label,d.commit,d.branch,d.roadmapId,d.prNumber&&'#'+d.prNumber].filter(Boolean).join(' ').toLocaleLowerCase().includes(query))return false;
+    if(f.repository!=='all'&&'repo:'+n.repository!==f.repository)return false;
+    if(f.commit!=='all'&&(f.commit==='recorded'?!d.commit:d.commitStatus!==f.commit))return false;
+    if(f.pr!=='all'&&d.prStatus!==f.pr)return false;
+    if(f.ci!=='all'&&d.ciStatus!==f.ci)return false;
+    if(f.roadmap!=='all'&&(f.roadmap==='unknown'?!!d.roadmapId:'scope:'+d.roadmapId!==f.roadmap))return false;
+    const at=d.lastActivity;
+    if(f.activity==='unknown')return at===null;
+    if(f.activity==='custom')return at!==null&&(!f.from||from!==null&&at>=from)&&(!f.through||through!==null&&at<through);
+    if(f.activity!=='all'){
+      if(at===null)return false;
+      const age=now-at,days={'24h':1,'7d':7,'30d':30};
+      if(f.activity==='older')return age>30*86400;
+      if(days[f.activity])return age>=0&&age<=days[f.activity]*86400;
+    }
+    return true;
+  });
+  if(f.sort==='newest'||f.sort==='oldest')rows.sort((a,b)=>a.delivery.lastActivity===null?b.delivery.lastActivity===null?0:1:b.delivery.lastActivity===null?-1:(a.delivery.lastActivity-b.delivery.lastActivity)*(f.sort==='newest'?-1:1));
+  if(f.sort==='title')rows.sort((a,b)=>a.title.localeCompare(b.title));
+  return rows;
 }
 function sessionIcon(type){
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
@@ -68,12 +127,16 @@ function sessionNode(node,prefs){
   card.setAttribute('aria-pressed',String(prefs.selected===node.id&&!prefs.edge));card.setAttribute('aria-controls','session-inspector');
   card.setAttribute('aria-label',(node.kind==='brain'?'Brain: ':'Task: ')+node.title+'. '+node.label);
   const heading=el('span',null,'session-node-heading');heading.append(sessionIcon(node.kind),el('span',node.kind==='brain'?'PROJECT BRAIN':node.repository,'session-node-role'));
-  card.append(heading,el('strong',node.title,'session-node-title'),sessionStatus(node));return card;
+  card.append(heading,el('strong',node.title,'session-node-title'),sessionStatus(node));
+  if(node.kind==='task'){
+    const d=node.delivery,caption=el('span',`PR ${d.prNumber?'#'+d.prNumber+' ':''}${SESSION_PR_LABELS[d.prStatus]} · CI ${SESSION_CI_LABELS[d.ciStatus]}`,'session-node-meta');caption.title=caption.textContent;card.append(caption);
+  }
+  return card;
 }
 function sessionMap(root){
   const key=workspaceId||'legacy';
   let prefs=sessionMapPreferences.get(key);
-  if(!prefs){prefs={selected:'brain',edge:false,tab:'summary',filter:'all',query:'',page:0,layout:'graph'};sessionMapPreferences.set(key,prefs);}
+  if(!prefs){prefs={selected:'brain',edge:false,tab:'summary',filter:'all',query:'',page:0,layout:'graph',facets:{...SESSION_FILTERS},filtersOpen:false,zoom:'fit'};sessionMapPreferences.set(key,prefs);}
   const model=sessionGraphModel(state);
   if(!connected)for(const node of [model.brain,...model.tasks]){node.moving=false;if(node.tone==='active'){node.tone='unknown';node.label='Connection lost';}}
   if(prefs.selected!=='brain'&&!model.tasks.some(n=>n.id===prefs.selected)){prefs.selected='brain';prefs.edge=false;prefs.tab='summary';}
@@ -86,13 +149,16 @@ function sessionMap(root){
   }
   sessionPulse(shell.querySelector('.session-pulse'),model);
   // Polling must not destroy focused controls, an open conversation, or a draft.
-  const signature=JSON.stringify([model,prefs.filter,prefs.query,prefs.page,prefs.layout,prefs.selected,prefs.edge,connected]);
-  if(signature!==prefs.graphSignature){
-    const board=shell.querySelector('.session-board'),focus=board.contains(document.activeElement)?document.activeElement.dataset.focus:null;
-    const scroll=board.querySelector('.session-canvas-scroll')?.scrollLeft||0;
+  const signature=JSON.stringify([model,prefs.filter,prefs.query,prefs.facets,sessionVisibleTasks(model,prefs).map(n=>n.id),prefs.page,prefs.layout,prefs.selected,prefs.edge,connected]);
+  const board=shell.querySelector('.session-board'),controlSignature=JSON.stringify([prefs.filter,prefs.query,prefs.facets,prefs.page,prefs.layout,prefs.selected,prefs.edge]);
+  const editingFilter=board.contains(document.activeElement)&&document.activeElement.matches('select,input[type=date]');
+  const deferPoll=prefs.controlSignature===controlSignature&&(editingFilter||prefs.panning);
+  if(signature!==prefs.graphSignature&&!deferPoll){
+    const focus=board.contains(document.activeElement)?document.activeElement.dataset.focus:null;
+    const viewport=board.querySelector('.session-canvas-scroll'),scroll={left:viewport?.scrollLeft||0,top:viewport?.scrollTop||0};
     const caret=focus==='search'?[document.activeElement.selectionStart,document.activeElement.selectionEnd]:null;
-    sessionBoard(board,model,prefs);prefs.graphSignature=signature;
-    if(scroll)board.querySelector('.session-canvas-scroll')?.scrollTo({left:scroll});
+    sessionBoard(board,model,prefs);prefs.graphSignature=signature;prefs.controlSignature=controlSignature;
+    board.querySelector('.session-canvas-scroll')?.scrollTo(scroll);
     if(focus){const target=[...board.querySelectorAll('[data-focus]')].find(n=>n.dataset.focus===focus);target?.focus({preventScroll:true});if(caret&&target)target.setSelectionRange(...caret);}
   }
   const node=prefs.selected==='brain'?model.brain:model.tasks.find(n=>n.id===prefs.selected);
@@ -114,7 +180,86 @@ function sessionPulse(root,model){
   [[model.tasks.length,'registered tasks'],[model.groups.history,'in history'],[open,'decisions']].forEach(([value,label])=>{const item=el('div');item.append(el('strong',num(value)),el('span',label));facts.append(item);});
   root.append(story,facts);
 }
+function sessionResetFilters(prefs){prefs.filter='all';prefs.query='';prefs.page=0;prefs.facets={...SESSION_FILTERS};render();}
+function sessionFilterPanel(root,model,prefs){
+  const f=prefs.facets,count=Object.keys(SESSION_FILTERS).filter(k=>!['sort','from','through'].includes(k)&&f[k]!==SESSION_FILTERS[k]).length;
+  const details=el('details',null,'session-filter-panel');details.open=prefs.filtersOpen;
+  const summary=el('summary','Filters'+(count?' · '+count+' active':''));summary.dataset.focus='filters';
+  details.append(summary);details.addEventListener('toggle',()=>{if(details.isConnected)prefs.filtersOpen=details.open;});
+  const fields=el('div',null,'session-filter-fields');
+  const select=(key,label,choices)=>{
+    const field=el('label'),input=el('select');input.dataset.focus='facet:'+key;input.setAttribute('aria-label',label);
+    for(const [value,text] of choices){const option=el('option',text);option.value=value;input.append(option);}
+    // Do not silently drop a selected ID when a later snapshot removes its task.
+    if(!choices.some(([value])=>value===f[key])){const option=el('option',f[key].replace(/^(repo|scope):/,'')+' · no longer in snapshot');option.value=f[key];input.append(option);}
+    input.value=f[key];input.addEventListener('change',()=>{f[key]=input.value;prefs.page=0;render();});
+    field.append(el('span',label),input);fields.append(field);
+  };
+  select('repository','Repository',[['all','All repositories'],...[...new Set(model.tasks.map(n=>n.repository))].sort().map(r=>['repo:'+r,r])]);
+  select('commit','Commit',[['all','Any commit status'],...Object.entries(SESSION_COMMIT_LABELS)]);
+  select('pr','Pull request',[['all','Any PR status'],...Object.entries(SESSION_PR_LABELS)]);
+  select('ci','CI checks / evidence',[['all','Any CI status'],...Object.entries(SESSION_CI_LABELS)]);
+  const scopes=new Map();for(const n of model.tasks)if(n.delivery.roadmapId)scopes.set(n.delivery.roadmapId,n.delivery.roadmapKind);
+  select('roadmap','Roadmap / scope ID',[['all','All packet & phase IDs'],...Array.from(scopes).sort(([a],[b])=>a.localeCompare(b)).map(([id,kind])=>['scope:'+id,id+' · '+kind]),['unknown','Not recorded']]);
+  select('activity','Last recorded activity',[['all','Any date'],['24h','Last 24 hours'],['7d','Last 7 days'],['30d','Last 30 days'],['older','More than 30 days ago'],['custom','Date range…'],['unknown','Not recorded']]);
+  if(f.activity==='custom')for(const [key,label] of [['from','From'],['through','Through']]){
+    const field=el('label'),input=el('input');input.type='date';input.value=f[key];input.dataset.focus='facet:'+key;input.setAttribute('aria-label',label);
+    input.addEventListener('change',()=>{f[key]=input.value;prefs.page=0;render();});field.append(el('span',label),input);fields.append(field);
+  }
+  select('sort','Order tasks',[['recorded','Recorded order'],['newest','Most recently active'],['oldest','Least recently active'],['title','Task title']]);
+  const reset=button('Reset filters',()=>sessionResetFilters(prefs));reset.dataset.focus='reset-filters';fields.append(reset);details.append(fields);
+  details.append(el('p','Filters combine. Roadmap uses recorded packet or phase IDs. CI uses retained task evidence; missing checks never count as passing. Date ranges use your local timezone.','session-filter-note'));
+  if(f.activity==='custom'&&f.from&&f.through&&f.from>f.through){const warning=el('p','Choose a Through date on or after From.','session-filter-error');warning.setAttribute('role','alert');details.append(warning);}
+  root.append(details);
+}
+function sessionZoomValue(value,width,height){
+  if(value==='fit')return Math.min(1,width/Math.max(820,width),Math.min(520,height)/height);
+  return Math.min(2,Math.max(.25,Number(value)||1));
+}
+function sessionViewport(root,wrap,canvas,prefs,height){
+  const stage=el('div',null,'session-canvas-stage');stage.append(canvas);wrap.append(stage);
+  const controls=el('div',null,'session-viewport-controls'),group=el('div',null,'session-zoom-controls');group.setAttribute('role','group');group.setAttribute('aria-label','Map zoom');
+  let width=820,scale=1;
+  const out=button('−',()=>zoom(scale-.25)),value=el('output','100%'),inside=button('+',()=>zoom(scale+.25));
+  out.setAttribute('aria-label','Zoom out');inside.setAttribute('aria-label','Zoom in');value.setAttribute('aria-label','Map zoom level');value.setAttribute('aria-live','polite');
+  const fit=button('Fit',()=>zoom('fit')),reset=button('100%',()=>zoom(1));fit.setAttribute('aria-label','Fit map');reset.setAttribute('aria-label','Reset zoom to 100%');
+  for(const [node,key] of [[out,'out'],[inside,'in'],[fit,'fit'],[reset,'reset']])node.dataset.focus='zoom:'+key;
+  group.append(out,value,inside,fit,reset);controls.append(group,el('span','Drag background to pan · Ctrl/⌘ + scroll to zoom','session-pan-hint'));root.append(controls,wrap);
+  const apply=()=>{
+    const available=wrap.clientWidth;if(!available)return;
+    width=Math.max(820,available);scale=sessionZoomValue(prefs.zoom,available,height);
+    stage.style.width=width*scale+'px';stage.style.height=height*scale+'px';
+    canvas.style.width=width+'px';canvas.style.height=height+'px';canvas.style.transform=`scale(${scale})`;
+    wrap.style.height=Math.max(280,Math.min(520,height*scale))+'px';
+    value.textContent=Math.round(scale*100)+'%';out.disabled=scale<=.25;inside.disabled=scale>=2;
+    fit.setAttribute('aria-pressed',String(prefs.zoom==='fit'));
+  };
+  const zoom=(next,point)=>{
+    const center=point||{x:wrap.clientWidth/2,y:wrap.clientHeight/2};
+    const x=(wrap.scrollLeft+center.x)/scale,y=(wrap.scrollTop+center.y)/scale;
+    prefs.zoom=next==='fit'?'fit':sessionZoomValue(next,width,height);apply();
+    wrap.scrollTo(next==='fit'?{left:0,top:0}:{left:x*scale-center.x,top:y*scale-center.y});
+  };
+  wrap.addEventListener('wheel',event=>{
+    if(!event.ctrlKey&&!event.metaKey)return;
+    event.preventDefault();const rect=wrap.getBoundingClientRect();zoom(scale*Math.exp(-event.deltaY*.005),{x:event.clientX-rect.left,y:event.clientY-rect.top});
+  },{passive:false});
+  wrap.addEventListener('keydown',event=>{
+    if(event.target!==wrap)return;
+    if(['+','=','-','0','f','F'].includes(event.key)){event.preventDefault();zoom(event.key==='0'?1:['f','F'].includes(event.key)?'fit':scale+(event.key==='-'?-.25:.25));}
+  });
+  let pan=null;
+  wrap.addEventListener('pointerdown',event=>{
+    if(event.button!==0||event.pointerType==='touch'||event.target.closest('button,[role=button]'))return;
+    pan={id:event.pointerId,x:event.clientX,y:event.clientY,left:wrap.scrollLeft,top:wrap.scrollTop};prefs.panning=true;wrap.setPointerCapture(event.pointerId);wrap.classList.add('is-panning');event.preventDefault();wrap.focus({preventScroll:true});
+  });
+  wrap.addEventListener('pointermove',event=>{if(pan&&event.pointerId===pan.id)wrap.scrollTo({left:pan.left+pan.x-event.clientX,top:pan.top+pan.y-event.clientY});});
+  const end=()=>{pan=null;prefs.panning=false;wrap.classList.remove('is-panning');};wrap.addEventListener('pointerup',end);wrap.addEventListener('pointercancel',end);wrap.addEventListener('lostpointercapture',end);
+  const observer=new ResizeObserver(()=>{if(!wrap.isConnected){observer.disconnect();return;}apply();});prefs.resizeObserver=observer;observer.observe(wrap);apply();
+}
 function sessionBoard(root,model,prefs){
+  prefs.resizeObserver?.disconnect();
+  prefs.panning=false;
   root.replaceChildren();
   const heading=el('div',null,'session-board-heading'),intro=el('div');intro.append(el('h2','The work, connected'),el('p','Select a node or connection to explore below.'));
   const actions=el('div',null,'inline-actions');
@@ -126,28 +271,30 @@ function sessionBoard(root,model,prefs){
     const b=button(label+' '+model.groups[value],()=>{prefs.filter=value;prefs.page=0;render();});b.dataset.focus='filter:'+value;b.setAttribute('aria-pressed',String(prefs.filter===value));filters.append(b);
   }
   const search=el('input');search.type='search';search.placeholder='Find a task…';search.value=prefs.query;search.setAttribute('aria-label','Find a task by title, repository or ID');search.dataset.focus='search';
-  search.addEventListener('input',()=>{prefs.query=search.value;prefs.page=0;render();});toolbar.append(filters,search);root.append(toolbar);
+  search.addEventListener('input',()=>{prefs.query=search.value;prefs.page=0;render();});toolbar.append(filters,search);root.append(toolbar);sessionFilterPanel(root,model,prefs);
   const rows=sessionVisibleTasks(model,prefs),pages=Math.max(1,Math.ceil(rows.length/SESSION_PAGE_SIZE));prefs.page=Math.min(prefs.page,pages-1);
   const visible=rows.slice(prefs.page*SESSION_PAGE_SIZE,(prefs.page+1)*SESSION_PAGE_SIZE);
-  const wrap=el('div',null,'session-canvas-scroll');wrap.tabIndex=0;wrap.setAttribute('aria-label','Session relationships; use the List view on narrow screens');wrap.dataset.focus='canvas';
-  const canvas=el('div',null,'session-canvas');canvas.dataset.layout=prefs.layout;canvas.style.setProperty('--map-height',Math.max(360,visible.length*116+44)+'px');
+  const result=el('div',null,'session-filter-result');result.append(el('span',`${rows.length} of ${model.tasks.length} tasks match · brain always shown`));result.setAttribute('role','status');root.append(result);
+  if(prefs.selected!=='brain'&&!visible.some(n=>n.id===prefs.selected))result.append(el('span','Selected task is outside this view. Its details remain below.'));
+  const wrap=el('div',null,'session-canvas-scroll');wrap.tabIndex=0;wrap.setAttribute('aria-label',prefs.layout==='graph'?'Session relationships. Use plus or minus to zoom, 0 for 100%, F to fit, and arrow keys to pan.':'Session tasks');wrap.dataset.focus='canvas';
+  const canvas=el('div',null,'session-canvas');canvas.dataset.layout=prefs.layout;canvas.style.setProperty('--map-height',Math.max(360,visible.length*144+44)+'px');
   const brain=sessionNode(model.brain,prefs);brain.classList.add('session-brain');canvas.append(brain);
   if(visible.length){
-    const height=Math.max(360,visible.length*116+44),center=height/2;
+    const height=Math.max(360,visible.length*144+44),center=height/2;
     const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.classList.add('session-connections');svg.setAttribute('viewBox',`0 0 820 ${height}`);svg.setAttribute('preserveAspectRatio','none');svg.setAttribute('role','group');svg.setAttribute('aria-label','Brain responsibility connections');
     visible.forEach((node,i)=>{
-      const y=80+i*116,path=document.createElementNS(svg.namespaceURI,'path');
+      const y=84+i*144,path=document.createElementNS(svg.namespaceURI,'path');
       path.setAttribute('d',`M 270 ${center} C 360 ${center}, 425 ${y}, 544 ${y}`);path.classList.add('session-connection');path.dataset.tone=node.tone;path.dataset.moving=String(node.moving);
       path.setAttribute('role','button');path.setAttribute('tabindex','0');path.setAttribute('aria-label','Relationship: '+model.brain.title+' to '+node.title);path.setAttribute('aria-controls','session-inspector');path.setAttribute('aria-pressed',String(prefs.edge&&prefs.selected===node.id));path.dataset.focus='path:'+node.id;
       path.addEventListener('click',()=>sessionPick(prefs,node.id,true));path.addEventListener('keydown',e=>{if(['Enter',' '].includes(e.key)){e.preventDefault();sessionPick(prefs,node.id,true);}});svg.append(path);
-      const row=el('div',null,'session-task-row');row.style.setProperty('--node-y',(24+i*116)+'px');
+      const row=el('div',null,'session-task-row');row.style.setProperty('--node-y',(24+i*144)+'px');
       const edge=button(node.relation,()=>sessionPick(prefs,node.id,true),'session-edge-label');edge.dataset.focus='edge:'+node.id;edge.setAttribute('aria-label',node.relation+': '+node.title);edge.setAttribute('aria-pressed',String(prefs.edge&&prefs.selected===node.id));edge.setAttribute('aria-controls','session-inspector');
       row.append(edge,sessionNode(node,prefs));canvas.append(row);
     });canvas.prepend(svg);
   }else{
-    const blank=el('div',null,'session-map-empty');blank.append(el('h3',model.tasks.length?'No matching tasks':'Your brain is the starting point'),el('p',model.tasks.length?'Try another filter or search. The brain stays visible.':'Registered tasks will branch out here as the brain records them. Select the brain to read messages or review the next phase.'));canvas.append(blank);
+    const blank=el('div',null,'session-map-empty');blank.append(el('h3',model.tasks.length?'No matching tasks':'Your brain is the starting point'),el('p',model.tasks.length?'Try another filter or search. The brain stays visible.':'Registered tasks will branch out here as the brain records them. Select the brain to read messages or review the next phase.'));if(model.tasks.length)blank.append(button('Reset filters',()=>sessionResetFilters(prefs)));canvas.append(blank);
   }
-  wrap.append(canvas);root.append(wrap);
+  if(prefs.layout==='graph')sessionViewport(root,wrap,canvas,prefs,Math.max(360,visible.length*144+44));else{wrap.append(canvas);root.append(wrap);}
   const foot=el('div',null,'session-map-foot'),legend=el('div',null,'session-legend');
   for(const [tone,label] of [['active','Fresh activity'],['attention','Attention'],['done','Completed'],['unknown','Unknown / stale']]){const item=el('span',label);item.dataset.tone=tone;legend.append(item);}foot.append(legend);
   if(pages>1){const paging=el('div',null,'inline-actions'),previous=button('←',()=>{prefs.page--;render();}),next=button('→',()=>{prefs.page++;render();});previous.setAttribute('aria-label','Previous tasks');next.setAttribute('aria-label','Next tasks');previous.disabled=prefs.page===0;next.disabled=prefs.page===pages-1;paging.append(previous,el('span',`${prefs.page*SESSION_PAGE_SIZE+1}–${Math.min(rows.length,(prefs.page+1)*SESSION_PAGE_SIZE)} of ${rows.length}`),next);foot.append(paging);}
@@ -175,7 +322,7 @@ function sessionInspector(root,node,prefs){
     sessionFacts(panel,node.kind==='brain'?[
       ['Native task ID',node.threadId],['Observed at',when(node.raw.observedAt)],['Source',node.raw.source],['Last checkpoint',when(state.meta.lastReconciled)],['Recorded control',state.meta.brainControl?.phase],['Freshness',node.raw.reason]
     ]:[['Registered task ID',node.raw.id],['Native task ID',node.threadId],['Pending client ID',node.raw.clientThreadId],['Record type',node.source==='standard'?'Cooperative phase task':'Managed worker'],['Repository',node.repository],['Ledger status',node.raw.status],['Native observation',node.raw.nativeStatus||'Not observed'],['Observed at',when(node.raw.observedAt)],['Created at',when(node.raw.createdAt)],['Model requested',node.raw.model],['Effort requested',node.raw.effort],['Observed tokens (partial)',node.raw.observedTokens],['Branch',node.raw.branch],['Worktree',node.raw.worktree]]);
-    if(node.kind!=='brain')panel.append(el('p','Requested model settings are not verified applied settings. Missing usage is not zero.','muted'));
+    if(node.kind!=='brain'){sessionDeliveryFacts(panel,node);panel.append(el('p','Requested model settings are not verified applied settings. Missing usage is not zero.','muted'));}
   }else if(prefs.tab==='evidence'){
     if(node.kind==='task'){
       const axes=Object.entries(node.raw.evidence||{});
@@ -201,19 +348,29 @@ function sessionInspector(root,node,prefs){
       main.append(el('h3',prefs.edge?node.relation:'Task responsibility'),el('p',node.raw.rationale||node.raw.note||node.title));
       if(prefs.edge)main.append(el('p','The designated project brain coordinates this registered task and reviews its returned evidence. This link represents the ledger association; it does not assert an observed native parent/child relationship.','muted'));
       sessionFacts(main,[['Repository',node.repository],['Recorded outcome',node.raw.status],['Allowed paths',node.raw.paths?.join(', ')||'See the retained inheritance seed']]);
+      sessionDeliveryFacts(main,node);
       sessionNativeLink(main,node.threadId);
       if(!node.threadId)main.append(el('p','Creation is not confirmed. Keep the existing attempt until its outcome is reconciled.','muted'));
       if(['complete','completed'].includes(node.raw.status))main.append(el('p','Completion is recorded. Native archival is a separate action and observation.','muted'));
     }
     side.append(el('h3',node.kind==='brain'?'Recent recorded activity':'Task lifecycle'));
     const timeline=el('ol',null,'session-timeline');
-    const events=node.kind==='brain'?[...(state.brainActivity?.events||[])].sort((a,b)=>b.at-a.at).slice(0,4).map(e=>[e.at,e.label]):[[node.raw.createdAt,'Registered task'],[node.raw.issuedAt,'Creation issued'],[node.raw.observedAt,'Native status: '+(node.raw.nativeStatus||'unknown')],[node.raw.completedAt,'Result recorded']].filter(([at])=>at);
+    const events=node.kind==='brain'?[...(state.brainActivity?.events||[])].sort((a,b)=>b.at-a.at).slice(0,4).map(e=>[e.at,e.label]):[[node.raw.createdAt,'Registered task'],[node.raw.issuedAt,'Creation issued'],[node.raw.observedAt,'Native status: '+(node.raw.nativeStatus||'unknown')],[node.raw.finishedAt||node.raw.completedAt,'Result recorded']].filter(([at])=>at);
     events.forEach(([at,label])=>{const item=el('li');item.append(el('span',label),el('time',when(at)));timeline.append(item);});
     if(!events.length)side.append(el('p','No timestamped activity is available in this snapshot.','muted'));else side.append(timeline);
     if(node.kind==='brain')side.append(button('Decision inbox',()=>navigateView('decisions')));
     columns.append(main,side);panel.append(columns);
   }
   if(previousFocus)[...root.querySelectorAll('[data-focus]')].find(n=>n.dataset.focus===previousFocus)?.focus({preventScroll:true});
+}
+function sessionDeliveryFacts(root,node){
+  const d=node.delivery;
+  root.append(el('h3','Delivery & activity'));
+  sessionFacts(root,[['Commit',d.commit],['Remote comparison',SESSION_COMMIT_LABELS[d.commitStatus]],
+    ['Pull request',(d.prNumber?'#'+d.prNumber+' · ':'')+SESSION_PR_LABELS[d.prStatus]],['GitHub observed',d.remoteAt?when(d.remoteAt):'Not recorded'],
+    ['CI checks / evidence',SESSION_CI_LABELS[d.ciStatus]],['CI reference',d.ciReference],
+    [d.roadmapKind,d.roadmapId],['Last recorded activity',d.lastActivity?when(d.lastActivity):'Not recorded']]);
+  root.append(el('p',d.remoteUnavailable?'Latest GitHub refresh was unavailable. Older remote status is not used for filtering.':'PR and commit status use saved observations. CI is the retained task evidence axis, not a live provider check list. Packet and phase IDs identify recorded scope; no roadmap link is inferred from titles.','muted'));
 }
 function sessionTaskDocuments(root,node){
   let count=0;

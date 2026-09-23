@@ -7,7 +7,7 @@
 .pane-shell .rail nav>button { font-size:13px; }.pane-shell .rail { gap:24px; }
 .session-home { --node-active:oklch(42% .09 158); --node-attention:var(--warning); --node-done:var(--accent); display:grid; gap:24px; }
 :root[data-theme=dark] .session-home { --node-active:oklch(80% .1 158); }
-.session-home button,.session-home .button { border-radius:6px; }.session-home :is(button,input,summary):focus-visible { outline:3px solid var(--accent); outline-offset:3px; }
+.session-home button,.session-home .button { border-radius:6px; }.session-home :is(button,input,select,summary):focus-visible { outline:3px solid var(--accent); outline-offset:3px; }
 .session-pulse { display:flex; justify-content:space-between; gap:24px; align-items:center; padding:0 0 24px; border-bottom:1px solid var(--rule); }
 .session-story { display:grid; gap:8px; }.session-story h2 { font-size:1.6rem; }.session-story p { font-size:13px; }
 .session-counts { display:flex; gap:32px; flex-shrink:0; }.session-counts>div { display:grid; gap:2px; }.session-counts strong { font-size:1.6rem; font-weight:500; font-variant-numeric:tabular-nums; }.session-counts span { color:var(--muted); font-size:11px; }
@@ -57,8 +57,7 @@
   .session-inspector-heading { padding:20px; flex-direction:column; align-items:flex-start; gap:12px; }.session-inspector-heading h2 { font-size:1.25rem; }.session-detail-tabs { padding-inline:12px; }.session-detail-content { padding:20px; }
   .session-detail-columns { grid-template-columns:1fr; }.session-recent { border-inline-start:0; border-top:1px solid var(--rule); padding:20px 0 0; }.session-facts { grid-template-columns:1fr; gap:16px; }
   .session-map-foot { padding-inline:16px; }.session-boundary { padding-inline:16px; }
-  /* Keep the same nodes and selectable responsibilities in a vertical graph. */
-  .session-canvas { min-width:0; height:auto; padding:20px; display:grid; gap:20px; }.session-connections { display:none; }.session-brain { position:static; transform:none; width:100%; min-height:0; }.session-task-row { position:static; width:100%; display:grid; gap:8px; }.session-edge-label { position:static; justify-self:start; }.session-edge-label::before { content:'↳ '; }.session-map-empty { position:static; transform:none; width:100%; }
+  .session-canvas[data-layout=list] { padding:16px; }
 }
 @media(prefers-reduced-motion:no-preference) {
   .session-node,.session-edge-label { transition:border-color .18s ease-out,background-color .18s ease-out; }
@@ -80,9 +79,32 @@
 @container workspace (max-width:820px) {
   .workspace:has(.session-home) .page-heading { align-items:flex-start; }
 }
-@container workspace (max-width:650px) {
-  .session-canvas[data-layout=graph] .session-task-row { position:relative; width:auto; margin-inline-start:20px; }
-  .session-canvas[data-layout=graph] .session-task-row::before { content:''; position:absolute; inset:-20px auto -20px -16px; border-inline-start:1px solid var(--rule); }
-  .session-canvas[data-layout=graph] .session-task-row:last-child::before { bottom:50%; }
-  .session-canvas[data-layout=graph] .session-task-row::after { content:''; position:absolute; left:-16px; top:50%; width:16px; border-top:1px solid var(--rule); }
+/* Filtering and graph navigation stay outside the scaled canvas. */
+.session-filter-panel { padding:0 24px; border-bottom:1px solid var(--rule); }
+.session-filter-panel summary { cursor:pointer; min-height:42px; padding-block:12px; font-size:12px; font-weight:600; }
+.session-filter-fields { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; padding-block:8px 16px; }
+.session-filter-fields label { display:grid; align-content:start; gap:6px; min-width:0; font-size:11px; color:var(--muted); }
+.session-filter-fields select,.session-filter-fields input { width:100%; min-width:0; min-height:40px; padding:8px; font:inherit; font-size:12px; color:var(--ink); background:var(--paper); border:1px solid var(--rule); border-radius:6px; }
+.session-filter-fields button { align-self:end; justify-self:start; min-height:40px; font-size:12px; }
+.session-filter-note,.session-filter-error { font-size:11px; color:var(--muted); padding-bottom:16px; }
+.session-filter-error { color:var(--warning); }
+.session-filter-result { display:flex; flex-wrap:wrap; justify-content:space-between; gap:6px; padding:10px 24px; font-size:11px; color:var(--muted); }
+.session-viewport-controls { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; padding:0 24px 12px; }
+.session-zoom-controls { display:flex; align-items:center; gap:4px; }
+.session-zoom-controls button { min-width:36px; min-height:36px; padding:6px 10px; font-size:12px; }
+.session-zoom-controls button[aria-pressed=true] { border-color:var(--accent); background:var(--soft); }
+.session-zoom-controls output { min-width:48px; text-align:center; font-size:12px; font-variant-numeric:tabular-nums; }
+.session-pan-hint { font-size:10px; color:var(--muted); }
+.session-canvas-stage { position:relative; overflow:hidden; }
+.session-canvas-stage>.session-canvas { min-width:0; position:absolute; inset:0 auto auto 0; transform-origin:0 0; }
+.session-canvas-scroll:has(.session-canvas-stage) { cursor:grab; overscroll-behavior:contain; touch-action:pan-x pan-y; }
+.session-canvas-scroll.is-panning { cursor:grabbing; user-select:none; }
+.session-canvas-scroll:focus-visible { outline:3px solid var(--accent); outline-offset:-3px; }
+.session-node-meta { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; color:var(--muted); font-size:9px; line-height:1.4; }
+.session-map-empty button { justify-self:start; }
+@container workspace (max-width:850px) { .session-filter-fields { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@container workspace (max-width:450px) {
+  .session-filter-fields { grid-template-columns:minmax(0,1fr); }
+  .session-filter-panel,.session-filter-result,.session-viewport-controls { padding-inline:16px; }
+  .session-pan-hint { max-width:30ch; }
 }
