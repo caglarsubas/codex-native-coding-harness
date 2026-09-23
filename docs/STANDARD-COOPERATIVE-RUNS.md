@@ -18,15 +18,20 @@ relaxation of the strict managed/Harness protocols documented elsewhere.
    exclusions, repository paths, operations, owner checkpoint, parallel/task
    limits, token allowance and checkpoint reserve. Select phase delegation only
    if the brain may approve bounded implementation seeds. Merge stays manual.
-3. Ask that brain to follow the source
-   [standard cycle](../skills/codex-orchestrator/references/standard-cycle.md),
-   record the actually exposed native model/effort catalog, and release its
-   setup controller. The catalog is valid for 24 hours before activation.
+3. The first **Review Play** automatically retains a fixed, read-only capability
+   request and notifies that workspace's existing brain. The brain follows the
+   source [standard cycle](../skills/codex-orchestrator/references/standard-cycle.md),
+   records the actually exposed native model/effort catalog against the exact
+   request, and releases its setup controller. The catalog is valid for 24 hours
+   before activation. The owner does not copy a message between the dashboard
+   and Codex.
 4. Start the dashboard with the existing `--platform` registry and the explicit
    `--notify-brain /absolute/path/to/codex` option. Open its private session link.
-   On the selected workspace's Overview, **Review Play**, inspect the exact
-   mission/catalog/limits, then confirm. This authorizes one phase, not the full
-   unbounded roadmap. Default duration is eight hours (API supports 1–24).
+   On the selected workspace's Overview, **Review Play** starts capability
+   collection when needed and displays saved, sent, received, failed and overdue
+   states. After the receipt, the same intent opens the exact mission/catalog/
+   limits preview; then confirm. This authorizes one phase, not the full unbounded
+   roadmap. Default duration is eight hours (API supports 1–24).
 5. Monitor Overview or Workers & evidence: native links, inherited seeds,
    requested model/effort, results, token gaps and immutable run versions.
    Deliverables preserved with `preserve` appear in the existing versioned
@@ -59,6 +64,13 @@ relaxation of the strict managed/Harness protocols documented elsewhere.
 | Results | Brain independently inspects source/tests and retains evidence; assertions are not externally attested CI |
 | Retention | Native tasks/checkouts retained; no implicit archive, deletion or merge |
 | Inference | No API needed for orchestration; existing optional assistant remains separate |
+
+Capability notification retries are deliberately asymmetric. A definitely
+unavailable delivery may be retried automatically with the same retained request,
+up to three total attempts. An accepted, sending or uncertain delivery is never
+resent: the UI polls only for its ledger receipt and falls back to the existing
+heartbeat or an operator-visible brain inspection. A brain-side observation error
+is retained with a bounded reason and never converted into a guessed catalog.
 
 The dashboard initially reserves 20% of the reviewed phase allowance for the
 brain plus the configured checkpoint reserve. Worker claims require room for

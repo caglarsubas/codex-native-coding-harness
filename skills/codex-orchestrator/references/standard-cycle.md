@@ -1,6 +1,7 @@
 # Cooperative standard-project brain
 
-This protocol applies only to an owner-activated `standard_cooperative_v1` run.
+This protocol applies to the fixed pre-Play capability request and to an
+owner-activated `standard_cooperative_v1` run.
 Never use it for Harness or strict/enrolled workspaces. The owner authorizes you
 to create native implementation tasks within the exact phase-delegated mission;
 select model and effort from the owner-bound native catalog, based on complexity
@@ -22,6 +23,18 @@ environment exports do not survive separate terminal calls. Never print the file
 Use `standard-brain PRIVATE_REQUEST_JSON` for the operations below. JSON request
 files are private, not committed. Use `standard-release CHECKPOINT` before
 ending. Do not call legacy `process`, reserve/begin or strict managed handoffs.
+
+## Pre-Play capability request
+
+When `standard-state.catalogRefresh.status` is `queued`, process that exact
+request before Play. Inspect only the current native creation/message tool schemas;
+do not infer a catalog from documentation, remembered availability or global
+settings. Record the actual model/effort combinations with `catalog` and the exact
+`requestId`. This atomically retains the catalog and completes the dashboard
+receipt. If the schema cannot be observed, use `catalog_error` with that same
+request ID, a bounded code/detail and an honest retryable flag. Do not leave the
+owner waiting on a free-form reply, and do not start Play, create a worker, change
+settings or resume a stopped brain. Release the controller after either receipt.
 
 ## Operating cycle
 
@@ -79,10 +92,15 @@ ending. Do not call legacy `process`, reserve/begin or strict managed handoffs.
 
 ## Typed request reference
 
-Every operation except catalog includes `runId`; task operations use `taskId`.
+Run operations below include `runId`; the pre-Play catalog operations use
+`requestId`, and task operations also use `taskId`.
 
-- `catalog`: `models:[{model,efforts:[…]}], source`. Before first Play, record only
-  model/effort combinations actually exposed by current native tool metadata.
+- `catalog`: `requestId, models:[{model,efforts:[…]}], source`. For an automatic
+  pre-Play request, bind the exact pending request ID and record only model/effort
+  combinations actually exposed by current native tool metadata. A direct catalog
+  without `requestId` remains available only when no automatic request is pending.
+- `catalog_error`: `requestId, code, detail, retryable`. This closes the exact
+  request with a visible failure; it does not create capabilities or authorize a run.
 - `receive`: no additional fields.
 - `claim`: `id, repository, title, paths:[…], instructions, acceptance:[…], model,
   effort, rationale, allowance`. Paths must be exact files or phase-listed patterns.

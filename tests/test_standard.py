@@ -11,7 +11,7 @@ from unittest.mock import patch
 from orchestrator.core import Ledger, Refusal, canonical
 from orchestrator.workspaces import Registry
 from orchestrator.missions import change
-from orchestrator.standard import Controls, brain, read
+from orchestrator.standard import Controls, brain, read, request_catalog_refresh
 from test_missions import specification, request
 
 
@@ -58,6 +58,12 @@ class StandardTest(unittest.TestCase):
         self.control(); self.call('receive'); self.claim(); self.call('issue',taskId='task-1')
         self.call('bind',taskId='task-1',threadId=str(uuid.uuid4()),clientThreadId=None,hostId='local')
 
+    def remove_catalog(self):
+        with self.ledger.tx() as db:
+            meta = self.ledger.get(db, 'meta', 1)
+            meta.pop('standardCatalog', None)
+            self.ledger.put(db, 'meta', 1, meta)
+
     def observe(self, **changes):
         data={'taskId':'task-1','nativeStatus':'completed','observedTokens':None,'trackedTerminals':'none','observedAt':time.time(),'source':'Native fixture observation'}
         self.call('observe',**{**data,**changes})
@@ -73,6 +79,81 @@ class StandardTest(unittest.TestCase):
         result=self.controls.confirm(self.registry,self.ledger,{**p,'confirmed':True},'session')
         self.assertEqual(result,self.controls.confirm(self.registry,self.ledger,{**p,'confirmed':True},'session'))
         self.assertTrue(self.ledger.snapshot()['meta']['paused'])
+
+    def test_dashboard_catalog_refresh_notifies_once_and_collects_brain_receipt(self):
+        from orchestrator.notification import BrainNotifier
+        from types import SimpleNamespace
+        self.remove_catalog()
+        state = read(self.ledger)
+        request = {'id': str(uuid.uuid4()), 'contextHash': state['contextHash']}
+        command = request_catalog_refresh(self.ledger, request)
+        notifier = BrainNotifier(self.ledger, '/fixture/codex')
+        brain_id = self.ledger.snapshot()['meta']['brainId']
+        ack = SimpleNamespace(returncode=0, stdout=f'Queued message {uuid.uuid4()} for thread {brain_id}.')
+        with patch.object(notifier, 'status', return_value={'status': 'configured'}), patch('orchestrator.notification.subprocess.run', return_value=ack) as send:
+            delivered = notifier.notify(command['id'])
+            self.assertEqual(delivered['notification']['status'], 'accepted')
+            self.assertIn('read-only standard-project capability refresh', send.call_args.args[0][-1])
+            self.assertIn(command['id'], send.call_args.args[0][-1])
+            notifier.notify(command['id'])
+            self.assertEqual(send.call_count, 1)
+        with self.assertRaisesRegex(Refusal, 'request ID'):
+            brain(self.registry, self.ledger, self.token,
+                  {'operation': 'catalog', 'models': [{'model': 'fixture', 'efforts': ['low']}], 'source': 'Native schema'})
+        brain(self.registry, self.ledger, self.token,
+              {'operation': 'catalog', 'requestId': command['id'],
+               'models': [{'model': 'fixture', 'efforts': ['low', 'high']}], 'source': 'Native schema'})
+        refreshed = read(self.ledger)
+        self.assertTrue(refreshed['available'])
+        self.assertEqual(refreshed['catalogRefresh']['status'], 'completed')
+        self.assertEqual(refreshed['catalogRefresh']['deliveryAttempts'], 1)
+
+    def test_catalog_refresh_retries_only_confirmed_non_delivery(self):
+        from orchestrator.notification import BrainNotifier
+        self.remove_catalog()
+        state = read(self.ledger)
+        request = {'id': str(uuid.uuid4()), 'contextHash': state['contextHash']}
+        notifier = BrainNotifier(self.ledger)
+        command = request_catalog_refresh(self.ledger, request)
+        first = notifier.notify(command['id'])
+        self.assertEqual(first['notification']['status'], 'unavailable')
+        for attempt in (2, 3):
+            retried = request_catalog_refresh(self.ledger, request)
+            self.assertNotIn('notification', retried)
+            current = notifier.notify(command['id'])
+            self.assertEqual(current['notification']['status'], 'unavailable')
+            self.assertEqual(len(current['notificationHistory']) + 1, attempt)
+        exhausted = request_catalog_refresh(self.ledger, request)
+        self.assertEqual(exhausted['notification']['status'], 'unavailable')
+        self.assertEqual(len(exhausted['notificationHistory']) + 1, 3)
+
+    def test_catalog_refresh_uncertain_delivery_is_never_resent(self):
+        from orchestrator.notification import BrainNotifier
+        self.remove_catalog()
+        state = read(self.ledger)
+        request = {'id': str(uuid.uuid4()), 'contextHash': state['contextHash']}
+        command = request_catalog_refresh(self.ledger, request)
+        notifier = BrainNotifier(self.ledger, '/fixture/codex')
+        with patch.object(notifier, 'status', return_value={'status': 'configured'}), \
+                patch('orchestrator.notification.subprocess.run', side_effect=subprocess.TimeoutExpired('codex', 8)) as send:
+            self.assertEqual(notifier.notify(command['id'])['notification']['status'], 'uncertain')
+            retained = request_catalog_refresh(self.ledger, request)
+            self.assertEqual(retained['notification']['status'], 'uncertain')
+            notifier.notify(command['id'])
+            self.assertEqual(send.call_count, 1)
+
+    def test_catalog_refresh_failure_is_visible_and_can_be_replaced(self):
+        self.remove_catalog()
+        state = read(self.ledger)
+        command = request_catalog_refresh(self.ledger, {'id': str(uuid.uuid4()), 'contextHash': state['contextHash']})
+        brain(self.registry, self.ledger, self.token,
+              {'operation': 'catalog_error', 'requestId': command['id'], 'code': 'schema_unavailable',
+               'detail': 'Native task schema could not be observed.', 'retryable': True})
+        failed = read(self.ledger)
+        self.assertEqual(failed['catalogRefresh']['status'], 'failed')
+        self.assertIn('could not be observed', failed['catalogRefresh']['result'])
+        replacement = request_catalog_refresh(self.ledger, {'id': str(uuid.uuid4()), 'contextHash': failed['contextHash']})
+        self.assertEqual(replacement['status'], 'queued')
 
     def test_workspace_conversation_receive_and_pause_boundary(self):
         from test_conversation import envelope
@@ -259,6 +340,41 @@ class StandardTest(unittest.TestCase):
             state=http('/api/workspaces/alpha/state',headers=auth)[2]
             self.assertEqual(state['standard']['run']['status'],'running')
             self.assertNotIn(self.token,json.dumps(state))
+        finally:
+            server.shutdown();server.server_close();thread.join()
+
+    def test_http_review_play_prerequisite_requests_catalog_without_free_form_message(self):
+        from http.client import HTTPConnection
+        import threading
+        from orchestrator.server import Dashboard
+        from types import SimpleNamespace
+        self.remove_catalog()
+        server=Dashboard(self.ledger,0,self.root/'missing.env',registry=self.registry,
+                         notification_cli='/fixture/codex')
+        thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+        def http(path,body=None,headers=None):
+            conn=HTTPConnection('127.0.0.1',server.server_port)
+            conn.request('POST' if body is not None else 'GET',path,json.dumps(body) if body is not None else None,
+                         {'Origin':server.origin,'Content-Type':'application/json',**(headers or {})})
+            response=conn.getresponse();result=(response.status,dict(response.getheaders()),json.loads(response.read()));conn.close();return result
+        try:
+            _,headers,_=http('/api/login',{'token':server.bootstrap})
+            auth={'Cookie':headers['Set-Cookie'].split(';')[0]}
+            auth['X-CSRF-Token']=http('/api/workspaces/alpha/session',headers=auth)[2]['csrf']
+            current=http('/api/workspaces/alpha/state',headers=auth)[2]['standard']
+            request={'id':str(uuid.uuid4()),'contextHash':current['contextHash']}
+            brain_id=self.ledger.snapshot()['meta']['brainId']
+            ack=SimpleNamespace(returncode=0,stdout=f'Queued message {uuid.uuid4()} for thread {brain_id}.')
+            runtime=server.runtime_for('alpha')
+            with patch.object(runtime.notifier,'status',return_value={'status':'configured'}), \
+                    patch('orchestrator.notification.subprocess.run',return_value=ack) as send:
+                status,_,result=http('/api/workspaces/alpha/standard/catalog-refresh',request,auth)
+                self.assertEqual(status,200)
+                self.assertEqual(result['notification']['status'],'accepted')
+                self.assertEqual(send.call_count,1)
+            projected=http('/api/workspaces/alpha/state',headers=auth)[2]['standard']['catalogRefresh']
+            self.assertEqual(projected['id'],request['id'])
+            self.assertEqual(projected['status'],'queued')
         finally:
             server.shutdown();server.server_close();thread.join()
 

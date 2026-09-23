@@ -22,6 +22,8 @@ from .decisions import authorize_brain
 from .enrollment import fence_exists, record_in
 
 PROTOCOL = "standard_cooperative_v1"
+CATALOG_REFRESH_KIND = "standard_catalog_refresh"
+CATALOG_REFRESH_MAX_DELIVERY_ATTEMPTS = 3
 BOUNDARY = ("Registered tasks only; cooperative checkpoints, not process-tree termination. "
             "Observed tokens may be incomplete; allowance reservations are not measured usage or a hard billing cap.")
 TERMINAL = {"completed", "failed", "not_created"}
@@ -123,11 +125,24 @@ def projection(ledger, db):
     meta = ledger.get(db, "meta", 1)
     run = meta.get("standardRun")
     result = {"protocol": PROTOCOL, "boundary": BOUNDARY, "run": run,
-              "catalog": meta.get("standardCatalog"), "available": False, "blocker": None}
+              "catalog": meta.get("standardCatalog"), "catalogRequired": False,
+              "available": False, "blocker": None}
+    refreshes = sorted((c for c in ledger.all(db, "commands") if c["kind"] == CATALOG_REFRESH_KIND),
+                       key=lambda c: (c["createdAt"], c["id"]), reverse=True)
+    latest_refresh = refreshes[0] if refreshes else None
+    result["catalogRefresh"] = None if not latest_refresh else {
+        "id": latest_refresh["id"], "status": latest_refresh["status"],
+        "createdAt": latest_refresh["createdAt"], "completedAt": latest_refresh.get("completedAt"),
+        "result": latest_refresh.get("result"), "notification": latest_refresh.get("notification"),
+        "deliveryAttempts": len(latest_refresh.get("notificationHistory", [])) +
+            (1 if latest_refresh.get("notification") else 0),
+        "maxDeliveryAttempts": CATALOG_REFRESH_MAX_DELIVERY_ATTEMPTS,
+    }
     try:
         eligible(ledger, db)
         catalog = result["catalog"]
-        require(catalog and time.time()-catalog["observedAt"] < 86400, "Brain must record the available native model/effort catalog (valid for 24 hours)")
+        result["catalogRequired"] = not (catalog and time.time()-catalog["observedAt"] < 86400)
+        require(not result["catalogRequired"], "Brain must record the available native model/effort catalog (valid for 24 hours)")
         result["available"] = True
     except (Refusal, ValueError) as error:
         result["blocker"] = str(error)
@@ -153,6 +168,48 @@ def projection(ledger, db):
         "mission": meta.get("missionConfiguration"), "run": run, "catalog": result["catalog"],
         "database": str(ledger.db), "available": result["available"], "blocker": result["blocker"]})
     return result
+
+
+def request_catalog_refresh(ledger, request):
+    """Retain one exact read-only capability request; retry only proven non-delivery."""
+    exact(request, "id contextHash")
+    require(isinstance(request["id"], str) and 8 <= len(request["id"]) <= 128, "Refresh request ID required")
+    with ledger.tx() as db:
+        prior = db.execute("SELECT data FROM commands WHERE id=?", (request["id"],)).fetchone()
+        if prior:
+            command = json.loads(prior[0])
+            require(command["kind"] == CATALOG_REFRESH_KIND and
+                    command["payload"]["contextHash"] == request["contextHash"],
+                    "Refresh request ID belongs to different content")
+            notification = command.get("notification") or {}
+            history = command.get("notificationHistory", [])
+            if (command["status"] == "queued" and notification.get("status") == "unavailable" and
+                    len(history) + 1 < CATALOG_REFRESH_MAX_DELIVERY_ATTEMPTS):
+                command["notificationHistory"] = [*history, notification]
+                command.pop("notification", None)
+                command["result"] = "Retrying automatic delivery after confirmed non-delivery."
+                ledger.put(db, "commands", command["id"], command)
+                ledger.event(db, "standard_catalog_refresh_retry", {
+                    "id": command["id"], "attempt": len(command["notificationHistory"]) + 1})
+            return command
+        state = projection(ledger, db)
+        require(state["contextHash"] == request["contextHash"], "Run readiness changed; refresh before requesting capabilities")
+        eligible(ledger, db)
+        require(not state["run"] or state["run"]["status"] in ("completed", "blocked"),
+                "A running cooperative phase owns its catalog")
+        require(not state["available"], "The native model/effort catalog is already current")
+        require(not any(c["kind"] == CATALOG_REFRESH_KIND and c["status"] in ("queued", "processing")
+                        for c in ledger.all(db, "commands")),
+                "A native capability refresh is already pending")
+        mission = missions.state_in(ledger, db)
+        command = {"id": request["id"], "kind": CATALOG_REFRESH_KIND, "actor": "dashboard",
+                   "status": "queued", "createdAt": time.time(),
+                   "payload": {"contextHash": request["contextHash"],
+                               "missionHash": mission["documentHash"], "brainId": ledger.get(db, "meta", 1)["brainId"]},
+                   "result": "Saved; waiting for the designated brain to observe native capabilities."}
+        ledger.put(db, "commands", command["id"], command)
+        ledger.event(db, "standard_catalog_refresh_requested", {"id": command["id"], "missionHash": mission["documentHash"]})
+        return command
 
 
 def charged(run):
@@ -253,9 +310,23 @@ def brain(registry, ledger, token, request):
         meta = authorize_brain(ledger, db, token)
         require(record_in(registry_db) is None, "Strict platform enrollment blocks cooperative effects")
         if operation == "catalog":
-            exact(request, "operation models source")
+            require(set(request) in ({"operation", "models", "source"},
+                                     {"operation", "models", "source", "requestId"}),
+                    "Unexpected standard protocol fields")
             eligible(ledger, db)
             require(not meta.get("standardRun") or meta["standardRun"]["status"] in ("completed", "blocked"), "Do not change a running catalog")
+            pending_refreshes = [c for c in ledger.all(db, "commands")
+                                 if c["kind"] == CATALOG_REFRESH_KIND and c["status"] in ("queued", "processing")]
+            request_id = request.get("requestId")
+            require(request_id or not pending_refreshes, "Pending automatic catalog refresh requires its exact request ID")
+            command = None
+            if request_id:
+                command = ledger.get(db, "commands", request_id)
+                require(command["kind"] == CATALOG_REFRESH_KIND and command["status"] in ("queued", "processing"),
+                        "Exact pending catalog refresh required")
+                require(command["payload"]["brainId"] == meta["brainId"], "Catalog refresh belongs to another brain")
+                require(projection(ledger, db)["contextHash"] == command["payload"]["contextHash"],
+                        "Catalog refresh scope changed; record an error instead of stale capabilities")
             require(isinstance(request["models"], list) and 1 <= len(request["models"]) <= 30, "Native catalog required")
             for row in request["models"]:
                 exact(row, "model efforts")
@@ -263,8 +334,30 @@ def brain(registry, ledger, token, request):
                 require(set(missions.strings(row["efforts"], "Efforts")) <= {"low", "medium", "high", "xhigh", "max", "ultra"}, "Unsupported effort")
             meta["standardCatalog"] = {"models": request["models"], "source": missions.text(request["source"], "Catalog source", 500), "observedAt": time.time()}
             ledger.put(db, "meta", 1, meta)
-            ledger.event(db, "standard_catalog", {"catalogHash": digest(meta["standardCatalog"])})
+            catalog_hash = digest(meta["standardCatalog"])
+            ledger.event(db, "standard_catalog", {"catalogHash": catalog_hash})
+            if command:
+                command.update(status="completed", completedAt=time.time(),
+                               result="Native model/effort catalog recorded by the designated brain.",
+                               catalogReceipt={"catalogHash": catalog_hash, "observedAt": meta["standardCatalog"]["observedAt"]})
+                ledger.put(db, "commands", command["id"], command)
+                ledger.event(db, "standard_catalog_refresh_completed", {"id": command["id"], "catalogHash": catalog_hash})
             return meta["standardCatalog"]
+        if operation == "catalog_error":
+            exact(request, "operation requestId code detail retryable")
+            command = ledger.get(db, "commands", request["requestId"])
+            require(command["kind"] == CATALOG_REFRESH_KIND and command["status"] in ("queued", "processing"),
+                    "Exact pending catalog refresh required")
+            require(command["payload"]["brainId"] == meta["brainId"], "Catalog refresh belongs to another brain")
+            missions.text(request["code"], "Catalog error code", 80)
+            missions.text(request["detail"], "Catalog error detail", 1000)
+            require(type(request["retryable"]) is bool, "retryable must be boolean")
+            command.update(status="failed", completedAt=time.time(), result=request["detail"],
+                           catalogError={"code": request["code"], "retryable": request["retryable"]})
+            ledger.put(db, "commands", command["id"], command)
+            ledger.event(db, "standard_catalog_refresh_failed", {
+                "id": command["id"], "code": request["code"], "retryable": request["retryable"]})
+            return command
         run = meta.get("standardRun")
         require(run and request.get("runId") == run["id"], "Exact cooperative run required")
         if operation == "receive":
