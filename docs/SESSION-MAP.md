@@ -47,11 +47,21 @@ Edges mean the designated brain's recorded responsibility for a task. They do no
 assert observed native parentage, complete descendants, conversation transfer or
 a new delegation grant. The graph does not discover unregistered sessions.
 
-Animation requires a fresh native activity observation, with an age below two
+Each node and connection label has an activity ring and text. Active rings rotate;
+Idle rings remain still, Completed uses a check, and Stale/Unknown use a dashed
+ring. Pending identity, interruption and disconnected states remain explicit.
+The connection badge follows its task's activity; it is not evidence of messages
+flowing along the edge. The selected-node/connection inspector shows the original
+observation time and source explanation.
+
+Animation requires a fresh native or scoped local task-event observation, with an age below two
 minutes. A saved `running` lifecycle, an old observation, future timestamp, pending
 identity or disconnected dashboard cannot animate as working. Timestamps are
 never refreshed by the graph. A disconnected view retains the last snapshot with
-an explicit notice.
+an explicit notice. The existing explicitly configured activity reader can supply
+transient worker metadata without changing saved native observations or lifecycle
+records (see [Brain activity](BRAIN_ACTIVITY.md)). Newer native observations take
+precedence; a failed local read cannot silently reuse an older active signal.
 
 ## Filter evidence boundaries
 
@@ -83,7 +93,7 @@ Nodes, edges and filters are keyboard accessible. Tabs support Left/Right and
 Home/End. List view provides the same task selection; narrow project panes fit the
 graph within the viewport and offer a readable vertical list. Zoomed content
 scrolls within the graph without horizontal page overflow. Status text accompanies
-color, and reduced-motion preferences disable pulse/flow animation. Polling
+color, and reduced-motion preferences disable ring/pulse/flow animation. Polling
 retains selection, restores graph control focus and preserves conversation drafts.
 Graph preferences are project-scoped, transient and cleared on sign-out.
 Zoom, pan and filters survive polling. If a filter or result page hides the selected
@@ -94,7 +104,7 @@ task, an explicit notice explains why its details remain below.
 `python3 tests/manual_session_map_fixture.py` serves an explicitly synthetic,
 isolated two-project preview on loopback port 8794. It creates temporary ledgers,
 has no inference credentials or native notifier, and never touches live state.
-The preview includes active, blocked, completed, pending and archived examples,
+The preview includes active, idle, stale, blocked, completed, pending and archived examples,
 plus an empty project, PR/CI examples and older activity. Its task IDs are
 intentionally synthetic. `--port 8795` allows an isolated worktree preview alongside
 an existing preview.

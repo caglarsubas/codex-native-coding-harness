@@ -38,6 +38,7 @@ def snapshot(runtime):
          'evidence': {'ci': {'status': 'verified', 'reference': 'Synthetic CI proof'}}, 'paths': ['web/session-map.js', 'web/session-map.css']},
         {'id': 'task-review', 'packetId': 'WSP-UI-02', 'title': 'Review keyboard navigation', 'repository': 'accessibility',
          'status': 'blocked', 'threadId': 'fixture-review', 'createdAt': now - 800,
+         'nativeStatus': 'idle', 'observedAt': now - 30,
          'note': 'Review required: preserve focus when a status update arrives.', 'evidence': {'ci': {'status': 'failed', 'reference': 'Synthetic failed CI proof'}}},
         {'id': 'task-tests', 'packetId': 'WSP-UI-03', 'title': 'Verify the task lifecycle', 'repository': 'verification',
          'status': 'complete', 'threadId': 'fixture-tests', 'createdAt': now - 1200, 'completedAt': now - 100,
@@ -48,6 +49,9 @@ def snapshot(runtime):
         {'id': 'task-pending', 'title': 'Check responsive layouts', 'repository': 'dashboard-mobile',
          'status': 'starting', 'threadId': None, 'clientThreadId': 'fixture-pending',
          'createdAt': now - 60, 'note': 'Waiting for a confirmed native task identity.', 'evidence': {}},
+        {'id': 'task-stale', 'packetId': 'WSP-UI-04', 'title': 'Inspect a quiet task', 'repository': 'dashboard',
+         'status': 'running', 'threadId': 'fixture-stale', 'nativeStatus': 'active', 'observedAt': now - 600,
+         'createdAt': now - 1800, 'note': 'Old activity cannot prove this task is still working.', 'evidence': {}},
         {'id': 'task-archived', 'packetId': 'WSP-UI-00', 'title': 'Preserve the previous layout', 'repository': 'history',
          'status': 'complete', 'threadId': 'fixture-history', 'archived': True,
          'createdAt': now - 50*86400, 'completedAt': now - 40*86400, 'evidence': {}}

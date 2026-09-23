@@ -15,7 +15,7 @@ from .core import Refusal
 from .repository import aggregate, report
 from .inference import ENV_FILE, public_status
 from .provenance import Provenance
-from .activity import BrainActivity
+from .activity import BrainActivity, TaskActivity
 from .notification import BrainNotifier, NOTIFY_KINDS
 from .browser_auth import BrowserAuth, UNAUTHENTICATED, UNAVAILABLE
 
@@ -40,6 +40,7 @@ class WorkspaceRuntime:
         self.provenance_lock = threading.Lock()
         self.provenance_job = {"status": "idle"}
         self.brain_activity = BrainActivity(ledger)
+        self.task_activity = TaskActivity(ledger)
         self.notifier = BrainNotifier(ledger, notification_cli)
         from .assistant_actions import ActionProposals
         self.assistant_proposals = ActionProposals()
@@ -108,6 +109,7 @@ class WorkspaceRuntime:
             state["workspace"] = {"id": self.workspace_id,
                 "name": display_name(self.registry, self.workspace_id, next(w["name"] for w in self.registry.list() if w["id"] == self.workspace_id)),
                 "projectProfile": self.registry.profile(self.workspace_id)}
+        state["taskActivity"] = self.task_activity.snapshot(state)
         return state
 
     def submit_control(self, body, actor="dashboard"):

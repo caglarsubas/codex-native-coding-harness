@@ -140,3 +140,24 @@ wrap.events.pointerdown({...pointer,target:{closest:()=>true}});wrap.events.poin
 assert.equal(wrap.scrollLeft,70,'Dragging task nodes cannot pan the canvas');
 wrap.isConnected=false;prefs.resizeObserver.callback();assert(prefs.resizeObserver.disconnected);
 console.log('Session map gestures: zoom controls, pointer anchoring, plain-scroll preservation, keyboard scope, drag pan and observer cleanup passed');
+
+// Activity signals remain separate from task lifecycle and branch evidence.
+const telemetrySnapshot={meta:{brainId:'brain'},brainActivity:{fresh:true,status:'idle',observedAt:stamp-5},workers:[
+ {id:'working',threadId:'native-working',status:'running',nativeStatus:'idle',observedAt:stamp-60},
+ {id:'blocked',threadId:'native-blocked',status:'blocked'},
+ {id:'done',threadId:'native-done',status:'complete',nativeStatus:'active',observedAt:stamp-5}],taskActivity:{
+ 'native-working':{status:'running',fresh:true,observedAt:stamp-5,source:'local_task_events'},
+ 'native-blocked':{status:'running',fresh:true,observedAt:stamp-5,source:'local_task_events'}}};
+const signals=box.sessionGraphModel(telemetrySnapshot,stamp);
+assert.equal(signals.brain.activity.kind,'idle');
+assert.equal(signals.tasks[0].activity.kind,'active');assert.equal(signals.tasks[0].moving,true);
+assert.equal(signals.tasks[1].activity.kind,'active');assert.equal(signals.tasks[1].group,'attention','Blocked lifecycle does not invent native inactivity');
+assert.equal(signals.tasks[2].activity.kind,'complete');assert.equal(signals.tasks[2].activity.moving,false);
+assert.equal(box.sessionGraphModel(telemetrySnapshot,stamp+121).tasks[0].activity.kind,'stale');
+assert.equal(box.sessionActivity({status:'active',observedAt:stamp+1},stamp).kind,'unknown');
+assert.equal(box.sessionActivity({status:'idle',observedAt:stamp-121},stamp).kind,'stale','Stale idle is not current inactivity');
+assert.equal(box.sessionActivity({status:'running',observedAt:stamp,fresh:false},stamp).moving,false);
+assert.equal(box.sessionActivity({status:'running',observedAt:stamp},stamp,{status:'starting',clientThreadId:'pending'}).moving,false);
+assert.equal(box.sessionTaskObservation({threadId:'x',nativeStatus:'active',observedAt:stamp}, {taskActivity:{x:{source:'unavailable',status:'unknown'}}}).status,'unknown','A failed read cannot retain active animation');
+assert.equal(box.sessionTaskObservation({threadId:'x',nativeStatus:'idle',observedAt:stamp}, {taskActivity:{x:{source:'local_task_events',status:'running',observedAt:stamp-1}}}).status,'idle','Newer native observation wins');
+console.log('Session activity: rings distinguish fresh active/idle from stale, pending, unknown and completed; lifecycle and evidence remain independent');

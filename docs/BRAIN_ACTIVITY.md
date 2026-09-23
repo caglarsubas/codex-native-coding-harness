@@ -22,7 +22,11 @@ The existing private `observations.json` must explicitly configure `codexHome`.
 Authenticated dashboard polling reads only matching brain rollout filenames in
 `sessions` and `archived_sessions`. The session header must confirm the exact
 brain ID and a working directory beneath a configured repository path before
-the tail is read. No other task bodies, private app databases or native APIs are
+the tail is read. A linked Git worktree also qualifies when its fixed metadata
+pointers resolve to the configured repository's common directory and the common
+directory's worktree entry points back to that exact worktree. No Git command is
+run. Foreign repositories, forged back-pointers and symlink markers are refused.
+No unrelated task bodies, private app databases or native APIs are
 used. This best-effort adapter is not a supported streaming API contract; unknown
 formats remain unknown. Remote-only tasks need native observations instead.
 
@@ -47,6 +51,14 @@ can be retained after status expires. This panel's two-minute freshness is
 independent of readiness's 15-minute inventory and 30-minute checkpoint gates.
 
 ## Safety and rollout
+
+The session map uses the same bounded reader for confirmed registered workers,
+scoped to each worker's own repository. The transient batch is limited to 32
+task identities and 64 matching segments across the whole batch; pending,
+archived and completed tasks are not read. It exposes only a fixed status,
+source, reason and original event time. Failed reads clear the active signal;
+polling never writes observations or updates ledger state. Local event metadata
+is best-effort recent activity, not continuous native task status.
 
 This reader performs no native task action, model request, repository command,
 queue write, approval, heartbeat update or dispatch. No background monitor or

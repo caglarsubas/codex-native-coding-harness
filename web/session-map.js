@@ -36,6 +36,30 @@ function sessionDelivery(task,snapshot,source,now){
     roadmapKind:source==='standard'?'Phase ID':'Packet ID',lastActivity:timestamps.length?Math.max(...timestamps):null};
 }
 function sessionFresh(at,now){return Number.isFinite(at)&&at>0&&now>=at&&now-at<120;}
+function sessionActivity(observation={},now=Date.now()/1000,task=null){
+  if(task?.archived)return {kind:'archived',label:'Archived',moving:false};
+  if(['complete','completed','not_created'].includes(task?.status))return {kind:'complete',label:task.status==='not_created'?'Not created':'Completed',moving:false};
+  if(task&&!task.threadId)return {kind:'pending',label:'Not confirmed',moving:false};
+  const at=observation.observedAt,fresh=observation.fresh!==false&&sessionFresh(at,now);
+  const status=observation.status;
+  const kind=fresh?['active','running'].includes(status)?'active':['idle','completed'].includes(status)?'idle':['interrupted','failed'].includes(status)?'attention':'unknown':at&&at<=now?'stale':'unknown';
+  return {kind,label:{active:'Active',idle:'Idle',attention:status==='failed'?'Turn failed':'Interrupted',stale:'Stale',unknown:'Unknown'}[kind],
+    moving:kind==='active',observedAt:at||null,source:observation.source||'Recorded native observation',
+    reason:observation.reason||(kind==='stale'?'Last observation is over two minutes old. This does not mean inactive.':kind==='unknown'?'Current activity has not been observed.':'Recent recorded activity; not a continuous native connection.')};
+}
+function sessionTaskObservation(task,snapshot){
+  const saved={status:task.nativeStatus,observedAt:task.observedAt,source:'Recorded native observation'};
+  const telemetry=task.threadId&&snapshot.taskActivity?.[task.threadId];
+  if(telemetry?.source==='unavailable')return telemetry;
+  return telemetry&&(!saved.observedAt||telemetry.observedAt>=saved.observedAt)?telemetry:saved;
+}
+function sessionActivityIndicator(activity,edge=false){
+  const badge=el('span',null,'session-activity-indicator');badge.dataset.activity=activity.kind;
+  const ring=el('span',activity.kind==='complete'?'✓':activity.kind==='attention'?'!':activity.kind==='unknown'?'?':'','session-activity-ring');ring.setAttribute('aria-hidden','true');
+  badge.append(ring,el('span',(edge?'Task ':'')+activity.label));
+  badge.title=[activity.reason,activity.observedAt?'Observed '+when(activity.observedAt):null,edge?'Connection reflects this task’s activity, not a message transfer.':null].filter(Boolean).join(' ');
+  return badge;
+}
 function sessionTaskState(task,now){
   if(task.archived===true)return {group:'history',label:'Archived · recorded',tone:'history',moving:false};
   if(['complete','completed'].includes(task.status))return {group:'history',label:'Completed · recorded',tone:'done',moving:false};
@@ -52,15 +76,15 @@ function sessionGraphModel(snapshot,now=Date.now()/1000){
   const meta=snapshot.meta||{},activity=snapshot.brainActivity||{},fresh=activity.fresh===true&&sessionFresh(activity.observedAt,now);
   const brain={id:'brain',kind:'brain',title:activity.title||'Project brain',threadId:meta.brainId,
     label:fresh?activityLabel({...activity,fresh:true}):'Activity not current',tone:fresh&&activity.status==='running'?'active':'unknown',
-    moving:fresh&&activity.status==='running',note:activity.phase||'Coordinates the approved project scope',raw:activity};
+    moving:fresh&&activity.status==='running',note:activity.phase||'Coordinates the approved project scope',raw:activity,activity:sessionActivity(activity,now)};
   const tasks=[],seen=new Set();
   for(const [source,rows] of [['standard',snapshot.standard?.run?.tasks||[]],['worker',snapshot.workers||[]]]){
     for(const task of rows){
       const identity=task.threadId||source+':'+task.id;
       if(seen.has(identity))continue;seen.add(identity);
-      const status=sessionTaskState(task,now);
+      const observation=sessionTaskObservation(task,snapshot),status=sessionTaskState({...task,nativeStatus:observation.status,observedAt:observation.observedAt},now);
       tasks.push({id:source+':'+task.id,kind:'task',source,title:task.title||task.packetId||'Registered task',
-        threadId:task.threadId,repository:task.repository||'Repository not recorded',raw:task,...status,delivery:sessionDelivery(task,snapshot,source,now),
+        threadId:task.threadId,repository:task.repository||'Repository not recorded',raw:task,...status,activity:sessionActivity(observation,now,task),delivery:sessionDelivery(task,snapshot,source,now),
         relation:task.archived?'Retained history':task.status==='not_created'?'Attempt closed':status.tone==='done'?'Result recorded':!task.threadId?'Creation pending':'Delegates scope'});
     }
   }
@@ -125,8 +149,9 @@ function sessionNode(node,prefs){
   const card=button('',()=>sessionPick(prefs,node.id),'session-node');
   card.dataset.node=node.id;card.dataset.focus='node:'+node.id;card.dataset.tone=node.tone;card.dataset.moving=String(node.moving);
   card.setAttribute('aria-pressed',String(prefs.selected===node.id&&!prefs.edge));card.setAttribute('aria-controls','session-inspector');
-  card.setAttribute('aria-label',(node.kind==='brain'?'Brain: ':'Task: ')+node.title+'. '+node.label);
+  card.setAttribute('aria-label',(node.kind==='brain'?'Brain: ':'Task: ')+node.title+'. '+node.label+'. Activity: '+node.activity.label);
   const heading=el('span',null,'session-node-heading');heading.append(sessionIcon(node.kind),el('span',node.kind==='brain'?'PROJECT BRAIN':node.repository,'session-node-role'));
+  heading.append(sessionActivityIndicator(node.activity));card.dataset.activity=node.activity.kind;
   card.append(heading,el('strong',node.title,'session-node-title'),sessionStatus(node));
   if(node.kind==='task'){
     const d=node.delivery,caption=el('span',`PR ${d.prNumber?'#'+d.prNumber+' ':''}${SESSION_PR_LABELS[d.prStatus]} · CI ${SESSION_CI_LABELS[d.ciStatus]}`,'session-node-meta');caption.title=caption.textContent;card.append(caption);
@@ -138,7 +163,7 @@ function sessionMap(root){
   let prefs=sessionMapPreferences.get(key);
   if(!prefs){prefs={selected:'brain',edge:false,tab:'summary',filter:'all',query:'',page:0,layout:'graph',facets:{...SESSION_FILTERS},filtersOpen:false,zoom:'fit'};sessionMapPreferences.set(key,prefs);}
   const model=sessionGraphModel(state);
-  if(!connected)for(const node of [model.brain,...model.tasks]){node.moving=false;if(node.tone==='active'){node.tone='unknown';node.label='Connection lost';}}
+  if(!connected)for(const node of [model.brain,...model.tasks]){node.moving=false;node.activity={kind:'disconnected',label:'Disconnected',moving:false,reason:'Dashboard connection lost. Current activity is unknown.'};if(node.tone==='active'){node.tone='unknown';node.label='Connection lost';}}
   if(prefs.selected!=='brain'&&!model.tasks.some(n=>n.id===prefs.selected)){prefs.selected='brain';prefs.edge=false;prefs.tab='summary';}
   let shell=root.querySelector('.session-home');
   if(!shell||shell.dataset.workspace!==key){
@@ -152,18 +177,19 @@ function sessionMap(root){
   const signature=JSON.stringify([model,prefs.filter,prefs.query,prefs.facets,sessionVisibleTasks(model,prefs).map(n=>n.id),prefs.page,prefs.layout,prefs.selected,prefs.edge,connected]);
   const board=shell.querySelector('.session-board'),controlSignature=JSON.stringify([prefs.filter,prefs.query,prefs.facets,prefs.page,prefs.layout,prefs.selected,prefs.edge]);
   const editingFilter=board.contains(document.activeElement)&&document.activeElement.matches('select,input[type=date]');
-  const deferPoll=prefs.controlSignature===controlSignature&&(editingFilter||prefs.panning);
+  const activitySignature=JSON.stringify([model.brain,...model.tasks].map(n=>[n.id,n.activity.kind]));
+  const deferPoll=prefs.controlSignature===controlSignature&&prefs.activitySignature===activitySignature&&(editingFilter||prefs.panning);
   if(signature!==prefs.graphSignature&&!deferPoll){
     const focus=board.contains(document.activeElement)?document.activeElement.dataset.focus:null;
     const viewport=board.querySelector('.session-canvas-scroll'),scroll={left:viewport?.scrollLeft||0,top:viewport?.scrollTop||0};
     const caret=focus==='search'?[document.activeElement.selectionStart,document.activeElement.selectionEnd]:null;
-    sessionBoard(board,model,prefs);prefs.graphSignature=signature;prefs.controlSignature=controlSignature;
+    sessionBoard(board,model,prefs);prefs.graphSignature=signature;prefs.controlSignature=controlSignature;prefs.activitySignature=activitySignature;
     board.querySelector('.session-canvas-scroll')?.scrollTo(scroll);
     if(focus){const target=[...board.querySelectorAll('[data-focus]')].find(n=>n.dataset.focus===focus);target?.focus({preventScroll:true});if(caret&&target)target.setSelectionRange(...caret);}
   }
   const node=prefs.selected==='brain'?model.brain:model.tasks.find(n=>n.id===prefs.selected);
   const detailNode=['conversation','controls'].includes(prefs.tab)?node.id:prefs.tab==='evidence'?[node.id,node.raw.seedHash,node.raw.result,node.raw.completionHash,node.raw.evidence,state.observations?.artifacts]:node;
-  const detailSignature=JSON.stringify([detailNode,node.label,prefs.edge,prefs.tab,state.meta.revision,connected]);
+  const detailSignature=JSON.stringify([detailNode,node.label,node.activity.kind,prefs.edge,prefs.tab,state.meta.revision,connected]);
   const editingConversation=prefs.tab==='conversation'&&shell.querySelector('.session-inspector').contains(document.activeElement)&&document.activeElement.matches('input,textarea');
   if(prefs.inspectorSignature!==detailSignature&&!(prefs.inspectorSignature&&editingConversation)){
     sessionInspector(shell.querySelector('.session-inspector'),node,prefs);prefs.inspectorSignature=detailSignature;
@@ -284,11 +310,12 @@ function sessionBoard(root,model,prefs){
     const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.classList.add('session-connections');svg.setAttribute('viewBox',`0 0 820 ${height}`);svg.setAttribute('preserveAspectRatio','none');svg.setAttribute('role','group');svg.setAttribute('aria-label','Brain responsibility connections');
     visible.forEach((node,i)=>{
       const y=84+i*144,path=document.createElementNS(svg.namespaceURI,'path');
-      path.setAttribute('d',`M 270 ${center} C 360 ${center}, 425 ${y}, 544 ${y}`);path.classList.add('session-connection');path.dataset.tone=node.tone;path.dataset.moving=String(node.moving);
-      path.setAttribute('role','button');path.setAttribute('tabindex','0');path.setAttribute('aria-label','Relationship: '+model.brain.title+' to '+node.title);path.setAttribute('aria-controls','session-inspector');path.setAttribute('aria-pressed',String(prefs.edge&&prefs.selected===node.id));path.dataset.focus='path:'+node.id;
+      path.setAttribute('d',`M 270 ${center} C 360 ${center}, 425 ${y}, 544 ${y}`);path.classList.add('session-connection');path.dataset.tone=node.tone;path.dataset.activity=node.activity.kind;path.dataset.moving=String(node.activity.moving);
+      path.setAttribute('role','button');path.setAttribute('tabindex','0');path.setAttribute('aria-label','Relationship: '+model.brain.title+' to '+node.title+'. Task '+node.activity.label);path.setAttribute('aria-controls','session-inspector');path.setAttribute('aria-pressed',String(prefs.edge&&prefs.selected===node.id));path.dataset.focus='path:'+node.id;
       path.addEventListener('click',()=>sessionPick(prefs,node.id,true));path.addEventListener('keydown',e=>{if(['Enter',' '].includes(e.key)){e.preventDefault();sessionPick(prefs,node.id,true);}});svg.append(path);
       const row=el('div',null,'session-task-row');row.style.setProperty('--node-y',(24+i*144)+'px');
-      const edge=button(node.relation,()=>sessionPick(prefs,node.id,true),'session-edge-label');edge.dataset.focus='edge:'+node.id;edge.setAttribute('aria-label',node.relation+': '+node.title);edge.setAttribute('aria-pressed',String(prefs.edge&&prefs.selected===node.id));edge.setAttribute('aria-controls','session-inspector');
+      const edge=button(node.relation,()=>sessionPick(prefs,node.id,true),'session-edge-label');edge.dataset.focus='edge:'+node.id;edge.setAttribute('aria-label',node.relation+': '+node.title+'. Task '+node.activity.label);edge.setAttribute('aria-pressed',String(prefs.edge&&prefs.selected===node.id));edge.setAttribute('aria-controls','session-inspector');
+      edge.append(sessionActivityIndicator(node.activity,true));edge.dataset.activity=node.activity.kind;
       row.append(edge,sessionNode(node,prefs));canvas.append(row);
     });canvas.prepend(svg);
   }else{
@@ -296,15 +323,15 @@ function sessionBoard(root,model,prefs){
   }
   if(prefs.layout==='graph')sessionViewport(root,wrap,canvas,prefs,Math.max(360,visible.length*144+44));else{wrap.append(canvas);root.append(wrap);}
   const foot=el('div',null,'session-map-foot'),legend=el('div',null,'session-legend');
-  for(const [tone,label] of [['active','Fresh activity'],['attention','Attention'],['done','Completed'],['unknown','Unknown / stale']]){const item=el('span',label);item.dataset.tone=tone;legend.append(item);}foot.append(legend);
+  for(const [kind,label] of [['active','Active'],['idle','Idle'],['complete','Completed'],['stale','Stale'],['unknown','Unknown']])legend.append(sessionActivityIndicator({kind,label}));foot.append(legend);
   if(pages>1){const paging=el('div',null,'inline-actions'),previous=button('←',()=>{prefs.page--;render();}),next=button('→',()=>{prefs.page++;render();});previous.setAttribute('aria-label','Previous tasks');next.setAttribute('aria-label','Next tasks');previous.disabled=prefs.page===0;next.disabled=prefs.page===pages-1;paging.append(previous,el('span',`${prefs.page*SESSION_PAGE_SIZE+1}–${Math.min(rows.length,(prefs.page+1)*SESSION_PAGE_SIZE)} of ${rows.length}`),next);foot.append(paging);}
-  root.append(foot,el('p',(connected?'Updates every 5 seconds while visible. ':'Disconnected · showing the last saved snapshot. ')+'Connections show recorded brain responsibility, not a complete native task tree. Completed does not mean archived.','session-boundary'));
+  root.append(foot,el('p',(connected?'Activity checked every 5 seconds while visible. ':'Disconnected · showing the last saved snapshot. ')+'Spinning rings mean recently observed activity. Edge indicators follow the task; they do not show message traffic. Stale and unknown do not mean idle. Completed does not mean archived.','session-boundary'));
 }
 function sessionInspector(root,node,prefs){
   const previousFocus=root.contains(document.activeElement)?document.activeElement.dataset.focus:null;
   root.replaceChildren();
   const header=el('div',null,'session-inspector-heading'),identity=el('div');
-  identity.append(el('p',prefs.edge?'SELECTED CONNECTION':node.kind==='brain'?'SELECTED BRAIN':'SELECTED TASK','eyebrow'),el('h2',prefs.edge?'Brain → '+node.title:node.title));header.append(identity,sessionStatus(node));root.append(header);
+  identity.append(el('p',prefs.edge?'SELECTED CONNECTION':node.kind==='brain'?'SELECTED BRAIN':'SELECTED TASK','eyebrow'),el('h2',prefs.edge?'Brain → '+node.title:node.title));header.append(identity,sessionActivityIndicator(node.activity,prefs.edge));root.append(header);
   const tabs=el('div',null,'session-detail-tabs');tabs.setAttribute('role','tablist');tabs.setAttribute('aria-label','Session detail sections');
   const tabChoices=[['summary',prefs.edge?'Responsibility':'Overview'],['conversation','Conversation'],['evidence','Evidence'],['metadata','Metadata']];
   if(node.kind==='brain')tabChoices.push(['controls','Controls']);
@@ -315,6 +342,10 @@ function sessionInspector(root,node,prefs){
     b.addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();const index=tabChoices.findIndex(t=>t[0]===id),next=e.key==='Home'?0:e.key==='End'?tabChoices.length-1:(index+(e.key==='ArrowRight'?1:-1)+tabChoices.length)%tabChoices.length;prefs.tab=tabChoices[next][0];prefs.inspectorSignature=null;render();document.getElementById('session-tab-'+prefs.tab)?.focus({preventScroll:true});});tabs.append(b);
   }
   root.append(tabs,panel);
+  if(['summary','metadata'].includes(prefs.tab)){
+    const signal=el('div',null,'session-activity-detail');signal.append(sessionActivityIndicator(node.activity),el('span',node.activity.observedAt?'Observed '+when(node.activity.observedAt):'No current activity observation'));
+    if(node.activity.reason)signal.append(el('p',node.activity.reason));panel.append(signal);
+  }
   if(prefs.tab==='conversation'){
     if(node.kind==='brain')conversationView(panel);
     else{panel.append(el('h3','Continue in the native task'),el('p','Full worker conversations remain in Codex. This dashboard retains task metadata, linked artifacts and results; it does not import the transcript.'));sessionNativeLink(panel,node.threadId);if(!node.threadId)panel.append(el('p','A confirmed task ID is not available. A pending creation is not a session link.','muted'));sessionTaskDocuments(panel,node);}
