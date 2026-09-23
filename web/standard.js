@@ -73,6 +73,16 @@ function standardPanel(root){
       ['Reserved/spent conservative allowance',num(s.chargedAllowance)],['Remaining worker allowance',num(s.remainingAllowance)],
       ['Brain usage coverage',run.brainUsageCoverage],['Checkpoint reserve',num(run.limits.checkpointReserveTokens)]]));
     if(s.blockers?.length)panel.append(callout('Checkpoint required',s.blockers.join(' ')));
+    panel.append(el('p',run.limits.mergeMode==='brain_exact_pr_v1'?'Merge capability: one exact PR; requires independent checks by the designated brain.':'Merge capability: manual (default).'));
+    if(run.merges?.length){
+      panel.append(section('Exact PR merge history','Prepared, issued, uncertain, merged and not-merged are merge states only. They do not establish semantic correctness, CI, deployment, runtime, archival or phase acceptance. Unknown delivery is reconciled, never resent.'));
+      panel.append(table(['PR / exact head','Merge state','Retained evidence'],run.merges.map(m=>{
+        const evidence=el('div');missionDocument(evidence,m.bindingHash,'Immutable merge binding');
+        if(m.observationHash)missionDocument(evidence,m.observationHash,'Merge verification / reconciliation');
+        if(m.receiptHash)missionDocument(evidence,m.receiptHash,'Delivery receipt');
+        return [textCell(m.prUrl,m.headSHA),m.status,evidence];
+      })));
+    }
     if(run.checkpoint)panel.append(el('p',run.checkpoint.summary,'checkpoint'));
     if(run.tasks.length)panel.append(table(['Task / settings requested','Progress','Evidence'],run.tasks.map(t=>{
       const links=el('div');missionDocument(links,t.seedHash,'Inheritance seed');
@@ -97,14 +107,15 @@ function standardPanel(root){
   const pending=standardPreviews.get(workspaceId);
   if(pending){
     panel.append(section('Confirm this exact phase',`Preview expires ${when(pending.preview.expiresAt)}`));
-    panel.append(el('p',`Reserve ${num(pending.preview.brainAllowance)} tokens for the brain. Play lasts at most ${pending.preview.durationHours} hours. Phase limits and the available native model/effort catalog are bound to this review. Tasks remain retained; merge and archive are manual.`));
+    panel.append(el('p',`Reserve ${num(pending.preview.brainAllowance)} tokens for the brain. Play lasts at most ${pending.preview.durationHours} hours. Phase limits and the available native model/effort catalog are bound to this review. Tasks remain retained; archive is manual. Merge is manual unless the exact reviewed phase explicitly opts in and repository policy permits it.`));
     if(state.mission?.document){
       const spec=state.mission.document.spec;
       panel.append(el('h3',spec.goal),el('p','Owner checkpoint: '+spec.phase.checkpoint),
         table(['Authorized scope','Paths / operations'],spec.phase.scope.map(row=>[row.repository,row.allowedPaths.join(', ')+' · '+row.operations.join(', ')])),
         table(['Limit','Value'],Object.entries(spec.authority).map(([key,value])=>[key,String(value)])),
         el('p','Models and efforts: '+(s.catalog?.models||[]).map(m=>m.model+' ('+m.efforts.join(', ')+')').join('; ')),
-        el('p','Exact mission: '+state.mission.documentHash,'mono mission-hash'));
+        el('p','Exact mission: '+state.mission.documentHash,'mono mission-hash'),
+        el('p',spec.authority.mergeMode==='brain_exact_pr_v1'?'This phase opts in to one exact PR merge. The installed launcher must first be updated to the exact compatible merged source; a stale schema-1-only launcher is refused.':'This phase keeps manual merge.'));
     }
     const label=el('label'),check=el('input');check.type='checkbox';label.append(check,el('span','I approve the separate cooperative contract and this exact phase/control, including its observed-usage gaps.'));
     const confirm=button('Confirm '+pending.preview.operation,async()=>{

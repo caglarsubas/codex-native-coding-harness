@@ -83,7 +83,8 @@ settings or resume a stopped brain. Release the controller after either receipt.
    process descendants are gone. Preserve deliverables using `preserve`, then
    `observe` and `finish`. A worker final message alone is not result verification.
    Failed tasks stop the phase; no hidden retry/escalation loop. Retain native
-   tasks and local worktrees. Merge/archive require separate owner actions.
+   tasks and local worktrees. Archive requires a separate owner action. Merge stays
+   manual unless the exact future phase uses the explicit opt-in below.
 8. Continue eligible tasks within the same reviewed phase without asking for a
    new “continue”. At the phase endpoint, budget boundary, unresolved failure or
    material plan change, record `checkpoint` and stop. At Pause, wait for all
@@ -127,3 +128,46 @@ Recovery: restart reads the same journal. Reacquire only after the previous
 controller is explicitly reconciled with native state. The legacy `recover`
 command must fence cooperative work as well. Do not delete state, reset
 allowances, change phase IDs merely to retry, or invent not-created receipts.
+
+## Optional exact PR merge in a future reviewed phase
+
+Manual merge remains default. Only the exact current reviewed phase with
+`authority.mergeMode: brain_exact_pr_v1`, phase delegation, one standard repository
+with `merge` scope and existing `required_checks` repository policy can use this
+exception. Workers still never merge. Read source `docs/STANDARD-MERGE.md` fully
+before using it. This enabling phase itself stops at an open PR for manual merge.
+
+Before any future merge-enabled Play, separately update the installed launcher
+from its stale schema-1-only source to the exact compatible merged source. Stop
+older writers and verify the actual launcher revision/schema support first. Source
+work does not authorize installation, policy migration, live changes or activation.
+
+1. Independently inspect the completed registered task and record its exact result
+   commit as `headSHA` in `finish` evidence. Cross-check the diff, all Python tests,
+   every JavaScript suite, syntax and diff checks at that exact commit. Observe all
+   registered tasks/tracked terminals freshly; unknown coverage stops here.
+2. `merge_prepare` with one immutable `requestId`, exact PR/base/head `binding`
+   and independent `evidence` per the source contract. The helper retains measured
+   source bytes and fresh GitHub evidence. Explicit no-workflow observation plus
+   complete local evidence is required when there are no required checks; absence
+   never means passing CI. Prepare grants no effect permission.
+3. `merge_check` with the same run/task/request and fresh evidence. It rechecks
+   authority after I/O and commits the one-shot issued boundary. Only the first
+   successful response emits fixed synchronous `gh api --method PUT .../merge`
+   argv. Re-read latest state immediately before executing it once. Pause, brain
+   stop or changed authority wins; do not execute, retain uncertainty. Never retry
+   a lost check response or add flags/commands to the emitted argv.
+   Use only the exact returned synchronous PUT arguments, with the pinned `sha`
+   and `merge_method=merge`. Never substitute `gh pr merge`, an asynchronous
+   endpoint, queue/auto-merge, admin bypass or a fallback. Effective classic/ruleset
+   queue state and PR auto-merge must be positively disabled in both rounds;
+   unknown refuses. Full policy/check metadata must agree, and optional duplicate
+   contexts/reruns refuse too. Local branch/origin/layout are rechecked after I/O.
+4. `merge_receipt` with delivery `acknowledged`, `unknown` or `failed` retains
+   uncertainty; `merge_reconcile` observes the exact PR. Open after issue stays
+   uncertain, closed/unmerged is not-merged, exact remote merge is merged. Late
+   observations after Pause never resume work. Do not resend, reset ownership or
+   claim phase acceptance, runtime, deployment, CI or archival from merge state.
+5. Keep the run retained until unresolved merge delivery is reconciled. Preserve
+   the immutable binding, original observation times and dashboard history. Stop
+   at the reviewed owner checkpoint. No next-phase approval follows from merge.

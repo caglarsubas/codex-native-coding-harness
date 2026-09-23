@@ -229,3 +229,18 @@ The former rolling iteration forecast is retired in favor of the finite
 - [ ] Onboard a second portfolio through the workspace acceptance plan above
 
 OpenClaw integration remains deferred.
+
+## Standard exact-PR merge source contract
+
+- [x] Explicit reviewed phase opt-in, preserving manual repository policy and Harness guards.
+- [x] Immutable exact-result/source/PR journal and designated-brain one-shot merge handoff.
+- [x] Fresh bounded GitHub policy/check/workflow inspection, complete local evidence,
+  uncertainty reconciliation, dashboard history and refusal/race tests.
+- [x] Correction coverage for effective queue/auto-merge refusal, synchronous-only
+  effect, post-remote local identity checks, full policy metadata drift and optional reruns.
+- [ ] Manual owner merge of this enabling PR.
+- [ ] Separately authorized launcher rollout from stale schema-1-only source to the
+  exact compatible merged source, with older writers quiesced.
+- [ ] Separate owner-reviewed future phase and Play; no activation from source delivery.
+
+See [STANDARD-MERGE.md](STANDARD-MERGE.md) for the contract and qualification limits.

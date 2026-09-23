@@ -573,3 +573,19 @@ run cannot gain delegation; a retained intact policy can still be revoked. Do no
 manufacture paused setup, run intent, maintenance release or Play from this page.
 No rollout, live owner policy, native archive, notification, schedule or Actions
 follows source delivery. All one-shot safety and accounting gates remain unchanged.
+
+## Standard exact-PR merge handoff
+
+The optional `brain_exact_pr_v1` reviewed standard phase capability is described in
+`docs/STANDARD-MERGE.md`. Manual merge remains default; manual repository policy,
+Harness, missing/stale authority and unresolved work still refuse effects. Only
+the designated brain can consume a fresh one-shot check and execute the exact
+head-matched gh argv. Preserve immutable PR/request bindings, source/evidence,
+issued/uncertain ownership and late observation receipts; never resend. No workflow
+is not passing CI: require explicit complete no-workflow observation and all local
+Python, JavaScript, syntax and diff evidence. Merge, semantic review, CI, deployment,
+runtime, archival and phase acceptance remain separate. Before future merge-enabled
+Play, update the installed launcher from stale schema-1-only source to the exact
+compatible merged source after quiescing older writers. This enabling phase stops
+at an open PR for manual merge; source delivery grants no live rollout or policy
+migration.

@@ -197,3 +197,17 @@ approval. Preserve task artifacts with `artifact-add` before closing a task;
 creation times must be observed, not inferred from file modification times.
 Never treat local token logs as a subscription bill, a checked plan item as
 acceptance, or a historical file reference as preserved historical bytes.
+
+For a future exact reviewed standard phase with `authority.mergeMode` set to
+`brain_exact_pr_v1`, follow the exact-PR handoff in `references/standard-cycle.md`
+and `docs/STANDARD-MERGE.md` in the source checkout. Manual merge remains the
+default and manual repository policy still refuses delegation. Only the designated
+brain may cross-check and consume the single head-bound merge handoff. Never
+resend unknown delivery or promote merged into CI/runtime/phase acceptance.
+Use the returned synchronous `gh api` merge PUT with exact SHA only; never
+substitute queue-capable `gh pr merge` or an asynchronous/auto-merge fallback.
+Enabled/unknown effective queue or PR auto-merge refuses, as do full policy drift,
+optional rerun ambiguity and post-remote local branch/origin/layout changes.
+Before any such Play, update the installed launcher from its stale schema-1-only
+source to the exact compatible merged source under separate rollout authority.
+Source delivery itself stops at an open PR for manual merge and installs nothing.

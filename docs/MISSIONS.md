@@ -156,3 +156,15 @@ rehearsal covered save, review, revoke, new-version history, draft retention acr
 workspace switching, visible invalid-budget feedback and a 390-pixel form with no
 horizontal overflow. These are local/fixture checks, not hosted CI, a native-worker
 pilot or proof that the live dashboard is running this revision.
+
+## Optional standard merge capability
+
+The authority object may include `mergeMode: manual` (also the omitted default),
+or `brain_exact_pr_v1`. The latter requires `phase_delegated`, all-standard scope,
+exactly one repository with the `merge` operation, and its existing
+`required_checks` repository policy. Manual repository policy still refuses it.
+The dashboard makes this a deliberate draft selection; owner review and separate
+Play remain required. It does not grant a merge from a configuration review.
+See [STANDARD-MERGE.md](STANDARD-MERGE.md). Before future merge-enabled Play, update
+the installed launcher from its stale schema-1-only source to the exact compatible
+merged source. This enabling phase remains manual-merge and stops at an open PR.

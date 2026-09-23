@@ -33,6 +33,14 @@ const run=code=>vm.runInContext(code,box),control={disabled:false,closest:()=>nu
   assert.equal(sent.length,0,'Preparing a local draft sends no request');
   assert.equal(run("missionDrafts.get('alpha').source.line"),4);
   box.root=new Node('main');run('missionEditor(root,state.mission)');
+  const mergeMode=nodes(box.root).find(n=>n.tag==='label'&&n.textContent==='Phase merge mode').children[0];
+  assert.equal(mergeMode.value,'manual','Manual is the default');
+  assert.ok(!('mergeMode' in handoff.spec.authority),'Rendering does not opt in');
+  mergeMode.value='brain_exact_pr_v1';mergeMode.onchange();
+  assert.equal(handoff.spec.authority.mergeMode,'brain_exact_pr_v1');
+  assert.equal(sent.length,0,'Selecting merge mode is only an unsaved draft');
+  mergeMode.value='manual';mergeMode.onchange();
+  assert.ok(nodes(box.root).some(n=>String(n.textContent).includes('stale schema-1-only launcher')));
   const objective=nodes(box.root).find(n=>n.tag==='label'&&n.textContent==='Phase objective').children[0];
   assert.equal(objective.value,'','The objective is editable without exposing the provenance line as removable text');
   objective.value='Deliver one local fixture';objective.oninput();

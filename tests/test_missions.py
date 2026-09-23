@@ -158,6 +158,19 @@ class MissionTest(unittest.TestCase):
         self.assertEqual(read(self.ledger)["version"], 0)
         self.assertEqual(self.save(specification("harness"))["status"], "draft")
 
+    def test_merge_opt_in_is_explicit_and_preserves_repository_policy(self):
+        spec = specification(mode="phase_delegated")
+        spec["authority"]["mergeMode"] = "brain_exact_pr_v1"
+        with self.assertRaisesRegex(Refusal, "exactly one"): self.save(spec)
+        spec["phase"]["scope"][0]["operations"].append("merge")
+        with self.assertRaisesRegex(Refusal, "Manual-merge"): self.save(spec)
+        with self.ledger.tx() as db:
+            repo = self.ledger.get(db, "repos", "a"); repo["mergePolicy"] = "required_checks"
+            self.ledger.put(db, "repos", "a", repo)
+        current = self.save(spec)
+        self.assertEqual(current["document"]["spec"]["authority"]["mergeMode"], "brain_exact_pr_v1")
+        self.assertFalse(self.review(current)["activation"]["available"])
+
     def test_scope_validation(self):
         variants = []
         for path in ("../elsewhere", "/etc/passwd", "**", "*", "./src/a.py", "src//a.py", "src/../a.py", "src/", "src\\a.py"):
