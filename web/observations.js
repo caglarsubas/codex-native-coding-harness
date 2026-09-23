@@ -169,6 +169,39 @@ function artifacts(root) {
 }
 
 const roadmapOpen = new Set();
+const ROADMAP_MISSION_ACTION_LIMIT=20;
+function roadmapMissionActions(plan){
+  if(plan.status!=='observed'||!/^[a-f0-9]{64}$/.test(plan.documentId||'')||
+     !/^[a-f0-9]{40}$/.test(plan.commit||'')||!Number.isInteger(plan.documentVersion)||
+     typeof plan.at!=='number'||!Number.isFinite(plan.at)||!plan.content?.classificationComplete||
+     plan.sourceKind==='proposal')return [];
+  const items=(plan.items||[]).filter(i=>i.scope==='current'&&!i.checked&&Number.isInteger(i.line)&&i.line>0)
+    .map(i=>({kind:'checklist',line:i.line,text:i.label}));
+  const excerpts=(plan.content.highlights||[]).filter(h=>Number.isInteger(h.line)&&h.line>0&&typeof h.heading==='string'&&h.heading.trim())
+    .map(h=>({kind:'section',line:h.line,text:h.heading}));
+  return [...items,...excerpts].filter(a=>typeof a.text==='string'&&a.text.trim()&&a.text.length<=500).slice(0,ROADMAP_MISSION_ACTION_LIMIT);
+}
+function roadmapMissionSource(plan,action){
+  return {repository:plan.repository,path:plan.path,commit:plan.commit,documentId:plan.documentId,
+    documentVersion:plan.documentVersion,observedAt:plan.at,kind:action.kind,line:action.line,text:action.text};
+}
+function roadmapPrepareMission(plan,action,sourceWorkspace,sourceGeneration){
+  const current=state?.observations?.roadmaps?.plans?.find(p=>p.repository===plan.repository&&p.path===plan.path);
+  const stillCurrent=current&&JSON.stringify(roadmapMissionSource(current,action))===JSON.stringify(roadmapMissionSource(plan,action))
+    &&roadmapMissionActions(current).some(a=>a.kind===action.kind&&a.line===action.line&&a.text===action.text);
+  if(workspaceId!==sourceWorkspace||workspaceGeneration!==sourceGeneration||!stillCurrent||!state?.mission||
+     !state?.workspace||!state.repositories?.some(repo=>repo.id===plan.repository)){
+    showNotice('Roadmap source or project changed. Refresh the Roadmap before preparing a Mission draft.',true);return;
+  }
+  if(missionDrafts.has(workspaceId)){
+    showNotice('An unsaved Mission draft is already open for this project. Finish or discard it before choosing another Roadmap action.');
+    navigateView('mission');return;
+  }
+  if(!openMissionEditor(roadmapMissionSource(current,action))){
+    showNotice('Could not prepare this Roadmap action. No Mission draft was changed.',true);return;
+  }
+  navigateView('mission');
+}
 function roadmapChecklist(root,items,proposal=false) {
   if(!items.length){root.append(el('p','Checklist completion not available — this source uses narrative or tables, not checkboxes.','metric-note'));return;}
   const done=items.filter(i=>i.checked).length;
@@ -215,6 +248,18 @@ function roadmapDocument(root,plan,proposal=false,index=0) {
     if(content.omittedTables||content.omittedHighlights)details.append(el('p','Display limits reached: '+content.omittedTables+' tables and '+content.omittedHighlights+' excerpts omitted. Read the full source.','muted'));
   }else if(plan.statusTable){const d=el('details');d.append(el('summary','Previously captured table · currency unknown'),table(plan.statusTable.headers,plan.statusTable.rows));details.append(d);}
   if(proposal)details.append(el('p','Retaining or reading this proposal does not publish it, approve a packet or start development.','muted'));
+  if(!proposal&&state.workspace&&state.mission){
+    const candidates=roadmapMissionActions(plan);
+    if(candidates.length){
+      const handoff=el('section',null,'roadmap-mission-actions');
+      handoff.append(el('h4','Prepare a Mission draft from one Roadmap action'),
+        el('p','Choose one current source action. This opens an editable local draft; it saves or reviews nothing.','muted'));
+      const sourceWorkspace=workspaceId,sourceGeneration=workspaceGeneration;
+      for(const action of candidates)handoff.append(button(`Prepare draft from ${action.kind==='checklist'?'open item':'current section'} · ${action.text} · line ${action.line}`,
+        ()=>roadmapPrepareMission(plan,action,sourceWorkspace,sourceGeneration)));
+      details.append(handoff);
+    }
+  }
   const actions=el('div',null,'inline-actions');
   actions.append(button('Read source'+(plan.documentVersion?' · v'+plan.documentVersion:''),()=>navigateView('artifacts',plan.documentId)));
   details.append(actions);

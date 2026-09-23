@@ -23,6 +23,17 @@ token reservation. No configuration operation sends a brain notification.
    requiring fresh review. **Revoke this review** withdraws only the configuration
    review; it does not stop a running task or alter an existing packet approval.
 
+Alternatively, open Roadmap and choose **Prepare draft** on one current action
+of an observed published source. The browser opens one unsaved workspace-local
+draft with the action as its initial goal and an explicit source reference in
+the phase objective. It starts in `prepare_only` mode with no repositories,
+paths, operations or numeric allowances selected. Fill every required field,
+inspect the saved version and use the same separate owner-review step above.
+Existing unsaved drafts are retained rather than replaced. Old source buttons
+fail closed after a workspace or observation change. This handoff has no backend
+write or authority effect until the owner separately saves the Mission draft;
+save itself still grants no execution authority.
+
 The screen explains why Play is unavailable. WSP-03B/C and WSP-04 must implement
 run generations, delegated packet admission, mandatory phase release and shared
 resource/budget safeguards before activation. Cooperative workspace Pause is
