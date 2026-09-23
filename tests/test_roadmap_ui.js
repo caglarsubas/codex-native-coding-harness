@@ -9,11 +9,14 @@ class Node{
   querySelector(tag){return this.children.find(c=>c.tag===tag);}
 }
 let navigation=null;
-const box={titles:{},workspaceId:'alpha',setInterval(){},el:(tag,text)=>new Node(tag,text),
+const notices=[],prepared=[];const drafts=new Map();
+const box={titles:{},workspaceId:'alpha',workspaceGeneration:1,setInterval(){},el:(tag,text)=>new Node(tag,text),
   section:(title,subtitle)=>new Node('h2',title+' '+(subtitle||'')),when:String,
   table:(headers,rows)=>Object.assign(new Node('table'),{headers,rows}),textCell:(a,b)=>a+' '+b,
   button:(label,click)=>Object.assign(new Node('button',label),{click}),empty:(a,b)=>new Node('p',a+' '+b),
-  navigateView:(view,id)=>navigation={view,id},state:{meta:{paused:true},workspace:{id:'alpha',projectProfile:{version:0,profile:null}},repositories:[{id:'fixture',policyProfile:'standard'}],standard:{available:false,blocker:'Review an exact mission first',catalog:null,run:null},mission:{effectiveStatus:'not_configured'},observations:{artifacts:[]}}};
+  navigateView:(view,id)=>navigation={view,id},showNotice:(message)=>notices.push(message),missionDrafts:drafts,
+  openMissionEditor:(source)=>{prepared.push(source);drafts.set(box.workspaceId,{source});return true;},
+  state:{meta:{paused:true},workspace:{id:'alpha',projectProfile:{version:0,profile:null}},repositories:[{id:'fixture',policyProfile:'standard'}],standard:{available:false,blocker:'Review an exact mission first',catalog:null,run:null},mission:{effectiveStatus:'not_configured'},observations:{artifacts:[]}}};
 vm.createContext(box);vm.runInContext(fs.readFileSync('web/observations.js','utf8'),box);
 const run=code=>vm.runInContext(code,box),nodes=root=>[root,...root.children.flatMap(nodes)],text=root=>nodes(root).map(n=>n.text).join('\n');
 const plan={repository:'fixture',path:'docs/plan.md',title:'Main plan',status:'observed',at:1,commit:'a'.repeat(40),documentId:'b'.repeat(64),documentVersion:2,items:[],
@@ -46,5 +49,31 @@ for(const repositories of [[{policyProfile:'harness'}],[{policyProfile:'standard
   assert(!nodes(box.root).some(n=>n.text==='Review mission & prerequisites'||n.text==='Open Review Play'));
 }
 box.state.workspace=null;box.root=new Node('main');run('roadmap(root)');assert(!text(box.root).includes('Review & Play'));
+box.state.workspace={id:'alpha'};
+box.state.repositories=[{id:'fixture',policyProfile:'standard'}];
+const actionable={...plan,status:'observed',documentId:'b'.repeat(64),documentVersion:3,at:12,
+  items:[{line:4,label:'Build a bounded fixture',checked:false,scope:'current'},{line:5,label:'Historical work',checked:false,scope:'historical'},{line:6,label:'Already done',checked:true,scope:'current'}],
+  content:{classificationComplete:true,highlights:[{heading:'Current recommendation',line:3,text:'Review this',truncated:false}],tables:[],issues:[],omittedTables:0,omittedHighlights:0}};
+box.state.observations.roadmaps={plans:[actionable],drafts:[]};box.root=new Node('main');box.plan=actionable;run('roadmapDocument(root,plan)');
+const prepare=nodes(box.root).filter(n=>n.tag==='button'&&n.text.startsWith('Prepare draft'));
+assert.equal(prepare.length,2,'Only current open checklist and current excerpt are offered');
+prepare[0].click();assert.equal(prepared.length,1);assert.equal(prepared[0].repository,'fixture');
+assert.equal(prepared[0].path,'docs/plan.md');assert.equal(prepared[0].line,4);assert.equal(prepared[0].documentId,actionable.documentId);
+assert.deepEqual(navigation,{view:'mission',id:undefined});
+prepare[1].click();assert.equal(prepared.length,1,'An unsaved draft cannot be overwritten');
+drafts.clear();box.state.observations.roadmaps.plans=[{...actionable,documentId:'c'.repeat(64)}];
+prepare[0].click();assert.equal(prepared.length,1,'A changed source version makes the old action stale');
+assert.match(notices.at(-1),/source or project changed/);
+box.state.observations.roadmaps.plans=[actionable];box.workspaceId='beta';prepare[0].click();
+assert.equal(prepared.length,1,'An action from another workspace cannot prepare a draft');
+box.workspaceId='alpha';box.workspaceGeneration=2;prepare[0].click();assert.equal(prepared.length,1,'An old workspace generation cannot prepare a draft');
+box.workspaceGeneration=1;box.state.mission=null;prepare[0].click();assert.equal(prepared.length,1,'Unavailable Mission state fails closed');
+box.state.mission={effectiveStatus:'not_configured'};box.state.repositories=[];prepare[0].click();assert.equal(prepared.length,1,'Unregistered source repository fails closed');
+box.state.repositories=[{id:'fixture',policyProfile:'standard'}];box.plan={...actionable,content:{...actionable.content,classificationComplete:false}};
+box.root=new Node('main');run('roadmapDocument(root,plan)');assert(!nodes(box.root).some(n=>n.tag==='button'&&n.text.startsWith('Prepare draft')));
+box.plan={...actionable,sourceKind:'proposal'};box.root=new Node('main');run('roadmapDocument(root,plan,true)');
+assert(!nodes(box.root).some(n=>n.tag==='button'&&n.text.startsWith('Prepare draft')),'Private proposals do not become handoff actions');
+box.plan={...actionable,items:Array.from({length:30},(_,i)=>({line:i+1,label:'Action '+i,checked:false,scope:'current'}))};
+assert.equal(run('roadmapMissionActions(plan).length'),20,'Handoff actions are bounded per source');
 assert(!fs.readFileSync('web/observations.js','utf8').includes('innerHTML'));
-console.log('Roadmap UI: honest empty counts, literal current excerpts, Review & Play gates, proposals, versions, legacy snapshots and source links passed');
+console.log('Roadmap UI: current bounded actions, source/workspace staleness, draft preservation, Review & Play gates and literal sources passed');

@@ -4,6 +4,25 @@ The Roadmap page is a read-only source catalog, not an execution queue or a
 project-completion score. Narrative plans without checkboxes show **Checklist
 completion not available**, not `0 / 0`.
 
+For an observed published source in a registered workspace, **Prepare draft**
+offers at most 20 current, open checklist actions and current section headings
+from the retained display. Historical, completed, unclassified, unavailable and
+private-proposal entries do not offer this handoff. Select one action to open one
+unsaved, editable Mission draft for that workspace. An existing unsaved Mission
+draft is opened rather than overwritten. A changed source version, workspace or
+source repository refuses the old button; refresh Roadmap before trying again.
+
+The draft starts with the selected action as its goal and records the repository,
+path, commit, retained document ID/version, source kind/line and observation time
+in its phase objective. That provenance line is kept while editing the initial
+draft and included in the saved Mission document. The remaining required Mission
+fields, repository scope and numeric limits are blank; approval mode starts at
+`prepare_only`. Saving requires the normal Mission form and creates a draft
+version only. Separate owner review is still required. No packet approval,
+Play, admission, budget, model, schedule, controller, notification or native task
+is changed by preparing the draft. Subsequent revisions are normal owner edits;
+the owner should retain or update the source reference when changing the scope.
+
 For a selected configured standard project, the page also shows the recorded
 Review & Play prerequisites and routes to the existing mission review flow. It
 does not open a Play preview itself: the owner reviews that exact preview and

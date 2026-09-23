@@ -11,6 +11,7 @@ acceptance authority. Items change through reviewed repository edits.
 - [x] Retain private proposal versions without publication or approval
 - [x] Provide source/version navigation, coverage gaps and bounded literal excerpts
 - [x] Surface Review & Play prerequisites for configured standard projects, with separate review and owner confirmation
+- [x] Prepare one editable Mission draft from a selected current Roadmap checklist action or section, with retained source provenance and no authority change (local UI verification; runtime rollout separate)
 
 These are dashboard capabilities, not completion of the plans they display.
 See [roadmap source configuration](ROADMAP-SOURCES.md) for refresh and boundaries.

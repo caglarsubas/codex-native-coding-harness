@@ -64,16 +64,35 @@ function missionConfirmation(parent,m,operation,title,explanation){
   label.append(check,el('span',explanation));const submit=button(title,()=>missionWrite({operation,expectedRevision:m.revision,documentHash:m.documentHash,confirmed:true},submit));
   submit.disabled=true;check.onchange=()=>{submit.disabled=!check.checked||busy;selected=check.checked?'mission-review':null;};wrap.append(label,submit);parent.append(wrap);
 }
-function openMissionEditor(){
-  if(busy)return;
+function missionRoadmapNote(source){
+  if(!source||!Number.isInteger(source.line)||source.line<1||!Number.isInteger(source.documentVersion)||
+    typeof source.observedAt!=='number'||!Number.isFinite(source.observedAt)||
+    !['checklist','section'].includes(source.kind)||
+    !/^[a-f0-9]{40}$/.test(source.commit||'')||!/^[a-f0-9]{64}$/.test(source.documentId||''))return null;
+  if(typeof source.text!=='string'||!source.text.trim()||source.text.length>500)return null;
+  const action=source.text.trim().replace(/\s+/g,' ');
+  const note=`Roadmap source: ${source.repository} / ${source.path} @ ${source.commit}; retained document ${source.documentId} v${source.documentVersion}; ${source.kind} line ${source.line}: ${action}; observed ${source.observedAt}.`;
+  return note.length<=1500?note:null;
+}
+function openMissionEditor(source=null){
+  if(busy||!state?.mission)return false;
   const m=state.mission,spec=m.document?.spec;
-  missionDrafts.set(workspaceId,{revision:m.revision,spec:spec?JSON.parse(JSON.stringify(spec)):{goal:'',successCriteria:[],exclusions:[],phase:{id:'',title:'',objective:'',checkpoint:'',stopConditions:[],scope:[]},authority:{approvalMode:'exact_owner',maxParallelTasks:'',maxTasks:'',tokenBudget:'',checkpointReserveTokens:''}}});
+  const note=source?missionRoadmapNote(source):null;
+  if(source&&!note)return false;
+  const draftSpec=source?{goal:source.text.trim().replace(/\s+/g,' '),successCriteria:[],exclusions:[],
+    phase:{id:'',title:'',objective:note,checkpoint:'',stopConditions:[],scope:[]},
+    authority:{approvalMode:'prepare_only',maxParallelTasks:'',maxTasks:'',tokenBudget:'',checkpointReserveTokens:''}}:
+    spec?JSON.parse(JSON.stringify(spec)):{goal:'',successCriteria:[],exclusions:[],phase:{id:'',title:'',objective:'',checkpoint:'',stopConditions:[],scope:[]},authority:{approvalMode:'exact_owner',maxParallelTasks:'',maxTasks:'',tokenBudget:'',checkpointReserveTokens:''}};
+  missionDrafts.set(workspaceId,{revision:m.revision,spec:draftSpec,source:source?{...source,note}:null});
   selected='mission-edit';render();document.querySelector('.mission-form textarea')?.focus();
+  return true;
 }
 function missionEditor(root,m){
   selected='mission-edit';const draft=missionDrafts.get(workspaceId),spec=draft.spec,phase=spec.phase,a=spec.authority;
   const form=el('form',null,'mission-form');form.append(section(m.document?'Revise mission configuration':'New mission configuration','No secrets, credentials or executable commands.'));
   if(draft.revision!==m.revision)form.append(callout('A newer configuration exists','Your edits remain here. Compare the current version before discarding this draft; stale saves will be refused.'));
+  if(draft.source)form.append(callout('Roadmap source retained in this draft',
+    `${draft.source.repository} / ${draft.source.path} · ${draft.source.kind} line ${draft.source.line} · source commit ${draft.source.commit} · retained document ${draft.source.documentId} v${draft.source.documentVersion}. Complete the Mission fields and save a new draft before separate owner review. No authority was granted.`));
   function field(label,value,set,{rows=2,type='text',min=1,max=2000}={}){
     const wrap=el('label',label),input=el(type==='number'||rows===0?'input':'textarea');
     if(input.tagName==='TEXTAREA'){input.rows=rows;input.maxLength=max;}else{input.type=type;if(type==='number'){input.min=min;input.max=max;input.step=1;}else input.maxLength=max;}
@@ -84,7 +103,11 @@ function missionEditor(root,m){
   field('Exclusions · one per line',spec.exclusions.join('\n'),v=>spec.exclusions=missionLines(v),{rows:2,max:20000});
   field('Phase ID · lowercase letters, digits and hyphens',phase.id,v=>phase.id=v,{rows:0,max:64});
   field('Phase title',phase.title,v=>phase.title=v,{rows:0});
-  field('Phase objective',phase.objective,v=>phase.objective=v);
+  if(draft.source){
+    field('Phase objective',phase.objective===draft.source.note?'':phase.objective.replace('\n\n'+draft.source.note,''),
+      v=>phase.objective=v.trim()?v.trim()+'\n\n'+draft.source.note:draft.source.note,
+      {max:2000-draft.source.note.length-2});
+  }else field('Phase objective',phase.objective,v=>phase.objective=v);
   field('Mandatory owner checkpoint · what must be reviewed before continuing',phase.checkpoint,v=>phase.checkpoint=v);
   field('Stop conditions · one per line',phase.stopConditions.join('\n'),v=>phase.stopConditions=missionLines(v),{rows:3,max:20000});
   form.append(section('Permitted repositories','Select explicitly; no repository or operation is pre-authorized.'));
