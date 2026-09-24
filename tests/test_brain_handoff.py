@@ -1,4 +1,5 @@
 import json
+import datetime as dt
 from pathlib import Path
 import time
 import unittest
@@ -29,6 +30,24 @@ class BrainHandoffTest(unittest.TestCase):
         preview = self.controls.preview(self.registry, self.ledger, 'owner-session')
         return self.controls.confirm(self.registry, self.ledger, {**preview, 'confirmed': True}, 'owner-session')
 
+    def _write_native_log(self, prepared, *, marker=True, phase='final_answer', recorded_at=None):
+        codex = self.fixture.root / 'codex'
+        log_dir = codex / 'sessions' / '2026' / '09' / '24'
+        log_dir.mkdir(parents=True, exist_ok=True)
+        receipt = {'handoffId': prepared['id'], 'taskId': self.new_id,
+                   'packageHash': prepared['payload']['packageHash'],
+                   'summary': 'I read the retained checkpoint and will await owner confirmation.'}
+        content = brain_handoff.receipt_marker(receipt) if marker else 'No package acknowledgment in this reply.'
+        records = [
+            {'type': 'session_meta', 'payload': {'id': self.new_id, 'cwd': str(self.fixture.repo)}},
+            {'type': 'response_item', 'timestamp': dt.datetime.fromtimestamp(time.time() if recorded_at is None else recorded_at, dt.timezone.utc).isoformat(),
+             'payload': {'type': 'message', 'role': 'assistant', 'phase': phase,
+                         'content': [{'type': 'output_text', 'text': 'Checkpoint reviewed.\n' + content}]}}
+        ]
+        (log_dir / ('rollout-fixture-' + self.new_id + '.jsonl')).write_text(''.join(json.dumps(row) + '\n' for row in records))
+        (self.ledger.root / 'observations.json').write_text(json.dumps({'codexHome': str(codex)}))
+        return receipt
+
     def test_owner_confirmed_handoff_retains_usage_and_binding(self):
         prepared = self.prepare()
         self.assertEqual(prepared['kind'], 'brain_handoff')
@@ -40,16 +59,10 @@ class BrainHandoffTest(unittest.TestCase):
         with self.assertRaises(Refusal):
             brain_handoff.candidate(self.ledger, token, {**candidate, 'taskId': str(uuid.uuid4())})
         self.ledger.release(token, 'Candidate recorded; old brain stopped')
-        codex = self.fixture.root / 'codex'
-        log_dir = codex / 'sessions' / '2026' / '09' / '24'
-        log_dir.mkdir(parents=True)
-        (log_dir / ('rollout-fixture-' + self.new_id + '.jsonl')).write_text(json.dumps({
-            'type': 'session_meta', 'payload': {'id': self.new_id, 'cwd': str(self.fixture.repo)}}) + '\n')
-        (self.ledger.root / 'observations.json').write_text(json.dumps({'codexHome': str(codex)}))
-        receipt = {'handoffId': prepared['id'], 'taskId': self.new_id,
-                   'packageHash': prepared['payload']['packageHash'],
-                   'summary': 'I read the retained checkpoint and will await owner confirmation.'}
+        receipt = self._write_native_log(prepared)
         brain_handoff.receipt(self.ledger, receipt)
+        self.assertEqual(self.ledger.snapshot()['meta']['brainHandoff']['receiptEvidence']['source'], 'local_native_final_reply')
+        self.assertEqual(len(self.ledger.snapshot()['meta']['brainHandoff']['receiptEvidence']['recordHash']), 64)
         final = self.controls.finalize_preview(self.registry, self.ledger, 'owner-session')
         with self.registry.tx() as db:
             old_row = db.execute("SELECT data FROM workspaces WHERE id='alpha'").fetchone()[0]
@@ -100,6 +113,25 @@ class BrainHandoffTest(unittest.TestCase):
                 'packageHash': prepared['payload']['packageHash'],
                 'summary': 'I read the checkpoint and am ready to await owner review.'})
         self.assertEqual(self.ledger.snapshot()['meta']['brainId'], old)
+
+    def test_receipt_requires_exact_final_reply_after_preparation(self):
+        prepared = self.prepare()
+        old = self.ledger.snapshot()['meta']['brainId']
+        token = self.ledger.acquire(old + ':handoff')
+        brain_handoff.candidate(self.ledger, token, {'handoffId': prepared['id'], 'taskId': self.new_id,
+            'projectId': 'native-a', 'hostId': 'local', 'observation': 'Native project and task observed in Codex'})
+        self.ledger.release(token, 'Candidate recorded')
+        for options in ({'marker': False}, {'phase': 'commentary'},
+                        {'recorded_at': self.ledger.snapshot()['meta']['brainHandoff']['createdAt'] - 60}):
+            receipt = self._write_native_log(prepared, **options)
+            with self.assertRaises(Refusal):
+                brain_handoff.receipt(self.ledger, receipt)
+            self.assertEqual(self.ledger.snapshot()['meta']['brainId'], old)
+        receipt = self._write_native_log(prepared)
+        with self.assertRaises(Refusal):
+            brain_handoff.receipt(self.ledger, {**receipt, 'summary': 'A different summary claiming to have read the package.'})
+        self.assertEqual(brain_handoff.receipt(self.ledger, receipt)['status'], 'received')
+        self.assertEqual(brain_handoff.receipt(self.ledger, receipt)['status'], 'received')
 
     def test_active_worker_and_unresolved_creation_block_preview(self):
         with self.ledger.tx() as db:

@@ -50,6 +50,13 @@ function all(root){return [root,...root.children.flatMap(x=>x instanceof Element
   const handoffBox=nodes.filter(n=>n.type==='checkbox').at(-1);handoffBox.checked=true;handoffBox.onchange();
   assert.equal(handoffConfirm.disabled,false);await handoffConfirm.click();
   assert.ok(sent.some(s=>s.path.endsWith('/brain-handoff/confirm')));
+  box.state.brainHandoff={handoff:{status:'received',packageHash:'hash',oldBrainId:'old',
+    candidate:{taskId:'new',projectId:'native-a',observation:'Owner observed native project'},
+    receipt:{summary:'Exact package reviewed'},receiptEvidence:{source:'local_native_final_reply',observedAt:1}}};
+  nodes=all(render());
+  assert.ok(nodes.some(n=>String(n.text).includes('Native final reply observed')));
+  assert.ok(nodes.some(n=>String(n.text).includes('not independently attested')));
+  assert.ok(nodes.some(n=>n.text==='Review replacement receipt'));
   box.state.standard={available:false,catalogRequired:true,contextHash:'missing',boundary:'Partial observations',catalog:null,run:null,
     blocker:'Brain must record the available native model/effort catalog (valid for 24 hours)',catalogRefresh:null};
   nodes=all(render());const prepare=nodes.find(n=>n.text==='Review Play');assert.equal(prepare.disabled,false);
