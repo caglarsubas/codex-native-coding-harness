@@ -55,6 +55,14 @@ downloads it, installs hooks, changes repository instructions or sends source
 to the inference service. Local code-only extraction is not a claim of
 OS-enforced network isolation.
 
+The adapter invokes `extract` with `--code-only --no-cluster --max-workers 2`
+against a private staging tree containing only eligible tracked Git blobs. It
+passes no inherited model credentials to either the version probe or extraction.
+This is a structural/no-model path, not a proof that arbitrary third-party code
+cannot open a network connection. The executable hash and version check pin the
+entrypoint observed by the app; they are not a complete attestation of every
+installed Python dependency. Keep the installation review separate from Play.
+
 The Knowledge view and `knowledge-status`, `knowledge-refresh`,
 `knowledge-search`, `knowledge-records`, `knowledge-related` and source CLI
 operations require an explicit project. Code results are at most ten distinct

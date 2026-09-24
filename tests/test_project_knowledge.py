@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -72,6 +73,19 @@ class ProjectKnowledgeTest(unittest.TestCase):
         with self.assertRaises(Refusal):
             knowledge.status(self.ledger, 'app')
 
+    def test_pem_guard_rejects_real_marker_without_refusing_code_literal(self):
+        (self.repo / 'src' / 'service.py').write_text('PEM_EXAMPLE = "-----BEGIN PRIVATE KEY-----"\n')
+        subprocess.run(['git', '-C', str(self.repo), 'add', 'src/service.py'], check=True)
+        subprocess.run(['git', '-C', str(self.repo), '-c', 'user.email=test@example.invalid',
+                        '-c', 'user.name=Fixture', 'commit', '-qm', 'marker literal'], check=True)
+        self.assertEqual(knowledge.refresh(self.ledger, 'app')['fileCount'], 1)
+        (self.repo / 'src' / 'service.py').write_text('-----BEGIN OPENSSH PRIVATE KEY-----\nencoded\n-----END OPENSSH PRIVATE KEY-----\n')
+        subprocess.run(['git', '-C', str(self.repo), 'add', 'src/service.py'], check=True)
+        subprocess.run(['git', '-C', str(self.repo), '-c', 'user.email=test@example.invalid',
+                        '-c', 'user.name=Fixture', 'commit', '-qm', 'unsafe marker'], check=True)
+        with self.assertRaisesRegex(Refusal, 'Secret-bearing source'):
+            knowledge.refresh(self.ledger, 'app')
+
     def test_record_links_use_existing_versions_and_no_body(self):
         with self.ledger.tx() as db:
             db.execute("INSERT INTO observation_records VALUES(?,?)", ('roadmaps', json.dumps({'plans': [{
@@ -132,8 +146,11 @@ class ProjectKnowledgeTest(unittest.TestCase):
             result = knowledge._provider(provider, stage)
         self.assertEqual(result['status'], 'ready')
         self.assertIn('--code-only', calls[-1][0])
+        self.assertIn('--no-cluster', calls[-1][0])
+        self.assertEqual(calls[-1][0][calls[-1][0].index('--max-workers') + 1], '2')
         self.assertEqual(calls[-1][1]['env']['HOME'], str(stage))
         self.assertNotIn('OPENAI_API_KEY', calls[-1][1]['env'])
+        self.assertNotIn('OPENAI_API_KEY', calls[0][1]['env'])
         provider['sha256'] = '0' * 64
         with self.assertRaises(Refusal):
             knowledge._provider(provider, stage)
@@ -146,6 +163,29 @@ class ProjectKnowledgeTest(unittest.TestCase):
         state = knowledge.refresh(self.ledger, 'app')
         self.assertEqual(state['provider']['status'], 'failed')
         self.assertEqual(knowledge.search(self.ledger, 'app', 'approve_packet')['results'][0]['path'], 'src/service.py')
+
+    def test_disposable_pinned_graphify_extracts_real_code_when_requested(self):
+        executable = os.environ.get('GRAPHIFY_TEST_EXECUTABLE')
+        if not executable:
+            self.skipTest('Set GRAPHIFY_TEST_EXECUTABLE to a reviewed disposable Graphify 0.9.66 entrypoint')
+        import hashlib
+        executable = Path(executable).resolve()
+        self.assertTrue(executable.is_file())
+        (self.repo / 'src' / 'helper.py').write_text('def helper():\n    return 42\n')
+        (self.repo / 'src' / 'service.py').write_text('from src.helper import helper\n\ndef approve_packet():\n    return helper()\n')
+        subprocess.run(['git', '-C', str(self.repo), 'add', 'src/helper.py', 'src/service.py'], check=True)
+        subprocess.run(['git', '-C', str(self.repo), '-c', 'user.email=test@example.invalid',
+                        '-c', 'user.name=Fixture', 'commit', '-qm', 'related code'], check=True)
+        (self.ledger.root / 'knowledge.json').write_text(json.dumps({
+            'schemaVersion': 1, 'repositories': {'app': ['src/']},
+            'graphify': {'executable': str(executable), 'version': knowledge.GRAPHIFY_VERSION,
+                         'sha256': hashlib.sha256(executable.read_bytes()).hexdigest()}}))
+        state = knowledge.refresh(self.ledger, 'app')
+        self.assertEqual(state['provider']['status'], 'ready', state)
+        self.assertEqual(state['provider']['version'], knowledge.GRAPHIFY_VERSION)
+        related = knowledge.related(self.ledger, 'app', state['documentHash'], 'src/service.py')
+        self.assertEqual(related['status'], 'ready')
+        self.assertTrue(any(item['path'] == 'src/helper.py' for item in related['items']), related)
 
 
 if __name__ == '__main__':
