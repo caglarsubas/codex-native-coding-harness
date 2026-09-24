@@ -14,6 +14,7 @@ from .decisions import authorize_brain
 
 UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\Z")
 RECEIPT_PREFIX = "CODEX_ORCHESTRATOR_HANDOFF_RECEIPT_V1 "
+MEMBERSHIP_MAX_AGE = 3600
 
 
 def receipt_marker(value):
@@ -207,6 +208,7 @@ class Controls:
             handoff = meta.get("brainHandoff")
             require(handoff and handoff["status"] == "received" and handoff["receipt"],
                     "Replacement task receipt is not recorded")
+            _current_membership(handoff)
             project = _project(registry, ledger.workspace_id)
             require(project == handoff["project"], "Native project binding changed")
             review = {"workspace": ledger.workspace_id, "sessionHash": digest(session),
@@ -230,6 +232,7 @@ class Controls:
                     and run["revision"] == doc["runRevision"] and run["id"] == doc["runId"]
                     and meta["brainId"] == doc["oldBrainId"] and handoff["candidate"]["taskId"] == doc["newBrainId"],
                     "Handoff or checkpoint changed; inspect again")
+            _current_membership(handoff)
             require(_project(registry, ledger.workspace_id, registry_db) == handoff["project"], "Project binding changed")
             row = registry_db.execute("SELECT name,data FROM workspaces WHERE id=?", (ledger.workspace_id,)).fetchone()
             require(row is not None, "Registered project unavailable")
@@ -283,10 +286,79 @@ def candidate(ledger, token, value):
         if handoff["candidate"]:
             require(handoff["candidate"] == value, "Native creation is one-shot; reconcile instead of retrying")
             return handoff
-        handoff.update(candidate=value, status="candidate")
+        handoff.update(candidate=value, candidateAt=time.time(), status="candidate")
         meta["brainHandoff"] = handoff
         ledger.put(db, "meta", 1, meta)
         ledger.event(db, "brain_handoff_candidate", {"id": value["handoffId"], "taskId": value["taskId"]})
+        return handoff
+
+
+def _current_membership(handoff):
+    evidence = handoff.get("nativeMembership")
+    reply = handoff.get("receiptEvidence")
+    require(isinstance(evidence, dict) and evidence.get("source") == "codex.list_threads"
+            and isinstance(reply, dict) and type(reply.get("observedAt")) in (int, float)
+            and evidence.get("taskId") == handoff["candidate"]["taskId"]
+            and evidence.get("projectId") == handoff["project"]["projectId"]
+            and evidence.get("hostId") == handoff["project"]["hostId"]
+            and evidence.get("status") == "idle"
+            and type(evidence.get("observedAt")) in (int, float)
+            and evidence["observedAt"] >= reply["observedAt"]
+            and -30 <= time.time() - evidence.get("observedAt", 0) <= MEMBERSHIP_MAX_AGE,
+            "Fresh native task-list project membership required before rebinding")
+    return evidence
+
+
+def native_observation(ledger, token, result, observed_at):
+    """Retain only exact membership from a bounded native list_threads result."""
+    require(isinstance(result, dict) and result.get("schemaVersion") == 4,
+            "Expected Codex list_threads schemaVersion 4 result")
+    require(isinstance(result.get("unavailableHosts"), list) and not result["unavailableHosts"],
+            "Native task host inventory is incomplete")
+    require(isinstance(result.get("unavailableSources"), list) and not result["unavailableSources"],
+            "Native task source inventory is incomplete")
+    groups = (result.get("pinnedThreads"), result.get("threads"))
+    require(all(isinstance(group, list) for group in groups) and sum(map(len, groups)) <= 2000,
+            "Bounded native task inventory required")
+    try:
+        raw = canonical(result).encode()
+    except (TypeError, ValueError, UnicodeError):
+        raise Refusal("Invalid native task inventory") from None
+    require(len(raw) <= 1_000_000, "Native task inventory exceeds its bound")
+    require(type(observed_at) in (int, float) and 0 < observed_at <= time.time() + 30,
+            "Original native task observation time required")
+    with ledger.tx() as db:
+        meta = authorize_brain(ledger, db, token)
+        _safe(ledger, db, allow_controller=True)
+        handoff = meta.get("brainHandoff")
+        require(handoff and handoff["status"] in ("candidate", "received") and handoff["candidate"],
+                "Exact replacement candidate required")
+        require(observed_at >= handoff.get("candidateAt", handoff["createdAt"])
+                and time.time() - observed_at <= MEMBERSHIP_MAX_AGE,
+                "Native task observation predates candidate or has expired")
+        matches = [row for group in groups for row in group
+                   if isinstance(row, dict) and row.get("id") == handoff["candidate"]["taskId"]]
+        require(len(matches) == 1, "Exactly one replacement task must appear in native task inventory")
+        row = matches[0]
+        project = handoff["project"]
+        require(row.get("kind") == "codex" and row.get("projectId") == project["projectId"]
+                and row.get("hostId") == project["hostId"],
+                "Native task-list project or host does not match the reviewed binding")
+        require(row.get("status") in ("active", "idle"), "Replacement native task status is unavailable")
+        evidence = {"source": "codex.list_threads", "taskId": row["id"],
+                    "projectId": row["projectId"], "hostId": row["hostId"], "status": row["status"],
+                    "observedAt": observed_at, "resultHash": hashlib.sha256(raw).hexdigest(),
+                    "boundary": "Brain-imported native tool result, not cryptographic host attestation"}
+        prior = handoff.get("nativeMembership")
+        require(not prior or observed_at > prior["observedAt"] or evidence == prior,
+                "Older or conflicting native task observation")
+        if evidence == prior:
+            return handoff
+        handoff["nativeMembership"] = evidence
+        meta["brainHandoff"] = handoff
+        ledger.put(db, "meta", 1, meta)
+        ledger.event(db, "brain_handoff_native_membership", {"id": handoff["id"],
+                     "taskId": row["id"], "resultHash": evidence["resultHash"]})
         return handoff
 
 

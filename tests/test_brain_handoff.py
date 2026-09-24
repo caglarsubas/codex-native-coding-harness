@@ -1,9 +1,14 @@
 import json
 import datetime as dt
+import contextlib
+import io
+import os
 from pathlib import Path
+import sys
 import time
 import unittest
 import uuid
+from unittest.mock import patch
 
 from orchestrator.core import Refusal
 from orchestrator import brain_handoff, projects
@@ -48,6 +53,12 @@ class BrainHandoffTest(unittest.TestCase):
         (self.ledger.root / 'observations.json').write_text(json.dumps({'codexHome': str(codex)}))
         return receipt
 
+    def _native_result(self, **changes):
+        row = {'id': self.new_id, 'kind': 'codex', 'projectId': 'native-a',
+               'hostId': 'local', 'status': 'idle', 'title': 'Replacement task', **changes}
+        return {'schemaVersion': 4, 'threads': [row], 'pinnedThreads': [],
+                'unavailableHosts': [], 'unavailableSources': []}
+
     def test_owner_confirmed_handoff_retains_usage_and_binding(self):
         prepared = self.prepare()
         self.assertEqual(prepared['kind'], 'brain_handoff')
@@ -61,8 +72,12 @@ class BrainHandoffTest(unittest.TestCase):
         self.ledger.release(token, 'Candidate recorded; old brain stopped')
         receipt = self._write_native_log(prepared)
         brain_handoff.receipt(self.ledger, receipt)
+        token = self.ledger.acquire(old + ':membership')
+        brain_handoff.native_observation(self.ledger, token, self._native_result(), time.time())
+        self.ledger.release(token, 'Replacement idle after final reply')
         self.assertEqual(self.ledger.snapshot()['meta']['brainHandoff']['receiptEvidence']['source'], 'local_native_final_reply')
         self.assertEqual(len(self.ledger.snapshot()['meta']['brainHandoff']['receiptEvidence']['recordHash']), 64)
+        self.assertEqual(self.ledger.snapshot()['meta']['brainHandoff']['nativeMembership']['source'], 'codex.list_threads')
         final = self.controls.finalize_preview(self.registry, self.ledger, 'owner-session')
         with self.registry.tx() as db:
             old_row = db.execute("SELECT data FROM workspaces WHERE id='alpha'").fetchone()[0]
@@ -113,6 +128,74 @@ class BrainHandoffTest(unittest.TestCase):
                 'packageHash': prepared['payload']['packageHash'],
                 'summary': 'I read the checkpoint and am ready to await owner review.'})
         self.assertEqual(self.ledger.snapshot()['meta']['brainId'], old)
+
+    def test_native_task_membership_is_required_and_cross_project_results_refuse(self):
+        prepared = self.prepare()
+        old = self.ledger.snapshot()['meta']['brainId']
+        token = self.ledger.acquire(old + ':handoff')
+        brain_handoff.candidate(self.ledger, token, {'handoffId': prepared['id'], 'taskId': self.new_id,
+            'projectId': 'native-a', 'hostId': 'local', 'observation': 'Native project and task observed in Codex'})
+        for result in (self._native_result(projectId='other'), self._native_result(hostId='other'),
+                       self._native_result(id=str(uuid.uuid4())),
+                       self._native_result(status='notLoaded'),
+                       {**self._native_result(), 'unavailableHosts': ['local']},
+                       {**self._native_result(), 'pinnedThreads': self._native_result()['threads']}):
+            with self.assertRaises(Refusal):
+                brain_handoff.native_observation(self.ledger, token, result, time.time())
+        with self.assertRaises(Refusal):
+            brain_handoff.native_observation(self.ledger, token, self._native_result(), prepared['createdAt'] - 1)
+        self.ledger.release(token, 'Candidate recorded')
+        receipt = self._write_native_log(prepared)
+        brain_handoff.receipt(self.ledger, receipt)
+        with self.assertRaises(Refusal):
+            self.controls.finalize_preview(self.registry, self.ledger, 'owner-session')
+        token = self.ledger.acquire(old + ':active-membership')
+        brain_handoff.native_observation(self.ledger, token, self._native_result(status='active'), time.time())
+        self.ledger.release(token, 'Active replacement observed')
+        with self.assertRaises(Refusal):
+            self.controls.finalize_preview(self.registry, self.ledger, 'owner-session')
+
+    def test_cli_imports_bounded_native_task_observation(self):
+        from orchestrator.cli import main
+        prepared = self.prepare()
+        old = self.ledger.snapshot()['meta']['brainId']
+        token = self.ledger.acquire(old + ':handoff')
+        brain_handoff.candidate(self.ledger, token, {'handoffId': prepared['id'], 'taskId': self.new_id,
+            'projectId': 'native-a', 'hostId': 'local', 'observation': 'Native project and task observed in Codex'})
+        path = self.fixture.root / 'native-task-list.json'
+        path.write_text(json.dumps(self._native_result()))
+        argv = ['orchestrator', '--platform', str(self.registry.root), '--workspace', 'alpha',
+                'brain-handoff-native-observation', str(path), '--observed-at', str(time.time())]
+        with patch.object(sys, 'argv', argv), patch.dict(os.environ, {'ORCHESTRATOR_CONTROLLER_TOKEN': token}), \
+             contextlib.redirect_stdout(io.StringIO()) as output:
+            main()
+        self.assertEqual(json.loads(output.getvalue())['nativeMembership']['projectId'], 'native-a')
+        self.ledger.release(token, 'Native membership retained')
+        brain_handoff.receipt(self.ledger, self._write_native_log(prepared))
+        with self.assertRaises(Refusal):
+            self.controls.finalize_preview(self.registry, self.ledger, 'owner-session')
+        token = self.ledger.acquire(old + ':membership')
+        observed_at = time.time()
+        brain_handoff.native_observation(self.ledger, token, self._native_result(), observed_at)
+        brain_handoff.native_observation(self.ledger, token, self._native_result(), observed_at)
+        with self.assertRaises(Refusal):
+            brain_handoff.native_observation(self.ledger, token, self._native_result(title='Changed result'), observed_at)
+        self.ledger.release(token, 'Native membership recorded')
+        final = self.controls.finalize_preview(self.registry, self.ledger, 'owner-session')
+        self.assertEqual(final['handoff']['status'], 'received')
+        token = self.ledger.acquire(old + ':membership-refresh')
+        brain_handoff.native_observation(self.ledger, token, self._native_result(title='Refreshed result'), time.time() + 0.01)
+        self.ledger.release(token, 'Membership refreshed')
+        with self.assertRaises(Refusal):
+            self.controls.finalize(self.registry, self.ledger,
+                                   {'preview': final['preview'], 'signature': final['signature'], 'confirmed': True},
+                                   'owner-session')
+        with self.ledger.tx() as db:
+            meta = self.ledger.get(db, 'meta', 1)
+            meta['brainHandoff']['nativeMembership']['observedAt'] -= 7200
+            self.ledger.put(db, 'meta', 1, meta)
+        with self.assertRaises(Refusal):
+            self.controls.finalize_preview(self.registry, self.ledger, 'owner-session')
 
     def test_receipt_requires_exact_final_reply_after_preparation(self):
         prepared = self.prepare()

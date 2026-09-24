@@ -116,7 +116,10 @@ class BrainNotifier:
                 "The replacement must read the exact package, then emit the standalone "
                 "CODEX_ORCHESTRATOR_HANDOFF_RECEIPT_V1 line in its final reply, using "
                 "orchestrator.brain_handoff.receipt_marker on the handoff ID, package hash and bounded summary. "
-                "After that reply is retained, the old brain records brain-handoff-receipt with the native task ID; "
+                "After that reply is retained, the old brain records brain-handoff-receipt with the native task ID, "
+                "then acquires the controller to import a fresh native Codex list_threads result showing that task "
+                "idle in the exact project/host using brain-handoff-native-observation and its original observation time. "
+                "Release the controller before owner review; "
                 "a supplied summary alone is refused. The owner must "
                 "review and confirm final rebinding in the dashboard. No Play, Resume or worker effect follows automatically."
             )

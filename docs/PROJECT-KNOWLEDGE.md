@@ -100,8 +100,24 @@ candidate's native task ID. The reader checks the
 task ID, reviewed Git checkout identity, post-preparation final reply and exact
 package/summary marker; it retains the native record hash and observation time, not the
 transcript. The native project membership is still a brain-observed claim in
-this adapter, not independent Codex attestation. The owner must review that
-boundary before final rebinding; a missing native log or marker blocks it.
+the candidate record. Before final rebinding, the old brain must also import
+a bounded native `list_threads` result containing exactly one matching Codex
+task, project ID and host ID:
+
+```sh
+python3 -m orchestrator.cli --platform /private/platform --workspace EXACT_PROJECT brain-handoff-native-observation /private/list-threads.json --observed-at ORIGINAL_UNIX_SECONDS
+```
+
+Call this after the replacement's final reply, while the old brain owns the
+controller, then release the controller before final owner review. A result
+showing the replacement still active may be retained, but final review waits
+for a fresh result showing it idle. This stores only exact membership and
+status, the result hash and observation time; titles,
+summaries and unrelated task rows are discarded. The observation must follow
+the candidate, be no older than one hour at final review, and agree with the
+reviewed project binding. It is a brain-imported native tool result, **not** a
+cryptographic Codex-host attestation. The owner must review that boundary;
+a missing task-list observation, native log or marker blocks final rebinding.
 The ledger commits the binding first; if the second database commit is
 interrupted, project opening fails closed on its identity check. The explicit
 `brain-handoff-recover HANDOFF_ID --confirm` CLI operation repairs only that
