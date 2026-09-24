@@ -55,7 +55,14 @@ function all(root){return [root,...root.children.flatMap(x=>x instanceof Element
     receipt:{summary:'Exact package reviewed'},receiptEvidence:{source:'local_native_final_reply',observedAt:1}}};
   nodes=all(render());
   assert.ok(nodes.some(n=>String(n.text).includes('Native final reply observed')));
-  assert.ok(nodes.some(n=>String(n.text).includes('not independently attested')));
+  assert.ok(nodes.some(n=>String(n.text).includes('separate Codex task-list observation')));
+  assert.ok(!nodes.some(n=>n.text==='Review replacement receipt'));
+  assert.ok(nodes.some(n=>String(n.text).includes('fresh idle Codex task-list observation')));
+  box.state.brainHandoff.handoff.nativeMembership={projectId:'native-a',hostId:'local',status:'active',observedAt:Date.now()/1000};
+  assert.ok(!all(render()).some(n=>n.text==='Review replacement receipt'));
+  box.state.brainHandoff.handoff.nativeMembership.status='idle';
+  nodes=all(render());
+  assert.ok(nodes.some(n=>String(n.text).includes('Codex task list: native-a')));
   assert.ok(nodes.some(n=>n.text==='Review replacement receipt'));
   box.state.standard={available:false,catalogRequired:true,contextHash:'missing',boundary:'Partial observations',catalog:null,run:null,
     blocker:'Brain must record the available native model/effort catalog (valid for 24 hours)',catalogRefresh:null};

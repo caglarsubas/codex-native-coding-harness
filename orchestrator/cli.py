@@ -58,7 +58,9 @@ def main():
     sub.add_parser("brain-handoff-status", help="Read the prepared/reviewed replacement state")
     p = sub.add_parser("brain-handoff-candidate", help="Old brain records one native replacement task")
     p.add_argument("request", type=Path)
-    p = sub.add_parser("brain-handoff-receipt", help="Replacement records package understanding before owner rebinding")
+    p = sub.add_parser("brain-handoff-native-observation", help="Import bounded Codex list_threads membership for the exact candidate")
+    p.add_argument("result", type=Path); p.add_argument("--observed-at", type=float, required=True)
+    p = sub.add_parser("brain-handoff-receipt", help="Record a replacement final-answer package acknowledgment before owner rebinding")
     p.add_argument("request", type=Path)
     p = sub.add_parser("brain-handoff-recover", help="Owner repair of an interrupted, ledger-committed registry rebind only")
     p.add_argument("handoff_id"); p.add_argument("--confirm", action="store_true")
@@ -337,6 +339,12 @@ def main():
             raise Refusal("Explicit registered standard project required")
         from . import brain_handoff
         if action == "brain-handoff-status": out = brain_handoff.status(ledger)
+        elif action == "brain-handoff-native-observation":
+            from .observations import read_regular
+            from .standard import private_token
+            path = args.result.absolute()
+            observed = json.loads(read_regular(path, path.parent, 1_000_000))
+            out = brain_handoff.native_observation(ledger, token or private_token(ledger), observed, args.observed_at)
         else:
             from .observations import read_regular
             path = args.request.absolute()
