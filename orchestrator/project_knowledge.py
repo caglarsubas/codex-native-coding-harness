@@ -29,6 +29,7 @@ MAX_TOTAL = 32 * 1024 * 1024
 MAX_QUERY = 300
 MAX_EXCERPTS = 24 * 1024
 STOP_WORDS = {"a", "an", "and", "are", "as", "at", "be", "by", "do", "does", "for", "from", "how", "in", "is", "of", "on", "or", "the", "to", "was", "were", "what", "when", "where", "which", "who", "with"}
+PEM_PRIVATE_KEY = re.compile(rb"(?m)^[ \t]*-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[ \t]*\r?$")
 
 
 def _git(repo, *args, timeout=15, maximum=MAX_TOTAL + 1000):
@@ -112,8 +113,7 @@ def source_manifest(ledger, repository, prefixes):
             continue
         raw = _git(repo, "show", fields[2].decode(), maximum=MAX_FILE + 1)
         require(len(raw) <= MAX_FILE, "Allowlisted source exceeds per-file bound")
-        require(b"-----BEGIN PRIVATE KEY-----" not in raw and b"-----BEGIN OPENSSH PRIVATE KEY-----" not in raw,
-                "Secret-bearing source cannot be indexed")
+        require(not PEM_PRIVATE_KEY.search(raw), "Secret-bearing source cannot be indexed")
         total += len(raw)
         require(total <= MAX_TOTAL and len(files) < MAX_FILES, "Knowledge source limit exceeded")
         try:
@@ -157,9 +157,6 @@ def _provider(provider, stage):
     require(exe.is_file() and not exe.is_symlink() and os.access(exe, os.X_OK), "Pinned Graphify binary unavailable")
     require(exe.stat().st_size <= MAX_TOTAL and hashlib.sha256(exe.read_bytes()).hexdigest() == provider["sha256"],
             "Graphify executable digest differs from the reviewed pin")
-    version = subprocess.run([str(exe), "--version"], capture_output=True, timeout=10, check=False)
-    require(version.returncode == 0 and GRAPHIFY_VERSION.encode() in version.stdout + version.stderr,
-            "Graphify version differs from the reviewed pin")
     # Explicit allowlist removes model credentials and provider endpoints.
     env = {key: os.environ[key] for key in ("PATH", "LANG", "LC_ALL") if key in os.environ}
     env["HOME"] = str(stage)
@@ -167,7 +164,11 @@ def _provider(provider, stage):
     env["XDG_CONFIG_HOME"] = str(stage)
     env["XDG_CACHE_HOME"] = str(stage)
     env["PYTHONDONTWRITEBYTECODE"] = "1"
-    result = subprocess.run([str(exe), "extract", str(stage / "src"), "--code-only", "--out", str(stage)],
+    version = subprocess.run([str(exe), "--version"], env=env, capture_output=True, timeout=10, check=False)
+    require(version.returncode == 0 and GRAPHIFY_VERSION.encode() in version.stdout + version.stderr,
+            "Graphify version differs from the reviewed pin")
+    result = subprocess.run([str(exe), "extract", str(stage / "src"), "--code-only", "--no-cluster",
+                             "--max-workers", "2", "--out", str(stage)],
                             cwd=stage, env=env, capture_output=True, timeout=180, check=False)
     require(result.returncode == 0, "Graphify code-only extraction failed")
     graph = stage / "graphify-out" / "graph.json"

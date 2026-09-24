@@ -227,9 +227,9 @@ See [the architecture and sequence](PROJECT-KNOWLEDGE.md) and
 standard-project tooling increments. Source delivery, installation, live
 activation and strict Harness qualification are separate.
 
-- [ ] KNW-01: phase-attributed local usage with explicit gaps, high-water accounting, checkpoint context and fresh admission checks
-- [ ] KNW-02: private, versioned project knowledge index with optional pinned Graphify code-only provider and authoritative record links
-- [ ] KNW-03: bounded project-scoped search, citations, freshness and Knowledge page/brain CLI access
+- [x] KNW-01: phase-attributed local usage with explicit gaps, high-water accounting, checkpoint context and fresh admission checks (local source qualification; provider billing remains outside scope)
+- [x] KNW-02: private, versioned project knowledge index with optional pinned Graphify code-only provider and authoritative record links (disposable Graphify extraction verified; no live installation)
+- [x] KNW-03: bounded project-scoped search, citations, freshness and Knowledge page/brain CLI access (fixed retrieval and isolated rendered dashboard verified)
 - [ ] KNW-04: immutable checkpoint package and owner-confirmed safe brain handoff with preserved authority and usage
 - [ ] KNW-05: full local regression, 20-question retrieval evaluation, disposable-project handoff and separate rollout evidence
 
