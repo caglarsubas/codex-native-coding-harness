@@ -18,7 +18,7 @@ ACK = re.compile(rf"Queued message ({UUID}) for thread ({UUID})\.")
 TIMEOUT = 8
 NOTIFY_KINDS = {"decision_response", "resume", "reconcile", "checkpoint", "archive", "brain_stop", "brain_resume",
                 "approve", "hold", "prioritize", "listening", "pause", "standard_play", "standard_pause", "standard_resume",
-                "standard_catalog_refresh"}
+                "standard_catalog_refresh", "brain_handoff"}
 
 
 class BrainNotifier:
@@ -102,7 +102,21 @@ class BrainNotifier:
             "Reconcile superseded or completed requests without replay. This notification itself grants no packet approval, "
             "target access, workers, acceptance runs, model/effort changes or merges."
         )
-        if command["kind"] == "standard_catalog_refresh":
+        if command["kind"] == "brain_handoff":
+            source = Path(__file__).resolve().parent.parent
+            message = (
+                "An owner-reviewed standard brain handoff package is prepared. "
+                f"Use source {json.dumps(str(source))}, platform {json.dumps(str(ledger.platform_root))}, "
+                f"workspace {ledger.workspace_id}. Inspect brain-handoff-status and retained package "
+                f"{command['payload']['packageHash']}. Verify the saved checkpoint and current controller state. "
+                "Acquire the standard controller only for this bounded handoff. Create at most one replacement Codex task "
+                "in the exact bound native project, with the package hash and a bounded inheritance seed. "
+                "Record the native task identity and its project observation with "
+                "brain-handoff-candidate. If creation is uncertain, stop; never resend. Release the old controller, "
+                "then have the replacement task read the package and record brain-handoff-receipt. The owner must "
+                "review and confirm final rebinding in the dashboard. No Play, Resume or worker effect follows automatically."
+            )
+        elif command["kind"] == "standard_catalog_refresh":
             source = Path(__file__).resolve().parent.parent
             message = (
                 "A committed read-only standard-project capability refresh needs your receipt. "

@@ -120,6 +120,8 @@ def current_blockers(ledger, db, run):
         require(time.time() < run["expiresAt"], "Run duration expired: checkpoint required")
     except (Refusal, ValueError) as error:
         problems.append(str(error))
+    from .brain_memory import blockers as usage_blockers
+    problems.extend(usage_blockers(run))
     return problems
 
 
@@ -157,6 +159,19 @@ def projection(ledger, db):
         result["unmeasuredTasks"] = sum(t.get("observedTokens") is None for t in run["tasks"])
         result["chargedAllowance"] = charged(run)
         result["remainingAllowance"] = max(0, run["limits"]["tokenBudget"]-result["chargedAllowance"]-run["limits"]["checkpointReserveTokens"])
+        usage = run.get("usageReport")
+        result["measuredUsage"] = None if not usage else {
+            "tokens": usage["tokens"], "coverage": usage["coverage"], "gaps": usage["gaps"],
+            "collectedAt": usage["collectedAt"], "through": usage["through"],
+            "highWater": run.get("usageHighWater", 0),
+            "remainingMeasured": None if usage["gaps"] else max(0, run["limits"]["tokenBudget"]
+                - max(usage["tokens"]["total_tokens"], run.get("usageHighWater", 0))
+                - run["limits"]["checkpointReserveTokens"])}
+        closeout = run.get("closeoutReport")
+        result["closeoutUsage"] = None if not closeout else {
+            "tokens": closeout["tokens"], "coverage": closeout["coverage"],
+            "gaps": closeout["gaps"], "collectedAt": closeout["collectedAt"],
+            "highWater": run.get("closeoutHighWater", 0)}
         if run["status"] in ("completed", "blocked"):
             m = missions.state_in(ledger, db)
             if m.get("document") and m["document"]["spec"]["phase"]["id"] == run["phaseId"]:
@@ -215,7 +230,8 @@ def request_catalog_refresh(ledger, request):
 
 
 def charged(run):
-    return run["brainAllowance"] + sum(max(t["allowance"], t.get("observedTokens") or 0) for t in run["tasks"])
+    return max(run["brainAllowance"], run.get("brainObservedTokens", 0)) + sum(
+        max(t["allowance"], t.get("observedTokens") or 0) for t in run["tasks"])
 
 
 def read(ledger):
@@ -244,8 +260,12 @@ class Controls:
         return hmac.new(self.key, canonical(value).encode(), hashlib.sha256).hexdigest()
 
     def preview(self, ledger, request, session):
-        exact(request, "operation contextHash brainAllowance durationHours")
+        require(set(request) in ({"operation", "contextHash", "brainAllowance", "durationHours"},
+                                 {"operation", "contextHash", "brainAllowance", "durationHours", "measureUsage"}),
+                "Unexpected standard control fields")
         require(request["operation"] in ("play", "pause", "resume"), "Unknown run control")
+        require("measureUsage" not in request or type(request["measureUsage"]) is bool,
+                "Measured usage choice must be explicit")
         state = read(ledger)
         require(state["contextHash"] == request["contextHash"], "Run changed; refresh before reviewing")
         missions.integer(request["brainAllowance"], "Brain allowance", 1, 1_000_000_000)
@@ -285,6 +305,10 @@ class Controls:
                 run["status"] = "running"
             else:
                 require(projection(ledger, db)["available"], "Standard Play prerequisites are missing")
+                if doc.get("measureUsage"):
+                    from .observations import config as observation_config
+                    require(observation_config(ledger).get("codexHome"),
+                            "Configure the local Codex log root before activating measured usage")
                 require(run is None or run["status"] in ("completed", "blocked"), "Existing run needs its checkpoint or Resume")
                 require(run is None or not any(t["status"] not in TERMINAL for t in run["tasks"]), "Unresolved native tasks retain ownership")
                 require(run is None or not any(m["status"] in ("issued", "uncertain") for m in run.get("merges", [])), "Unresolved merge retains its run")
@@ -298,6 +322,7 @@ class Controls:
                        "brainId": meta["brainId"], "startedAt": time.time(), "expiresAt": time.time()+doc["durationHours"]*3600,
                        "limits": spec["authority"], "catalog": meta["standardCatalog"], "identities": identities,
                        "brainAllowance": doc["brainAllowance"], "brainObservedTokens": 0, "brainUsageCoverage": "not_observed",
+                       "usageGuardVersion": 1 if doc.get("measureUsage") else None,
                        "tasks": [], "checkpoint": None, "ownerReceipt": doc}
             save(ledger, db, meta, run, op)
             command = {"id": doc["id"], "kind": "standard_"+op, "actor": "dashboard", "status": "queued",
@@ -419,6 +444,12 @@ def brain(registry, ledger, token, request):
                     "instructions": missions.text(request["instructions"], "Instructions", 16000),
                     "acceptance": missions.strings(request["acceptance"], "Acceptance"), "task": task,
                     "checkpoint": run["checkpoint"], "boundary": BOUNDARY}
+            from .project_knowledge import seed_references
+            try:
+                seed["sourceReferences"] = seed_references(ledger, repo["id"], repo["path"], paths)
+            except (Refusal, OSError, ValueError):
+                seed["sourceReferences"] = {"status": "unavailable", "items": [],
+                                            "boundary": "Knowledge is optional; inspect authorized source directly"}
             key = digest(seed)
             db.execute("INSERT INTO snapshots VALUES(?,?,?)", (key, "standard_seed", canonical(seed)))
             task.update(status="claimed", seedHash=key, repositoryIdentity=identity, createdAt=time.time(), observedTokens=None,
@@ -523,6 +554,8 @@ def brain(registry, ledger, token, request):
                 missions.integer(observed, "Brain observed tokens", run["brainObservedTokens"], 10**12)
                 run.update(brainObservedTokens=observed, brainUsageCoverage="observed_partial", brainAllowance=max(observed, run["brainAllowance"]))
             run.update(status=request["outcome"], checkpoint={"summary": missions.text(request["summary"], "Checkpoint", 8000), "at": time.time()})
+            from .brain_memory import capsule
+            capsule(ledger, db, run, request["summary"])
         else:
             raise Refusal("Unknown standard brain operation")
         save(ledger, db, meta, run, operation)

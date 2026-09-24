@@ -3,6 +3,7 @@ from pathlib import Path
 import tempfile
 import threading
 import unittest
+import subprocess
 from unittest.mock import patch
 
 from orchestrator.core import Ledger
@@ -80,6 +81,33 @@ class WorkspaceServerTest(unittest.TestCase):
         _, _, raw = self.request("/api/workspaces/b/brain-conversation", headers=auth_b)
         self.assertEqual(json.loads(raw)["messages"], [])
         self.assertEqual(self.request("/conversation.js")[0], 200)
+
+    def test_knowledge_routes_require_auth_csrf_and_exact_project(self):
+        repo = self.root / 'source-a'
+        (repo / 'src').mkdir(parents=True)
+        (repo / 'src' / 'service.py').write_text('def project_alpha_only():\n    return True\n')
+        subprocess.run(['git', '-C', str(repo), 'init', '-q'], check=True)
+        subprocess.run(['git', '-C', str(repo), 'add', '.'], check=True)
+        subprocess.run(['git', '-C', str(repo), '-c', 'user.email=test@example.invalid',
+                        '-c', 'user.name=Fixture', 'commit', '-qm', 'initial'], check=True)
+        with self.ledgers['a'].tx() as db:
+            self.ledgers['a'].put(db, 'repos', 'app', {'id': 'app', 'path': str(repo), 'policyProfile': 'standard'})
+        (self.ledgers['a'].root / 'knowledge.json').write_text(json.dumps({
+            'schemaVersion': 1, 'repositories': {'app': ['src/']}, 'graphify': None}))
+        route = '/api/workspaces/a/knowledge/status?repository=app'
+        self.assertEqual(self.request(route)[0], 401)
+        auth = self.auth('a')
+        self.assertEqual(self.request(route, headers=auth)[0], 200)
+        self.assertEqual(self.request('/api/workspaces/b/knowledge/status?repository=app', headers=auth)[0], 200)
+        self.assertEqual(self.request('/api/workspaces/b/knowledge/search?repository=app&query=project_alpha_only', headers=auth)[0], 400)
+        refresh = '/api/workspaces/a/knowledge/refresh'
+        self.assertEqual(self.request(refresh, {'repository': 'app'}, {**auth, 'X-CSRF-Token': 'wrong'})[0], 403)
+        self.assertEqual(self.request(refresh, {'repository': 'app'}, auth)[0], 200)
+        status, _, raw = self.request('/api/workspaces/a/knowledge/search?repository=app&query=project_alpha_only', headers=auth)
+        self.assertEqual(status, 200)
+        hit = json.loads(raw)['results'][0]
+        self.assertEqual(hit['path'], 'src/service.py')
+        self.assertEqual(self.request('/api/workspaces/a/knowledge/source?repository=app&indexHash=bad&path=src/service.py&line=1', headers=auth)[0], 400)
 
     def test_run_readiness_is_explicit_scoped_read_only_and_assistant_history(self):
         from orchestrator import run_readiness

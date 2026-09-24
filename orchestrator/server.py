@@ -71,10 +71,16 @@ class WorkspaceRuntime:
         self.observer_lock = threading.Lock()
         from .standard import Controls
         self.standard_controls = Controls()
+        from .brain_handoff import Controls as HandoffControls
+        self.handoff_controls = HandoffControls()
+        self.usage_lock = threading.Lock()
+        self.knowledge_lock = threading.Lock()
 
     def snapshot(self):
         """Same evidence for workspace and assistant; no model-triggered scans or refresh."""
         state = self.ledger.snapshot()
+        from .project_knowledge import metadata as knowledge_metadata
+        state["knowledgeMetadata"] = knowledge_metadata(self.ledger)
         state["summary"] = aggregate(state)
         state["observationJob"] = self.observation_job.copy()
         state["inference"] = public_status(self.ledger, state, self.inference_env)
@@ -105,7 +111,9 @@ class WorkspaceRuntime:
         if self.registry:
             from .standard import read as standard_read
             from .projects import display_name
+            from .brain_handoff import status as handoff_status
             state["standard"] = standard_read(self.ledger)
+            state["brainHandoff"] = handoff_status(self.ledger)
             state["workspace"] = {"id": self.workspace_id,
                 "name": display_name(self.registry, self.workspace_id, next(w["name"] for w in self.registry.list() if w["id"] == self.workspace_id)),
                 "projectProfile": self.registry.profile(self.workspace_id)}
@@ -238,7 +246,7 @@ class Handler(BaseHTTPRequestHandler):
         static["/decisions.css"] = ("decisions.css", "text/css; charset=utf-8")
         static["/conversation.js"] = ("conversation.js", "text/javascript; charset=utf-8")
         static["/auth.js"] = ("auth.js", "text/javascript; charset=utf-8")
-        for file in ("session-map.js", "session-map.css", "panes.js", "assistant.js", "routing.js", "workspaces.js", "missions.js", "standard.js", "workspace-pause.js", "run-readiness.js", "phase-checkpoints.js", "checkpoint-controls.js", "rereview.js", "model-controls.js", "observer-controls.js", "budget.js", "retention.js", "task-contracts.js", "panes.css"):
+        for file in ("session-map.js", "session-map.css", "panes.js", "assistant.js", "routing.js", "workspaces.js", "missions.js", "standard.js", "knowledge.js", "workspace-pause.js", "run-readiness.js", "phase-checkpoints.js", "checkpoint-controls.js", "rereview.js", "model-controls.js", "observer-controls.js", "budget.js", "retention.js", "task-contracts.js", "panes.css"):
             static["/" + file] = (file, "text/javascript; charset=utf-8" if file.endswith(".js") else "text/css; charset=utf-8")
         if path in static:
             file, mime = static[path]
@@ -265,6 +273,35 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(200, {"csrf": scoped_csrf(session, workspace_id), "workspaceId": workspace_id})
             if path == "/api/profile" and workspace_id:
                 return self.respond(200, self.server.registry.profile(workspace_id))
+            if path == "/api/brain-handoff" and workspace_id:
+                if urlsplit(self.path).query:
+                    raise Refusal("Handoff status accepts no query parameters")
+                from .brain_handoff import status
+                return self.respond(200, status(runtime.ledger))
+            if path in ("/api/knowledge/status", "/api/knowledge/search", "/api/knowledge/source", "/api/knowledge/direct-source", "/api/knowledge/records", "/api/knowledge/related") and workspace_id:
+                from . import project_knowledge
+                query = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
+                expected = ({"repository"} if path.endswith("/status") else
+                            {"repository", "query"} if path.endswith(("/search", "/records")) else
+                            {"repository", "indexHash", "path"} if path.endswith("/related") else
+                            {"repository", "commit", "blob", "path", "line"} if path.endswith("/direct-source") else
+                            {"repository", "indexHash", "path", "line"})
+                if set(query) != expected or any(len(value) != 1 for value in query.values()):
+                    raise Refusal("Exact project knowledge query required")
+                repository = query["repository"][0]
+                if path.endswith("/status"): result = project_knowledge.status(runtime.ledger, repository)
+                elif path.endswith("/search"): result = project_knowledge.search(runtime.ledger, repository, query["query"][0])
+                elif path.endswith("/records"): result = project_knowledge.record_links(runtime.ledger, repository, query["query"][0])
+                elif path.endswith("/related"): result = project_knowledge.related(runtime.ledger, repository, query["indexHash"][0], query["path"][0])
+                elif path.endswith("/direct-source"):
+                    try: line = int(query["line"][0])
+                    except ValueError as error: raise Refusal("Positive source line required") from error
+                    result = project_knowledge.direct_source(runtime.ledger, repository, query["commit"][0], query["blob"][0], query["path"][0], line)
+                else:
+                    try: line = int(query["line"][0])
+                    except ValueError as error: raise Refusal("Positive source line required") from error
+                    result = project_knowledge.source(runtime.ledger, repository, query["indexHash"][0], query["path"][0], line)
+                return self.respond(200, result)
             if path == "/api/brain-conversation":
                 from .conversation import read
                 query = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
@@ -471,6 +508,40 @@ class Handler(BaseHTTPRequestHandler):
                     raise Refusal("Catalog refresh accepts no query parameters")
                 from .standard import request_catalog_refresh
                 return self.respond(200, runtime.notify_control(request_catalog_refresh(runtime.ledger, body)))
+            if path == "/api/standard/usage-refresh" and workspace_id:
+                if urlsplit(self.path).query or not isinstance(body, dict) or set(body) != {"runId"}:
+                    raise Refusal("Exact run ID required for usage refresh")
+                if not runtime.usage_lock.acquire(blocking=False):
+                    return self.respond(409, {"error": "Usage refresh already running"})
+                try:
+                    from .brain_memory import refresh
+                    return self.respond(200, refresh(runtime.ledger, body["runId"]))
+                finally:
+                    runtime.usage_lock.release()
+            if path in ("/api/brain-handoff/preview", "/api/brain-handoff/confirm",
+                        "/api/brain-handoff/final-preview", "/api/brain-handoff/final-confirm") and workspace_id:
+                if urlsplit(self.path).query:
+                    raise Refusal("Brain handoff controls accept no query parameters")
+                if path.endswith("/final-preview"):
+                    require_body = body == {}
+                    if not require_body: raise Refusal("Final review needs an empty request")
+                    return self.respond(200, runtime.handoff_controls.finalize_preview(runtime.registry, runtime.ledger, csrf))
+                if path.endswith("/final-confirm"):
+                    return self.respond(200, runtime.handoff_controls.finalize(runtime.registry, runtime.ledger, body, csrf))
+                if path.endswith("/preview"):
+                    if body != {}: raise Refusal("Handoff review needs an empty request")
+                    return self.respond(200, runtime.handoff_controls.preview(runtime.registry, runtime.ledger, csrf))
+                return self.respond(200, runtime.notify_control(runtime.handoff_controls.confirm(runtime.registry, runtime.ledger, body, csrf)))
+            if path == "/api/knowledge/refresh" and workspace_id:
+                if urlsplit(self.path).query or not isinstance(body, dict) or set(body) != {"repository"}:
+                    raise Refusal("Exact repository required for knowledge refresh")
+                if not runtime.knowledge_lock.acquire(blocking=False):
+                    return self.respond(409, {"error": "Knowledge refresh already running"})
+                try:
+                    from .project_knowledge import refresh
+                    return self.respond(200, refresh(runtime.ledger, body["repository"]))
+                finally:
+                    runtime.knowledge_lock.release()
             if path in ("/api/standard/preview", "/api/standard/confirm") and workspace_id:
                 if urlsplit(self.path).query:
                     raise Refusal("Standard controls accept no query parameters")
