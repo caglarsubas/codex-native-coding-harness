@@ -90,6 +90,18 @@ checkpoint and controller release. A candidate task and its package receipt are 
 the owner confirms the actual binding change. Neither review starts Play,
 resumes a phase, resets usage, installs a skill or restarts a service. Uncertain
 native creation must be reconciled, never retried blindly.
+The replacement must read the retained package and emit the exact standalone
+`CODEX_ORCHESTRATOR_HANDOFF_RECEIPT_V1` line in a final Codex reply. Build that
+line with `orchestrator.brain_handoff.receipt_marker(receipt_body)`, where the
+marker input contains the prepared handoff ID, package hash and a bounded
+summary. Only after that final reply is in the local native session log should
+the old brain submit `brain-handoff-receipt` with those exact fields plus the
+candidate's native task ID. The reader checks the
+task ID, reviewed Git checkout identity, post-preparation final reply and exact
+package/summary marker; it retains the native record hash and observation time, not the
+transcript. The native project membership is still a brain-observed claim in
+this adapter, not independent Codex attestation. The owner must review that
+boundary before final rebinding; a missing native log or marker blocks it.
 The ledger commits the binding first; if the second database commit is
 interrupted, project opening fails closed on its identity check. The explicit
 `brain-handoff-recover HANDOFF_ID --confirm` CLI operation repairs only that

@@ -112,8 +112,12 @@ class BrainNotifier:
                 "Acquire the standard controller only for this bounded handoff. Create at most one replacement Codex task "
                 "in the exact bound native project, with the package hash and a bounded inheritance seed. "
                 "Record the native task identity and its project observation with "
-                "brain-handoff-candidate. If creation is uncertain, stop; never resend. Release the old controller, "
-                "then have the replacement task read the package and record brain-handoff-receipt. The owner must "
+                "brain-handoff-candidate. If creation is uncertain, stop; never resend. Release the old controller. "
+                "The replacement must read the exact package, then emit the standalone "
+                "CODEX_ORCHESTRATOR_HANDOFF_RECEIPT_V1 line in its final reply, using "
+                "orchestrator.brain_handoff.receipt_marker on the handoff ID, package hash and bounded summary. "
+                "After that reply is retained, the old brain records brain-handoff-receipt with the native task ID; "
+                "a supplied summary alone is refused. The owner must "
                 "review and confirm final rebinding in the dashboard. No Play, Resume or worker effect follows automatically."
             )
         elif command["kind"] == "standard_catalog_refresh":

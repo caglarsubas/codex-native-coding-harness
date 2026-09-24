@@ -159,7 +159,10 @@ function standardBrainHandoff(panel){
   panel.append(section('Brain handoff','A replacement is reviewed at a saved checkpoint. The project retains its usage and authority history.'));
   if(handoff)panel.append(el('p',`${handoff.status} · package ${handoff.packageHash} · old task ${handoff.oldBrainId}`,'subline'));
   if(handoff?.candidate)panel.append(el('p',`Candidate ${handoff.candidate.taskId} · ${handoff.candidate.projectId} · ${handoff.candidate.observation}`,'subline'));
-  if(handoff?.receipt)panel.append(el('p',`Replacement receipt: ${handoff.receipt.summary}`,'subline'));
+  if(handoff?.receipt){
+    panel.append(el('p',`Replacement receipt: ${handoff.receipt.summary}`,'subline'));
+    panel.append(el('p',`Native final reply observed ${handoff.receiptEvidence?.observedAt?new Date(handoff.receiptEvidence.observedAt*1000).toLocaleString():'unknown'} · project membership brain-observed, not independently attested`,'subline'));
+  }
   if(!handoff||['cancelled','complete'].includes(handoff.status))panel.append(button('Review brain handoff',async()=>{
     try{handoffPreviews.set(workspaceId,{stage:'prepare',...(await api('/api/brain-handoff/preview',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:'{}'}))});render();}
     catch(error){showNotice(error.message,true);}

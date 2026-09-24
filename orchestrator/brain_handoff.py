@@ -13,6 +13,64 @@ from .standard import PROTOCOL, TERMINAL, read_db, save
 from .decisions import authorize_brain
 
 UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\Z")
+RECEIPT_PREFIX = "CODEX_ORCHESTRATOR_HANDOFF_RECEIPT_V1 "
+
+
+def receipt_marker(value):
+    """The replacement emits this exact standalone line in its final answer."""
+    return RECEIPT_PREFIX + canonical({key: value[key] for key in ("handoffId", "packageHash", "summary")})
+
+
+def _native_receipt(path, task_id, marker, created_at):
+    """Corroborate a bounded final native reply without retaining its transcript."""
+    from .activity import HEADER_BYTES, TAIL_BYTES, open_regular
+    from .observations import stamp
+    with open_regular(path) as stream:
+        first = stream.readline(HEADER_BYTES + 1)
+        require(len(first) <= HEADER_BYTES and first.endswith(b"\n"), "Invalid native session header")
+        try:
+            header = json.loads(first)
+        except (ValueError, UnicodeError):
+            raise Refusal("Invalid native session header") from None
+        if not isinstance(header, dict):
+            return None
+        payload = header.get("payload", {})
+        if not isinstance(payload, dict):
+            return None
+        if header.get("type") != "session_meta" or payload.get("id") != task_id or payload.get("forked_from_id"):
+            return None
+        size = stream.seek(0, 2)
+        start = max(len(first), size - TAIL_BYTES)
+        stream.seek(start)
+        if start > len(first):
+            stream.readline(TAIL_BYTES + 1)  # Drop an incomplete leading record.
+        raw = stream.read(TAIL_BYTES)
+    matches = []
+    for line in raw.splitlines(keepends=True):
+        if not line.endswith(b"\n") or len(line) > 16_384:
+            continue
+        try:
+            record = json.loads(line)
+        except (ValueError, UnicodeError):
+            continue
+        if not isinstance(record, dict):
+            continue
+        message = record.get("payload", {})
+        if not isinstance(message, dict):
+            continue
+        if (record.get("type") != "response_item" or message.get("type") != "message"
+                or message.get("role") != "assistant" or message.get("phase") not in ("final", "final_answer")):
+            continue
+        at = stamp(record.get("timestamp"))
+        if at is None or at < created_at or at > time.time() + 5:
+            continue
+        content = message.get("content")
+        for part in content if isinstance(content, list) else []:
+            if isinstance(part, dict) and part.get("type") == "output_text" and isinstance(part.get("text"), str):
+                if any(text == marker for text in part["text"].splitlines()):
+                    matches.append({"observedAt": at, "recordHash": hashlib.sha256(line).hexdigest()})
+    require(len(matches) <= 1, "Ambiguous native handoff receipt")
+    return matches[0] if matches else None
 
 
 def _project(registry, workspace, db=None):
@@ -246,7 +304,7 @@ def receipt(ledger, value):
         if handoff["receipt"]:
             require(handoff["receipt"] == value, "Replacement receipt changed")
             return handoff
-        from .activity import candidates, open_regular
+        from .activity import HEADER_BYTES, candidates, open_regular
         from .observations import config as observation_config
         from .standard import git_root
         home = observation_config(ledger).get("codexHome")
@@ -254,10 +312,20 @@ def receipt(ledger, value):
         paths = candidates(Path(home), value["taskId"])
         require(paths, "Replacement native session has not been observed locally")
         observed = False
+        native_evidence = None
         for path in paths:
             with open_regular(path) as stream:
-                header = json.loads(stream.readline(8193))
+                first = stream.readline(HEADER_BYTES + 1)
+            require(len(first) <= HEADER_BYTES and first.endswith(b"\n"), "Invalid native session header")
+            try:
+                header = json.loads(first)
+            except (ValueError, UnicodeError):
+                raise Refusal("Invalid native session header") from None
+            if not isinstance(header, dict):
+                continue
             payload = header.get("payload", {})
+            if not isinstance(payload, dict):
+                continue
             if header.get("type") != "session_meta" or payload.get("id") != value["taskId"] or payload.get("forked_from_id"):
                 continue
             cwd = payload.get("cwd")
@@ -265,11 +333,17 @@ def receipt(ledger, value):
                 try:
                     if git_root(cwd) in run["identities"].values():
                         observed = True
-                        break
+                        evidence = _native_receipt(path, value["taskId"], receipt_marker(value), handoff["createdAt"])
+                        if evidence is not None:
+                            native_evidence = evidence
+                            break
                 except (OSError, Refusal, ValueError):
                     pass
         require(observed, "Replacement task checkout does not match the reviewed repository identity")
-        handoff.update(receipt=value, status="received", receivedAt=time.time())
+        require(native_evidence is not None, "Replacement task has not acknowledged the exact package in a final native reply")
+        handoff.update(receipt=value, receiptEvidence={"source": "local_native_final_reply", **native_evidence,
+                       "nativeProjectMembership": "brain_observed_not_independently_attested"},
+                       status="received", receivedAt=time.time())
         meta["brainHandoff"] = handoff
         ledger.put(db, "meta", 1, meta)
         ledger.event(db, "brain_handoff_received", {"id": value["handoffId"], "taskId": value["taskId"]})
