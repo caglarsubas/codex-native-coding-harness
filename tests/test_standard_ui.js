@@ -14,7 +14,7 @@ const box={Map,Set,JSON,Math,String,crypto:{randomUUID:()=>`request-${sent.lengt
   callout:(a,b)=>new Element('p',a+' '+b),num:String,when:String,textCell:(a,b)=>a+' '+b,
   missionDocument(){},render(){},updateWorkspaceSelector(){},refresh:async()=>{},showNotice:(message)=>messages.push(message),
   api:async(path,opts)=>{sent.push({path,body:JSON.parse(opts.body)});if(path.endsWith('preview'))return {preview:{operation:'play',contextHash:'h',brainAllowance:1,durationHours:8,expiresAt:Date.now()/1000+300},signature:'signed'};return {result:'Recorded'};}};
-vm.createContext(box);vm.runInContext(fs.readFileSync('web/standard.js','utf8'),box);
+vm.createContext(box);vm.runInContext(fs.readFileSync('web/summaries.js','utf8'),box);vm.runInContext(fs.readFileSync('web/standard.js','utf8'),box);
 const render=(mode)=>{const root=new Element('root');box.standardPanel(root,mode);return root;};
 function all(root){return [root,...root.children.flatMap(x=>x instanceof Element?all(x):[])];}
 (async()=>{

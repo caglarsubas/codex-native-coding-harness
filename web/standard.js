@@ -114,7 +114,7 @@ function standardPanel(root,mode='all'){
         return [textCell(m.prUrl,m.headSHA),m.status,evidence];
       })));
     }
-    if(run.checkpoint)panel.append(el('p',run.checkpoint.summary,'checkpoint'));
+    if(run.checkpoint)panel.append(phaseNarrative(run.checkpoint.summary,run.tasks));
     if(run.tasks.length)panel.append(table(['Task / settings requested','Progress','Evidence'],run.tasks.map(t=>{
       const links=el('div');missionDocument(links,t.seedHash,'Inheritance seed');
       if(t.result)missionDocument(links,t.result,'Result & preservation');

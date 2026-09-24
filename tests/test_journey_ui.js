@@ -14,7 +14,7 @@ const box={workspaceId:'alpha',busy:false,connected:true,missionDrafts:new Map()
   num:String,when:String,navigateView:view=>calls.push(['navigate',view]),showNotice:text=>notices.push(text),
   reviewStandardControl:(s,op)=>calls.push(['review',op]),requestCatalogForPlay:()=>calls.push(['catalog']),refresh:()=>calls.push(['refresh']),
   commandPresentation:()=>({label:'Delivery unconfirmed',detail:'Do not resend'}),catalogStatus:()=>({title:'Delivery unconfirmed',detail:'Do not resend'}),scheduleCatalogFollowup:()=>{},standardConfirmation:()=>calls.push(['confirmation'])};
-vm.createContext(box);vm.runInContext(fs.readFileSync('web/journey.js','utf8'),box);
+vm.createContext(box);vm.runInContext(fs.readFileSync('web/summaries.js','utf8'),box);vm.runInContext(fs.readFileSync('web/journey.js','utf8'),box);
 const base=()=>({workspace:{id:'alpha',name:'Sample project'},repositories:[{policyProfile:'standard'}],commands:[],
   standard:{available:true,contextHash:'hash',run:null},mission:{effectiveStatus:'reviewed',bindingIssues:[],document:{spec:{
     phase:{id:'phase-1',title:'First phase',checkpoint:'Review independent test results'},authority:{approvalMode:'phase_delegated',tokenBudget:300000,maxParallelTasks:2}}}}});

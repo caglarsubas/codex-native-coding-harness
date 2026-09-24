@@ -29,7 +29,7 @@ function executiveSummary(root) {
  const report=data.latest;
  if(report){
   const meta=el('div',null,'brief-meta');meta.append(badge(data.stale?'stale snapshot':'recent snapshot'),el('span',when(report.generatedAt)+' · '+report.model+' · '+report.durationSeconds+'s'));
-  panel.append(meta,el('p','AI-generated draft · Claims are not independently verified. The model can misinterpret counts, scope or dates; compare the evidence before acting.','brief-review'),el('h3',report.brief.headline,'brief-headline'),el('p',report.brief.summary,'brief-summary'));
+  panel.append(meta,el('p','AI-generated draft · Claims are not independently verified. The model can misinterpret counts, scope or dates; compare the evidence before acting.','brief-review'),el('h3',report.brief.headline,'brief-headline'),narrative(report.brief.summary,'AI executive brief'));
   const columns=el('div',null,'brief-columns');
   [['Needs attention','attention'],['Suggested next steps','nextSteps']].forEach(([title,key])=>{
    const column=el('div');column.append(el('h4',title));const list=el('ul');

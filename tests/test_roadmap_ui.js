@@ -18,7 +18,7 @@ const box={titles:{},workspaceId:'alpha',workspaceGeneration:1,connected:true,bu
   navigateView:(view,id)=>navigation={view,id},showNotice:(message)=>notices.push(message),missionDrafts:drafts,
   openMissionEditor:(source)=>{prepared.push(source);drafts.set(box.workspaceId,{source});return true;},
   state:{meta:{paused:true},workspace:{id:'alpha',projectProfile:{version:0,profile:null}},repositories:[{id:'fixture',policyProfile:'standard'}],standard:{available:false,blocker:'Review an exact mission first',catalog:null,run:null},mission:{effectiveStatus:'not_configured'},observations:{artifacts:[]}}};
-vm.createContext(box);vm.runInContext(fs.readFileSync('web/observations.js','utf8'),box);
+vm.createContext(box);vm.runInContext(fs.readFileSync('web/summaries.js','utf8'),box);vm.runInContext(fs.readFileSync('web/observations.js','utf8'),box);
 vm.runInContext(fs.readFileSync('web/journey.js','utf8'),box);
 const run=code=>vm.runInContext(code,box),nodes=root=>[root,...root.children.flatMap(nodes)],text=root=>nodes(root).map(n=>n.text).join('\n');
 const plan={repository:'fixture',path:'docs/plan.md',title:'Main plan',status:'observed',at:1,commit:'a'.repeat(40),documentId:'b'.repeat(64),documentVersion:2,items:[],

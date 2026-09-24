@@ -9,12 +9,12 @@ function conversationActivity(root,activity){
   for(const phase of activity.phases){
     const article=el('article',null,'brain-exchange');
     article.append(el('h3','Phase '+phase.phaseId+' · '+phase.status),el('p','Recorded '+when(phase.at),'muted'));
-    if(phase.checkpoint)article.append(el('p',phase.checkpoint,'brain-message-text'));
+    if(phase.checkpoint)article.append(phaseNarrative(phase.checkpoint,phase.tasks));
     for(const task of phase.tasks){
       article.append(el('h4',task.title),el('p',task.repository+' · '+task.status,'muted'));
       if(task.issue)article.append(el('p',task.issue,'checkpoint'));
       if(task.evidence){
-        article.append(el('p',task.evidence.summary,'brain-message-text'));
+        article.append(narrative(task.evidence.summary,'Task outcome'));
         const details=el('details');details.append(el('summary','Source, tests & preservation'));
         for(const key of ['source','tests','preservation'])details.append(el('h4',key),el('p',task.evidence[key],'brain-message-text'));
         article.append(details);
@@ -90,8 +90,8 @@ function conversationView(root){
     if(!data.messages.length)history.append(empty('Start here','Ask what is happening or describe your next scoped request. The answer will appear here when the brain retains it.'));
     for(const message of data.messages){
       const article=el('article',null,'brain-exchange'),delivery=brainMessageState(message);
-      article.append(el('h3','You'),el('p',when(message.createdAt),'muted'),el('p',message.message,'brain-message-text'),badge(delivery.label),el('p',delivery.detail,'muted'));
-      if(message.reply){article.append(el('h3','Project brain'),el('p',when(message.reply.at),'muted'),el('p',message.reply.message,'brain-message-text'));
+      article.append(el('h3','You'),el('p',when(message.createdAt),'muted'),narrative(message.message,'Your message'),badge(delivery.label),el('p',delivery.detail,'muted'));
+      if(message.reply){article.append(el('h3','Project brain'),el('p',when(message.reply.at),'muted'),narrative(message.reply.message,'Brain reply'));
         const links=el('div',null,'inline-actions');
         for(const id of message.reply.artifactIds){const item=state.observations?.artifacts?.find(a=>a.id===id);links.append(button(item?'Read '+item.name+' · v'+item.version:'Open retained artifact',()=>navigateView('artifacts',id)));}
         for(const id of message.reply.decisionIds)links.append(button('Review decision',()=>navigateView('decisions',id)));

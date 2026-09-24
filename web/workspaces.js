@@ -141,7 +141,7 @@ function projectIntroduction(root){
   const panel=el('section',null,'project-introduction');
   panel.append(el('p','SELECTED PROJECT · '+workspace.name,'eyebrow'),el('h2',profile?.goal||'Introduce this project'));
   if(profile){
-    panel.append(el('p',profile.roadmap||'Roadmap summary not supplied.','checkpoint'));
+    panel.append(narrative(profile.roadmap||'Roadmap summary not supplied.','Project roadmap'));
     const detail=el('details');detail.append(el('summary','Success criteria, architecture & technology'));
     detail.append(el('h3','Success criteria'));const list=el('ul');profile.successCriteria.forEach(c=>list.append(el('li',c)));detail.append(list);
     detail.append(el('h3','Architecture'),el('p',profile.architecture||'Not supplied.'),el('h3','Technology'),el('p',profile.techStack.join(' · ')||'Not supplied.'));

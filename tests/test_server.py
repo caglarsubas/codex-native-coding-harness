@@ -85,7 +85,7 @@ class ServerTest(unittest.TestCase):
         after=self.ledger.snapshot()
         before.pop("serverTime"); after.pop("serverTime")
         self.assertEqual(before,after)
-        for path in ("/assistant.js","/panes.js","/routing.js","/panes.css","/session-map.js","/session-map.css","/journey.js","/journey.css"):
+        for path in ("/assistant.js","/panes.js","/routing.js","/panes.css","/session-map.js","/session-map.css","/journey.js","/journey.css","/summaries.js"):
             self.assertEqual(self.request(path)[0],200)
 
     def test_unknown_command_and_bad_revision_rejected(self):
