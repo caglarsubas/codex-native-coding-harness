@@ -159,7 +159,12 @@ function standardBrainHandoff(panel){
   panel.append(section('Brain handoff','A replacement is reviewed at a saved checkpoint. The project retains its usage and authority history.'));
   if(readiness?.blockers?.length)panel.append(el('p',`Before owner review: ${readiness.blockers.join(' · ')}`,'muted'));
   if(handoff)panel.append(el('p',`${handoff.status} · package ${handoff.packageHash} · old task ${handoff.oldBrainId}`,'subline'));
+  if(handoff?.status==='prepared')panel.append(el('p',state.brainNotification?.status==='disabled'
+    ?'Preparation was saved, but immediate brain notification is off. Open the designated brain in Codex and ask it to process this exact handoff once; do not confirm preparation again or use Resume.'
+    :'Preparation was saved. The existing brain must create one replacement task; notification delivery alone does not prove creation. Do not use Resume for this handoff.','muted'));
+  if(handoff?.status==='candidate')panel.append(el('p','One replacement task has been recorded. Wait for its final package receipt; do not create or resend another task.','muted'));
   if(handoff?.candidate)panel.append(el('p',`Candidate ${handoff.candidate.taskId} · ${handoff.candidate.projectId} · ${handoff.candidate.observation}`,'subline'));
+  if(handoff?.candidate){const task=el('a','Open replacement task in Codex','button');task.href='codex://threads/'+encodeURIComponent(handoff.candidate.taskId);panel.append(task);}
   if(handoff?.candidate)panel.append(el('p',handoff.nativeMembership
     ?`Codex task list: ${handoff.nativeMembership.projectId} · ${handoff.nativeMembership.hostId} · ${handoff.nativeMembership.status} · observed ${new Date(handoff.nativeMembership.observedAt*1000).toLocaleString()} · brain-imported, not cryptographic attestation`
     :'Codex task-list project membership not yet recorded; final rebinding is blocked.','subline'));
@@ -178,7 +183,9 @@ function standardBrainHandoff(panel){
     try{handoffPreviews.set(workspaceId,{stage:'final',...(await api('/api/brain-handoff/final-preview',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:'{}'}))});render();}
     catch(error){showNotice(error.message,true);}
   }));
-  if(handoff?.status==='received'&&(!readiness?.canFinalize||!membershipFresh))panel.append(el('p','Final review waits for the server-side checkpoint and fresh native evidence gates above. Refresh if this observation has expired.','muted'));
+  if(handoff?.status==='received'&&(!readiness?.canFinalize||!membershipFresh))panel.append(el('p',handoff.nativeMembership
+    ?'Final review waits for every server-side checkpoint gate and fresh idle task evidence. A new native observation is required if this one expires; Refresh alone does not renew it.'
+    :'The receipt is recorded, but final review needs separately verified native task identity and project evidence. Refresh alone cannot supply missing evidence; Resume is unrelated.','muted'));
   if(!pending)return;
   panel.append(el('p',`Review expires ${when(pending.preview.expiresAt)}. ${pending.stage==='prepare'?'The existing brain will create one native replacement and the new task must acknowledge the package.':'This changes the designated brain binding; the phase remains paused.'}`,'muted'));
   if(pending.stage==='prepare')panel.append(el('pre',JSON.stringify(pending.package,null,2),'detail'));
