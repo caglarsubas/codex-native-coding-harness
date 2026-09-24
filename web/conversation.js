@@ -57,6 +57,7 @@ function conversationEntry(root){
   const list=el('ul');state.repositories.forEach(r=>list.append(el('li',r.id+' · '+r.policyProfile)));detail.append(list);panel.append(detail);root.append(panel);
 }
 function conversationView(root){
+  if(typeof journeyReturn==='function')journeyReturn(root,'Brain conversation');
   const key=workspaceId||'legacy',draft=brainDrafts.get(key)||{text:'',confirmed:false,request:null};brainDrafts.set(key,draft);
   const head=el('section');head.append(el('p',(state.workspace?.name||'Current portfolio')+' · '+(state.brainActivity?.title||'Configured Codex brain'),'eyebrow'));
   head.append(el('p','This is the project brain in Codex, not the advisory inference assistant. Project outcomes, platform messages and retained replies appear here; this is not a full Codex transcript.','checkpoint'));

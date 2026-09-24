@@ -4,11 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <title>Codex Orchestrator · Session map</title>
+  <title>Codex Orchestrator · Roadmap &amp; Play</title>
   <link rel="stylesheet" href="/style.css">
   <link rel="stylesheet" href="/decisions.css">
   <link rel="stylesheet" href="/panes.css">
   <link rel="stylesheet" href="/session-map.css">
+  <link rel="stylesheet" href="/journey.css">
   <script src="/app.js" defer></script>
   <script src="/auth.js" defer></script>
   <script src="/observations.js" defer></script>
@@ -26,6 +27,7 @@
   <script src="/session-map.js" defer></script>
   <script src="/missions.js" defer></script>
   <script src="/standard.js" defer></script>
+  <script src="/journey.js" defer></script>
   <script src="/knowledge.js" defer></script>
   <script src="/task-contracts.js" defer></script>
   <script src="/run-readiness.js" defer></script>
@@ -57,10 +59,10 @@
     <p class="eyebrow">YOUR DEVELOPMENT WORKSPACE</p>
     <div id="workspace-picker" class="workspace-picker" hidden><label for="workspace-select">Project</label><select id="workspace-select" aria-label="Project"></select><button id="all-workspaces" data-view="workspaces">All projects</button></div>
     <nav aria-label="Dashboard views">
-      <button data-view="overview" aria-current="page"><span>◎</span> Session map</button>
+      <button data-view="roadmap" aria-current="page"><span>▷</span> Roadmap &amp; Play</button>
+      <button data-view="overview"><span>◎</span> Session map</button>
       <button data-view="conversation"><span>↳</span> Brain conversation</button>
       <button data-view="decisions"><span>◇</span> Decisions</button>
-      <button data-view="roadmap"><span>↗</span> Roadmap</button>
       <details class="nav-group"><summary>Work & evidence</summary>
         <button data-view="workers">Tasks & evidence</button>
         <button data-view="queue">Approved queue</button>
@@ -68,9 +70,9 @@
         <button data-view="artifacts">Artifact library</button>
         <button data-view="knowledge">Knowledge & history</button>
       </details>
-      <details class="nav-group"><summary>Plan & controls</summary>
-        <button data-view="operations">Controls & setup</button>
-        <button data-view="mission" id="mission-nav" hidden>Mission & authority</button>
+      <details class="nav-group"><summary>Phase setup & recovery</summary>
+        <button data-view="mission" id="mission-nav" hidden>Phase plan & limits</button>
+        <button data-view="operations">Advanced controls</button>
         <button data-view="runReadiness" id="run-readiness-nav" hidden>Run readiness</button>
         <button data-view="phaseCheckpoints" id="phase-checkpoints-nav" hidden>Phase checkpoints</button>
         <button data-view="retention" id="retention-nav" hidden>Task retention</button>
@@ -91,7 +93,7 @@
     <header class="topbar"><span id="mode">Awaiting authenticated connection</span><div><button id="browser-access" aria-controls="browser-access-panel" aria-expanded="false" hidden>Browser access</button><button id="refresh">Refresh</button><a id="export-report" class="button" href="/api/export" download>Export report</a></div></header>
     <section id="browser-access-panel" class="browser-access-panel" aria-label="Browser access" hidden></section>
     <main id="main" tabindex="-1">
-      <div class="page-heading"><div><p class="eyebrow">PROJECT WORKSPACE</p><h1 id="title">Session map</h1><p id="subtitle">Follow your brain, its tasks, and what needs you next.</p></div><div class="page-actions"><button id="pause" disabled>Pause dispatch</button><button id="reconcile" class="primary" disabled>Request reconciliation</button></div></div>
+      <div class="page-heading"><div><p class="eyebrow">PROJECT WORKSPACE</p><h1 id="title">Roadmap &amp; Play</h1><p id="subtitle">Choose a phase. Review it. Follow development to its checkpoint.</p></div><div class="page-actions"><button id="pause" disabled>Pause dispatch</button><button id="reconcile" class="primary" disabled>Request reconciliation</button></div></div>
       <div id="notice" role="status" aria-live="polite" hidden></div>
       <section id="content" aria-label="Selected dashboard view"><div class="empty"><h2>Connecting securely</h2><p>Checking local sign-in. No repository or task data is exposed before authentication.</p></div></section>
     </main>

@@ -1,6 +1,6 @@
 "use strict";
 const $ = (id) => document.getElementById(id);
-let state = null, csrf = null, view = "overview", selected = null, busy = false, connected = false;
+let state = null, csrf = null, view = "roadmap", selected = null, busy = false, connected = false;
 const titles = {overview:["Session map","Follow your brain, its tasks, and what needs you next."],queue:["Approved queue","Approval is bound to exact packet and inheritance hashes."],workers:["Workers & evidence","Native Codex tasks. Separate ownership and acceptance states."],knowledge:["Knowledge continuity","Decisions survive the conversation. Workers inherit only what they need."],metrics:["Portfolio metrics","Aggregate and repository-level measurements, with explicit coverage."]};
 function el(tag, text, cls) {const e=document.createElement(tag);if(text!==undefined&&text!==null)e.textContent=String(text);if(cls)e.className=cls;return e;}
 function button(text, action, cls="") {const b=el("button",text,cls);b.type="button";b.addEventListener("click",action);return b;}
@@ -42,12 +42,18 @@ async function command(kind,payload={}) {
  }catch(e){if(e.message.includes("State changed"))controlRequests.delete(key);showNotice(e.message+" Refresh before retrying; uncertain requests retain the same ID.",true);}
  finally{busy=false;render();updateWorkspaceSelector();}
 }
-async function refresh() {if(unconfiguredProject()){renderUnconfiguredProject();assistantConnectionChanged();return;}try{state=await api("/api/state");connected=true;$('export-report').hidden=false;$('connection').textContent="Ledger connected · "+new Date().toLocaleTimeString();render();}catch(e){if(e.workspaceChanged)return;connected=false;$('connection').textContent="Ledger disconnected";showNotice(e.message,true);$('pause').disabled=true;$('reconcile').disabled=true;if(view==='overview'&&state)render();}finally{if(typeof assistantConnectionChanged==='function')assistantConnectionChanged();}}
+async function refresh() {if(unconfiguredProject()){renderUnconfiguredProject();assistantConnectionChanged();return;}try{state=await api("/api/state");connected=true;$('export-report').hidden=false;$('connection').textContent="Ledger connected · "+new Date().toLocaleTimeString();render();}catch(e){if(e.workspaceChanged)return;connected=false;$('connection').textContent="Ledger disconnected";showNotice(e.message,true);$('pause').disabled=true;$('reconcile').disabled=true;if(['overview','roadmap'].includes(view)&&state)render();}finally{if(typeof assistantConnectionChanged==='function')assistantConnectionChanged();}}
 function operations(root) {
  const m=state.meta,active=state.workers.filter(w=>!['complete'].includes(w.status));
+ journeyReturn(root,'Advanced controls');
+ if(state.standard&&state.repositories.length&&state.repositories.every(repo=>repo.policyProfile==='standard')){
+   root.append(el('p','Use Roadmap & Play for the next phase. These controls help inspect saved history or recover the project brain.','muted'));
+   standardPanel(root,'operations');
+   root.append(journeyDisclosure('project-introduction','Project introduction',body=>projectIntroduction(body)),journeyDisclosure('brain-controls','Brain activity & controls',body=>brainActivity(body)),journeyDisclosure('runtime','Runtime & local setup',body=>{runtimeSummary(body);readinessSummary(body);}),journeyDisclosure('executive-brief','Executive brief',body=>executiveSummary(body)));
+   return;
+ }
  projectIntroduction(root);
  conversationEntry(root);
- if(state.standard?.run){standardPanel(root);executiveSummary(root);return;}
  workspacePausePanel(root);
  missionSummary(root);
  checkpointSummary(root);
@@ -86,14 +92,14 @@ function queue(root) {
 }
 function canArchiveWorker(w) {return !('dispatchAdmission' in w)&&w.status==='complete'&&w.preserved&&!w.archived;}
 function workers(root) {
- if(state.standard?.run){standardPanel(root);return;}
+ if(state.standard?.run){journeyReturn(root,'Tasks & results');standardPanel(root,'tasks');return;}
  if(typeof rereviewPanel==='function')rereviewPanel(root);
  if(!state.workers.length){root.append(empty("No implementation workers yet", "The designated brain is separate from implementation workers. It may be planning or reconciling while this list is empty. After approval and preflight, new workers appear here."),button("View brain activity",()=>navigateView("overview")));return;}
  state.workers.forEach(w=>{const d=el("section",null,"detail");d.append(el("h3",w.packetId+" · "+w.repository),badge(w.status),el("p",w.note||"Dispatch "+w.id,"subline"));const actions=el("div",null,"inline-actions");if(w.threadId){actions.append(button("Copy Codex task ID",()=>navigator.clipboard.writeText(w.threadId).then(()=>showNotice("Task ID copied. Open the task in the native Codex sidebar."))),button("Request checkpoint",()=>command("checkpoint",{workerId:w.id})));}else d.append(el("p","Native creation pending or uncertain. Ownership remains reserved; no replacement will be launched.","muted"));if(canArchiveWorker(w))actions.append(button("Request archive",()=>{selected=w.id;render();}));if(w.pr){try{const u=new URL(w.pr);if(u.protocol==='https:'&&u.hostname==='github.com'){const a=el("a","Review pull request","button");a.href=u.href;a.target="_blank";a.rel="noopener noreferrer";actions.append(a);}}catch{}}
  d.append(actions,section("Evidence axes"));const axes=el("div",null,"axes");Object.entries(w.evidence).forEach(([axis,v])=>{const e=el("span",axis+": "+v.status);e.dataset.verified=String(v.status==='verified');e.title=v.reference||"No verified evidence";axes.append(e);});d.append(axes);if(selected===w.id&&canArchiveWorker(w)){d.append(callout("Archive this completed task?", "Archiving can trigger cleanup of a Codex-managed worktree. Only proceed after commits are pushed and evidence is preserved. This is not a stop or delete operation."),button("Confirm archive request",()=>command("archive",{workerId:w.id})));}root.append(d);});
 }
 function knowledge(root) {
- if(state.standard?.run){standardPanel(root);if(typeof projectKnowledge==='function')projectKnowledge(root);return;}
+ if(state.standard?.run){journeyReturn(root,'Project knowledge');if(typeof projectKnowledge==='function')projectKnowledge(root);return;}
  if(typeof projectKnowledge==='function')projectKnowledge(root);
  brainActivity(root,true);
  root.append(section("Current checkpoint",when(state.meta.lastReconciled)),el("p",state.meta.checkpoint,"checkpoint"));
@@ -117,7 +123,7 @@ function metrics(root) {
 function render() {
  if(unconfiguredProject()){renderUnconfiguredProject();return;}
  if(!state)return;
- document.querySelector(".page-actions").hidden=['workspaces','mission','runReadiness','phaseCheckpoints','retention'].includes(view);
+ document.querySelector(".page-actions").hidden=['roadmap','workspaces','mission','runReadiness','phaseCheckpoints','retention'].includes(view);
  const m=state.meta,dispatch=dispatchPresentation(m,state.commands),primary=state.workspace?workspacePausePresentation(state):dispatch;
  $('mode').textContent=dispatch.label+" · Brain: "+activityLabel(state.brainActivity)+" · Checkpoint: "+age(m.lastReconciled)+" · Heartbeat (recorded): "+m.heartbeat.status;
  if(state.standard?.run){$('mode').textContent='STANDARD · '+state.standard.run.status.toUpperCase()+' · '+state.standard.run.tasks.filter(t=>!['completed','failed','not_created'].includes(t.status)).length+' registered tasks in flight';document.querySelector('.page-actions').hidden=true;}
@@ -125,11 +131,12 @@ function render() {
  $('pause').title=state.workspace?primary.detail:"Change new worker dispatch only";
  $('pause').classList.toggle('primary',!!state.workspace);$('reconcile').classList.toggle('primary',!state.workspace);
  $('reconcile').disabled=!connected||busy;$('title').textContent=titles[view][0];$('subtitle').textContent=titles[view][1];
+ document.title='Codex Orchestrator · '+titles[view][0];
  const root=$('content');
  if(view==='overview'){sessionMap(root);return;}
  root.replaceChildren();
  ({operations,conversation:conversationView,decisions,queue,workers,knowledge,metrics,usage,gitStatus,artifacts,roadmap,readiness,mission:missionView,runReadiness:runReadinessView,phaseCheckpoints:phaseCheckpointsView,retention:retentionView,workspaces:allWorkspaces})[view](root);
- if(!['conversation','workspaces','mission','runReadiness','phaseCheckpoints','retention'].includes(view)&&state.commands.length){root.append(section("Control requests","Delivery, brain receipt and completion are separate."));root.append(table(["Request","Status","Result"],[...state.commands].reverse().slice(0,8).map(c=>{const delivery=commandPresentation(c);return [textCell(c.kind,when(c.createdAt)),badge(delivery.label),delivery.detail];})));}
+ if(!['roadmap','conversation','workspaces','mission','runReadiness','phaseCheckpoints','retention'].includes(view)&&state.commands.length){const history=journeyDisclosure('control-requests','Control request history',body=>body.append(table(["Request","Status","Result"],[...state.commands].reverse().slice(0,8).map(c=>{const delivery=commandPresentation(c);return [textCell(c.kind,when(c.createdAt)),badge(delivery.label),delivery.detail];}))));history.id='control-request-history';root.append(history);}
 }
 document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>navigateView(b.dataset.view)));
 $('pause').onclick=()=>command(state.workspace?workspacePausePresentation(state).kind:state.meta.paused?'resume':'pause');$('reconcile').onclick=()=>command('reconcile');$('refresh').onclick=refresh;

@@ -1,0 +1,24 @@
+.roadmap-journey{margin-bottom:36px;border-block:1px solid var(--rule);overflow-wrap:anywhere}
+.journey-steps{list-style:none;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));padding:0;margin:0 0 28px;border-bottom:1px solid var(--rule)}
+.journey-steps li{min-width:0}.journey-steps button{border:0;border-radius:0;width:100%;display:flex;align-items:center;gap:10px;min-height:64px;padding:12px 8px;text-align:left;font-size:.8rem;color:var(--muted)}
+.journey-steps button[aria-current=step]{background:var(--soft);color:var(--ink);font-weight:600}
+.journey-step-number{display:grid;place-items:center;flex:none;width:26px;height:26px;border:1px solid var(--rule);border-radius:50%;font-size:.7rem;font-variant-numeric:tabular-nums}
+.journey-steps [aria-current=step] .journey-step-number{border-color:var(--accent);background:var(--accent);color:var(--paper)}
+.journey-lead{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:start;margin-bottom:24px}
+.journey-lead h2{font-size:1.75rem;line-height:1.2;max-width:32ch;margin-bottom:12px}.journey-description{max-width:65ch;color:var(--muted);font-size:.9rem;line-height:1.65}
+.journey-actions{display:grid;justify-items:stretch;gap:8px;max-width:260px}.journey-actions button{min-height:44px;text-align:center;white-space:normal}.journey-actions>p{font-size:.8rem}
+.journey-phase-title{font-size:1.2rem;margin:24px 0 16px}.journey-facts{display:grid;grid-template-columns:1fr 1fr 2fr;gap:16px 24px;margin:0;border-top:1px solid var(--rule);padding-top:20px}
+.journey-facts dt{font-size:.75rem;color:var(--muted);margin-bottom:6px}.journey-facts dd{margin:0;font-size:.9rem;line-height:1.55;font-variant-numeric:tabular-nums}
+.journey-receipt{font-size:.78rem;line-height:1.65;color:var(--muted);margin:16px 0;max-width:80ch}.journey-checkpoint{font-size:.9rem;line-height:1.7;white-space:pre-wrap;max-width:75ch;margin:16px 0}
+.journey-reasons{padding:16px 16px 16px 36px;background:var(--warn-bg);color:var(--warning);font-size:.85rem;margin:16px 0}.journey-reasons li+li{margin-top:8px}
+.journey-links{display:flex;flex-wrap:wrap;gap:4px 16px;margin:16px 0}.journey-links button{border:0;text-decoration:underline;text-underline-offset:4px;padding:8px 0;font-size:.8rem}
+.journey-return{display:flex;flex-direction:row;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:24px;color:var(--muted);font-size:.8rem}.journey-return button{font-size:.8rem;color:var(--ink);border-color:var(--rule);padding:9px 13px}.journey-return button:hover{background:var(--soft)}
+.journey-disclosure{margin:16px 0;border-block:1px solid var(--rule);overflow-wrap:anywhere}.journey-disclosure>summary{padding:16px 0;cursor:pointer;font-size:.9rem;min-height:44px}.journey-disclosure>div{padding:8px 0 24px;display:grid;gap:16px}.journey-disclosure>div>button{justify-self:start}
+.journey-disclosure>summary:focus-visible,.roadmap-document>summary:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
+.roadmap-source-tools{margin:0 0 24px}.roadmap-source-tools .observation-toolbar{margin-top:12px}
+.roadmap-mission-actions label{display:grid;gap:8px;font-size:.8rem;margin-bottom:12px}.roadmap-mission-actions select{max-width:100%;min-width:0;width:100%;padding:12px;background:var(--surface);color:var(--ink);border:1px solid var(--rule);font:inherit}
+.standard-confirmation{border:1px solid var(--accent);background:var(--surface);padding:24px;margin:24px 0;display:grid;gap:16px;scroll-margin-top:16px}.standard-confirmation>label{display:flex;align-items:start;gap:12px;max-width:70ch}.standard-confirmation input{margin-top:5px;flex:none}.standard-confirmation>button{justify-self:start}.standard-confirmation p{max-width:75ch}
+.mission-status>button,.mission-status>a{justify-self:start}.mission-status .section-heading{margin-top:16px}.mission-status .mission-document{min-width:0}
+.phase-plan>h3{margin:24px 0 12px}.phase-plan>ul{margin-block:12px 24px}.phase-plan>p{line-height:1.7;max-width:78ch}.phase-plan>.mission-review{margin-block:24px}
+@container workspace (max-width:720px){.journey-lead{grid-template-columns:1fr}.journey-actions{display:flex;flex-wrap:wrap;max-width:none}.journey-facts{grid-template-columns:1fr 1fr}.journey-facts>div:last-child{grid-column:1/-1}.journey-steps button{flex-direction:column;align-items:start;gap:6px;font-size:.72rem}.standard-confirmation{padding:16px}}
+@container workspace (max-width:420px){.journey-steps{grid-template-columns:repeat(2,minmax(0,1fr))}.journey-steps button{flex-direction:row;align-items:center;min-height:48px}.journey-actions{display:grid}.journey-actions button{width:100%}.journey-facts{gap:16px}.journey-lead h2{font-size:1.5rem}}

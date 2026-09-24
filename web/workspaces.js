@@ -52,7 +52,7 @@ async function initializeWorkspaces(){
   await selectWorkspaceIdentity(id);
 }
 async function selectWorkspaceIdentity(id){
-  workspaceId=id;workspaceGeneration++;csrf=null;state=null;connected=false;selected=null;view='overview';
+  workspaceId=id;workspaceGeneration++;csrf=null;state=null;connected=false;selected=null;view='roadmap';
   $('workspace-select').value=id;$('notice').hidden=true;
   $('mode').textContent='Connecting to '+workspaceList.find(w=>w.id===id).name+'…';
   $('content').replaceChildren(empty('Opening project','Loading only this project’s recorded state.'));
@@ -71,7 +71,7 @@ async function switchWorkspace(id,route=null,updateAddress=true){
   try{
     restoreWorkspaceTab(id);await selectWorkspaceIdentity(id);await refresh();
     if(!connected&&!unconfiguredProject())return false;
-    navigateView(route?.view||'overview',route?.id||null,updateAddress);
+    navigateView(route?.view||'roadmap',route?.id||null,updateAddress);
     return true;
   }catch(error){showNotice(error.message,true);return false;}
   finally{workspaceSwitching=false;updateWorkspaceSelector();}

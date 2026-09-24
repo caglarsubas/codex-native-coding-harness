@@ -66,7 +66,7 @@ async function test(){
   await box.confirmModelControls(entry);assert.equal(saved,1);
   const revoke={...proposal,document:{...proposal.document,operation:'revoke',request:{policyHash:report.policy.policyHash,reason:'<script>literal reason</script>'}}};box.revoke=revoke;
   run('modelPreviews.set(workspaceId,{proposal:revoke,generation:workspaceGeneration})');root=panel();assert.match(root.textContent,/<script>literal reason<\/script>/);controls=walk(root);assert.equal(controls.filter(n=>n.type==='checkbox').length,1);assert(controls.some(n=>n.text==='Revoke model policy'));
-  const missionSource=fs.readFileSync('web/missions.js','utf8');assert(missionSource.includes('modelControlPanel(root)'));
+  const missionSource=fs.readFileSync('web/missions.js','utf8');assert(missionSource.includes("journeyDisclosure('mission-policy','Model policy & advanced settings'"));assert(missionSource.includes('modelControlPanel(body)'));
   console.log('Model policy UI: explicit catalog choices, retained drafts, unchecked confirmation, scoped races and immutable retries passed');
 }
 test().catch(error=>{console.error(error);process.exitCode=1});
