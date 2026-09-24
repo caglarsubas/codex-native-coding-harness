@@ -38,7 +38,7 @@ function all(root){return [root,...root.children.flatMap(x=>x instanceof Element
   box.state.standard.measuredUsage={tokens:{input_tokens:100,cached_input_tokens:50,output_tokens:20,reasoning_output_tokens:5,total_tokens:120},
     collectedAt:1,coverage:'gapped',gaps:['missing_prefix'],remainingMeasured:null};
   assert.ok(all(render()).some(n=>n.tag==='table'&&n.text.includes('Measured remaining')&&n.text.includes('Unknown')));
-  box.state.brainHandoff={handoff:null};
+  box.state.brainHandoff={handoff:null,readiness:{canPrepare:true,canFinalize:false,blockers:[]}};
   const priorApi=box.api;
   box.api=async(path,opts)=>{
     if(path.endsWith('/brain-handoff/preview')){sent.push({path,body:JSON.parse(opts.body)});return {preview:{expiresAt:100},package:{kind:'fixture'},signature:'signed'};}
@@ -50,20 +50,23 @@ function all(root){return [root,...root.children.flatMap(x=>x instanceof Element
   const handoffBox=nodes.filter(n=>n.type==='checkbox').at(-1);handoffBox.checked=true;handoffBox.onchange();
   assert.equal(handoffConfirm.disabled,false);await handoffConfirm.click();
   assert.ok(sent.some(s=>s.path.endsWith('/brain-handoff/confirm')));
-  box.state.brainHandoff={handoff:{status:'received',packageHash:'hash',oldBrainId:'old',
+  box.state.brainHandoff={readiness:{canPrepare:false,canFinalize:false,blockers:['Fresh native task-list project membership required before rebinding']},handoff:{status:'received',packageHash:'hash',oldBrainId:'old',
     candidate:{taskId:'new',projectId:'native-a',observation:'Owner observed native project'},
     receipt:{summary:'Exact package reviewed'},receiptEvidence:{source:'local_native_final_reply',observedAt:1}}};
   nodes=all(render());
   assert.ok(nodes.some(n=>String(n.text).includes('Native final reply observed')));
   assert.ok(nodes.some(n=>String(n.text).includes('separate Codex task-list observation')));
   assert.ok(!nodes.some(n=>n.text==='Review replacement receipt'));
-  assert.ok(nodes.some(n=>String(n.text).includes('fresh idle Codex task-list observation')));
+  assert.ok(nodes.some(n=>String(n.text).includes('Fresh native task-list project membership required')));
   box.state.brainHandoff.handoff.nativeMembership={projectId:'native-a',hostId:'local',status:'active',observedAt:Date.now()/1000};
   assert.ok(!all(render()).some(n=>n.text==='Review replacement receipt'));
   box.state.brainHandoff.handoff.nativeMembership.status='idle';
+  box.state.brainHandoff.readiness={canPrepare:false,canFinalize:true,blockers:[]};
   nodes=all(render());
   assert.ok(nodes.some(n=>String(n.text).includes('Codex task list: native-a')));
   assert.ok(nodes.some(n=>n.text==='Review replacement receipt'));
+  box.state.brainHandoff.handoff.nativeMembership.observedAt-=7200;
+  assert.ok(!all(render()).some(n=>n.text==='Review replacement receipt'),'Expired browser observation cannot show a review action');
   box.state.standard={available:false,catalogRequired:true,contextHash:'missing',boundary:'Partial observations',catalog:null,run:null,
     blocker:'Brain must record the available native model/effort catalog (valid for 24 hours)',catalogRefresh:null};
   nodes=all(render());const prepare=nodes.find(n=>n.text==='Review Play');assert.equal(prepare.disabled,false);

@@ -155,8 +155,9 @@ function standardPanel(root){
 
 const handoffPreviews=new Map();
 function standardBrainHandoff(panel){
-  const handoff=state.brainHandoff?.handoff,pending=handoffPreviews.get(workspaceId);
+  const handoff=state.brainHandoff?.handoff,readiness=state.brainHandoff?.readiness,pending=handoffPreviews.get(workspaceId);
   panel.append(section('Brain handoff','A replacement is reviewed at a saved checkpoint. The project retains its usage and authority history.'));
+  if(readiness?.blockers?.length)panel.append(el('p',`Before owner review: ${readiness.blockers.join(' · ')}`,'muted'));
   if(handoff)panel.append(el('p',`${handoff.status} · package ${handoff.packageHash} · old task ${handoff.oldBrainId}`,'subline'));
   if(handoff?.candidate)panel.append(el('p',`Candidate ${handoff.candidate.taskId} · ${handoff.candidate.projectId} · ${handoff.candidate.observation}`,'subline'));
   if(handoff?.candidate)panel.append(el('p',handoff.nativeMembership
@@ -166,16 +167,18 @@ function standardBrainHandoff(panel){
     panel.append(el('p',`Replacement receipt: ${handoff.receipt.summary}`,'subline'));
     panel.append(el('p',`Native final reply observed ${handoff.receiptEvidence?.observedAt?new Date(handoff.receiptEvidence.observedAt*1000).toLocaleString():'unknown'} · project membership needs a separate Codex task-list observation`,'subline'));
   }
-  if(!handoff||['cancelled','complete'].includes(handoff.status))panel.append(button('Review brain handoff',async()=>{
+  if(!handoff||['cancelled','complete'].includes(handoff.status)){
+    const prepare=button('Review brain handoff',async()=>{
     try{handoffPreviews.set(workspaceId,{stage:'prepare',...(await api('/api/brain-handoff/preview',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:'{}'}))});render();}
     catch(error){showNotice(error.message,true);}
-  }));
+    });prepare.disabled=readiness?.canPrepare===false;panel.append(prepare);
+  }
   const membershipFresh=handoff?.nativeMembership?.status==='idle'&&handoff.nativeMembership.observedAt>=handoff?.receiptEvidence?.observedAt&&Date.now()/1000-handoff.nativeMembership.observedAt<=3600;
-  if(handoff?.status==='received'&&membershipFresh)panel.append(button('Review replacement receipt',async()=>{
+  if(handoff?.status==='received'&&readiness?.canFinalize&&membershipFresh)panel.append(button('Review replacement receipt',async()=>{
     try{handoffPreviews.set(workspaceId,{stage:'final',...(await api('/api/brain-handoff/final-preview',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:'{}'}))});render();}
     catch(error){showNotice(error.message,true);}
   }));
-  if(handoff?.status==='received'&&!membershipFresh)panel.append(el('p','A fresh idle Codex task-list observation after the final reply is required before final review.','muted'));
+  if(handoff?.status==='received'&&(!readiness?.canFinalize||!membershipFresh))panel.append(el('p','Final review waits for the server-side checkpoint and fresh native evidence gates above. Refresh if this observation has expired.','muted'));
   if(!pending)return;
   panel.append(el('p',`Review expires ${when(pending.preview.expiresAt)}. ${pending.stage==='prepare'?'The existing brain will create one native replacement and the new task must acknowledge the package.':'This changes the designated brain binding; the phase remains paused.'}`,'muted'));
   if(pending.stage==='prepare')panel.append(el('pre',JSON.stringify(pending.package,null,2),'detail'));

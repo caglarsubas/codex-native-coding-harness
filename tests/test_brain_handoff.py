@@ -35,6 +35,39 @@ class BrainHandoffTest(unittest.TestCase):
         preview = self.controls.preview(self.registry, self.ledger, 'owner-session')
         return self.controls.confirm(self.registry, self.ledger, {**preview, 'confirmed': True}, 'owner-session')
 
+    def test_read_only_readiness_explains_each_owner_gate(self):
+        before = self.ledger.snapshot()['meta']['revision']
+        with patch.object(self.registry, 'tx', side_effect=AssertionError('No registry write transaction on read')):
+            initial = brain_handoff.status(self.ledger, self.registry)['readiness']
+        self.assertTrue(initial['canPrepare'])
+        self.assertFalse(initial['canFinalize'])
+        self.assertEqual(self.ledger.snapshot()['meta']['revision'], before)
+        prepared = self.prepare()
+        stage = brain_handoff.status(self.ledger, self.registry)['readiness']
+        self.assertEqual(stage['phase'], 'prepared')
+        self.assertIn('replacement task', ' '.join(stage['blockers']))
+        old = self.ledger.snapshot()['meta']['brainId']
+        token = self.ledger.acquire(old + ':handoff')
+        brain_handoff.candidate(self.ledger, token, {'handoffId': prepared['id'], 'taskId': self.new_id,
+            'projectId': 'native-a', 'hostId': 'local', 'observation': 'Native task seen in bound project'})
+        self.assertIn('Release the old brain controller', ' '.join(
+            brain_handoff.status(self.ledger, self.registry)['readiness']['blockers']))
+        self.ledger.release(token, 'Candidate recorded')
+        self.assertIn('final native reply', ' '.join(brain_handoff.status(self.ledger, self.registry)['readiness']['blockers']))
+        brain_handoff.receipt(self.ledger, self._write_native_log(prepared))
+        self.assertIn('native task-list', ' '.join(brain_handoff.status(self.ledger, self.registry)['readiness']['blockers']))
+        token = self.ledger.acquire(old + ':membership')
+        brain_handoff.native_observation(self.ledger, token, self._native_result(status='active'), time.time())
+        self.ledger.release(token, 'Replacement still active')
+        self.assertFalse(brain_handoff.status(self.ledger, self.registry)['readiness']['canFinalize'])
+        token = self.ledger.acquire(old + ':membership-idle')
+        brain_handoff.native_observation(self.ledger, token, self._native_result(), time.time() + 0.01)
+        self.ledger.release(token, 'Replacement idle')
+        ready = brain_handoff.status(self.ledger, self.registry)['readiness']
+        self.assertTrue(ready['canFinalize'])
+        self.assertEqual(ready['blockers'], [])
+        self.assertFalse(brain_handoff.status(self.ledger)['readiness']['canFinalize'])
+
     def _write_native_log(self, prepared, *, marker=True, phase='final_answer', recorded_at=None):
         codex = self.fixture.root / 'codex'
         log_dir = codex / 'sessions' / '2026' / '09' / '24'

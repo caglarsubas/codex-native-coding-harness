@@ -113,7 +113,7 @@ class WorkspaceRuntime:
             from .projects import display_name
             from .brain_handoff import status as handoff_status
             state["standard"] = standard_read(self.ledger)
-            state["brainHandoff"] = handoff_status(self.ledger)
+            state["brainHandoff"] = handoff_status(self.ledger, self.registry)
             state["workspace"] = {"id": self.workspace_id,
                 "name": display_name(self.registry, self.workspace_id, next(w["name"] for w in self.registry.list() if w["id"] == self.workspace_id)),
                 "projectProfile": self.registry.profile(self.workspace_id)}
@@ -277,7 +277,7 @@ class Handler(BaseHTTPRequestHandler):
                 if urlsplit(self.path).query:
                     raise Refusal("Handoff status accepts no query parameters")
                 from .brain_handoff import status
-                return self.respond(200, status(runtime.ledger))
+                return self.respond(200, status(runtime.ledger, runtime.registry))
             if path in ("/api/knowledge/status", "/api/knowledge/search", "/api/knowledge/source", "/api/knowledge/direct-source", "/api/knowledge/records", "/api/knowledge/related") and workspace_id:
                 from . import project_knowledge
                 query = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
