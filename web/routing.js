@@ -18,7 +18,7 @@ function focusRouteTarget(route){
   else{document.querySelector(".workspace").scrollTop=0;document.getElementById("main").focus({preventScroll:true});}
 }
 async function applyDashboardRoute(activateWorkspace=true){
-  const route=location.hash?dashboardRoute(location.hash):{view:'overview',id:null};
+  const route=location.hash?dashboardRoute(location.hash):{view:'roadmap',id:null};
   if(!route){if(location.hash.startsWith("#/"))showNotice("This dashboard link is not recognized.",true);return false;}
   if(route.workspaceId&&route.workspaceId!==workspaceId)return switchWorkspace(route.workspaceId,route,false);
   if(!state&&!unconfiguredProject())return false;

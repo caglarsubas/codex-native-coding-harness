@@ -18,6 +18,17 @@ acceptance authority. Items change through reviewed repository edits.
 These are dashboard capabilities, not completion of the plans they display.
 See [roadmap source configuration](ROADMAP-SOURCES.md) for refresh and boundaries.
 
+## Guided phase iteration — UX source implementation
+
+- [x] Make Roadmap & Play the default project landing view, with Plan → Review & Play → Develop → Checkpoint navigation and a state-specific next action
+- [x] Prepare the next phase through an editable, explicitly sent brain message; preserve existing drafts, checkpoint evidence and budgets
+- [x] Show signed Play/Resume/Pause reviews in context, with success criteria, scope, limits, exclusions, expiry and unchecked confirmation
+- [x] Separate task evidence, usage and advanced recovery from phase planning; collapse optional handoff, histories and roadmap source detail
+- [ ] Merge and activate the guided journey in the live dashboard; verify the selected project's real state separately from disposable browser fixtures
+
+See [Roadmap & Play UX and verification](ROADMAP-PLAY-UX.md). This changes
+navigation and presentation, not native dispatch, Harness authority or merge policy.
+
 ## Foundation — v1
 
 - [x] Reusable portfolio configuration and repository-specific policies

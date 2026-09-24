@@ -40,7 +40,7 @@ const run=code=>vm.runInContext(code,box),control={disabled:false,closest:()=>nu
   assert.equal(handoff.spec.authority.mergeMode,'brain_exact_pr_v1');
   assert.equal(sent.length,0,'Selecting merge mode is only an unsaved draft');
   mergeMode.value='manual';mergeMode.onchange();
-  assert.ok(nodes(box.root).some(n=>String(n.textContent).includes('stale schema-1-only launcher')));
+  assert.ok(nodes(box.root).some(n=>String(n.textContent).includes('a schema-1-only launcher cannot operate this protocol')));
   const objective=nodes(box.root).find(n=>n.tag==='label'&&n.textContent==='Phase objective').children[0];
   assert.equal(objective.value,'','The objective is editable without exposing the provenance line as removable text');
   objective.value='Deliver one local fixture';objective.oninput();

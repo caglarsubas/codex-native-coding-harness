@@ -1,7 +1,7 @@
 "use strict";
 Object.assign(titles, {
   overview:['Session map','Follow your brain, its tasks, and what needs you next.'],
-  operations:['Controls & setup','Review phase controls, authority, checkpoints and project configuration.']
+  operations:['Advanced controls','Inspect saved history, brain recovery and local setup.']
 });
 // Presentation only: saved records never become execution or parentage authority.
 const sessionMapPreferences=new Map();
@@ -365,10 +365,10 @@ function sessionInspector(root,node,prefs){
     if(!artifacts.length)panel.append(el('p','No session-linked artifacts in the current library.','muted'));
     panel.append(el('p','Source, tests, merge, runtime and preservation are separate evidence. A completed task does not establish all of them.','muted'));
   }else if(prefs.tab==='controls'){
-    if(state.standard)standardPanel(panel);
+    if(state.standard&&state.repositories?.length&&state.repositories.every(repo=>repo.policyProfile==='standard'))roadmapJourney(panel);
     else if(state.workspace)workspacePausePanel(panel);
     else brainActivity(panel);
-    panel.append(button('All controls & setup',()=>navigateView('operations')));
+    panel.append(button('Advanced controls & recovery',()=>navigateView('operations')));
   }else{
     const columns=el('div',null,'session-detail-columns'),main=el('div',null,'session-detail-story'),side=el('aside',null,'session-recent');
     if(node.kind==='brain'){

@@ -1,5 +1,5 @@
 "use strict";
-Object.assign(titles,{mission:['Mission & authority','Define the next phase. Review its boundaries before activation.']});
+Object.assign(titles,{mission:['Phase plan & limits','Review what the brain may build and where it should stop.']});
 const missionDrafts=new Map(),missionRequests=new Map();
 const missionModes={prepare_only:'Prepare only',exact_owner:'Exact owner-approved packets',phase_delegated:'Brain approves within a reviewed phase'};
 const missionOperations=['edit','test','commit','push','open_pr','merge'];
@@ -23,19 +23,21 @@ function missionDocument(parent,hash,label){
   });parent.append(details);
 }
 function missionView(root){
-  if(typeof standardPanel==='function')standardPanel(root);
+  const page=el('div',null,'phase-plan');root.append(page);root=page;
+  journeyReturn(root,'Phase plan & limits');
   const m=state.mission;
   if(!m){root.append(empty('Select a registered project','Mission configuration belongs to one project and its designated brain.'));return;}
   const status=el('section',null,'mission-status');
-  status.append(el('p','CONFIGURATION, NOT EXECUTION AUTHORITY','eyebrow'),el('h2',m.document?`Version ${m.version} · ${m.effectiveStatus.replaceAll('_',' ')}`:'No mission configured'));
-  status.append(el('p','Saving or reviewing a configuration does not start development, approve packets, enforce these proposed limits, change a model or notify the brain. Existing exact packet approvals and dispatch controls are unchanged.','checkpoint'));
+  status.append(el('p','PHASE PLAN','eyebrow'),el('h2',m.document?`Version ${m.version} · ${m.effectiveStatus.replaceAll('_',' ')}`:'Prepare your first phase'));
+  const standard=state.repositories?.length&&state.repositories.every(repo=>repo.policyProfile==='standard');
+  status.append(el('p',m.effectiveStatus==='reviewed'?'This plan is reviewed. Return to Roadmap & Play to review the next control.':'Check the outcome, scope and limits below, then record your review. Starting work is a separate Play confirmation.','muted'));
+  if(m.effectiveStatus==='reviewed')status.append(button('Return to Roadmap & Play',()=>navigateView('roadmap'),'primary'));
   const activation=el('details');activation.append(el('summary','Strict-mode activation boundaries'));
   const blockers=el('ul');m.activation.blockers.forEach(reason=>blockers.append(el('li',reason)));activation.append(blockers);
-  activation.append(el('p','This release prepares the contract. Play will require a separate owner-bound activation after these gates are implemented. A reviewed version cannot activate automatically after an upgrade.','muted'));status.append(activation);root.append(status);
+  activation.append(el('p','Strict project activation depends on these gates. Reviewing a plan alone does not start work.','muted'));if(!standard)status.append(activation);root.append(status);
   if(m.bindingIssues.length)root.append(callout('Configuration needs a new version',m.bindingIssues.join(' ')));
   if(missionDrafts.has(workspaceId)){missionEditor(root,m);return;}
-  if(typeof modelControlPanel==='function')modelControlPanel(root);
-  if(!m.document){root.append(button('Create mission draft',()=>openMissionEditor(),'primary'));return;}
+  if(!m.document){root.append(button('Prepare with project brain',prepareRoadmapPhase,'primary'),button('Write phase plan yourself',()=>openMissionEditor()),journeyDisclosure('mission-policy','Model policy & advanced settings',body=>{if(typeof modelControlPanel==='function')modelControlPanel(body);}));return;}
   const spec=m.document.spec,phase=spec.phase,a=spec.authority;
   root.append(section('The proposed outcome',phase.id),el('h3',spec.goal));
   const list=(title,items)=>{root.append(el('h3',title));const ul=el('ul');items.forEach(item=>ul.append(el('li',item)));root.append(ul);};
@@ -47,23 +49,23 @@ function missionView(root){
     return [row.repository,row.allowedPaths.join('\n'),textCell(row.operations.join(', '),`${binding.policyProfile} · ${binding.mergePolicy} merge`)];
   })));
   root.append(el('p',a.mergeMode==='brain_exact_pr_v1'?'Merge opt-in: designated brain may cross-check and issue one exact PR merge in a separately activated standard phase. Existing repository policy still applies.':'Merge mode: manual (default).'));
-  root.append(section('Proposed limits','Not active, reserved or enforced in this release.'));
+  root.append(section('Phase limits',standard?'Applied when you confirm Play for this reviewed phase.':'Proposed limits only. Strict-mode activation and packet approvals remain separate.'));
   root.append(table(['Setting','Proposed value'],[['Packet approval',missionModes[a.approvalMode]],['Parallel tasks',num(a.maxParallelTasks)],['Total tasks in this phase',num(a.maxTasks)],['Phase token allocation',num(a.tokenBudget)],['Included checkpoint reserve',num(a.checkpointReserveTokens)]]));
-  root.append(el('p','Token allocations will include brain, workers, review and checkpoint headroom. They are not a subscription bill or a provider-enforced hard stop. Model, effort and speed routing are not configured by this form.','muted'));
-  root.append(el('p','Exact configuration SHA-256: '+m.documentHash,'mono mission-hash'));
+  root.append(el('p','The token allocation includes brain, workers, review and checkpoint reserve. Usage coverage is reported separately; the allocation is a cooperative limit.','muted'));
   const actions=el('section',null,'mission-review');actions.append(button('Revise as a new draft',()=>openMissionEditor()));
-  if(m.status==='draft'&&!m.bindingIssues.length)missionConfirmation(actions,m,'review','Record owner review',`I reviewed configuration v${m.version} and its exact hash above. This records review only; it does not activate Play or approve a packet.`);
+  if(m.status==='draft'&&!m.bindingIssues.length)missionConfirmation(actions,m,'review','Review this phase plan',`I reviewed version ${m.version}, its scope, limits and stopping checkpoint. Work starts only after a separate Play confirmation.`);
   if(m.status==='reviewed')missionConfirmation(actions,m,'revoke','Revoke this review','Withdraw review of this configuration. This does not stop an existing brain or worker; use the separate safe-checkpoint control for that.');
   root.append(actions);
-  missionDocument(root,m.documentHash,'Read exact configuration · v'+m.version);
-  if(m.receiptHash)missionDocument(root,m.receiptHash,'Read latest owner/draft receipt');
-  const history=el('section');history.append(section('Version history','Immutable documents; review never rewrites a version.'));root.append(history);
+  root.append(journeyDisclosure('mission-policy','Model policy & advanced settings',body=>{if(typeof modelControlPanel==='function')modelControlPanel(body);}));
+  root.append(journeyDisclosure('mission-documents','Exact plan & review receipt',body=>{body.append(el('p','Configuration SHA-256: '+m.documentHash,'mono mission-hash'));missionDocument(body,m.documentHash,'Read exact configuration · v'+m.version);if(m.receiptHash)missionDocument(body,m.receiptHash,'Read latest owner/draft receipt');}));
+  const history=el('section');root.append(journeyDisclosure('mission-history','Previous plan versions',body=>body.append(history)));
   api('/api/mission').then(data=>{if(!history.isConnected)return;for(const v of data.history)missionDocument(history,v.documentHash,`v${v.version} · ${v.title} · ${when(v.createdAt)}`);if(data.olderDocumentHash)missionDocument(history,data.olderDocumentHash,'Earlier version · follow previousHash for older records');}).catch(error=>{if(history.isConnected&&!error.workspaceChanged)history.append(el('p',error.message));});
 }
 function missionConfirmation(parent,m,operation,title,explanation){
   const wrap=el('div',null,'mission-confirmation'),label=el('label'),check=el('input');check.type='checkbox';
   label.append(check,el('span',explanation));const submit=button(title,()=>missionWrite({operation,expectedRevision:m.revision,documentHash:m.documentHash,confirmed:true},submit));
-  submit.disabled=true;check.onchange=()=>{submit.disabled=!check.checked||busy;selected=check.checked?'mission-review':null;};wrap.append(label,submit);parent.append(wrap);
+  const help=el('p','Select the confirmation above to enable this action.','muted');help.id='mission-'+operation+'-help';submit.setAttribute('aria-describedby',help.id);
+  submit.disabled=true;check.onchange=()=>{submit.disabled=!check.checked||busy;selected=check.checked?'mission-review':null;};wrap.append(label,help,submit);parent.append(wrap);
 }
 function missionRoadmapNote(source){
   if(!source||!Number.isInteger(source.line)||source.line<1||!Number.isInteger(source.documentVersion)||
@@ -130,11 +132,11 @@ function missionEditor(root,m){
   const mergeLabel=el('label','Phase merge mode'),mergeMode=el('select');
   for(const [value,label] of [['manual','Manual merge (default)'],['brain_exact_pr_v1','Designated brain · one exact PR']]){const option=el('option',label);option.value=value;mergeMode.append(option);}
   mergeMode.value=a.mergeMode||'manual';mergeMode.onchange=()=>a.mergeMode=mergeMode.value;mergeLabel.append(mergeMode);form.append(mergeLabel);
-  form.append(el('p','Opt-in requires phase delegation, exactly one standard repository with merge scope and a checks-based repository policy. Manual repository policy remains a refusal. Before future merge-enabled Play, update the installed launcher to the exact compatible merged source; the stale schema-1-only launcher cannot operate this protocol.','muted'));
+  const mergeDetails=el('details');mergeDetails.append(el('summary','Requirements for brain-managed merges'),el('p','Opt-in requires phase delegation, exactly one standard repository with merge scope and a checks-based repository policy. Manual repository policy remains a refusal. Verify the installed launcher is compatible with the merged source before merge-enabled Play; a schema-1-only launcher cannot operate this protocol.','muted'));form.append(mergeDetails);
   const modeLabel=el('label','Packet approval mode'),mode=el('select');for(const [value,label] of Object.entries(missionModes)){const option=el('option',label);option.value=value;mode.append(option);}mode.value=a.approvalMode;mode.onchange=()=>a.approvalMode=mode.value;modeLabel.append(mode);form.append(modeLabel);
-  form.append(el('p','Harness scopes require exact owner approval. A phase-delegated configuration is allowed only for standard-policy repositories, and remains inactive in this release.','muted'));
+  form.append(el('p','Harness scopes require exact owner approval. Standard projects can delegate task approval within this reviewed phase; confirm Play separately to begin.','muted'));
   for(const [key,label,max] of [['maxParallelTasks','Maximum parallel tasks',16],['maxTasks','Maximum tasks in this phase',1000],['tokenBudget','Phase token allocation',1000000000],['checkpointReserveTokens','Checkpoint reserve · included in the allocation',1000000000]])field(label,a[key],v=>a[key]=v,{type:'number',max});
-  form.append(el('p','These are proposed local admission limits, not currently enforced budgets or provider hard caps. No model or effort setting changes.','muted'));
+  form.append(el('p','Standard-project limits take effect only after Play. Strict-mode activation remains separate. Token limits use observations and checkpoints, not provider billing caps.','muted'));
   const save=el('button','Save draft','primary');save.type='submit';save.disabled=!state.repositories.length;
   const cancel=button('Discard unsaved edits',()=>{if(busy)return;missionDrafts.delete(workspaceId);selected=null;render();});form.append(save,cancel);
   form.onsubmit=event=>{event.preventDefault();if(!form.reportValidity())return;missionWrite({operation:'save',expectedRevision:draft.revision,spec:JSON.parse(JSON.stringify(spec))},save);};

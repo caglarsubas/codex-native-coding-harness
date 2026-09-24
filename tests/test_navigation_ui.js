@@ -54,6 +54,7 @@ function fixture(saved=null){
   run("navigateView('usage')");await run("switchWorkspace('beta')");
   const count=f.entries.length;
   assert.equal(run('workspaceId'),'beta');
+  assert.equal(f.box.view,'roadmap','New project selection lands on Roadmap & Play');
   run('goBackInDashboard()');await settle();
   assert.equal(run('workspaceId'),'alpha');assert.equal(f.box.view,'usage');
   assert.equal(f.entries.length,count,'Cross-project Back must not push a new entry');

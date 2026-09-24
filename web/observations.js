@@ -8,7 +8,7 @@ Object.assign(titles, {
   usage:["Token usage", "Local usage by repository, task, model and reasoning effort."],
   gitStatus:["Git & delivery", "From working tree to remote branch and pull request."],
   artifacts:["Artifact library", "Read preserved outputs across tasks, in order and by version."],
-  roadmap:["Roadmap", "Published plans, recorded milestones and separate proposals."]
+  roadmap:["Roadmap & Play", "Choose a phase. Review it. Follow development to its checkpoint."]
 });
 
 function observationFilters(root) {
@@ -67,7 +67,7 @@ function paginated(root, rows, headers, cells) {
 }
 
 function usage(root) {
-  if(state.standard?.run)standardPanel(root);else budgetView(root);
+  if(state.standard?.run){journeyReturn(root,'Token usage');standardPanel(root,'usage');}else budgetView(root);
   root.append(section("Historical log analytics", "Separate from phase admission accounting. Refreshing logs does not change a budget or reconcile reservations."));
   observationFilters(root);
   const usage = state.observations.usage;
@@ -217,7 +217,7 @@ function roadmapTables(root,tables) {
 }
 function roadmapDocument(root,plan,proposal=false,index=0) {
   const key=(workspaceId||'')+':'+plan.repository+':'+plan.path;
-  const details=el('details',null,'roadmap-document');details.open=roadmapOpen.has(key)||(!proposal&&index===0&&!roadmapOpen.has(key+':closed'));
+  const details=el('details',null,'roadmap-document');details.open=roadmapOpen.has(key);
   details.addEventListener('toggle',()=>{if(!details.isConnected)return;if(details.open){roadmapOpen.add(key);roadmapOpen.delete(key+':closed');}else{roadmapOpen.delete(key);roadmapOpen.add(key+':closed');}});
   details.append(el('summary',plan.title||plan.path.split('/').pop()));
   details.append(el('p',plan.repository+' · '+(proposal?'Private proposal · not published':(plan.ref||'Configured Git ref')+' · '+(plan.commit?.slice(0,12)||'revision unavailable'))+' · observed '+when(plan.at),'muted'));
@@ -252,11 +252,12 @@ function roadmapDocument(root,plan,proposal=false,index=0) {
     const candidates=roadmapMissionActions(plan);
     if(candidates.length){
       const handoff=el('section',null,'roadmap-mission-actions');
-      handoff.append(el('h4','Prepare a Mission draft from one Roadmap action'),
-        el('p','Choose one current source action. This opens an editable local draft; it saves or reviews nothing.','muted'));
+      handoff.append(el('h4','Draft a phase yourself'),
+        el('p','Choose a source item to start an editable phase plan. You can also ask the brain to prepare the next phase above.','muted'));
       const sourceWorkspace=workspaceId,sourceGeneration=workspaceGeneration;
-      for(const action of candidates)handoff.append(button(`Prepare draft from ${action.kind==='checklist'?'open item':'current section'} · ${action.text} · line ${action.line}`,
-        ()=>roadmapPrepareMission(plan,action,sourceWorkspace,sourceGeneration)));
+      const label=el('label','Roadmap item'),select=el('select');
+      candidates.forEach((action,index)=>{const option=el('option',action.text+' · line '+action.line);option.value=String(index);select.append(option);});select.value='0';label.append(select);
+      handoff.append(label,button('Prepare phase draft',()=>{const action=candidates[Number(select.value)];if(action)roadmapPrepareMission(plan,action,sourceWorkspace,sourceGeneration);}));
       details.append(handoff);
     }
   }
@@ -269,58 +270,24 @@ function roadmapDocument(root,plan,proposal=false,index=0) {
   return details;
 }
 function roadmapReviewPlay(root) {
-  const workspace=state.workspace, standard=state.standard;
-  if(!workspace)return;
-  // projectProfile is the editorial introduction, not an execution policy.
-  const repositories=state.repositories;
-  if(!Array.isArray(repositories)||!repositories.length||!repositories.every(repo=>repo.policyProfile==='standard')){
-    root.append(section('Review & Play','Unavailable for this project'));
-    root.append(el('p','This project is not configured for the cooperative standard policy. Roadmap records remain read-only; they cannot opt a Harness or other project into standard Play.','muted'));
-    return;
-  }
-  const mission=state.mission, document=mission?.document, delegated=document?.spec?.authority?.approvalMode==='phase_delegated';
-  const catalog=standard?.catalog;
-  const run=standard?.run;
-  root.append(section('Review & Play','Prepare one bounded next phase — never the whole roadmap.'));
-  const panel=el('section',null,'detail roadmap-review-play');
-  if(run){
-    panel.append(el('h3','A cooperative phase is already recorded'),el('p','Review, Pause and checkpoint controls for this exact phase remain in Controls & setup. A roadmap item cannot restart it, reset its allowance, or authorize another phase.','muted'));
-    panel.append(button('Open current phase',()=>navigateView('operations')));
-  }else{
-    panel.append(el('h3',standard?.available?'Ready to review Play':'Review the prerequisites first'));
-    panel.append(el('p','Reviewing a mission does not start work. After the separate Review Play preview, the owner must explicitly confirm the exact phase, observed-usage boundary, limits and recorded model/effort catalog.','muted'));
-    const phaseState=mission?.effectiveStatus==='reviewed'&&document?'Reviewed exact phase':'Missing: review an exact mission phase';
-    const catalogState=catalog?'Recorded native model/effort catalog':'Missing: the designated brain must record the native catalog';
-    panel.append(table(['Prerequisite','Recorded state'],[
-      ['Project policy','Standard cooperative project'],
-      ['Exact mission',phaseState],
-      ['Phase delegation',delegated?'Phase-delegated authority recorded':'Missing: phase-delegated authority is required'],
-      ['Native catalog',catalogState],
-      ['Dispatch / run',state.meta.paused?'Paused · no run started':'Resolve dispatch state before review']
-    ]));
-    if(standard?.blocker)panel.append(el('p','Current gate: '+standard.blocker,'checkpoint'));
-    const actions=el('div',null,'inline-actions');
-    actions.append(button('Review mission & prerequisites',()=>navigateView('mission')));
-    if(standard?.available)actions.append(button('Open Review Play',()=>navigateView('operations'),'primary'));
-    panel.append(actions);
-  }
-  root.append(panel);
+  roadmapJourney(root);
 }
 function roadmap(root) {
-  observationFilters(root);
-  const data=state.observations.roadmaps,plans=data.plans.filter(inRepo),drafts=(data.drafts||[]).filter(inRepo);
-  root.append(el('p','Source claims, not execution authority. Published documents, historical checkpoints and private proposals remain separate. No item is automatically approved or completed.','roadmap-boundary'));
   roadmapReviewPlay(root);
+  if(state.workspace?.projectProfile?.profile)root.append(journeyDisclosure('roadmap-introduction','About this project',body=>projectIntroduction(body)));
+  const tools=journeyDisclosure('roadmap-sources','Source freshness & repository filter',body=>observationFilters(body));tools.classList.add('roadmap-source-tools');root.append(tools);
+  const data=state.observations.roadmaps,plans=data.plans.filter(inRepo),drafts=(data.drafts||[]).filter(inRepo);
   root.append(section('Published roadmap sources',plans.filter(p=>p.status==='observed').length+' / '+plans.length+' configured sources readable · '+drafts.length+' configured private proposals'));
-  root.append(el('p','Coverage is limited to explicitly configured sources; linked documents and Codex conversations are not imported automatically. Git refs may be stale; the observation time is not a publication date.','muted'));
+  root.append(el('p','Open a source to inspect its current items or draft a phase. Checklist marks are the plan author’s recorded progress.','muted'));
   if(!plans.length)root.append(empty('No published roadmap sources configured','Add the repository-relative Markdown paths in observations.json. Narrative plans and tables are supported; checkboxes are optional.'));
   const documents=el('div');
   const rows=plans.map((plan,index)=>{const panel=roadmapDocument(documents,plan,false,index);return [button(plan.title||plan.path,()=>{panel.open=true;roadmapOpen.add((workspaceId||'')+':'+plan.repository+':'+plan.path);panel.scrollIntoView({block:'start'});panel.querySelector('summary').focus();}),plan.repository,plan.status==='observed'?'Readable':'Unavailable',plan.commit?.slice(0,12)||'Unknown'];});
   if(rows.length)root.append(table(['Document','Repository','Coverage','Source revision'],rows));
   root.append(documents);
-  root.append(section('Private proposals — not published','Separate from the published roadmap and its completion counts.'));
-  if(!drafts.length)root.append(el('p','No private proposals configured. This does not mean no drafts exist in Codex. An operator can add an exact Markdown path from an approved artifact root to roadmapDrafts in observations.json.','muted'));
-  drafts.forEach((p,index)=>roadmapDocument(root,p,true,index));
+  root.append(journeyDisclosure('roadmap-proposals','Private proposals · '+drafts.length,body=>{
+    if(!drafts.length)body.append(el('p','No private proposals are configured here. This does not mean no drafts exist in Codex.','muted'));
+    drafts.forEach((p,index)=>roadmapDocument(body,p,true,index));
+  }));
 }
 
 setInterval(() => {

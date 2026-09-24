@@ -81,10 +81,17 @@ dispatch/rerun jobs or provision paid CI: the owner requires no extra Actions
 billing. Read-only GitHub evidence checks do not execute workflows. Missing CI
 remains unavailable, never silently replaced by local-test success.
 
-Start with **Session map**. Click a node or connection to inspect its overview,
-conversation, evidence or metadata below the graph. The brain’s **Controls** tab
-exposes existing reviewed phase controls. **Plan & controls → Controls & setup**
-retains the full operations view.
+Start with **Roadmap & Play**. It shows the current phase and one next action:
+prepare a proposal, review the plan, confirm Play, follow sessions, or review a
+checkpoint and prepare the next phase. **Prepare next phase** fills an editable
+message in Brain conversation; review and send it yourself. It never starts work.
+For the complete flow and state explanations, see the
+[Roadmap & Play guide](docs/ROADMAP-PLAY-UX.md).
+
+**Session map** remains the activity monitor. Click a node or connection to inspect
+its conversation, evidence or metadata below the graph. **Phase setup & recovery →
+Advanced controls** contains historical and recovery details, including optional
+brain handoff. Normal phase iteration does not require a brain replacement.
 
 Use the top **Navigation / Project / AI assistant** controls to show or collapse
 panes. Drag either divider, or focus it and use Left/Right (Shift for larger
