@@ -338,7 +338,7 @@ def main():
         if not registry or not args.workspace:
             raise Refusal("Explicit registered standard project required")
         from . import brain_handoff
-        if action == "brain-handoff-status": out = brain_handoff.status(ledger)
+        if action == "brain-handoff-status": out = brain_handoff.status(ledger, registry)
         elif action == "brain-handoff-native-observation":
             from .observations import read_regular
             from .standard import private_token

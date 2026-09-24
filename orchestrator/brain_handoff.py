@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import re
 import secrets
+import sqlite3
 import time
 import uuid
 
@@ -422,11 +423,56 @@ def receipt(ledger, value):
         return handoff
 
 
-def status(ledger):
+def status(ledger, registry=None):
+    """Read-only owner gate summary; the signed previews still enforce every check."""
+    project = None
+    project_error = None
+    if registry is not None:
+        # Keep registry -> ledger order even on advisory reads. A final owner
+        # confirmation writes both databases in that order.
+        try:
+            with read_db(registry.db) as registry_db:
+                project = _project(registry, ledger.workspace_id, registry_db)
+        except Refusal as error:
+            project_error = str(error)
+        except (ValueError, KeyError, OSError, sqlite3.Error):
+            project_error = "Native project binding could not be inspected"
     with read_db(ledger.db) as db:
         meta = ledger.get(db, "meta", 1)
-        return {"brainId": meta["brainId"], "handoff": meta.get("brainHandoff"),
-                "runId": (meta.get("standardRun") or {}).get("id")}
+        handoff = meta.get("brainHandoff")
+        phase = handoff["status"] if handoff else "not_prepared"
+        blockers = []
+        try:
+            _safe(ledger, db)
+        except (Refusal, ValueError, KeyError) as error:
+            blockers.append(str(error))
+        if registry is None:
+            blockers.append("Native project binding was not checked")
+        elif project_error:
+            blockers.append(project_error)
+        elif handoff and phase not in ("complete", "cancelled") and project != handoff["project"]:
+            blockers.append("Native project binding changed")
+        if phase == "prepared":
+            blockers.append("Record the one native replacement task before receipt review")
+        elif phase == "candidate":
+            blockers.append("Record the exact package marker in a final native reply and import its receipt")
+        elif phase == "received":
+            if not handoff.get("candidate") or not handoff.get("receipt") or not handoff.get("receiptEvidence"):
+                blockers.append("Exact replacement candidate and native final-reply receipt are required")
+            else:
+                try:
+                    _current_membership(handoff)
+                except (Refusal, ValueError, KeyError) as error:
+                    blockers.append(str(error))
+        elif phase not in ("not_prepared", "complete", "cancelled"):
+            blockers.append("Handoff state needs reconciliation")
+        return {"brainId": meta["brainId"], "handoff": handoff,
+                "runId": (meta.get("standardRun") or {}).get("id"),
+                "readiness": {"phase": phase,
+                              "canPrepare": phase in ("not_prepared", "complete", "cancelled") and not blockers,
+                              "canFinalize": phase == "received" and not blockers,
+                              "blockers": blockers,
+                              "boundary": "Read-only guidance; a fresh signed owner preview is still required"}}
 
 
 def recover_registry(registry, workspace, handoff_id, confirmed):

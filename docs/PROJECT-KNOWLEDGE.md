@@ -123,6 +123,11 @@ interrupted, project opening fails closed on its identity check. The explicit
 `brain-handoff-recover HANDOFF_ID --confirm` CLI operation repairs only that
 exact ledger-committed registry binding after owner inspection. It performs no
 native task operation and cannot change an uncommitted or foreign handoff.
+The dashboard and `brain-handoff-status` CLI show a read-only readiness summary
+for preparation and final review, including the specific missing checkpoint,
+project or native evidence. This is guidance from the current local observation,
+not a durable authorization: the server repeats every gate in the separately
+signed, expiring owner preview and again at confirmation.
 
 ## Evidence and current qualification
 
