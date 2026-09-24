@@ -50,12 +50,19 @@ function all(root){return [root,...root.children.flatMap(x=>x instanceof Element
   const handoffBox=nodes.filter(n=>n.type==='checkbox').at(-1);handoffBox.checked=true;handoffBox.onchange();
   assert.equal(handoffConfirm.disabled,false);await handoffConfirm.click();
   assert.ok(sent.some(s=>s.path.endsWith('/brain-handoff/confirm')));
+  box.state.brainNotification={status:'disabled'};
+  box.state.brainHandoff={readiness:{canPrepare:false,canFinalize:false,blockers:[]},handoff:{status:'prepared',packageHash:'hash',oldBrainId:'old'}};
+  nodes=all(render());
+  assert.ok(nodes.some(n=>String(n.text).includes('notification is off')));
+  assert.ok(nodes.some(n=>String(n.text).includes('do not confirm preparation again or use Resume')));
   box.state.brainHandoff={readiness:{canPrepare:false,canFinalize:false,blockers:['Fresh native task-list project membership required before rebinding']},handoff:{status:'received',packageHash:'hash',oldBrainId:'old',
     candidate:{taskId:'new',projectId:'native-a',observation:'Owner observed native project'},
     receipt:{summary:'Exact package reviewed'},receiptEvidence:{source:'local_native_final_reply',observedAt:1}}};
   nodes=all(render());
   assert.ok(nodes.some(n=>String(n.text).includes('Native final reply observed')));
+  assert.equal(nodes.find(n=>n.text==='Open replacement task in Codex').href,'codex://threads/new');
   assert.ok(nodes.some(n=>String(n.text).includes('separate Codex task-list observation')));
+  assert.ok(nodes.some(n=>String(n.text).includes('Refresh alone cannot supply missing evidence')));
   assert.ok(!nodes.some(n=>n.text==='Review replacement receipt'));
   assert.ok(nodes.some(n=>String(n.text).includes('Fresh native task-list project membership required')));
   box.state.brainHandoff.handoff.nativeMembership={projectId:'native-a',hostId:'local',status:'active',observedAt:Date.now()/1000};
