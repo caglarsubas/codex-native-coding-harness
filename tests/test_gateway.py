@@ -8,7 +8,7 @@ import threading
 import unittest
 from unittest.mock import patch
 
-from deployment.gateway import Gateway
+from deployment.gateway import Gateway, upstream_timeout
 from orchestrator.core import Ledger
 from orchestrator.server import Dashboard
 
@@ -155,20 +155,25 @@ class GatewayTest(unittest.TestCase):
             self.assertEqual(send.call_count, 1)
 
     def test_slow_assistant_has_its_own_bounded_timeout_and_error(self):
-        with patch("deployment.gateway.http.client.HTTPConnection") as connection:
-            connection.return_value.request.side_effect = TimeoutError("private upstream detail")
-            with socket.create_connection(("127.0.0.1", self.public), timeout=5) as client:
-                client.sendall((f"POST /api/assistant HTTP/1.0\r\nHost: {self.gateway.public_host}\r\n"
-                                f"Origin: {self.gateway.origin}\r\nContent-Length: 2\r\n\r\n{{}}").encode())
-                chunks = []
-                while data := client.recv(4096): chunks.append(data)
-        response = b"".join(chunks)
-        self.assertIn(b" 502 ", response)
-        self.assertIn(b"The question may still be processing", response)
-        self.assertIn(b"No project control was submitted", response)
-        self.assertNotIn(b"private upstream detail", response)
-        self.assertEqual(connection.return_value.request.call_count, 1)
-        self.assertEqual(connection.call_args.kwargs["timeout"], 270)
+        for path in ("/api/assistant", "/api/workspaces/codex-orchestrator/assistant"):
+            with self.subTest(path=path), patch("deployment.gateway.http.client.HTTPConnection") as connection:
+                connection.return_value.request.side_effect = TimeoutError("private upstream detail")
+                with socket.create_connection(("127.0.0.1", self.public), timeout=5) as client:
+                    client.sendall((f"POST {path} HTTP/1.0\r\nHost: {self.gateway.public_host}\r\n"
+                                    f"Origin: {self.gateway.origin}\r\nContent-Length: 2\r\n\r\n{{}}").encode())
+                    chunks = []
+                    while data := client.recv(4096): chunks.append(data)
+                response = b"".join(chunks)
+                self.assertIn(b" 502 ", response)
+                self.assertIn(b"The question may still be processing", response)
+                self.assertIn(b"No project control was submitted", response)
+                self.assertNotIn(b"private upstream detail", response)
+                self.assertEqual(connection.return_value.request.call_count, 1)
+                self.assertEqual(connection.call_args.kwargs["timeout"], 270)
+        for path in ("/api/assistant/confirm", "/api/workspaces/codex-orchestrator/assistant/confirm",
+                     "/api/workspaces/codex-orchestrator/assistant/preview", "/api/workspaces//assistant"):
+            self.assertEqual(upstream_timeout("POST", path), 180)
+        self.assertEqual(upstream_timeout("GET", "/api/workspaces/codex-orchestrator/assistant"), 180)
         self.assertEqual(self.request("/healthz")[0], 200)
 
 
