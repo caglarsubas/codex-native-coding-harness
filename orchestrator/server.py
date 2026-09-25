@@ -113,6 +113,8 @@ class WorkspaceRuntime:
             from .projects import display_name
             from .brain_handoff import status as handoff_status
             state["standard"] = standard_read(self.ledger)
+            from .recovery import describe as recovery_description
+            state["recovery"] = recovery_description(state)
             state["brainHandoff"] = handoff_status(self.ledger, self.registry)
             state["workspace"] = {"id": self.workspace_id,
                 "name": display_name(self.registry, self.workspace_id, next(w["name"] for w in self.registry.list() if w["id"] == self.workspace_id)),

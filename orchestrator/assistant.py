@@ -48,6 +48,8 @@ Use only the current snapshot for status; older chat may be stale. Missing evide
 unknown, not failure. Explain stale timestamps. Dispatch, brain stop, heartbeat, delivery,
 receipt, source, CI, merge, runtime and acceptance are separate states. Resume is not
 packet approval. A blocked outcome requires a bounded proposal, not an automatic retry.
+If F43 is present, explain its recorded figures, coverage gap and recovery boundary.
+Never present a suggested larger budget as approved or an old phase as replayable.
 For standard projects, phase_prepare, phase_review, codex_check, phase_play,
 phase_pause and phase_resume are available when the current action catalog says so.
 Guide the owner through these dependencies in this conversation. For a request to
@@ -277,6 +279,11 @@ def context(state, view):
                               "remainingMeasured": (s.get("measuredUsage") or {}).get("remainingMeasured"),
                               "observedAt": usage.get("collectedAt")},
             "nextStep": "Prepare, review, check capabilities, then Play in this chat. Each confirmation applies only to its displayed action."}})
+        from .recovery import describe as recovery_description
+        recovery = state.get("recovery") or recovery_description(state)
+        if recovery:
+            facts.append({"id": "F43", "label": "Deterministic phase blocker explanation; not repair authority",
+                          "data": recovery})
     # The service sees aliases, not native/ledger IDs, filesystem paths or routes.
     data = {"schemaVersion": 2, "observedAt": time.time(), "snapshotTimeUTC": datetime.now(timezone.utc).isoformat(), "currentView": VIEWS[view], "facts": facts,
             "links": {k: v["label"] for k, v in links.items()},

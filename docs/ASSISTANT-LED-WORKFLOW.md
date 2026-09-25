@@ -16,6 +16,12 @@ inspection surfaces. A routine standard-project cycle stays in the conversation:
    If usage needs measuring first, confirm the local usage check in chat. Missing
    coverage remains unknown and blocks further effects; it is never treated as zero.
 
+When a standard phase stops on a control blocker, Roadmap & Play and the assistant
+show a deterministic explanation before the owner asks the model. Confirming
+**Prepare recovery proposal** sends one exact, bounded investigation/draft request
+to the existing brain. It does not change a budget, review a new mission or Play.
+See [guided control recovery](CONTROL-RECOVERY.md).
+
 The assistant can also send an explicitly requested, verbatim instruction to the
 project brain, such as a requested phase revision. It never invents the owner's
 answer. A short confirmation phrase is handled directly by the browser, without

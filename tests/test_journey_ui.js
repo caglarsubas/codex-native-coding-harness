@@ -13,6 +13,7 @@ const box={workspaceId:'alpha',busy:false,connected:true,missionDrafts:new Map()
   document:{getElementById:()=>null},el:(...args)=>new Element(...args),button:(text,click)=>Object.assign(new Element('button',text),{click}),
   num:String,when:String,navigateView:view=>calls.push(['navigate',view]),showNotice:text=>notices.push(text),
   reviewStandardControl:(s,op)=>calls.push(['review',op]),requestCatalogForPlay:()=>calls.push(['catalog']),refresh:()=>calls.push(['refresh']),
+  focusAssistantConversation:()=>calls.push(['focus','assistant']),assistantRequestStep:key=>calls.push(['preview',key]),
   commandPresentation:()=>({label:'Delivery unconfirmed',detail:'Do not resend'}),catalogStatus:()=>({title:'Delivery unconfirmed',detail:'Do not resend'}),scheduleCatalogFollowup:()=>{},standardConfirmation:()=>calls.push(['confirmation'])};
 vm.createContext(box);vm.runInContext(fs.readFileSync('web/summaries.js','utf8'),box);vm.runInContext(fs.readFileSync('web/journey.js','utf8'),box);
 const base=()=>({workspace:{id:'alpha',name:'Sample project'},repositories:[{policyProfile:'standard'}],commands:[],
@@ -44,6 +45,7 @@ s.standard.run.expiresAt=500;assert.equal(model(s).action,'prepare');
 s.standard.run=run('stopping');assert.equal(model(s).action,'overview');assert.equal(model(s).canPause,undefined);
 s.standard.run=run('unrecognized');assert.equal(model(s).action,'conversation');
 for(const status of ['completed','blocked']){s.standard.run=run(status);assert.equal(model(s).action,'prepare');assert.equal(model(s).stage,3);}
+assert.equal(model(s).label,'Prepare recovery proposal');
 s.mission.document.spec.phase.id='phase-2';assert.equal(model(s).action,'play');
 for(const status of ['prepared','candidate','received']){s.brainHandoff={handoff:{status}};assert.equal(model(s).action,'handoff');}
 s.brainHandoff={handoff:{status:'complete'}};assert.equal(model(s).action,'play');
@@ -59,6 +61,18 @@ assert.match(text(root),/Previous phase phase-1/);assert.match(text(root),/Measu
 box.missionDrafts.set('alpha',{});box.state=base();assert.match(text(render()),/Your phase draft is open/);
 box.state.standard.run=run('running');assert(!text(render()).includes('Your phase draft is open'),'Drafts cannot hide an active phase');
 box.state.standard.run=run('completed');assert.match(text(render()),/Continue phase draft/,'A next-phase draft remains reachable after completion');
+box.missionDrafts.clear();box.state.recovery={title:'Usage evidence is incomplete',explanation:'Remaining measured budget is unknown.',
+  observedTotal:954236,budget:300000,checkpointReserve:75000,cachedInput:778368,uncachedInput:174574,
+  output:1294,registeredTasks:0,remainingMeasured:null,observedAt:12345,gapCount:1,
+  gapLabels:['A Codex token record could not be validated.'],nextStep:'Review a new phase.',boundary:'No automatic replay.'};
+root=render();assert.match(text(root),/Usage evidence is incomplete/);assert.match(text(root),/954236 observed tokens/);
+box.state.recovery.observedTotal=100;box.state.recovery.knownUsageLowerBound=954236;
+assert.match(text(render()),/At least 954236 tokens were retained in the usage high-water mark/);
+box.state.recovery.observedTotal=954236;
+box.state.standard.run=run('blocked');box.state.recovery.phaseStatus='blocked';
+all(render()).find(n=>n.text==='Prepare recovery proposal').click();
+assert.deepEqual(calls.slice(-2),[['focus','assistant'],['preview','phase_prepare']]);
+box.state.recovery=null;
 box.state.repositories=[{policyProfile:'harness'}];assert.match(text(render()),/Review approved queue/);assert(!text(render()).includes('Continue phase draft'));box.missionDrafts.clear();
 box.state=base();box.state.mission=null;root=render();const before=calls.length;
 all(root).find(n=>n.text==='Prepare next phase').click();

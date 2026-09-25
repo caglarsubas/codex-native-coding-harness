@@ -7,6 +7,7 @@ import uuid
 
 from .assistant_actions import ActionProposals, TTL
 from .core import digest, require
+from .recovery import describe
 
 KINDS = {"phase_prepare", "phase_review", "phase_play", "phase_pause", "phase_resume", "usage_check", "codex_check", "brain_message"}
 PREPARE_MESSAGE = (
@@ -16,6 +17,25 @@ PREPARE_MESSAGE = (
     "checkpoint. Explain unresolved prerequisites. Preserve consumed usage and previous results. "
     "Save the draft for my review and reply in the project conversation. Do not start Play or approve the phase."
 )
+
+
+def prepare_message(state):
+    recovery = state.get("recovery") or describe(state)
+    if not recovery or recovery["phaseStatus"] != "blocked":
+        return PREPARE_MESSAGE
+    return (
+        "The recorded phase " + str(recovery["phaseId"] or "unknown") + " stopped at a safety checkpoint. "
+        "Its reviewed token budget was " + str(recovery["budget"]) + " with " +
+        str(recovery["checkpointReserve"]) + " reserved for checkpointing. "
+        "Local telemetry observed " + str(recovery["observedTotal"] if recovery["observedTotal"] is not None else "unknown") +
+        " total tokens; coverage is " + recovery["coverage"] + " with " + str(recovery["gapCount"]) +
+        " gap(s). First reconcile the exact recorded reason and usage evidence, preserving high-water and unknown coverage. "
+        "Do not waive a gap, reset consumption, retry an uncertain native effect, or reuse this phase ID. "
+        "Then prepare a genuinely new bounded mission draft for my review, stating the correction, why it is needed, "
+        "prior consumption, proposed token budget, reserve, task limits, scope, success criteria and stopping checkpoint. "
+        "If the evidence cannot be reconciled, retain the blocker and ask me for the exact missing decision. "
+        "Reply with a concise explanation and the proposed next step. Do not review the mission, start Play, or perform worker effects."
+    )
 
 
 def catalog(state):
@@ -41,7 +61,11 @@ def catalog(state):
                        "target": state["workspace"].get("name", "Selected project"),
                        "href": "#/roadmap", "details": {}, "payload": {}}
 
-    add("phase_prepare", "Prepare the next phase", "Ask the project brain to save the next roadmap phase for review.",
+    recovering = run.get("status") == "blocked" and bool(state.get("recovery") or describe(state))
+    add("phase_prepare", "Prepare a recovery proposal" if recovering else "Prepare the next phase",
+        ("Ask the project brain to reconcile the stopped phase and draft an exact new plan for your review. "
+         "This does not change its controls or start work." if recovering else
+         "Ask the project brain to save the next roadmap phase for review."),
         message_reason or ("Finish the existing brain handoff first." if blocked_handoff else
                            "The current phase needs its checkpoint first." if active else None))
     add("brain_message", "Send your instruction to the project brain", "Send the exact text shown below and follow its reply here.", message_reason)
@@ -104,7 +128,7 @@ class JourneyProposals(ActionProposals):
         elif kind == "usage_check":
             request = {"id": ident, "runId": standard["run"]["id"], "contextHash": standard["contextHash"]}
         else:
-            message = PREPARE_MESSAGE if kind == "phase_prepare" else action["payload"]["message"]
+            message = prepare_message(state) if kind == "phase_prepare" else action["payload"]["message"]
             request = {"id": ident, "kind": "reconcile", "expectedRevision": state["meta"]["revision"],
                        "payload": {"brainId": state["meta"]["brainId"], "message": message, "confirmed": True}}
             preview["message"] = message

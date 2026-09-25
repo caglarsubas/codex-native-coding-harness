@@ -76,13 +76,13 @@ if __name__ == '__main__':
                         '-c', 'user.email=fixture@example.invalid', 'commit', '--allow-empty',
                         '-qm', 'Disposable preview'], check=True)
         (fixture.root / 'empty-codex-logs').mkdir()
-        for identity in ['alpha', 'draft', 'running', 'paused', 'completed', 'needs-catalog']:
+        for identity in ['alpha', 'draft', 'running', 'paused', 'completed', 'blocked', 'needs-catalog']:
             ledger, token = (fixture.ledger, fixture.token) if identity == 'alpha' else fixture.workspace(identity)
             (ledger.root / 'observations.json').write_text(json.dumps({'codexHome': str(fixture.root / 'empty-codex-logs')}))
             if identity == 'draft':
                 from orchestrator.missions import read as mission_read
                 change(ledger, request(spec=specification(mode='phase_delegated'), expectedRevision=mission_read(ledger)['revision']))
-            if identity in ('running', 'paused', 'completed'):
+            if identity in ('running', 'paused', 'completed', 'blocked'):
                 fixture.control(ledger=ledger)
                 run_id = read(ledger)['run']['id']
                 brain(fixture.registry, ledger, token, {'operation': 'receive', 'runId': run_id})
@@ -107,6 +107,21 @@ if __name__ == '__main__':
                     brain(fixture.registry, ledger, token, {'operation': 'checkpoint', 'runId': run_id,
                           'outcome': identity, 'summary': 'Synthetic checkpoint: review the result before continuing.',
                           'brainObservedTokens': None})
+                    if identity == 'blocked':
+                        from orchestrator.brain_memory import scope
+                        with ledger.tx() as db:
+                            meta = ledger.get(db, 'meta', 1)
+                            run = meta['standardRun']
+                            run['usageGuardVersion'] = 1
+                            run['usageHighWater'] = 954236
+                            run['usageReport'] = {'scopeHash': scope(run), 'runId': run_id,
+                                'collectedAt': time.time(), 'through': run['checkpoint']['at'],
+                                'records': [{'role': 'brain'}], 'tokens': {
+                                    'total_tokens': 954236, 'input_tokens': 952942,
+                                    'cached_input_tokens': 778368, 'output_tokens': 1294,
+                                    'reasoning_output_tokens': 0},
+                                'gaps': ['invalid_token_record'], 'coverage': 'gapped'}
+                            ledger.put(db, 'meta', 1, meta)
             if identity == 'needs-catalog':
                 with ledger.tx() as db:
                     meta = ledger.get(db, 'meta', 1)

@@ -78,6 +78,7 @@ async function assistantRequestStep(key){
 function assistantNextStep(){
   const root=$('assistant-next-step');if(!root)return;root.replaceChildren();
   if(!connected||!state?.workspace)return;
+  if(state.recovery)recoverySummary(root,state.recovery);
   const messages=[...(state.commands||[])].reverse().filter(c=>c.kind==='reconcile'&&c.payload?.message);
   const pending=messages.find(c=>!c.conversationReply);
   if(pending){const info=commandPresentation(pending,state.brainActivity);root.append(el('p','WITH YOUR PROJECT BRAIN','eyebrow'),el('p',info.label),el('p',info.detail,'muted'));return;}
