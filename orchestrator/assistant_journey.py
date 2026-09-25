@@ -23,18 +23,27 @@ def prepare_message(state):
     recovery = state.get("recovery") or describe(state)
     if not recovery or recovery["phaseStatus"] != "blocked":
         return PREPARE_MESSAGE
+    leads = "; ".join(row["label"] + " [" + row["source"] + "]" for row in recovery["issues"])
+    usage = (
+        "Recorded usage context: reviewed token budget " + str(recovery["budget"]) +
+        ", checkpoint reserve " + str(recovery["checkpointReserve"]) +
+        ", locally observed " + str(recovery["observedTotal"] if recovery["observedTotal"] is not None else "unknown") +
+        " total tokens, coverage " + recovery["coverage"] + " with " + str(recovery["gapCount"]) + " gap(s). "
+        if recovery["usageRelevant"] else ""
+    )
     return (
         "The recorded phase " + str(recovery["phaseId"] or "unknown") + " stopped at a safety checkpoint. "
-        "Its reviewed token budget was " + str(recovery["budget"]) + " with " +
-        str(recovery["checkpointReserve"]) + " reserved for checkpointing. "
-        "Local telemetry observed " + str(recovery["observedTotal"] if recovery["observedTotal"] is not None else "unknown") +
-        " total tokens; coverage is " + recovery["coverage"] + " with " + str(recovery["gapCount"]) +
-        " gap(s). First reconcile the exact recorded reason and usage evidence, preserving high-water and unknown coverage. "
-        "Do not waive a gap, reset consumption, retry an uncertain native effect, or reuse this phase ID. "
-        "Then prepare a genuinely new bounded mission draft for my review, stating the correction, why it is needed, "
-        "prior consumption, proposed token budget, reserve, task limits, scope, success criteria and stopping checkpoint. "
-        "If the evidence cannot be reconciled, retain the blocker and ask me for the exact missing decision. "
-        "Reply with a concise explanation and the proposed next step. Do not review the mission, start Play, or perform worker effects."
+        "Recorded leads (not all independently verified): " + leads + ". " + usage +
+        "Inspect the exact checkpoint, current policy, mission, native effect receipts and evidence before diagnosing the cause. "
+        "Classify each condition as evidence refresh, native reconciliation, external dependency, owner decision, "
+        "or a proposed change to a reviewed phase limit, scope or authority. Preserve prior consumption and unknown coverage. "
+        "Resolve only read-only evidence gaps within existing authority; do not waive a control, reset consumption, "
+        "retry an uncertain native effect, or reuse this terminal phase ID. "
+        "If more development needs a changed policy, prepare a genuinely new bounded mission draft for my review. "
+        "State each exact proposed change and reason, prior usage, token budget and reserve, duration, task and parallel limits, "
+        "repository and path scope, model and merge policy, success criteria, exclusions and stopping checkpoint. "
+        "If a prerequisite cannot be reconciled or crosses a new authority boundary, retain the blocker and ask for the exact owner decision. "
+        "Reply with a concise diagnosis and next step. Do not review the mission, start Play, or perform worker effects."
     )
 
 
@@ -63,7 +72,7 @@ def catalog(state):
 
     recovering = run.get("status") == "blocked" and bool(state.get("recovery") or describe(state))
     add("phase_prepare", "Prepare a recovery proposal" if recovering else "Prepare the next phase",
-        ("Ask the project brain to reconcile the stopped phase and draft an exact new plan for your review. "
+        ("Ask the project brain to investigate every recorded condition and propose only necessary changes for your review. "
          "This does not change its controls or start work." if recovering else
          "Ask the project brain to save the next roadmap phase for review."),
         message_reason or ("Finish the existing brain handoff first." if blocked_handoff else

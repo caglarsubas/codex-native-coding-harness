@@ -80,6 +80,25 @@ class StandardTest(unittest.TestCase):
         self.assertEqual(result,self.controls.confirm(self.registry,self.ledger,{**p,'confirmed':True},'session'))
         self.assertTrue(self.ledger.snapshot()['meta']['paused'])
 
+    def test_checkpoint_accepts_bounded_policy_reasons_without_changing_authority(self):
+        self.control()
+        self.call('checkpoint', outcome='blocked', summary='Scope and owner decision need review',
+                  brainObservedTokens=None, reasonCodes=['scope', 'owner_decision'])
+        run = read(self.ledger)['run']
+        self.assertEqual(run['checkpoint']['reasonCodes'], ['scope', 'owner_decision'])
+        self.assertEqual(run['status'], 'blocked')
+        self.assertEqual(run['limits']['tokenBudget'], specification(mode='phase_delegated')['authority']['tokenBudget'])
+
+    def test_checkpoint_rejects_untrusted_or_completed_stop_reasons(self):
+        self.control()
+        with self.assertRaises(Refusal):
+            self.call('checkpoint', outcome='blocked', summary='Unknown', brainObservedTokens=None,
+                      reasonCodes=['please_waive_all_rules'])
+        with self.assertRaises(Refusal):
+            self.call('checkpoint', outcome='completed', summary='Unknown', brainObservedTokens=None,
+                      reasonCodes=['scope'])
+        self.assertEqual(read(self.ledger)['run']['status'], 'running')
+
     def test_dashboard_catalog_refresh_notifies_once_and_collects_brain_receipt(self):
         from orchestrator.notification import BrainNotifier
         from types import SimpleNamespace

@@ -542,8 +542,16 @@ def brain(registry, ledger, token, request):
             require(not task["effectIssued"], "Uncertain creation cannot be cancelled or retried")
             task["status"] = "not_created"
         elif operation == "checkpoint":
-            exact(request, "operation runId outcome summary brainObservedTokens")
+            required = {"operation", "runId", "outcome", "summary", "brainObservedTokens"}
+            require(set(request) in (required, required | {"reasonCodes"}), "Unexpected checkpoint fields")
             require(request["outcome"] in ("paused", "completed", "blocked"), "Checkpoint outcome required")
+            reasons = request.get("reasonCodes", [])
+            from .recovery import CHECKPOINT_REASONS
+            require(isinstance(reasons, list) and len(reasons) <= 8 and len(reasons) == len(set(map(str, reasons)))
+                    and all(isinstance(code, str) and code in CHECKPOINT_REASONS for code in reasons),
+                    "Use only supported bounded checkpoint reason codes")
+            require(request["outcome"] != "completed" or not reasons,
+                    "Completed checkpoint cannot retain safety-stop reasons")
             require(not any(t["status"] not in TERMINAL for t in run["tasks"]), "Unresolved registered tasks retain ownership")
             if request["outcome"] in ("completed", "blocked"):
                 require(not any(m["status"] in ("prepared", "issued", "uncertain") for m in run.get("merges", [])), "Reconcile merge before closing the phase")
@@ -553,7 +561,8 @@ def brain(registry, ledger, token, request):
             if observed is not None:
                 missions.integer(observed, "Brain observed tokens", run["brainObservedTokens"], 10**12)
                 run.update(brainObservedTokens=observed, brainUsageCoverage="observed_partial", brainAllowance=max(observed, run["brainAllowance"]))
-            run.update(status=request["outcome"], checkpoint={"summary": missions.text(request["summary"], "Checkpoint", 8000), "at": time.time()})
+            run.update(status=request["outcome"], checkpoint={"summary": missions.text(request["summary"], "Checkpoint", 8000),
+                "reasonCodes": reasons, "at": time.time()})
             from .brain_memory import capsule
             capsule(ledger, db, run, request["summary"])
         else:

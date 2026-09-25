@@ -62,6 +62,8 @@ box.missionDrafts.set('alpha',{});box.state=base();assert.match(text(render()),/
 box.state.standard.run=run('running');assert(!text(render()).includes('Your phase draft is open'),'Drafts cannot hide an active phase');
 box.state.standard.run=run('completed');assert.match(text(render()),/Continue phase draft/,'A next-phase draft remains reachable after completion');
 box.missionDrafts.clear();box.state.recovery={title:'Usage evidence is incomplete',explanation:'Remaining measured budget is unknown.',
+  issues:[{code:'usage_gap',label:'Usage coverage incomplete',source:'platform',nextStep:'Reconcile evidence.'}],
+  issueCount:1,issuesTruncated:false,usageRelevant:true,maxTasks:2,maxParallelTasks:1,expiresAt:2000,
   observedTotal:954236,budget:300000,checkpointReserve:75000,cachedInput:778368,uncachedInput:174574,
   output:1294,registeredTasks:0,remainingMeasured:null,observedAt:12345,gapCount:1,
   gapLabels:['A Codex token record could not be validated.'],nextStep:'Review a new phase.',boundary:'No automatic replay.'};

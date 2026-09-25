@@ -25,6 +25,8 @@ assert.match(box.assistantUsageSummary({records:[],tokens:{total_tokens:0,cached
 assert.match(box.assistantUsageSummary({records:[{}],tokens:{total_tokens:12,cached_input_tokens:3},gaps:['partial'],collectedAt:1}),/At least 12 observed tokens/);
 box.state.workspace={id:'alpha'};box.state.standard={run:{status:'blocked'},blockers:[]};box.state.recovery={
   title:'Usage evidence is incomplete',explanation:'Remaining measured budget is unknown.',phaseStatus:'blocked',
+  issues:[{code:'usage_gap',label:'Usage coverage incomplete',source:'platform',nextStep:'Reconcile evidence.'}],
+  issueCount:1,issuesTruncated:false,usageRelevant:true,maxTasks:2,maxParallelTasks:1,expiresAt:12345,
   observedTotal:954236,knownUsageLowerBound:954236,budget:300000,checkpointReserve:75000,
   cachedInput:778368,uncachedInput:174574,output:1294,registeredTasks:0,remainingMeasured:null,
   observedAt:12345,gapCount:1,gapLabels:['A token record could not be validated.'],reasonLabels:[],
