@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
-const box={titles:{},window:{addEventListener(){}},Map,TextEncoder};vm.createContext(box);
+const box={titles:{},window:{addEventListener(){}},Map,TextEncoder};vm.createContext(box);vm.runInContext(fs.readFileSync('web/summaries.js','utf8'),box);
 for(const file of ['routing.js','workspaces.js'])vm.runInContext(fs.readFileSync('web/'+file,'utf8'),box);
 const run=code=>vm.runInContext(code,box);
 run("workspaceId='alpha'");

@@ -21,11 +21,13 @@ function assistantStatus(text,error=false){$('assistant-status').textContent=tex
 function chatTurn(role,content){
   $('assistant-welcome').hidden=true;
   const item=el('article',null,'chat-turn');item.dataset.role=role;
-  const body=el('p');
+  const body=content.length>280?narrative(content,role==='assistant'?'AI explanation':'Your question'):el('p');
   // Models sometimes emit emphasis despite the plain-text contract. Only bold
   // text is supported; HTML, URLs and Markdown links never become active markup.
-  if(role==='assistant')content.split(/(\*\*[^*\n]{1,240}\*\*)/g).forEach(part=>body.append(el(part.startsWith('**')&&part.endsWith('**')?'strong':'span',part.startsWith('**')&&part.endsWith('**')?part.slice(2,-2):part)));
-  else body.textContent=content;
+  if(content.length<=280){
+    if(role==='assistant')content.split(/(\*\*[^*\n]{1,240}\*\*)/g).forEach(part=>body.append(el(part.startsWith('**')&&part.endsWith('**')?'strong':'span',part.startsWith('**')&&part.endsWith('**')?part.slice(2,-2):part)));
+    else body.textContent=content;
+  }
   item.append(el('p',role==='user'?'YOU':'AI · ADVISORY','eyebrow'),body);
   $('assistant-log').append(item);return item;
 }

@@ -246,7 +246,7 @@ class Handler(BaseHTTPRequestHandler):
         static["/decisions.css"] = ("decisions.css", "text/css; charset=utf-8")
         static["/conversation.js"] = ("conversation.js", "text/javascript; charset=utf-8")
         static["/auth.js"] = ("auth.js", "text/javascript; charset=utf-8")
-        for file in ("journey.js", "journey.css", "session-map.js", "session-map.css", "panes.js", "assistant.js", "routing.js", "workspaces.js", "missions.js", "standard.js", "knowledge.js", "workspace-pause.js", "run-readiness.js", "phase-checkpoints.js", "checkpoint-controls.js", "rereview.js", "model-controls.js", "observer-controls.js", "budget.js", "retention.js", "task-contracts.js", "panes.css"):
+        for file in ("summaries.js", "journey.js", "journey.css", "session-map.js", "session-map.css", "panes.js", "assistant.js", "routing.js", "workspaces.js", "missions.js", "standard.js", "knowledge.js", "workspace-pause.js", "run-readiness.js", "phase-checkpoints.js", "checkpoint-controls.js", "rereview.js", "model-controls.js", "observer-controls.js", "budget.js", "retention.js", "task-contracts.js", "panes.css"):
             static["/" + file] = (file, "text/javascript; charset=utf-8" if file.endswith(".js") else "text/css; charset=utf-8")
         if path in static:
             file, mime = static[path]

@@ -3,7 +3,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('nod
 const links=[];
 const box={titles:{},Map,Date,Set,Number,activityLabel:a=>a.status==='running'?'Active recently':'Idle observed',
   el:(tag,text)=>({tag,text}),button:(text,action)=>({text,action})};
-vm.createContext(box);vm.runInContext(fs.readFileSync('web/session-map.js','utf8'),box);
+vm.createContext(box);vm.runInContext(fs.readFileSync('web/summaries.js','utf8'),box);vm.runInContext(fs.readFileSync('web/session-map.js','utf8'),box);
 const now=10_000;
 const snapshot={meta:{brainId:'brain-task',paused:true},brainActivity:{title:'The project brain',fresh:true,status:'running',observedAt:now-1},
   standard:{run:{tasks:[

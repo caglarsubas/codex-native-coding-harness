@@ -5,6 +5,7 @@ class Element{
   append(...children){this.children.push(...children);}
   replaceChildren(...children){this.children=children;}
   setAttribute(name,value){this[name]=value;}
+  addEventListener(name,fn){this[name]=fn;}
 }
 let fail=false,pending=0,navigation=null;const sent=[];
 const box={Map,titles:{},workspaceId:'alpha',busy:false,connected:true,csrf:'fixture',crypto:{randomUUID:()=>String(sent.length)},
@@ -13,7 +14,7 @@ const box={Map,titles:{},workspaceId:'alpha',busy:false,connected:true,csrf:'fix
   section:text=>new Element('h2',text),empty:(a,b)=>new Element('p',a+b),callout:(a,b)=>new Element('p',a+b),badge:text=>new Element('span',text),when:String,
   render(){},navigateView(view){navigation=view;},missionDocument(root,hash,label){root.append(new Element('details',label));},refresh:async()=>{assert.equal(box.busy,false);},showNotice(){},updateWorkspaceSelector(){},
   api:async(path,options)=>{if(!options)return {pending,total:0,messages:[],hasOlder:false};sent.push(JSON.parse(options.body));if(fail)throw Error('Uncertain network result');return {};}};
-vm.createContext(box);vm.runInContext(fs.readFileSync('web/conversation.js','utf8'),box);
+vm.createContext(box);vm.runInContext(fs.readFileSync('web/summaries.js','utf8'),box);vm.runInContext(fs.readFileSync('web/conversation.js','utf8'),box);
 const all=root=>[root,...root.children.flatMap(x=>x instanceof Element?all(x):[])];
 async function render(){const root=new Element('root');box.conversationView(root);await Promise.resolve();return all(root);}
 (async()=>{

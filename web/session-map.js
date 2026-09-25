@@ -372,11 +372,11 @@ function sessionInspector(root,node,prefs){
   }else{
     const columns=el('div',null,'session-detail-columns'),main=el('div',null,'session-detail-story'),side=el('aside',null,'session-recent');
     if(node.kind==='brain'){
-      main.append(el('h3','Coordinating this project'),el('p',node.note),el('p',state.meta.brainControl?.desired==='stopped'?'The brain is stopped or stopping. Saved messages wait for explicit Resume.':state.meta.paused?'New task dispatch is paused. The brain can still plan, reconcile and retain results.':'Only approved work can be delegated. Node activity does not grant authority.','muted'));
+      main.append(el('h3','Coordinating this project'),narrative(node.note,'Brain update'),el('p',state.meta.brainControl?.desired==='stopped'?'The brain is stopped or stopping. Saved messages wait for explicit Resume.':state.meta.paused?'New task dispatch is paused. The brain can still plan, reconcile and retain results.':'Only approved work can be delegated. Node activity does not grant authority.','muted'));
       sessionFacts(main,[['Activity observed',when(node.raw.observedAt)],['Checkpoint retained',when(state.meta.lastReconciled)]]);
       const actions=el('div',null,'inline-actions');actions.append(button('Read & message brain',()=>{prefs.tab='conversation';prefs.inspectorSignature=null;render();}),button('Review controls',()=>{prefs.tab='controls';prefs.inspectorSignature=null;render();}));sessionNativeLink(actions,node.threadId,'Open brain in Codex');main.append(actions);
     }else{
-      main.append(el('h3',prefs.edge?node.relation:'Task responsibility'),el('p',node.raw.rationale||node.raw.note||node.title));
+      main.append(el('h3',prefs.edge?node.relation:'Task responsibility'),narrative(node.raw.rationale||node.raw.note||node.title,'Task responsibility'));
       if(prefs.edge)main.append(el('p','The designated project brain coordinates this registered task and reviews its returned evidence. This link represents the ledger association; it does not assert an observed native parent/child relationship.','muted'));
       sessionFacts(main,[['Repository',node.repository],['Recorded outcome',node.raw.status],['Allowed paths',node.raw.paths?.join(', ')||'See the retained inheritance seed']]);
       sessionDeliveryFacts(main,node);

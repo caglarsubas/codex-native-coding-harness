@@ -145,7 +145,7 @@ function decisionCard(d, root) {
     }
     if(d.receivedAt)card.append(el("p","Received by brain "+when(d.receivedAt),"muted"));
   }
-  if(d.resolution){card.append(el("h3","Brain outcome"),el("p",d.resolution.summary),el("p",when(d.resolution.at),"muted"));decisionArtifacts(card,d.resolution.artifactIds);}
+  if(d.resolution){card.append(el("h3","Brain outcome"),narrative(d.resolution.summary,'Decision outcome'),el("p",when(d.resolution.at),"muted"));decisionArtifacts(card,d.resolution.artifactIds);}
   root.append(card);
 }
 
@@ -166,7 +166,7 @@ function continuationCards(root) {
   const labels={needs_proposal:"Proposal needed",needs_revision:"Proposal links changed · review needed",waiting_external:"Waiting for an external event",proposal_published:"Next step published"};
   for(const c of rows) {
     const card=el("article",null,"decision-card");
-    card.append(el("p",c.repository,"eyebrow"),el("h2",c.title),badge(labels[c.status]),el("p",c.outcome.summary));
+    card.append(el("p",c.repository,"eyebrow"),el("h2",c.title),badge(labels[c.status]),narrative(c.outcome.summary,'Recorded outcome'));
     if(c.response?.note)card.append(el("p","Your retained answer","eyebrow"),el("p",c.response.note,"decision-note"));
     if(c.proposal) {
       const p=c.proposal.spec;

@@ -254,6 +254,15 @@ activation and strict Harness qualification are separate.
 
 OpenClaw integration remains deferred.
 
+## Summary-first dashboard reading
+
+- [x] Shared compact phase/task outcomes and collapsible full narratives across
+  Roadmap & Play, conversations, decisions, activity and advisory views.
+- [x] Preserve exact reports, unknown states, approval scope and visible blockers.
+- [ ] Merge and roll out summary-first presentation to the live dashboard.
+
+See [SUMMARY-FIRST-UX.md](SUMMARY-FIRST-UX.md) for coverage and verification.
+
 ## Standard exact-PR merge source contract
 
 - [x] Explicit reviewed phase opt-in, preserving manual repository policy and Harness guards.

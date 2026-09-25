@@ -55,10 +55,10 @@ function brainActivity(root, history=false) {
   controls.append(resume,stop);if(!state.workspace)panel.append(controls);
   if(m.brainControl?.checkpoint) {
     const cp=m.brainControl.checkpoint;
-    panel.append(el("p","Retained safe checkpoint · "+when(cp.at)+" · "+cp.summary,"brain-note"));
+    panel.append(narrative('Retained safe checkpoint · '+when(cp.at)+' · '+cp.summary,'Safe checkpoint'));
     decisionArtifacts(panel,cp.artifactIds);
   }
-  if(m.checkpoint) panel.append(el("p","Saved checkpoint: "+m.checkpoint.slice(0,280)+(m.checkpoint.length>280?"…":""),"brain-note"));
+  if(m.checkpoint) panel.append(narrative(m.checkpoint,'Saved checkpoint'));
   const actions=el("div",null,"inline-actions");
   if (/^[a-zA-Z0-9_-]{1,100}$/.test(m.brainId || "")) {
     const link=el("a","Open brain in Codex","button"); link.href="codex://threads/"+encodeURIComponent(m.brainId); actions.append(link);

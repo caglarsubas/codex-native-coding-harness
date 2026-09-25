@@ -95,7 +95,7 @@ function roadmapJourney(root){
   if(model.reasons?.length){const reasons=el('ul',null,'journey-reasons');model.reasons.forEach(reason=>reasons.append(el('li',reason)));panel.append(reasons);}
   if(model.request){const delivery=commandPresentation(model.request);panel.append(el('p',delivery.label+'. '+delivery.detail,'journey-receipt'));}
   if(model.catalog){const status=catalogStatus(s.catalogRefresh);panel.append(el('p',status.title+'. '+status.detail,'journey-receipt'));scheduleCatalogFollowup(s);}
-  if(model.checkpoint)panel.append(el('p',model.checkpoint,'journey-checkpoint'));
+  if(model.checkpoint)panel.append(phaseNarrative(model.checkpoint,run?.tasks||[]));
   if(!model.strict&&(spec||run)){
     const samePhase=!run||spec?.phase.id===run.phaseId,active=run&&['running','paused','stopping'].includes(run.status);
     const limits=(active?run.limits:spec?.authority)||run?.limits||{};
@@ -103,7 +103,7 @@ function roadmapJourney(root){
     const facts=el('dl',null,'journey-facts');
     const rows=[['Phase token budget',num(limits.tokenBudget)],['Parallel tasks',num(limits.maxParallelTasks)],
       ['Stopping checkpoint',samePhase&&spec?spec.phase.checkpoint:'See the retained phase result']];
-    for(const [label,value] of rows){const row=el('div');row.append(el('dt',label),el('dd',value));facts.append(row);}panel.append(facts);
+    for(const [label,value] of rows){const row=el('div'),dd=el('dd');dd.append(label==='Stopping checkpoint'?narrative(value,label):el('span',value));row.append(el('dt',label),dd);facts.append(row);}panel.append(facts);
     if(run){const tasks=run.tasks||[],settled=tasks.filter(t=>['completed','failed','not_created'].includes(t.status)).length;
       panel.append(el('p',`${!samePhase?'Previous phase '+run.phaseId+' · ':''}${settled} / ${tasks.length} tasks settled · Measured remaining tokens: ${s.measuredUsage?.remainingMeasured==null?'unknown':num(s.measuredUsage.remainingMeasured)} · `+(s.measuredUsage?'observed '+when(s.measuredUsage.collectedAt):'usage has not been measured'),'journey-receipt'));
     }

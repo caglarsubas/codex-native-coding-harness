@@ -20,11 +20,16 @@ from orchestrator.standard import brain, read
 from test_standard import StandardTest
 
 original_snapshot = WorkspaceRuntime.snapshot
+LONG_REPORT = ('Implemented search and source navigation. Corrected project isolation checks. '
+               'No merge or live rollout occurred. '
+               'Verification covered version-bound citations, explicit missing evidence and bounded excerpts. ' * 6)
 
 
 def snapshot(runtime):
     state = original_snapshot(runtime)
     state['workspace']['name'] = 'Disposable UX preview · ' + runtime.workspace_id
+    if runtime.workspace_id == 'completed':
+        state['standard']['run']['checkpoint']['summary'] = LONG_REPORT
     # Display-only roadmap example. It is deliberately not a source-reading or
     # admission fixture: the registered ledger remains authoritative for writes.
     state['observations']['roadmaps'] = {'plans': [{
