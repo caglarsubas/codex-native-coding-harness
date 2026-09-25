@@ -38,8 +38,8 @@ function roadmapJourneyState(snapshot,isConnected=true,now=Date.now()/1000){
   if(run&&!['completed','blocked'].includes(run.status))return result(2,'Phase status needs reconciliation','The recorded phase is not in a recognized control state. Ask the brain to reconcile it before starting or resuming work.','Talk to project brain','conversation');
   const ended=run&&['completed','blocked'].includes(run.status);
   if(ended&&(!spec||run.phaseId===spec.phase.id))return result(3,run.status==='completed'?'Phase checkpoint reached':'Phase stopped with a blocker',
-    'Review the recorded result, then ask the brain to prepare the next unfinished roadmap phase. The next phase has its own review and Play.',
-    'Prepare next phase','prepare',{checkpoint:run.checkpoint?.summary,reasons:run.status==='blocked'?blockers:[]});
+    run.status==='blocked'?'The safety stop needs an evidence check and an exact new phase proposal before another Play.':'Review the recorded result, then ask the brain to prepare the next unfinished roadmap phase. The next phase has its own review and Play.',
+    run.status==='blocked'?'Prepare recovery proposal':'Prepare next phase','prepare',{checkpoint:run.checkpoint?.summary,reasons:run.status==='blocked'?blockers:[]});
   if(!spec)return result(0,'Choose what to build next','Ask the project brain to propose a bounded phase from your roadmap. You will review the scope, budget and stopping point before Play.','Prepare next phase','prepare');
   if(m.effectiveStatus!=='reviewed'||m.bindingIssues?.length)return result(1,'Review the proposed phase','Check the outcome, repository scope, budget and stopping point. Save and review the phase plan before Play.','Review phase plan','mission',{reasons:m.bindingIssues||[]});
   if(spec.authority.approvalMode!=='phase_delegated')return result(1,'Set phase approval authority','To use phase Play, review a plan that allows the brain to approve tasks inside this phase.','Edit phase plan','mission');
@@ -54,6 +54,9 @@ function roadmapJourneyState(snapshot,isConnected=true,now=Date.now()/1000){
 }
 function prepareRoadmapPhase(){
   if(busy||!connected){showNotice('Wait for the current request or reconnect before preparing a phase message.',true);return;}
+  if(state?.recovery?.phaseStatus==='blocked'){
+    focusAssistantConversation();assistantRequestStep('phase_prepare');return;
+  }
   const key=workspaceId||'legacy',existing=brainDrafts.get(key);
   if(existing?.text||existing?.request){navigateView('conversation');showNotice('Your existing message is preserved. Finish or discard it before preparing another phase request.');return;}
   const phase=state.standard?.run?.phaseId;
@@ -92,6 +95,7 @@ function roadmapJourney(root){
   else if(model.stage===3&&model.action==='prepare')actions.append(button('Review phase results',()=>navigateView('workers')));
   else if(model.action!=='conversation')actions.append(button('Talk to project brain',()=>navigateView('conversation')));
   lead.append(copy,actions);panel.append(lead);
+  if(snapshot.recovery)recoverySummary(panel,snapshot.recovery);
   if(model.reasons?.length){const reasons=el('ul',null,'journey-reasons');model.reasons.forEach(reason=>reasons.append(el('li',reason)));panel.append(reasons);}
   if(model.request){const delivery=commandPresentation(model.request);panel.append(el('p',delivery.label+'. '+delivery.detail,'journey-receipt'));}
   if(model.catalog){const status=catalogStatus(s.catalogRefresh);panel.append(el('p',status.title+'. '+status.detail,'journey-receipt'));scheduleCatalogFollowup(s);}

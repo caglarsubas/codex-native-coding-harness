@@ -173,6 +173,48 @@ class AssistantJourneyTest(unittest.TestCase):
         self.assertEqual(strict_facts['F31']['activation'], s['mission']['activation'])
         self.assertFalse(catalog(self.snapshot(),{})['dispatch_resume']['available'])
 
+    def test_blocked_phase_prepares_exact_recovery_request_not_play(self):
+        self.confirm(self.prepare('phase_play'))
+        with self.ledger.tx() as db:
+            meta = self.ledger.get(db, 'meta', 1)
+            run = meta['standardRun'];run['status'] = 'blocked'
+            run['checkpoint'] = {'at': time.time(), 'summary': 'Usage evidence incomplete'}
+            run['usageHighWater'] = 954236
+            run['usageReport'] = {'records': [{'role': 'brain'}], 'tokens': {
+                'total_tokens': 954236, 'input_tokens': 952942,
+                'cached_input_tokens': 778368, 'output_tokens': 1294},
+                'coverage': 'gapped', 'gaps': ['invalid_token_record'], 'collectedAt': time.time(), 'through': time.time()}
+            run['usageReport']['scopeHash'] = brain_memory.scope(run)
+            self.ledger.put(db, 'meta', 1, meta)
+        preview = self.prepare('phase_prepare')
+        self.assertEqual(preview['document']['preview']['title'], 'Prepare a recovery proposal')
+        message = preview['document']['preview']['message']
+        self.assertIn('954236 total tokens', message)
+        self.assertIn('Do not waive a gap', message)
+        self.assertIn('Do not review the mission, start Play', message)
+        facts = {f['id']:f['data'] for f in context(self.snapshot(), 'roadmap')[0]['facts']}
+        self.assertEqual(facts['F43']['observedTotal'], 954236)
+        self.assertEqual(facts['F43']['gapLabels'], ['A Codex token record could not be validated.'])
+        self.assertIsNone(facts['F43']['remainingMeasured'])
+        self.assertEqual(standard.read(self.ledger)['run']['status'], 'blocked')
+        receipt, first = self.confirm(preview)
+        self.assertTrue(first)
+        self.assertEqual(receipt['result']['payload']['message'], message)
+        self.assertEqual(standard.read(self.ledger)['run']['status'], 'blocked')
+        conversation.receive(self.ledger, self.fixture.token, receipt['result']['id'])
+        conversation.reply(self.ledger, self.fixture.token, receipt['result']['id'],
+                           {'message':'Reconciled evidence and prepared a bounded successor.', 'artifactIds':[], 'decisionIds':[]})
+        next_spec = specification(mode='phase_delegated')
+        next_spec['phase']['id'] = 'phase-two'
+        next_spec['authority']['tokenBudget'] = 1200000
+        saved = missions.change(self.ledger, request(spec=next_spec, expectedRevision=missions.read(self.ledger)['revision']))
+        self.assertEqual(saved['current']['effectiveStatus'], 'draft')
+        self.assertEqual(standard.read(self.ledger)['run']['status'], 'blocked')
+        review = self.prepare('phase_review')
+        self.confirm(review)
+        self.assertEqual(standard.read(self.ledger)['run']['status'], 'blocked', 'Review alone never restarts work')
+        self.assertEqual(self.prepare('phase_play')['document']['preview']['mission']['spec']['phase']['id'], 'phase-two')
+
     def test_context_exposes_current_play_not_obsolete_activation_claim(self):
         data, _ = context(self.snapshot(), 'roadmap')
         facts = {f['id']:f['data'] for f in data['facts']}
