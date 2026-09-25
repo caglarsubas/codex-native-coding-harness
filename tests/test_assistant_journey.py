@@ -190,7 +190,7 @@ class AssistantJourneyTest(unittest.TestCase):
         self.assertEqual(preview['document']['preview']['title'], 'Prepare a recovery proposal')
         message = preview['document']['preview']['message']
         self.assertIn('954236 total tokens', message)
-        self.assertIn('Do not waive a gap', message)
+        self.assertIn('do not waive a control', message)
         self.assertIn('Do not review the mission, start Play', message)
         facts = {f['id']:f['data'] for f in context(self.snapshot(), 'roadmap')[0]['facts']}
         self.assertEqual(facts['F43']['observedTotal'], 954236)
@@ -214,6 +214,23 @@ class AssistantJourneyTest(unittest.TestCase):
         self.confirm(review)
         self.assertEqual(standard.read(self.ledger)['run']['status'], 'blocked', 'Review alone never restarts work')
         self.assertEqual(self.prepare('phase_play')['document']['preview']['mission']['spec']['phase']['id'], 'phase-two')
+
+    def test_non_budget_stop_prepares_policy_neutral_review(self):
+        self.confirm(self.prepare('phase_play'))
+        with self.ledger.tx() as db:
+            meta = self.ledger.get(db, 'meta', 1)
+            meta['standardRun']['status'] = 'blocked'
+            meta['standardRun']['usageGuardVersion'] = None  # Legacy cooperative run with no measured-usage gate.
+            meta['standardRun']['checkpoint'] = {'at': time.time(), 'summary': 'Private note',
+                'reasonCodes': ['scope', 'owner_decision']}
+            self.ledger.put(db, 'meta', 1, meta)
+        preview = self.prepare('phase_prepare')
+        message = preview['document']['preview']['message']
+        self.assertIn('Requested work outside reviewed scope [brain_reported]', message)
+        self.assertIn('owner decision', message.lower())
+        self.assertIn('only necessary changes', preview['document']['preview']['impact'])
+        self.assertNotIn('Recorded usage context', message)
+        self.assertNotIn('Private note', message)
 
     def test_context_exposes_current_play_not_obsolete_activation_claim(self):
         data, _ = context(self.snapshot(), 'roadmap')

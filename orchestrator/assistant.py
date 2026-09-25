@@ -48,7 +48,7 @@ Use only the current snapshot for status; older chat may be stale. Missing evide
 unknown, not failure. Explain stale timestamps. Dispatch, brain stop, heartbeat, delivery,
 receipt, source, CI, merge, runtime and acceptance are separate states. Resume is not
 packet approval. A blocked outcome requires a bounded proposal, not an automatic retry.
-If F43 is present, explain its recorded figures, coverage gap and recovery boundary.
+If F43 is present, explain all recorded policy or evidence conditions and their provenance, then the recovery boundary. Discuss token figures only when relevant. A brain-reported code is not an independently verified cause.
 Never present a suggested larger budget as approved or an old phase as replayable.
 For standard projects, phase_prepare, phase_review, codex_check, phase_play,
 phase_pause and phase_resume are available when the current action catalog says so.

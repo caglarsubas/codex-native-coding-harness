@@ -4,10 +4,20 @@ class Element{
   constructor(tag,text='',className=''){Object.assign(this,{tag,text,className,children:[],events:{},isConnected:true,open:false,dataset:{}});}
   append(...items){this.children.push(...items);}
   addEventListener(name,fn){this.events[name]=fn;}
+  setAttribute(name,value){this[name]=value;}
 }
 const box={workspaceId:'alpha',el:(...args)=>new Element(...args)};
 vm.createContext(box);vm.runInContext(fs.readFileSync('web/summaries.js','utf8'),box);
 const all=n=>[n,...n.children.flatMap(all)];
+box.num=String;box.when=String;
+const policyStop={title:'Phase stopped at a policy checkpoint',explanation:'Scope needs review.',
+  issues:[{code:'scope',label:'Requested work outside reviewed scope',source:'brain_reported',nextStep:'Review exact scope.'}],
+  issueCount:1,issuesTruncated:false,usageRelevant:false,registeredTasks:1,maxTasks:2,maxParallelTasks:1,
+  expiresAt:12345,gapLabels:[],nextStep:'Review a new phase.',boundary:'No automatic Play.'};
+let recoveryRoot=new Element('div');box.recoverySummary(recoveryRoot,policyStop);
+assert(all(recoveryRoot).some(n=>n.text?.includes('Requested work outside reviewed scope')));
+assert(!all(recoveryRoot).some(n=>n.text?.includes('observed tokens')||n.text?.includes('reviewed phase limit')),
+  'Non-budget stops must not be presented as budget problems');
 const text='Implemented a scoped search view. No merge or rollout occurred. '+
   'The following qualification report includes every original detail and preserves all recorded evidence. '.repeat(6)+'\n<script>alert(1)</script>';
 let root=box.narrative(text,'Task outcome'),nodes=all(root),details=nodes.find(n=>n.tag==='details');

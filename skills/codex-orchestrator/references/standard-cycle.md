@@ -134,8 +134,15 @@ Run operations below include `runId`; the pre-Play catalog operations use
   `artifacts` hashes in finish evidence. Original creation time stays unknown
   when unobserved; do not substitute file mtime.
 - `checkpoint`: `outcome` (paused/completed/blocked), `summary,
-  brainObservedTokens` (observed cumulative integer or null). No unresolved task
-  is released; missing observation means unknown, never zero usage.
+  brainObservedTokens` (observed cumulative integer or null), and optional
+  `reasonCodes` (up to eight fixed codes for a paused/blocked checkpoint). Codes:
+  `token_budget`, `usage_evidence`, `duration`, `task_limit`,
+  `parallel_capacity`, `scope`, `model_catalog`, `repository_identity`,
+  `merge_prerequisite`, `external_dependency`, `owner_decision`, `other_policy`.
+  Use only observed reasons; a code is brain-reported, not independent proof.
+  The summary retains exact local context. Completed checkpoints must not carry
+  reason codes. No unresolved task is released; missing token observation means
+  unknown, never zero usage.
 
 Recovery: restart reads the same journal. Reacquire only after the previous
 controller is explicitly reconciled with native state. The legacy `recover`

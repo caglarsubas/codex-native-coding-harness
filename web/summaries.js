@@ -6,15 +6,19 @@ function recoverySummary(root,recovery){
   const card=el('section',null,'recovery-summary');card.setAttribute('role','status');
   card.append(el('p','RECORDED SAFETY STOP','eyebrow'),el('h3',recovery.title),el('p',recovery.explanation));
   const facts=el('ul');
-  facts.append(el('li',`${recovery.observedTotal===null?'Observed usage unknown':num(recovery.observedTotal)+' observed tokens'} · ${num(recovery.budget)} reviewed phase limit · ${num(recovery.checkpointReserve)} checkpoint reserve`));
-  if(recovery.knownUsageLowerBound!==null&&(recovery.observedTotal===null||recovery.knownUsageLowerBound>recovery.observedTotal))
-    facts.append(el('li',`At least ${num(recovery.knownUsageLowerBound)} tokens were retained in the usage high-water mark; a later partial sample cannot reduce that amount.`));
-  if(recovery.observedTotal!==null)facts.append(el('li',`${num(recovery.cachedInput)} cached input · ${num(recovery.uncachedInput)} uncached input · ${num(recovery.output)} output. Cached input is included in the total; this is not a bill.`));
-  facts.append(el('li',`${recovery.registeredTasks} registered tasks · measured balance ${recovery.remainingMeasured===null?'unknown':num(recovery.remainingMeasured)} · observed ${when(recovery.observedAt)}`));
+  facts.append(el('li',`${recovery.registeredTasks} of ${recovery.maxTasks??'unknown'} allowed tasks registered · ${recovery.maxParallelTasks??'unknown'} parallel maximum · phase expires ${when(recovery.expiresAt)}`));
+  if(recovery.usageRelevant){
+    facts.append(el('li',`${recovery.observedTotal===null?'Observed usage unknown':num(recovery.observedTotal)+' observed tokens'} · ${num(recovery.budget)} reviewed phase limit · ${num(recovery.checkpointReserve)} checkpoint reserve`));
+    if(recovery.knownUsageLowerBound!==null&&(recovery.observedTotal===null||recovery.knownUsageLowerBound>recovery.observedTotal))
+      facts.append(el('li',`At least ${num(recovery.knownUsageLowerBound)} tokens were retained in the usage high-water mark; a later partial sample cannot reduce that amount.`));
+    if(recovery.observedTotal!==null)facts.append(el('li',`${num(recovery.cachedInput)} cached input · ${num(recovery.uncachedInput)} uncached input · ${num(recovery.output)} output. Cached input is included in the total; this is not a bill.`));
+    facts.append(el('li',`Measured balance ${recovery.remainingMeasured===null?'unknown':num(recovery.remainingMeasured)} · observed ${when(recovery.observedAt)}`));
+  }
   card.append(facts,el('p',recovery.nextStep,'recovery-next'));
-  const details=el('details');details.append(el('summary',`Details · ${recovery.gapCount} measurement gaps and safety boundary`));
+  const details=el('details');details.append(el('summary',`Details · ${recovery.issueCount} recorded conditions and safety boundary`));
+  if(recovery.issues?.length){const list=el('ul');for(const item of recovery.issues)list.append(el('li',`${item.label} · ${item.source.replaceAll('_',' ')} · ${item.nextStep}`));details.append(list);}
+  if(recovery.issuesTruncated)details.append(el('p','Additional recorded conditions omitted from this bounded summary; inspect project controls.'));
   if(recovery.gapLabels.length){const list=el('ul');for(const label of recovery.gapLabels)list.append(el('li',label));details.append(list);}
-  if(recovery.reasonLabels?.length){const list=el('ul');for(const label of recovery.reasonLabels)list.append(el('li',label));details.append(list);}
   details.append(el('p',recovery.boundary));card.append(details);root.append(card);
 }
 function narrativeHighlights(value){
