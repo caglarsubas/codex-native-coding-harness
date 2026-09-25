@@ -9,12 +9,14 @@ function assistantMessages(history,question){
 function assistantConnectionChanged(){
   const configured=connected&&state?.inference?.configured;
   $('assistant-service').textContent=!connected?"Connect to the ledger to ask a question.":configured?"On-prem inference · "+(state.inference.assistantModel||state.inference.model):"Inference not configured. Ask the local operator to check the private .env.";
-  $('assistant-send').disabled=!configured||assistantPending||!$('assistant-question').value.trim();
+  const confirmation=Object.values(workflowPhrases).includes($('assistant-question').value.trim().toLowerCase().replace(/[.!]$/,''));
+  $('assistant-send').disabled=(!configured&&!confirmation)||!connected||assistantPending||!$('assistant-question').value.trim();
   $('assistant-question').readOnly=assistantPending;
   $('assistant-clear').disabled=assistantPending||[...assistantActions.values()].some(a=>a.sending);
   $('assistant-context').disabled=!connected||assistantPending;
   document.querySelectorAll('[data-question]').forEach(b=>b.disabled=assistantPending);
   refreshAssistantActions();
+  assistantNextStep();
   if(typeof updateWorkspaceSelector==='function')updateWorkspaceSelector();
 }
 function assistantStatus(text,error=false){$('assistant-status').textContent=text;$('assistant-status').dataset.error=String(error);}
@@ -52,6 +54,13 @@ function assistantActionState(action,current=state,now=Date.now()/1000){
 }
 function refreshAssistantActions(){
   for(const action of assistantActions.values()){
+    if(action.proposal.document.workflow){
+      const info=assistantWorkflowState(action);action.status.textContent=info.detail.startsWith(info.label+'.')?info.detail:info.label+'. '+info.detail;
+      action.confirm.disabled=!connected||info.locked;action.confirm.textContent=info.recorded?'Saved':action.uncertain?'Recover receipt':workflowPhrases[action.proposal.document.workflow];
+      action.dismiss.disabled=!!info.recorded||action.sending||action.cancelled||action.uncertain;
+      action.element.dataset.actionState=info.recorded?'recorded':info.locked?'closed':'review';
+      assistantWorkflowReceipt(action,info.recorded);continue;
+    }
     const info=assistantActionState(action);
     action.status.textContent=info.label+'. '+info.detail;
     action.confirm.disabled=!connected||info.locked;
@@ -62,6 +71,7 @@ function refreshAssistantActions(){
   }
 }
 function assistantActionPreview(item,proposal){
+  if(proposal.document.workflow){assistantWorkflowPreview(item,proposal);return;}
   const doc=proposal.document, preview=doc.preview, section=el('section',null,'chat-action');
   section.setAttribute('aria-label','Review proposed action');
   section.append(el('p','ACTION PREVIEW · NOT EXECUTED','eyebrow'),el('h3',preview.title),
@@ -100,6 +110,7 @@ function assistantActionPreview(item,proposal){
 }
 async function sendAssistant(event){
   event.preventDefault();const question=$('assistant-question').value.trim();
+  if(!assistantPending&&connected&&assistantTypedConfirmation(question))return;
   if(assistantPending||!connected||!state?.inference?.configured||!question)return;
   assistantPending=true;assistantConnectionChanged();
   assistantStatus('Reading a fresh dashboard snapshot… This may take up to a few minutes.');
@@ -109,9 +120,7 @@ async function sendAssistant(event){
     const result=await api('/api/assistant',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({view:view==='workspaces'?'overview':view,messages})});
     assistantHistory=[...messages,{role:'assistant',content:result.answer}];
     const item=chatTurn('assistant',result.answer),links=el('div',null,'assistant-links');
-    const caution=el('p','AI draft — may be wrong. Verify advice in the linked views.','chat-caution');
     const facts=el('p',assistantRecordedFacts(result.context),'chat-recorded');
-    item.insertBefore(caution,item.children[1]);item.insertBefore(facts,item.children[2]);
     for(const link of result.links){
       // Defense in depth: even server-built links may only navigate known inert views.
       const route=dashboardRoute(link.href);if(!route)continue;
@@ -121,14 +130,14 @@ async function sendAssistant(event){
     item.append(links);
     if(result.proposal)assistantActionPreview(item,result.proposal);
     const evidence=el('details',null,'chat-evidence');
-    evidence.append(el('summary','Snapshot · '+when(result.observedAt)+' · '+result.evidence.join(', ')),
+    evidence.append(el('summary','Details · sources & observation time'),facts,
       el('p','AI-generated explanation; verify claims in the linked views. This snapshot will age. No action was executed.'),
       el('p',result.model+' · '+result.durationSeconds+'s · '+num(result.usage.total_tokens)+' service tokens (not a bill)'),
       el('pre',JSON.stringify(result.context,null,2)));
     item.append(evidence);
     assistantTurns++;if(Number.isInteger(result.usage.total_tokens))assistantTokens+=result.usage.total_tokens;else assistantMissingUsage++;
     $('assistant-usage').textContent=`This chat: ${assistantTurns} replies · ${num(assistantTokens)} reported service tokens${assistantMissingUsage?' · usage missing for '+assistantMissingUsage+' replies':''}. Separate from Codex usage; not a bill.`;
-    $('assistant-question').value='';assistantStatus(result.proposal?'Review the action preview. Nothing changes until you confirm.':'Answer ready. No action was submitted.');
+    $('assistant-question').value='';assistantStatus(result.proposal?'Review the step below; confirm here when ready.':'Ready for your next question.');
   }catch(error){
     userTurn.remove();$('assistant-welcome').hidden=assistantHistory.length>0;
     assistantStatus(error.message+' Your question is retained. No automatic retry was sent.',true);
@@ -137,6 +146,8 @@ async function sendAssistant(event){
   }
 }
 function initAssistant(){
+  $('assistant-focus').onclick=focusAssistantConversation;
+  document.querySelectorAll('[data-open-assistant]').forEach(b=>b.addEventListener('click',focusAssistant));
   $('assistant-form').addEventListener('submit',sendAssistant);
   $('assistant-question').addEventListener('input',assistantConnectionChanged);
   $('assistant-question').addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)&&!e.isComposing){e.preventDefault();$('assistant-form').requestSubmit();}});

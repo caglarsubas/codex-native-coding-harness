@@ -1,7 +1,9 @@
 # Dashboard assistant and three-pane workspace
 
-The assistant is an adviser beside the workspace, not another orchestration brain.
-It explains recorded process state, capabilities and where to review evidence.
+The assistant is the primary interaction surface for standard-project development.
+It explains recorded process state and carries the phase loop in one conversation.
+See [the conversation workflow](ASSISTANT-LED-WORKFLOW.md) for preparation, review,
+Play, Pause, Resume and direct project-brain instructions.
 It can propose supported controls and free-text decision answers; only a separate
 owner confirmation submits the exact preview through the existing control ledger.
 It cannot approve packets, run shell commands, inspect arbitrary files, merge code,
@@ -9,17 +11,19 @@ provision infrastructure or directly operate native workers.
 
 ## Using it
 
-1. Open the authenticated dashboard. Use **AI assistant** at the top to expand it.
+1. Open the authenticated dashboard. **Ask assistant** opens the focused conversation.
 2. Ask, for example, “What needs my attention?” or “Why is work waiting?”
 3. Choose **Send**, or Cmd/Ctrl+Enter. Enter alone adds a new line. Suggested
    questions populate the box without sending anything.
-4. Follow an answer's links into the workspace. Decision links focus the exact
+4. Review the proposed step directly in the conversation. Standard-project phase
+   controls accept the displayed confirmation phrase (for example, **confirm play**)
+   or the inline confirmation button. Pages remain optional inspection links. Decision links focus the exact
    version; artifact links open the retained version's inert reader. Check the
    evidence. For a requested supported action, review its inline preview: title,
    target, impact, exact payload/scope, state revision and five-minute expiry.
-   Choose **Confirm: [specific action]** or **Dismiss preview**. Nothing is submitted
-   by sending a message, following a link, or receiving a model answer.
-5. Open an answer's **Snapshot** disclosure to inspect its source context, model,
+   Choose the displayed confirmation or dismiss it. Ordinary requests, navigation
+   and model replies never confirm a control; only the exact confirmation does.
+5. Open an answer's **Details** disclosure to inspect its source context, model,
    service-reported usage and time. Old answers do not update when state changes;
    ask again for a fresh snapshot. No monitoring is implied by chat.
 
@@ -56,13 +60,14 @@ Supported confirmation-backed actions:
   be an exact excerpt of your latest message, shown before confirmation. The
   assistant cannot invent an answer or select a suggested option for you.
 
-Examples: “Stop the brain at a safe checkpoint”, “Resume worker dispatch”, or
-“For the open design question, record this answer: …”. An ambiguous “resume”
-should elicit a clarification, not an inferred control. Model mistakes remain
+Examples: “Prepare the next phase”, “Pause this phase”, or
+“For the open design question, record this answer: …”. Standard projects use
+their phase Pause/Resume; ambiguous legacy brain/dispatch requests need clarification. Model mistakes remain
 possible: verify the preview rather than treating its wording as authority.
 
-Packet approval/priority changes, diagnostics, refresh operations and new executive
-briefs still use their review screens. No blanket roadmap execution is added.
+Packet approval/priority changes, advanced diagnostics and new executive briefs
+retain their review screens. Standard native-capability/usage refresh and phase controls
+are available inline. Each phase keeps its separately reviewed stopping point.
 
 Confirmation uses a server-signed, session-bound preview; the browser/model cannot
 change its target, command or payload. Changed state, a changed decision version,
@@ -74,7 +79,8 @@ The card follows actual command state from dashboard polling: saved/notified,
 received/processing, completed or rejected. **Sent to Codex is not completed**;
 **stop requested is not checkpointed**. If notification is unavailable, the control
 is recorded but the brain has not been woken. Opening another tab/reloading loses
-chat but not the confirmed command: find it in the workspace's Control requests.
+chat but not the confirmed command: its pending state and latest brain reply remain
+in the conversation's current-project summary, with full history in Control requests.
 
 ## Pane layout
 

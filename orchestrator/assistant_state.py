@@ -139,7 +139,8 @@ CAPABILITIES = [
 
 BOUNDARIES = [
     "Chat can propose only listed available actions. Nothing happens until the owner confirms an exact preview.",
-    "Ambiguous resume/stop requests require clarification: brain and worker dispatch are different controls.",
+    "Standard projects use phase Play/Pause/Resume. Legacy brain and dispatch controls remain separate.",
+    "Standard phase preparation, mission review, readiness requests and Play/Pause/Resume can be confirmed inline. Each preview authorizes one step only.",
     "Packet approval, priority edits, observations, briefs and diagnostics use their review views, not chat confirmation in this version.",
     "No shell, arbitrary API/tool, code/file edit, provisioning, merge, direct task creation, credential or model-setting change from chat.",
     "Only the designated brain executes native work under existing packet/seed approval, repository, runner and evidence rules.",

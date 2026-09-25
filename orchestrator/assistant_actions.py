@@ -80,6 +80,16 @@ def catalog(state, links):
             {"decisionId": d["id"], "decisionHash": d["decisionHash"], "optionId": None, "confirmed": True},
             "Save only the exact text you review below as design/input for this version. No option is inferred. This does not approve a packet, grant execution or wake a stopped brain.",
             "decisions/" + d["id"], target=d["spec"]["title"], details={"scope": d["spec"]["scope"], "decisionHash": d["decisionHash"]})
+    from .assistant_journey import catalog as journey_catalog
+    workflow_actions = journey_catalog(state)
+    result.update(workflow_actions)
+    if workflow_actions:
+        keys = ["dispatch_pause", "dispatch_resume"]
+        if (state["standard"].get("run") or {}).get("status") in ("running", "stopping", "paused"):
+            keys.extend(("brain_stop", "brain_resume"))
+        for key in keys:
+            result[key]["available"] = False
+            result[key]["unavailableReason"] = "Use this project's phase Play, Pause or Resume control."
     return result
 
 
@@ -92,15 +102,15 @@ def resolve_action(intent, actions, latest_message):
     require(isinstance(intent, dict) and isinstance(intent.get("key"), str) and intent["key"] in actions,
             "Assistant proposed an unsupported action; no control was submitted")
     action = actions[intent["key"]]
-    answer = action["kind"] == "decision_response"
+    answer = action["kind"] in ("decision_response", "brain_message")
     require(set(intent) == ({"key", "text"} if answer else {"key"}), "Unexpected assistant action fields")
     require(action["available"], action["unavailableReason"] or "Action unavailable")
     payload = dict(action["payload"])
     if answer:
         note = intent["text"]
         require(isinstance(note, str) and 0 < len(note.strip()) <= 4000 and note in latest_message,
-                "Decision text must be an exact excerpt from your latest message; no inferred answer was saved")
-        payload["note"] = note
+                "The instruction or answer must be an exact excerpt from your latest message; no inferred text was saved")
+        payload["message" if action["kind"] == "brain_message" else "note"] = note
     return {**action, "payload": payload}
 
 

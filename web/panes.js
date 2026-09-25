@@ -1,6 +1,6 @@
 "use strict";
 const PANE_NAMES=["navigation","workspace","assistant"], PANE_STORE="orchestrator-panes-v1";
-function defaultPanes(){return {navigation:220,assistant:350,collapsed:{navigation:false,workspace:false,assistant:true},focus:"workspace"};}
+function defaultPanes(){return {navigation:220,assistant:460,collapsed:{navigation:false,workspace:true,assistant:false},focus:"assistant"};}
 function cleanPanePreferences(raw){
   const p=defaultPanes();
   if(!raw||typeof raw!=="object")return p;
