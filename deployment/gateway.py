@@ -6,13 +6,27 @@ import os
 import sys
 
 
+def assistant_question(method, path):
+    if method != "POST":
+        return False
+    if path == "/api/assistant":
+        return True
+    # Project chat is routed through the workspace-scoped API. Match only the
+    # question endpoint; confirmation and all other writes keep their timeout.
+    prefix = "/api/workspaces/"
+    if not path.startswith(prefix):
+        return False
+    workspace, separator, endpoint = path[len(prefix):].partition("/")
+    return bool(workspace) and separator == "/" and endpoint == "assistant"
+
+
 def upstream_timeout(method, path):
     if method == "GET" and path == "/healthz":
         return 3
     # Assistant inference may stream for 240 seconds. Leave time for the native
     # backend to return its bounded success or failure instead of misreporting
     # a slow answer as an unavailable backend.
-    if method == "POST" and path == "/api/assistant":
+    if assistant_question(method, path):
         return 270
     return 180
 
@@ -125,7 +139,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.wfile.write(chunk)
         except (OSError, http.client.HTTPException, ValueError):
             if not response_started:
-                if self.command == "POST" and self.path == "/api/assistant":
+                if assistant_question(self.command, self.path):
                     self.reject(502, "Assistant response unavailable. The question may still be processing; wait briefly before resending. No project control was submitted.")
                 else:
                     self.reject(503 if self.path == "/healthz" else 502,
