@@ -111,6 +111,19 @@ state verification. No automatic deletion API is provided.
 
 ## HTTP
 
+Assistant workflow previews (`POST /api/assistant/preview` or an inference action)
+are transient signed documents bound to one browser session, ledger, project and
+brain. `/api/assistant/confirm` delegates mission review to the existing mission
+request journal, standard controls to their existing signed request, and preparation
+or verbatim brain instructions to the existing conversation command. The response
+labels the workflow and wraps that adapter's retained result. Replaying its ID
+recovers the original receipt and never issues a second notification. Explicit
+usage refresh binds the current run and records a `standard_usage_request` receipt
+atomically with the existing measurement, so an uncertain reply cannot erase known
+consumption or turn missing counters into complete coverage. No separate
+assistant execution ledger or task scheduler is added. See
+[assistant-led workflow](ASSISTANT-LED-WORKFLOW.md).
+
 Static: GET `/`, `/app.js`, `/style.css`. Auth: POST `/api/login`, GET `/api/session`.
 Authenticated reads: GET `/api/state`, `/api/documents/<sha256>`, `/api/export`.
 Mutation: POST `/api/commands` with exact origin, authenticated cookie and CSRF token.

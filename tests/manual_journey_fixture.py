@@ -11,6 +11,7 @@ import subprocess
 import sys
 import time
 import uuid
+import contextlib
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -18,8 +19,12 @@ from orchestrator.core import Ledger
 from orchestrator.server import Dashboard, WorkspaceRuntime
 from orchestrator.standard import brain, read
 from test_standard import StandardTest
+from test_assistant import CONFIG
+from orchestrator.missions import change
+from test_missions import specification, request
 
 original_snapshot = WorkspaceRuntime.snapshot
+ASSISTANT = False
 LONG_REPORT = ('Implemented search and source navigation. Corrected project isolation checks. '
                'No merge or live rollout occurred. '
                'Verification covered version-bound citations, explicit missing evidence and bounded excerpts. ' * 6)
@@ -27,6 +32,8 @@ LONG_REPORT = ('Implemented search and source navigation. Corrected project isol
 
 def snapshot(runtime):
     state = original_snapshot(runtime)
+    if ASSISTANT:
+        state['inference'].update(configured=True, model=CONFIG.model, assistantModel=CONFIG.model)
     state['workspace']['name'] = 'Disposable UX preview · ' + runtime.workspace_id
     if runtime.workspace_id == 'completed':
         state['standard']['run']['checkpoint']['summary'] = LONG_REPORT
@@ -42,10 +49,26 @@ def snapshot(runtime):
     return state
 
 
+def assistant_reply(route, payload, **options):
+    data = json.loads(payload['messages'][-1]['content'])
+    question = data['conversation'][-1]['content'].lower()
+    actions = {a['key']:a for a in data['snapshot']['actions']}
+    preferred = (['usage_check'] if 'usage' in question else ['phase_pause'] if 'pause' in question else
+                 ['phase_resume'] if 'resume' in question else ['phase_prepare'] if 'prepare' in question and 'next phase' in question else
+                 ['phase_review','codex_check','phase_play','phase_prepare'])
+    key = next((k for k in preferred if actions.get(k, {}).get('available')), None)
+    result = {'answer':'Here is the next step for this disposable project. Review it and confirm here when ready.',
+              'links':[], 'evidence':['F42'], 'action':{'key':key} if key else None}
+    return {'model':CONFIG.model,'request_key_source':'local-inference','usage':{'total_tokens':60},
+            'choices':[{'finish_reason':'stop','message':{'content':json.dumps(result)}}]}
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--port', type=int, default=8797)
+    parser.add_argument('--assistant', action='store_true', help='Mock local inference for conversational phase QA')
     args = parser.parse_args()
+    ASSISTANT = args.assistant
     fixture = StandardTest()
     fixture.setUp()
     try:
@@ -53,9 +76,12 @@ if __name__ == '__main__':
                         '-c', 'user.email=fixture@example.invalid', 'commit', '--allow-empty',
                         '-qm', 'Disposable preview'], check=True)
         (fixture.root / 'empty-codex-logs').mkdir()
-        for identity in ['alpha', 'running', 'paused', 'completed', 'needs-catalog']:
+        for identity in ['alpha', 'draft', 'running', 'paused', 'completed', 'needs-catalog']:
             ledger, token = (fixture.ledger, fixture.token) if identity == 'alpha' else fixture.workspace(identity)
             (ledger.root / 'observations.json').write_text(json.dumps({'codexHome': str(fixture.root / 'empty-codex-logs')}))
+            if identity == 'draft':
+                from orchestrator.missions import read as mission_read
+                change(ledger, request(spec=specification(mode='phase_delegated'), expectedRevision=mission_read(ledger)['revision']))
             if identity in ('running', 'paused', 'completed'):
                 fixture.control(ledger=ledger)
                 run_id = read(ledger)['run']['id']
@@ -96,7 +122,11 @@ if __name__ == '__main__':
                            runtime_root=fixture.root, registry=fixture.registry)
         server.bootstrap = 'disposable-roadmap-journey-preview'
         print(server.origin + '/#token=' + server.bootstrap, flush=True)
-        with patch.object(WorkspaceRuntime, 'snapshot', snapshot):
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(patch.object(WorkspaceRuntime, 'snapshot', snapshot))
+            if ASSISTANT:
+                stack.enter_context(patch('orchestrator.assistant.settings', return_value=CONFIG))
+                stack.enter_context(patch('orchestrator.assistant.Client.request', side_effect=assistant_reply))
             try:
                 server.serve_forever()
             except KeyboardInterrupt:

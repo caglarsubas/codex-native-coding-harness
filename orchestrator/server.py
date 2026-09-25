@@ -42,8 +42,8 @@ class WorkspaceRuntime:
         self.brain_activity = BrainActivity(ledger)
         self.task_activity = TaskActivity(ledger)
         self.notifier = BrainNotifier(ledger, notification_cli)
-        from .assistant_actions import ActionProposals
-        self.assistant_proposals = ActionProposals()
+        from .assistant_journey import JourneyProposals
+        self.assistant_proposals = JourneyProposals(self)
         self.run_readiness_report = None
         self.run_readiness_lock = threading.Lock()
         self.checkpoint_inspection = None
@@ -246,7 +246,7 @@ class Handler(BaseHTTPRequestHandler):
         static["/decisions.css"] = ("decisions.css", "text/css; charset=utf-8")
         static["/conversation.js"] = ("conversation.js", "text/javascript; charset=utf-8")
         static["/auth.js"] = ("auth.js", "text/javascript; charset=utf-8")
-        for file in ("summaries.js", "journey.js", "journey.css", "session-map.js", "session-map.css", "panes.js", "assistant.js", "routing.js", "workspaces.js", "missions.js", "standard.js", "knowledge.js", "workspace-pause.js", "run-readiness.js", "phase-checkpoints.js", "checkpoint-controls.js", "rereview.js", "model-controls.js", "observer-controls.js", "budget.js", "retention.js", "task-contracts.js", "panes.css"):
+        for file in ("summaries.js", "journey.js", "journey.css", "session-map.js", "session-map.css", "panes.js", "assistant.js", "assistant-workflow.js", "routing.js", "workspaces.js", "missions.js", "standard.js", "knowledge.js", "workspace-pause.js", "run-readiness.js", "phase-checkpoints.js", "checkpoint-controls.js", "rereview.js", "model-controls.js", "observer-controls.js", "budget.js", "retention.js", "task-contracts.js", "panes.css"):
             static["/" + file] = (file, "text/javascript; charset=utf-8" if file.endswith(".js") else "text/css; charset=utf-8")
         if path in static:
             file, mime = static[path]
@@ -613,8 +613,20 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/assistant/confirm":
                 command, first = runtime.assistant_proposals.confirm(runtime.ledger, body, csrf)
                 if first:
-                    command = runtime.notify_control(command)
+                    if command.get("workflow"):
+                        command["result"] = runtime.notify_control(command["result"])
+                    else:
+                        command = runtime.notify_control(command)
                 return self.respond(200, command)
+            if path == "/api/assistant/preview":
+                from .assistant_actions import catalog, resolve_action
+                from .assistant import context
+                if urlsplit(self.path).query or not isinstance(body, dict) or set(body) != {"key"}:
+                    raise Refusal("Select one current assistant action")
+                snapshot = runtime.snapshot()
+                _, links = context(snapshot, "roadmap")
+                action = resolve_action(body, catalog(snapshot, links), "")
+                return self.respond(200, runtime.assistant_proposals.prepare(action, snapshot, csrf))
             if path == "/api/assistant":
                 from .assistant import chat
                 if not runtime.inference_lock.acquire(blocking=False):

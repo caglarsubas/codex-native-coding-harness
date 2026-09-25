@@ -22,6 +22,7 @@
   <script src="/decisions.js" defer></script>
   <script src="/routing.js" defer></script>
   <script src="/panes.js" defer></script>
+  <script src="/assistant-workflow.js" defer></script>
   <script src="/assistant.js" defer></script>
   <script src="/workspaces.js" defer></script>
   <script src="/conversation.js" defer></script>
@@ -60,6 +61,7 @@
     <p class="eyebrow">YOUR DEVELOPMENT WORKSPACE</p>
     <div id="workspace-picker" class="workspace-picker" hidden><label for="workspace-select">Project</label><select id="workspace-select" aria-label="Project"></select><button id="all-workspaces" data-view="workspaces">All projects</button></div>
     <nav aria-label="Dashboard views">
+      <button data-open-assistant><span>↗</span> Ask assistant</button>
       <button data-view="roadmap" aria-current="page"><span>▷</span> Roadmap &amp; Play</button>
       <button data-view="overview"><span>◎</span> Session map</button>
       <button data-view="conversation"><span>↳</span> Brain conversation</button>
@@ -105,23 +107,24 @@
   <section id="assistant-pane" class="pane assistant-pane" aria-label="AI assistant pane">
     <button class="pane-expand" data-pane-toggle="assistant" aria-label="Expand AI assistant" hidden>← Assistant</button>
     <div class="assistant-body pane-body">
-      <header class="assistant-heading"><div><p class="eyebrow" id="assistant-workspace">PROJECT COMPANION</p><h2>AI assistant</h2></div><button data-pane-toggle="assistant" aria-label="Collapse AI assistant" title="Collapse assistant">→</button></header>
+      <header class="assistant-heading"><div><p class="eyebrow" id="assistant-workspace">PROJECT COMPANION</p><h2>Let’s move your project forward</h2></div><button data-pane-toggle="assistant" aria-label="Collapse AI assistant" title="Collapse assistant">→</button></header>
       <div class="assistant-intro">
-        <p>Understand the state. Find your next step.</p>
-        <button data-view="conversation">Talk to project brain</button>
+        <p>Tell me what you want to achieve. I’ll guide the next step and show what needs your confirmation.</p>
+        <button id="assistant-focus" type="button">Focus conversation</button>
         <p id="assistant-service" class="muted">Connect to the ledger to ask a question.</p>
-        <details id="assistant-privacy"><summary>Capabilities, context & privacy</summary><p>Ask about platform state or request a supported control: stop/resume the brain, pause/resume dispatch, reconcile, change idle-check preference, hold a packet, checkpoint/archive a worker, or answer a decision. Review and confirm the exact action before it is submitted. Packet approval and other operations open their review screens.</p><p>On Send, your message, up to four previous exchanges and bounded process states, repository metrics, decision prompts, follow-up summaries, checklist metadata and artifact names go to the configured inference service. Freshness and omitted records are explicit. No source code, artifact bodies, Codex conversations, credentials or prior owner-answer bodies are included. Do not enter secrets.</p><p>Chat and unconfirmed previews stay in this tab; reload or Clear chat removes them here. Confirmed controls and decision answers remain in the private ledger with receipts. Service-side retention follows your inference service policy.</p><button id="assistant-context">Preview current context & capabilities</button><pre id="assistant-context-preview" hidden></pre></details>
+        <details id="assistant-privacy"><summary>Capabilities, context & privacy</summary><p>For standard projects, prepare the next phase, review its plan, check Codex readiness, Play, Pause or Resume in this conversation. You can also send an exact instruction to the project brain or answer a decision. Review the action shown, then type its confirmation phrase or use its button. Strict-project and advanced evidence controls retain their existing review screens.</p><p>On Send, your message, up to four previous exchanges and bounded process states, repository metrics, decision prompts, follow-up summaries, checklist metadata and artifact names go to the configured inference service. Freshness and omitted records are explicit. No source code, artifact bodies, Codex conversations, credentials or prior owner-answer bodies are included. Brain replies shown here stay outside inference history. Do not enter secrets.</p><p>Chat and unconfirmed previews stay in this tab; reload or Clear chat removes them here. Confirmed controls and decision answers remain in the private ledger with receipts. Service-side retention follows your inference service policy.</p><button id="assistant-context">Preview current context & capabilities</button><pre id="assistant-context-preview" hidden></pre></details>
       </div>
       <div id="assistant-log" class="assistant-log" role="log" aria-label="Assistant conversation" aria-live="polite" aria-relevant="additions">
-        <div id="assistant-welcome"><p class="eyebrow">START WITH A QUESTION</p><p>Ask about blockers, progress or where to look next.</p><div class="assistant-suggestions"><button data-question="What needs my attention, and where should I look next?">What needs my attention?</button><button data-question="Explain the difference between brain activity, worker dispatch and heartbeat in the current state.">Why is work waiting?</button><button data-question="Summarize recorded development progress and any gaps in the evidence.">How is development progressing?</button></div></div>
+        <div id="assistant-next-step" class="assistant-next-step"></div>
+        <div id="assistant-welcome"><p class="eyebrow">START HERE</p><div class="assistant-suggestions"><button data-question="Help me continue development. Prepare the next required step toward the next roadmap phase in this conversation.">Help me continue development</button><button data-question="What changed in the last phase, and what needs my attention now?">What changed? What needs me?</button><button data-question="Pause the current phase at a safe checkpoint.">Pause the project safely</button></div></div>
       </div>
       <form id="assistant-form" class="assistant-composer">
-        <label for="assistant-question">Ask about your platform</label>
-        <textarea id="assistant-question" rows="3" maxlength="4000" placeholder="Ask about state, or request a specific action…" aria-describedby="assistant-send-help" required></textarea>
+        <label for="assistant-question">Talk to your project</label>
+        <textarea id="assistant-question" rows="3" maxlength="4000" placeholder="Prepare the next phase, explain a blocker, or change the plan…" aria-describedby="assistant-send-help" required></textarea>
         <p id="assistant-send-help">Enter for a new line · ⌘/Ctrl + Enter to send</p>
         <div id="assistant-status" role="status" aria-live="polite"></div>
         <div class="assistant-actions"><button id="assistant-clear" type="button">Clear chat</button><button id="assistant-send" class="primary" type="submit" disabled>Send</button></div>
-        <p id="assistant-usage" class="muted">Actions need your confirmation. Sending a message does not execute a control.</p>
+        <p id="assistant-usage" class="muted">Requests prepare a preview. Only your explicit confirmation applies its control.</p>
       </form>
     </div>
   </section>

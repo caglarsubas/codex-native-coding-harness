@@ -79,4 +79,15 @@ body{overflow:hidden}
 .phase-checkpoint-view>details>div{display:grid;gap:16px;padding-block:16px}.phase-checkpoint-view .inline-actions{margin-block:24px}
 .pane-shell .phase-checkpoint-view table{min-width:0}.phase-checkpoint-view th{white-space:normal}
 .mission-status{display:grid;gap:16px;padding-bottom:28px;border-bottom:1px solid var(--rule);margin-bottom:24px}.mission-status ul{padding-inline-start:24px;max-width:72ch}.mission-status li+li{margin-top:12px}
+/* Conversation-first controls keep exact evidence one disclosure away. */
+.assistant-next-step{display:grid;gap:10px;padding:16px 0 24px;border-bottom:1px solid var(--rule);margin-bottom:24px}
+.assistant-next-step button{justify-self:start}
+.chat-action ul{padding-inline-start:20px}.chat-action li+li{margin-top:8px}
+.chat-action details{padding-block:12px;border-top:1px solid var(--rule)}.chat-action details h4{margin-block:16px 8px}
+.chat-phase-title{font-weight:600}.chat-turn[data-role=brain]{padding-block:24px;border-block:1px solid var(--rule)}
+.assistant-heading h2{font-size:1.4rem;line-height:1.25}.assistant-log>.chat-turn{max-width:76ch}
+.assistant-body{container:assistant / inline-size}
+@container assistant (min-width:720px){
+  .assistant-log,.assistant-composer,.assistant-intro,.assistant-heading{padding-inline:max(24px,calc((100% - 800px)/2))}
+}
 .mission-form{display:grid;gap:20px;max-width:760px}.mission-form label{display:grid;gap:8px;font-size:13px}.mission-form input:not([type=checkbox]),.mission-form textarea,.mission-form select{width:100%;max-width:100%;padding:12px;border:1px solid var(--rule);border-radius:4px;background:var(--surface);color:var(--ink);font:inherit}.mission-form textarea{resize:vertical}.mission-form fieldset{min-width:0;padding:20px;border:1px solid var(--rule);display:grid;gap:16px}.mission-form legend{padding:0 8px;overflow-wrap:anywhere}.mission-operations{display:flex;flex-wrap:wrap;gap:16px}.mission-form fieldset label:has(input[type=checkbox]),.mission-confirmation label{display:flex;align-items:start;gap:12px;min-height:44px}.mission-form input[type=checkbox],.mission-confirmation input{margin-top:4px;flex-shrink:0}.mission-form button{justify-self:start}.mission-review{display:grid;gap:24px;padding:24px 0}.mission-review>button{justify-self:start}.mission-confirmation{display:grid;justify-items:start;gap:16px;max-width:72ch}.mission-document{padding:16px 0;border-top:1px solid var(--rule)}.mission-document summary{cursor:pointer;min-height:28px}.mission-hash{overflow-wrap:anywhere}.mission-status p,.mission-summary p,.mission-form p{max-width:72ch}

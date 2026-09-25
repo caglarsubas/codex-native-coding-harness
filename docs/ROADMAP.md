@@ -5,6 +5,18 @@
 This is recorded implementation progress, not deployment, pilot, or product
 acceptance authority. Items change through reviewed repository edits.
 
+## Assistant-led phase loop — source implementation
+
+- [x] Make the assistant visible by default with a focused conversation workspace; keep inspection pages available
+- [x] Propose the next standard-project prerequisite using current mission, run and native capability state; refresh registered usage inline without bypassing missing-coverage gates
+- [x] Prepare phases and send exact brain instructions with retained delivery and reply visibility in chat
+- [x] Review mission scope and confirm standard Play/Pause/Resume inline, including exact typed confirmation phrases
+- [x] Reuse signed session/project bindings, existing transactional controls and durable replay receipts
+- [ ] Merge, install and qualify the assistant-led loop against the selected live project and inference service
+
+See [assistant-led workflow](ASSISTANT-LED-WORKFLOW.md). Strict Harness activation
+and advanced policy/evidence controls retain their existing review requirements.
+
 ## Roadmap source coverage — source implementation
 
 - [x] Catalog explicitly configured narrative, checklist and table-based plans

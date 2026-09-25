@@ -175,10 +175,15 @@ def blockers(run):
     return problems
 
 
-def refresh(ledger, run_id):
+def refresh(ledger, run_id, request_id=None):
     """Optimistic snapshot; collection cannot silently follow a switched run."""
     from .standard import read_db, save, PROTOCOL
+    receipt_key = digest({"kind": "standard_usage_request", "id": request_id, "runId": run_id}) if request_id else None
     with read_db(ledger.db) as db:
+        if receipt_key:
+            receipt = db.execute("SELECT data FROM snapshots WHERE id=? AND kind='standard_usage_request'", (receipt_key,)).fetchone()
+            if receipt:
+                return json.loads(receipt[0])
         meta = ledger.get(db, "meta", 1)
         run = meta.get("standardRun")
         require(run and run["id"] == run_id and run["protocol"] == PROTOCOL, "Exact standard run required")
@@ -187,6 +192,10 @@ def refresh(ledger, run_id):
     report = collect(ledger, run)
     closeout = collect_closeout(ledger, run)
     with ledger.tx() as db:
+        if receipt_key:
+            receipt = db.execute("SELECT data FROM snapshots WHERE id=? AND kind='standard_usage_request'", (receipt_key,)).fetchone()
+            if receipt:
+                return json.loads(receipt[0])
         meta = ledger.get(db, "meta", 1); current = meta.get("standardRun")
         require(current and digest(current) == captured, "Run changed during measurement; refresh explicitly")
         key = digest(report)
@@ -212,7 +221,10 @@ def refresh(ledger, run_id):
                 task = next(t for t in current["tasks"] if t.get("threadId") == record["sessionId"])
                 task["observedTokens"] = max(task.get("observedTokens") or 0, count)
         save(ledger, db, meta, current, "usage_refresh")
-    return {"documentHash": key, **report, "closeout": closeout}
+        result = {"documentHash": key, **report, "closeout": closeout}
+        if receipt_key:
+            db.execute("INSERT INTO snapshots VALUES(?,?,?)", (receipt_key, "standard_usage_request", canonical(result)))
+    return result
 
 
 def capsule(ledger, db, run, note):

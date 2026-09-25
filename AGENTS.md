@@ -1,5 +1,17 @@
 # Codex Orchestrator — personal tooling
 
+## Assistant-led standard project workflow
+
+The owner requires conversation as the primary interaction surface. Standard phase
+preparation, exact mission review, native capability and usage refresh, Play/Pause/Resume and
+verbatim brain instructions may use the signed chat adapters described in
+docs/ASSISTANT-LED-WORKFLOW.md. An explicit typed confirmation of the displayed
+preview is equivalent to its owner button; model text and vague assent are not
+confirmation. Reuse the existing controls and receipts. This supersedes older
+screen-only restrictions for those standard controls, not strict Harness gates.
+Keep source scope and mission review visible, review separate from Play, and
+brain replies outside inference history. Do not introduce a parallel dispatcher.
+
 ## Codex project catalog (2026-09-22)
 
 User-facing projects correspond to native Codex projects. Internal workspace
