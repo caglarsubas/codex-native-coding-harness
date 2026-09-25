@@ -6,6 +6,17 @@ import os
 import sys
 
 
+def upstream_timeout(method, path):
+    if method == "GET" and path == "/healthz":
+        return 3
+    # Assistant inference may stream for 240 seconds. Leave time for the native
+    # backend to return its bounded success or failure instead of misreporting
+    # a slow answer as an unavailable backend.
+    if method == "POST" and path == "/api/assistant":
+        return 270
+    return 180
+
+
 def port(value):
     result = int(value)
     if not 1 <= result <= 65535:
@@ -79,7 +90,7 @@ class Handler(BaseHTTPRequestHandler):
                 headers[name] = self.headers[name]
         # Never forward caller-selected routing, forwarding or hop-by-hop headers.
         upstream = http.client.HTTPConnection(self.server.backend_host, self.server.backend_port,
-                                              timeout=3 if self.path == "/healthz" else 180)
+                                              timeout=upstream_timeout(self.command, self.path))
         response_started = False
         try:
             body = self.rfile.read(length) if length else None
@@ -114,8 +125,11 @@ class Handler(BaseHTTPRequestHandler):
                 self.wfile.write(chunk)
         except (OSError, http.client.HTTPException, ValueError):
             if not response_started:
-                self.reject(503 if self.path == "/healthz" else 502,
-                            "Native backend unavailable; check its process. A submitted action may have been recorded; inspect its receipt before retrying.")
+                if self.command == "POST" and self.path == "/api/assistant":
+                    self.reject(502, "Assistant response unavailable. The question may still be processing; wait briefly before resending. No project control was submitted.")
+                else:
+                    self.reject(503 if self.path == "/healthz" else 502,
+                                "Native backend unavailable; check its process. A submitted action may have been recorded; inspect its receipt before retrying.")
         finally:
             upstream.close()
             self.close_connection = True

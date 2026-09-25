@@ -72,6 +72,11 @@ workspace controls and all approval/budget/checkpoint restrictions are unchanged
 
 An unhealthy gateway or HTTP 502/503 generally means the Mac backend is stopped
 or the configured ports disagree. An unexpected upstream service fails health.
+Assistant requests have a longer bounded gateway wait so the native backend can
+finish its inference stream and report its own result. If that answer still fails,
+the chat keeps the question for an explicit resend; the answer request itself
+does not apply a project control. A failed control confirmation retains its
+separate receipt inspection requirement.
 Use `127.0.0.1`, not `localhost`: exact Host/Origin validation is intentional.
 If Docker reports a port conflict, identify the process first; do not kill an
 unrelated service. Docker Desktop's `host.docker.internal` must reach the Mac's
