@@ -28,10 +28,36 @@ class EndpointFixture:
         self.addCleanup(self.sock.close)
         (self.root / "observer.sock").chmod(0o600)
         self.binary = self.root / "codex-fixture"
-        self.binary.write_text("#!"+sys.executable+"\n"+'''import json, os, pathlib, sys, time
+        self.binary.write_text("#!"+sys.executable+"\n"+'''import base64, hashlib, json, os, pathlib, struct, sys, time
 root = pathlib.Path(__file__).parent
-for line in sys.stdin:
-    request = json.loads(line)
+source, target = sys.stdin.buffer, sys.stdout.buffer
+header = b''
+while b'\\r\\n\\r\\n' not in header:
+    chunk = source.read(1)
+    if not chunk: sys.exit(0)
+    header += chunk
+key = next(line.split(':',1)[1].strip() for line in header.decode().split('\\r\\n') if line.lower().startswith('sec-websocket-key:'))
+accept = base64.b64encode(hashlib.sha1((key+'258EAFA5-E914-47DA-95CA-C5AB0DC85B11').encode()).digest()).decode()
+if (root / 'mode').read_text() == 'bad_upgrade': accept = 'invalid'
+target.write(('HTTP/1.1 101 Switching Protocols\\r\\nUpgrade: websocket\\r\\nConnection: Upgrade\\r\\nSec-WebSocket-Accept: '+accept+'\\r\\n\\r\\n').encode()); target.flush()
+def read_frame():
+    pair = source.read(2)
+    if len(pair) != 2: return None
+    first, second = pair
+    length = second & 127
+    if length == 126: length = struct.unpack('!H', source.read(2))[0]
+    elif length == 127: length = struct.unpack('!Q', source.read(8))[0]
+    mask = source.read(4) if second & 128 else b'\\x00'*4
+    payload = source.read(length)
+    return json.loads(bytes(value ^ mask[i%4] for i,value in enumerate(payload)))
+def send_frame(value):
+    payload = value.encode() if isinstance(value,str) else json.dumps(value).encode()
+    length = len(payload)
+    prefix = bytes([129,length]) if length < 126 else (bytes([129,126])+struct.pack('!H',length) if length < 65536 else bytes([129,127])+struct.pack('!Q',length))
+    target.write(prefix+payload); target.flush()
+while True:
+    request = read_frame()
+    if request is None: break
     with (root / 'requests.jsonl').open('a') as stream: stream.write(json.dumps(request)+'\\n')
     if 'id' not in request: continue
     result = {'userAgent':'fixture/1','platformFamily':'unix','platformOs':'macos','codexHome':'/fixture/private'}
@@ -39,17 +65,17 @@ for line in sys.stdin:
         mode = (root / 'mode').read_text()
         if mode == 'timeout': time.sleep(10)
         if mode == 'closed': sys.exit(0)
-        if mode == 'large': print('x'*1000001, flush=True); continue
-        if mode == 'duplicate': print('{"id":2,"id":2,"result":{}}', flush=True); continue
-        if mode == 'error': print(json.dumps({'id':request['id'],'error':{'message':'SECRET'}}), flush=True); continue
-        if mode == 'server_request': print(json.dumps({'id':request['id'],'method':'approve','params':{}}), flush=True); continue
-        if mode == 'wrong_id': print(json.dumps({'id':999,'result':{}}), flush=True); continue
-        if mode == 'notification': print(json.dumps({'method':'agentMessage','params':{'text':'SECRET'}}), flush=True)
+        if mode == 'large': send_frame('x'*1000001); continue
+        if mode == 'duplicate': send_frame('{"id":2,"id":2,"result":{}}'); continue
+        if mode == 'error': send_frame({'id':request['id'],'error':{'message':'SECRET'}}); continue
+        if mode == 'server_request': send_frame({'id':request['id'],'method':'approve','params':{}}); continue
+        if mode == 'wrong_id': send_frame({'id':999,'result':{}}); continue
+        if mode == 'notification': send_frame({'method':'agentMessage','params':{'text':'SECRET'}})
         result = {'ok':True,'secretPresent':'OPENAI_API_KEY' in os.environ}
         if mode == 'collector':
             result = {'data':[],'nextCursor':None}
             if request['method'] == 'thread/read': result = {'thread':{'id':request['params']['threadId'],'parentThreadId':None,'status':{'type':'idle'},'ephemeral':False,'preview':'SECRET'}}
-    print(json.dumps({'id':request['id'],'result':result}), flush=True)
+    send_frame({'id':request['id'],'result':result})
 ''')
         self.binary.chmod(0o700); (self.root / "mode").write_text("good")
         self.endpoint = client.inspect_endpoint(str(self.binary), str(self.root / "observer.sock"), digest(IDENTITY))
@@ -107,6 +133,11 @@ class ProxyTest(EndpointFixture, unittest.TestCase):
         with self.assertRaisesRegex(Refusal, "identity changed"): self.read()
         calls = [json.loads(s) for s in (self.root / "requests.jsonl").read_text().splitlines()]
         self.assertEqual([c["method"] for c in calls], ["initialize"])
+
+    def test_bad_websocket_upgrade_refuses_before_initialize(self):
+        (self.root / "mode").write_text("bad_upgrade")
+        with self.assertRaisesRegex(Refusal, "WebSocket"): self.read()
+        self.assertFalse((self.root / "requests.jsonl").exists())
 
     def test_changed_binary_or_socket_refuses_before_process(self):
         with self.binary.open("a") as stream: stream.write("# changed\n")

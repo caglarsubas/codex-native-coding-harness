@@ -19,6 +19,10 @@ existing local server. It does not start a server, subscribe/resume a task, exec
 a turn, read private Codex databases/logs, or make a model call. No automatic
 endpoint discovery, default socket, private protocol, remote host or fallback.
 Source/schema checks are not live endpoint qualification.
+The proxy copies bytes to the Unix socket: the current documented Unix transport
+requires an HTTP WebSocket upgrade and framed JSON-RPC messages, not JSONL. A
+2026-09-26 disposable-host read verified that transport correction; it did not
+activate an observer or qualify its completeness claims.
 
 - [x] Add internal owner review/revoke for an exact private socket and executable
   fingerprint; no brain/public owner route or activation.
