@@ -19,6 +19,12 @@ function assistantConnectionChanged(){
   assistantNextStep();
   if(typeof updateWorkspaceSelector==='function')updateWorkspaceSelector();
 }
+function assistantFailureNotice(message){
+  const detail=typeof message==='string'&&message.trim()?message.trim():'Assistant request failed.';
+  if(/\b(timed out|processing window)\b/i.test(detail))
+    return 'The AI assistant timed out. Your question is still here; it was not sent to the project brain. No automatic retry was sent. Try again later or use a project control.';
+  return detail+' Your question is still in the box.'+(/no automatic retry was sent/i.test(detail)?'':' No automatic retry was sent.');
+}
 function assistantStatus(text,error=false){$('assistant-status').textContent=text;$('assistant-status').dataset.error=String(error);}
 function chatTurn(role,content){
   $('assistant-welcome').hidden=true;
@@ -140,7 +146,7 @@ async function sendAssistant(event){
     $('assistant-question').value='';assistantStatus(result.proposal?'Review the step below; confirm here when ready.':'Ready for your next question.');
   }catch(error){
     userTurn.remove();$('assistant-welcome').hidden=assistantHistory.length>0;
-    assistantStatus(error.message+' Your question is retained. No automatic retry was sent.',true);
+    assistantStatus(assistantFailureNotice(error.message),true);
   }finally{
     assistantPending=false;assistantConnectionChanged();assistantScroll();
   }
