@@ -8,8 +8,10 @@ function catalogStatus(refresh){
   if(refresh.status==='failed')return {title:'Capability refresh failed',detail:refresh.result||'The brain retained an observation error. Review the details before retrying.'};
   const notification=refresh.notification||{};
   if(notification.status==='accepted')return Date.now()/1000-refresh.createdAt>90
-    ?{title:'Brain receipt overdue',detail:'Codex accepted the fixed request, but the catalog receipt is overdue. The request remains retained; the active heartbeat may reconcile it, otherwise open the brain to inspect the blocker.'}
-    :{title:'Capability request sent',detail:'Codex accepted the fixed request. Waiting for the designated brain to record its ledger receipt.'};
+    ?{title:'Brain receipt overdue',detail:'Native delivery was acknowledged, but the catalog receipt is overdue. A legacy desktop queue may not start an unloaded brain; inspect the bound host and retained request before further action.'}
+    :{title:'Capability request sent',detail:notification.nativeDelivery==='owned_turn_start'
+      ?'The bound Codex host started a turn. Waiting for the designated brain’s separate ledger receipt.'
+      :'Native delivery was acknowledged, not received by the brain. Waiting for the designated brain’s separate ledger receipt; a legacy desktop queue may not start an unloaded task.'};
   if(notification.status==='uncertain'||notification.status==='sending')return {title:'Delivery unconfirmed',detail:'The request is retained and will not be resent automatically. Waiting for the brain or heartbeat to reconcile the exact request.'};
   if(notification.status==='unavailable')return {title:'Automatic delivery unavailable',detail:`${notification.detail} Safe delivery attempt ${refresh.deliveryAttempts} of ${refresh.maxDeliveryAttempts}.`};
   return {title:'Capability request saved',detail:'The request is retained but has not been sent. A stopped or parked brain must be explicitly resumed; this request never resumes it.'};

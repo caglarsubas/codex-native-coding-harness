@@ -5,6 +5,16 @@
 This is recorded implementation progress, not deployment, pilot, or product
 acceptance authority. Items change through reviewed repository edits.
 
+## Reliable brain wake — source and rollout
+
+- [x] Add an opt-in, exact-bound, documented app-server wake path for registered standard projects, preserving one-shot ledger claims and independent brain receipts
+- [x] Make legacy desktop-queue acknowledgment honest: it may not start an unloaded brain
+- [ ] Independently qualify native approval handling and a disposable end-to-end owned-host pilot
+- [ ] Review and activate a live migration at a safe checkpoint; verify real ledger receipts before considering Play
+
+See [owned brain wake](OWNED-BRAIN-WAKE.md). The current live dashboard remains
+on its existing transport until a separate owner-reviewed migration.
+
 ## Assistant-led phase loop — source implementation
 
 - [x] Make the assistant visible by default with a focused conversation workspace; keep inspection pages available

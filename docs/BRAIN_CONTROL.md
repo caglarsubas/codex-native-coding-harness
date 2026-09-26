@@ -17,8 +17,11 @@ dispatch / Pause new workers** at the top of the page.
 | Pause new workers | Fence the next creation boundary | Local ledger acknowledgement; existing work is not cancelled |
 | Reconcile / worker checkpoint / archive | Notify brain immediately | Receipt and actual outcome, not native queue delivery |
 
-Notification requires the opt-in installed `codex queue` bridge and Codex running.
-It wakes an idle task, or waits behind an active turn. Stop is **cooperative**, not
+Notification requires an opt-in Codex transport. The legacy desktop `codex queue`
+bridge can acknowledge an unloaded task without starting a turn; inspect its
+ledger receipt. A separately reviewed [owned app-server bridge](OWNED-BRAIN-WAKE.md)
+can start an idle or unloaded standard brain turn on its exact bound host.
+Stop is **cooperative**, not
 a hard interrupt: the brain reads its inbox between bounded steps. An already
 running tool or isolated acceptance process must finish safely. There is no fixed
 stop deadline. Do not mistake an empty implementation-worker queue for an idle

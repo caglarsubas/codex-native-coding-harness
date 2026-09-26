@@ -80,4 +80,7 @@ and request explicit recovery approval before replacing or rebinding live state.
 The startup-only `serve --inference-env /absolute/private/.env` option can reuse
 the owner's existing inference tenancy when serving from an isolated source
 checkout. It is never a browser-supplied path; the file and its credentials stay
-outside Git. Conversation itself uses the native Codex queue, not that endpoint.
+outside Git. Conversation uses the configured native Codex notification transport,
+not the inference endpoint. The legacy desktop queue can acknowledge without
+starting an unloaded brain; see [owned wake](OWNED-BRAIN-WAKE.md) for the
+separately reviewed standard-project alternative.

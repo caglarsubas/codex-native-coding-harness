@@ -7,7 +7,8 @@ supervises them, and independently verifies completion.
 
 **The webpage is not an agent scheduler.** It records typed requests in SQLite;
 an opt-in bridge immediately notifies the existing brain of saved decision
-answers and typed controls through `codex queue`. The brain performs worker operations. No private desktop API, runtime download
+answers and typed controls through the legacy `codex queue` route or a separately
+reviewed [owned standard-brain app-server](docs/OWNED-BRAIN-WAKE.md). The brain performs worker operations. No private desktop API, runtime download
 or external telemetry is used. Orchestration needs no model API key. An optional,
 user-configured inference service can draft advisory briefs and answer dashboard
 questions on explicit request. It may propose existing typed controls, but has no
@@ -135,14 +136,17 @@ PyYAML. Do not install dependencies during a restricted execution run.
    ```
 
    To enable immediate decision delivery, use the absolute path to the installed
-   Codex CLI (the bundled path below is for this macOS installation):
+   Codex CLI (resolve its current installed path on the host):
 
    ```sh
-   python3 -m orchestrator.cli serve --notify-brain /Applications/ChatGPT.app/Contents/Resources/codex
+   python3 -m orchestrator.cli serve --notify-brain /absolute/path/to/installed/codex
    ```
 
    Keep this option on subsequent restarts. Without it the bridge is disabled,
    clearly reported in the dashboard. No CLI is downloaded or daemon started.
+   A queue acknowledgment does not prove an unloaded desktop brain began a turn.
+   The alternative owned-host source path is opt-in and requires a separate
+   activation review; it is not selected by this command.
 
    Open the private URL in `.state/dashboard-session.json` in a Codex browser
    panel. It uses a local bootstrap token in the fragment, clears that fragment,

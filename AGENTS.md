@@ -12,6 +12,18 @@ screen-only restrictions for those standard controls, not strict Harness gates.
 Keep source scope and mission review visible, review separate from Play, and
 brain replies outside inference history. Do not introduce a parallel dispatcher.
 
+## Owned app-server wake source (2026-09-26)
+
+The owner approved implementing an opt-in, documented Codex app-server wake
+bridge for registered standard projects. This supersedes the queue-only
+restriction below only for that separately reviewed host binding. Source
+delivery does not rebind a live brain, change the running dashboard, start Play
+or qualify native approval handling. The legacy desktop queue remains available,
+but its acknowledgment does not prove an unloaded brain began a turn. A committed
+one-shot claim, exact brain/checkout, private pinned local host, no automatic
+resend and an independent ledger receipt remain mandatory. Strict Harness keeps
+its existing transport fence.
+
 ## Codex project catalog (2026-09-22)
 
 User-facing projects correspond to native Codex projects. Internal workspace
@@ -75,8 +87,10 @@ weaken an approved task's evidence requirements to manufacture CI success.
 Run `python3 -m unittest discover -s tests -v` and `node --check web/app.js`.
 Keep `.state/` private. Never commit auth tokens, conversation transcripts or
 the live SQLite database. No background dispatcher or private Codex API. The
-owner-authorized notification bridge may invoke only the installed `codex queue`
-CLI with a fixed message to the configured existing brain after a validated,
+legacy bridge may invoke the installed `codex queue` CLI; the separately
+owner-reviewed standard bridge may use documented app-server thread/read,
+thread/resume and turn/start on its exact bound host. Both send only a fixed
+pointer to the configured existing brain after a validated,
 committed dashboard decision response or typed resume/reconcile/checkpoint/archive/
 brain_stop/brain_resume or locally applied approve/hold/prioritize/listening/pause
 control awaiting its brain receipt. A brain stop is a cooperative checkpoint, never

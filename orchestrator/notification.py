@@ -22,12 +22,29 @@ NOTIFY_KINDS = {"decision_response", "resume", "reconcile", "checkpoint", "archi
 
 
 class BrainNotifier:
-    def __init__(self, ledger, cli=None):
+    def __init__(self, ledger, cli=None, app_server_binding=None):
         self.ledger = ledger
         # A trusted local startup option, never supplied by an HTTP request.
         self.cli = Path(cli) if cli else None
+        self.app_server = None
+        if app_server_binding is not None:
+            from .app_server_wake import AppServerWake
+            self.app_server = AppServerWake(app_server_binding, ledger)
+        if self.app_server and self.cli:
+            raise ValueError("Choose one brain notification transport")
+
+    def close(self):
+        if self.app_server:
+            self.app_server.close()
 
     def status(self, brain_id):
+        if self.app_server:
+            if not isinstance(brain_id, str) or not re.fullmatch(UUID, brain_id):
+                return {"status": "unavailable", "detail": "A valid designated brain ID is required."}
+            if not self.app_server.configured(brain_id):
+                return {"status": "unavailable", "detail": "The reviewed local Codex app-server binding is unavailable. No native send is attempted."}
+            return {"status": "configured", "transport": "owned_app_server",
+                    "detail": "The bound Codex host can start an idle brain turn or queue behind its active turn. A send is not a ledger receipt."}
         if self.cli is None:
             return {"status": "disabled", "detail": "Immediate notification is off. Start the dashboard with --notify-brain and the installed Codex CLI path."}
         if not isinstance(brain_id, str) or not re.fullmatch(UUID, brain_id):
@@ -38,7 +55,8 @@ class BrainNotifier:
             available = False
         if not available:
             return {"status": "unavailable", "detail": "The configured Codex CLI is unavailable. Check the local dashboard startup configuration."}
-        return {"status": "configured", "detail": "Answers and pending controls notify the existing brain immediately, unless you have stopped it. Codex queues behind any active turn; notification is not execution."}
+        return {"status": "configured", "transport": "desktop_queue_only",
+                "detail": "Controls are sent to the existing desktop queue. Its acknowledgment may not start an unloaded brain; check for the separate ledger receipt."}
 
     def notify(self, command_id):
         ledger = self.ledger
@@ -67,6 +85,9 @@ class BrainNotifier:
                     return command
             brain_id = meta["brainId"]
             readiness = self.status(brain_id)
+            if self.app_server and not (getattr(ledger, "workspace_id", None) and
+                    all(r["policyProfile"] == "standard" for r in ledger.all(db, "repos"))):
+                readiness = {"status": "unavailable", "detail": "Owned app-server wake is limited to registered standard projects."}
             notification = {"wakeId": digest({"commandId": command_id}), "brainId": brain_id,
                             "attemptedAt": time.time(), "status": "sending"}
             if readiness["status"] != "configured":
@@ -165,20 +186,24 @@ class BrainNotifier:
                 "Do not create a new brain, change settings or blindly replay uncertain actions."
             )
         result = {"status": "uncertain", "detail": "Codex delivery could not be confirmed. Your request is saved. Check the brain; an active heartbeat can reconcile it. No automatic resend."}
-        try:
-            completed = subprocess.run(
-                [str(self.cli), "queue", "--thread", brain_id, "--message", message],
-                stdin=subprocess.DEVNULL, capture_output=True, text=True, encoding="utf-8",
-                errors="replace", timeout=TIMEOUT, check=False, cwd=ledger.root, shell=False,
-            )
-            ack = ACK.fullmatch(completed.stdout.strip()) if completed.returncode == 0 else None
-            if ack and ack[2] == brain_id:
-                result = {"status": "accepted", "nativeMessageId": ack[1],
-                          "detail": "Sent to Codex. An idle brain can start immediately; an active turn finishes first. Waiting for the brain's ledger receipt, not worker capacity."}
-        except OSError:
-            result = {"status": "unavailable", "detail": "The Codex CLI could not be started. Your request is saved. Open the brain in Codex or use the active heartbeat fallback."}
-        except subprocess.TimeoutExpired:
-            pass  # It may have been accepted before timeout. Never blindly retry.
+        if self.app_server:
+            result = self.app_server.send(brain_id, message, command_id)
+        else:
+            try:
+                completed = subprocess.run(
+                    [str(self.cli), "queue", "--thread", brain_id, "--message", message],
+                    stdin=subprocess.DEVNULL, capture_output=True, text=True, encoding="utf-8",
+                    errors="replace", timeout=TIMEOUT, check=False, cwd=ledger.root, shell=False,
+                )
+                ack = ACK.fullmatch(completed.stdout.strip()) if completed.returncode == 0 else None
+                if ack and ack[2] == brain_id:
+                    result = {"status": "accepted", "nativeMessageId": ack[1],
+                              "nativeDelivery": "desktop_queue_only",
+                              "detail": "Codex queued the notification, but an unloaded brain may not start. Waiting for the brain's ledger receipt."}
+            except OSError:
+                result = {"status": "unavailable", "detail": "The Codex CLI could not be started. Your request is saved. Open the brain in Codex or use the active heartbeat fallback."}
+            except subprocess.TimeoutExpired:
+                pass  # It may have been accepted before timeout. Never blindly retry.
         with ledger.tx() as db:
             # Preserve a brain receipt/resolution that raced with the CLI ack.
             current = ledger.get(db, "commands", command_id)

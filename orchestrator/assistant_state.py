@@ -81,7 +81,8 @@ def extend_context(state, facts, view="overview"):
     command_limit = 12 if view == "decisions" else max(3, min(12, pending_count))
     fact(16, "Control receipts: pending first, then recent outcomes; delivery is not execution", bounded([
         {**fields(c, "kind status createdAt receivedAt needsBrainReceipt"),
-         "result": short(c.get("result")), "notification": fields(c.get("notification"), "status attemptedAt finishedAt")}
+         "result": short(c.get("result")), "notification": fields(c.get("notification"),
+             "status nativeDelivery nativeTurnStatus attemptedAt finishedAt nativeObservedAt")}
         for c in commands[:command_limit]], len(commands)))
     followups = state.get("continuations", [])
     fact(17, "Retained follow-ups; answered historical questions must not be reopened", bounded([

@@ -8,7 +8,8 @@ description: Coordinate explicitly approved development packets across repositor
 The existing designated Codex brain is the only scheduler. The local helper is a
 transactional ledger and dashboard, not an agent or private desktop API client.
 An explicitly enabled bridge may send fixed notifications of saved dashboard
-answers and typed controls to this existing brain using the supported `codex queue` CLI. A user
+answers and typed controls to this existing brain using the legacy `codex queue`
+CLI or a separately owner-reviewed standard-project app-server host. A user
 request to install this tooling does not approve product packets.
 
 Run the installed `scripts/run.py` with `inbox` first (`status` for full inventory). It resolves the private
@@ -116,9 +117,11 @@ The sequence here is for legacy exact-approved packets only. Managed scope uses
 
 ## Scheduling and user interface
 
-Dashboard answers and pending controls can notify this existing brain immediately through the opt-in
-native queue bridge. If idle, process now; if busy, Codex queues behind the active
-turn. The notification is only a pointer: read the exact version-bound ledger
+Dashboard answers and pending controls can notify this existing brain through the
+opt-in native bridge. A legacy desktop-queue acknowledgment may not start an
+unloaded brain; an explicitly bound standard-project app-server host can start
+its turn or queue behind its active turn. Neither is your ledger receipt. The
+notification is only a pointer: read the exact version-bound ledger
 request, acquire the normal controller, and follow its dedicated procedure.
 Reconcile already received/resolved or superseded records; never replay. A wake
 does not approve packets, resume dispatch or grant access by itself. Delivery acknowledgment
@@ -157,8 +160,9 @@ The dashboard persists pause/approval/hold/priority/listening changes immediatel
 and notifies the brain for a receipt and schedule reconciliation. `process`
 clears `needsBrainReceipt` without replaying older policy; use latest state. Resume,
 reconciliation, worker checkpoint/archive and brain controls notify this existing
-task immediately when the bridge is configured. If busy, the native queue waits
-behind its active turn; cooperative inbox checks can detect a stop sooner. There
+task when the bridge is configured. A legacy queue may leave an unloaded brain
+idle; the owned standard host can start its turn or queue behind an active one.
+Cooperative inbox checks can detect a stop sooner. There
 is no supported hard-kill or mid-tool interrupt in this bridge. While stopped,
 answers and ordinary requests are saved without waking the brain. Resume brain
 can wake it even with the heartbeat paused, then the brain restores that schedule
