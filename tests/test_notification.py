@@ -92,6 +92,43 @@ class NotificationTest(unittest.TestCase):
         restarted.notify(replay["id"])
         self.run.assert_called_once()
 
+    def test_opted_in_desktop_open_is_standard_scoped_and_once_after_ack(self):
+        self.ledger.workspace_id = 'fixture'
+        self.ledger.platform_root = Path(self.tmp.name)
+        self.notifier.desktop_wake = True
+        with patch('orchestrator.installed_codex.open_desktop_brain', return_value=True) as opened:
+            result = self.send()
+            self.assertEqual(result['notification']['desktopOpen'], 'requested')
+            self.assertEqual(result['status'], 'queued', 'Open is not a brain receipt')
+            self.send()
+            self.run.assert_called_once()
+            opened.assert_called_once_with(Path(sys.executable), BRAIN)
+
+    def test_uncertain_queue_does_not_open_or_retry(self):
+        self.ledger.workspace_id = 'fixture'; self.ledger.platform_root = Path(self.tmp.name)
+        self.notifier.desktop_wake = True
+        self.run.side_effect = subprocess.TimeoutExpired([], TIMEOUT)
+        with patch('orchestrator.installed_codex.open_desktop_brain') as opened:
+            self.assertEqual(self.send()['notification']['status'], 'uncertain')
+            self.send(); opened.assert_not_called(); self.run.assert_called_once()
+
+    def test_unconfirmed_open_keeps_accepted_queue_without_resend(self):
+        self.ledger.workspace_id = 'fixture'; self.ledger.platform_root = Path(self.tmp.name)
+        self.notifier.desktop_wake = True
+        with patch('orchestrator.installed_codex.open_desktop_brain', return_value=False) as opened:
+            result = self.send()
+            self.assertEqual(result['notification']['status'], 'accepted')
+            self.assertEqual(result['notification']['desktopOpen'], 'unconfirmed')
+            self.send(); self.run.assert_called_once(); opened.assert_called_once()
+
+    def test_desktop_open_never_enters_strict_project(self):
+        self.ledger.workspace_id = 'fixture'; self.ledger.platform_root = Path(self.tmp.name)
+        self.notifier.desktop_wake = True
+        with self.ledger.tx() as db:
+            repo=self.ledger.get(db,'repos','fixture');repo['policyProfile']='harness';self.ledger.put(db,'repos','fixture',repo)
+        with patch('orchestrator.installed_codex.open_desktop_brain') as opened:
+            self.send(); opened.assert_not_called()
+
     def test_owner_confirmed_assistant_uses_same_claimed_native_path(self):
         from orchestrator.assistant_actions import ActionProposals, catalog
         from orchestrator.assistant import context

@@ -2,7 +2,7 @@ import io
 import json
 import time
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from orchestrator.core import Refusal
 from orchestrator.inference import Client, MAX_STREAM_BYTES, stream_response
@@ -20,6 +20,24 @@ def sse(events, done=True):
 
 
 class InferenceStreamTest(unittest.TestCase):
+    def test_slow_first_token_inside_total_window_is_not_cut_off_at_ninety_seconds(self):
+        # Regression: real tenant TTFT was 87.5s plus tunnel overhead, while
+        # generation finished at 94.5s. One 240s request window covers both.
+        with patch('orchestrator.inference.time.monotonic', return_value=195):
+            r=stream_response(sse([event('ready', 'stop')]), CONFIG, 100)
+        self.assertEqual(r['choices'][0]['message']['content'], 'ready')
+
+    def test_late_read_cannot_publish_answer_and_does_not_renew_window(self):
+        wire=sse([event('late', 'stop')])
+        with patch('orchestrator.inference.time.monotonic', side_effect=[100, 341]):
+            with self.assertRaisesRegex(Refusal, 'processing window'):
+                stream_response(wire, CONFIG, 100)
+
+    def test_explicit_short_timeout_remains_bounded(self):
+        with patch('orchestrator.inference.time.monotonic', return_value=103):
+            with self.assertRaisesRegex(Refusal, 'processing window'):
+                stream_response(sse([event('late','stop')]), CONFIG, 100, timeout=2)
+
     def test_complete_stream_is_buffered_and_keeps_usage_routing(self):
         events = [event('{"answer":'), event('"hello"}'), event(finish="stop", usage={"total_tokens":30})]
         r = stream_response(sse(events), CONFIG, time.monotonic())

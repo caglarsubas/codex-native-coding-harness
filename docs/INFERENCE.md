@@ -15,6 +15,10 @@ or controller authority.
 1. Copy `.env.example` to `.env` in the controller checkout, then set mode `600`.
 2. Set `CODEX_LLM_BASE_URL` to the supplied HTTPS base ending in `/v1`, set
    `CODEX_LLM_API_KEY` privately, and select `CODEX_LLM_MODEL`.
+   When the same authenticated engine runs on this Mac, an explicitly configured
+   literal-loopback HTTP base (`127.0.0.1` or `[::1]`) is also supported. This avoids
+   routing local requests through an external tunnel. Other HTTP hosts, including
+   `localhost`, remain refused; there is no automatic endpoint fallback.
 3. Keep the default `ministral-3:8b` for low-overhead briefs. The explicit local
    allowlist also includes `qwen3.8:27b`, `gemma4:26b`, and `llama3.2:3b`.
    Optional `CODEX_LLM_ASSISTANT_MODEL` selects a different model from this same
@@ -27,7 +31,7 @@ or controller authority.
 The CLI and dashboard load the same file on demand; configuration changes do not
 require exporting environment variables. This is a simple key/value file, not a
 shell script: no interpolation, `source`, or command execution. Files with group
-or world access, symlinks, duplicate settings or non-HTTPS URLs are refused.
+or world access, symlinks, duplicate settings or non-HTTPS/non-loopback URLs are refused.
 Do not put real endpoints or credentials in tracked examples, docs or screenshots.
 `.env` and `.env.*` are ignored; only the credential-free `.env.example` is tracked.
 Keep the supplied credential document outside the repository or in its ignored
@@ -85,9 +89,13 @@ owner for a restricted key if stronger account-level enforcement is needed.
   stream retains the previous brief. There is no blocking-generation fallback.
   Requests use 2,048 output tokens for small models (4,096 for the larger models);
   the shared client refuses budgets below 1,024, above the model cap, noninteger
-  budgets and model overrides. A 90-second socket timeout, 240-second processing
-  window checked at each read and bounded stream size apply. This is not a hard
-  whole-request deadline while a socket read is pending. There is no background retry.
+  budgets and model overrides. Generation has one 240-second processing window;
+  the socket timeout is reduced to the remaining window before every read, and
+  late responses are rejected after each read. This accommodates slow first-token
+  prefill without granting a new window per chunk. Bounded stream sizes still
+  apply. This cooperative timeout is not a provider billing cap or an interrupt
+  guarantee inside a single buffered read. Model-list checks use a short timeout.
+  There is no background retry.
 - HTTP 429 gives a manual retry hint. Authentication errors, timeouts, null or
   truncated answers, unexpected models/routing, tool calls, invalid JSON/schema,
   or unknown evidence IDs keep the previous brief and show an explicit failure.

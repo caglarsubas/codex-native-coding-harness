@@ -1,5 +1,23 @@
 "use strict";
 const workflowPhrases={phase_prepare:'confirm prepare',phase_review:'confirm review',phase_play:'confirm play',phase_pause:'confirm pause',phase_resume:'confirm resume',usage_check:'confirm usage',codex_check:'confirm readiness',brain_message:'confirm send'};
+function assistantLocalWorkflow(question,current=state){
+  // Exact product starters, not an inferred intent or approval. The normal
+  // server catalog still validates and prepares a separate signed preview.
+  const phrase=question.trim().toLowerCase().replace(/[.!]$/,'');
+  const next=['help me continue development','help me continue development. prepare the next required step toward the next roadmap phase in this conversation'];
+  const stop=['pause the project safely'], resume=['resume the project'];
+  if(!current?.workspace||!current?.standard||!current.repositories?.length||current.repositories.some(r=>r.policyProfile!=='standard'))return false;
+  if(stop.includes(phrase)){assistantRequestStep('phase_pause');return true;}
+  if(resume.includes(phrase)){assistantRequestStep('phase_resume');return true;}
+  if(!next.includes(phrase))return false;
+  const pending=(current.commands||[]).some(c=>(c.status==='queued'||c.status==='processing'||c.needsBrainReceipt));
+  if(pending){assistantNextStep();assistantStatus('A saved request is still awaiting its receipt. Inspect its status above; no duplicate was sent.');return true;}
+  const journey=roadmapJourneyState(current,true);
+  const key={prepare:'phase_prepare',mission:'phase_review',catalog:'codex_check',play:'phase_play',resume:'phase_resume'}[journey.action];
+  if(key)assistantRequestStep(key);
+  else{assistantNextStep();assistantStatus(journey.detail||journey.title);}
+  return true;
+}
 function assistantWorkflowState(action,current=state,now=Date.now()/1000){
   const doc=action.proposal.document,recorded=current?.commands?.find(c=>c.id===doc.id)||action.receipt?.result;
   if(action.workspace!==workspaceId)return {locked:true,label:'Different project',detail:'Return to the project where this preview was prepared.'};
@@ -67,10 +85,10 @@ function assistantTypedConfirmation(question){
   if(candidates.length!==1){assistantStatus('There is no single current preview for that confirmation. Ask for a fresh preview first.',true);return true;}
   chatTurn('user',question);$('assistant-question').value='';candidates[0].submit();return true;
 }
-async function assistantRequestStep(key){
+async function assistantRequestStep(key,text){
   if(!connected||assistantPending)return;
   assistantPending=true;assistantConnectionChanged();
-  try{const proposal=await api('/api/assistant/preview',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({key})});
+  try{const proposal=await api('/api/assistant/preview',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify(text===undefined?{key}:{key,text})});
     assistantActionPreview(chatTurn('assistant','Review this next step here.'),proposal);assistantScroll();
   }catch(error){if(!error.workspaceChanged)assistantStatus(error.message,true);}
   finally{assistantPending=false;assistantConnectionChanged();}

@@ -9,9 +9,9 @@ function assistantMessages(history,question){
 function assistantConnectionChanged(){
   const configured=connected&&state?.inference?.configured;
   $('assistant-service').textContent=!connected?"Connect to the ledger to ask a question.":configured?"On-prem inference · "+(state.inference.assistantModel||state.inference.model):"Inference not configured. Ask the local operator to check the private .env.";
-  const confirmation=Object.values(workflowPhrases).includes($('assistant-question').value.trim().toLowerCase().replace(/[.!]$/,''));
-  $('assistant-send').disabled=(!configured&&!confirmation)||!connected||assistantPending||!$('assistant-question').value.trim();
+  $('assistant-send').disabled=!connected||assistantPending||!$('assistant-question').value.trim();
   $('assistant-question').readOnly=assistantPending;
+  $('assistant-direct').disabled=!connected||assistantPending||!$('assistant-question').value.trim()||!state?.workspace;
   $('assistant-clear').disabled=assistantPending||[...assistantActions.values()].some(a=>a.sending);
   $('assistant-context').disabled=!connected||assistantPending;
   document.querySelectorAll('[data-question]').forEach(b=>b.disabled=assistantPending);
@@ -26,6 +26,11 @@ function assistantFailureNotice(message){
   return detail+' Your question is still in the box.'+(/no automatic retry was sent/i.test(detail)?'':' No automatic retry was sent.');
 }
 function assistantStatus(text,error=false){$('assistant-status').textContent=text;$('assistant-status').dataset.error=String(error);}
+function assistantDirectMessage(){
+  const text=$('assistant-question').value.trim();
+  if(!connected||assistantPending||!text)return;
+  assistantRequestStep('brain_message',text);
+}
 function chatTurn(role,content){
   $('assistant-welcome').hidden=true;
   const item=el('article',null,'chat-turn');item.dataset.role=role;
@@ -117,6 +122,8 @@ function assistantActionPreview(item,proposal){
 async function sendAssistant(event){
   event.preventDefault();const question=$('assistant-question').value.trim();
   if(!assistantPending&&connected&&assistantTypedConfirmation(question))return;
+  if(!assistantPending&&connected&&assistantLocalWorkflow(question))return;
+  if(connected&&!state?.inference?.configured){assistantStatus('Inference is unavailable. The phase controls above still prepare local previews without inference.',true);return;}
   if(assistantPending||!connected||!state?.inference?.configured||!question)return;
   assistantPending=true;assistantConnectionChanged();
   assistantStatus('Reading a fresh dashboard snapshot… This may take up to a few minutes.');
@@ -152,6 +159,7 @@ async function sendAssistant(event){
   }
 }
 function initAssistant(){
+  $('assistant-direct').onclick=assistantDirectMessage;
   $('assistant-focus').onclick=focusAssistantConversation;
   document.querySelectorAll('[data-open-assistant]').forEach(b=>b.addEventListener('click',focusAssistant));
   $('assistant-form').addEventListener('submit',sendAssistant);

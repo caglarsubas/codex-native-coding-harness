@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from orchestrator.assistant import chat, context, validate_request, validate_response
+from orchestrator.assistant import SYSTEM, chat, context, model_context, validate_request, validate_response
 from orchestrator.core import Ledger, Refusal, canonical
 from orchestrator.decisions import publish
 from orchestrator.inference import Settings, generate
@@ -145,6 +145,19 @@ class AssistantTest(unittest.TestCase):
         with patch("orchestrator.assistant.Client.request", side_effect=Refusal("Service busy")) as call:
             with self.assertRaises(Refusal): chat(self.ledger, self.body, self.env)
             self.assertEqual(call.call_count, 1)
+
+    def test_prompt_keeps_facts_and_available_controls_without_preview_copy(self):
+        data, _ = context(self.ledger.snapshot(), 'overview')
+        compact = model_context(data)
+        self.assertEqual(compact['facts'], data['facts'])
+        self.assertEqual(compact['limitations'], data['limitations'])
+        self.assertEqual(compact['actionBoundaries'], data['actionBoundaries'])
+        for original, row in zip(data['actions'], compact['actions']):
+            self.assertNotIn('impact', row)
+            self.assertEqual(row['available'], original['available'])
+            self.assertEqual(row['unavailableReason'], original['unavailableReason'])
+        self.assertLess(len(SYSTEM), 4500)
+        self.assertLess(len(canonical(compact)), len(canonical(data)))
 
     def test_secret_input_never_leaves_server(self):
         self.body["messages"][0]["content"] = CONFIG.api_key

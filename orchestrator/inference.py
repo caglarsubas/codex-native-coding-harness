@@ -27,6 +27,20 @@ PROMPT_VERSION = 4
 CACHE_SECONDS = 15 * 60
 MAX_RESPONSE = 128 * 1024
 MAX_STREAM_BYTES = 4 * 1024 * 1024
+GENERATION_TIMEOUT = 240
+
+
+def remaining_window(response, deadline):
+    """Spend one window across headers and SSE reads, never a new one per chunk."""
+    remaining = deadline - time.monotonic()
+    require(remaining > 0, "Inference stream exceeded its processing window; no answer was published")
+    # urllib HTTPResponse exposes the connected socket here. In-memory fixtures
+    # have no socket. Re-budget each blocking read after a slow first token.
+    raw = getattr(getattr(response, "fp", None), "raw", None)
+    sock = getattr(raw, "_sock", None)
+    if isinstance(sock, socket.socket):
+        sock.settimeout(remaining)
+    return remaining
 
 
 def output_token_limit(model):
@@ -35,18 +49,19 @@ def output_token_limit(model):
     return 2048 if model in ("ministral-3:8b", "llama3.2:3b") else 4096
 
 
-def stream_response(response, config, started):
+def stream_response(response, config, started, timeout=GENERATION_TIMEOUT):
     """Buffer bounded SSE privately; no partial text or intent leaves the server."""
     content, usage, model, source, finished = [], None, None, None, None
     total, events, content_size = 0, 0, 0
     data_lines = []
     terminal_pending = False
     while True:
-        require(time.monotonic() - started <= 240, "Inference stream exceeded its processing window; no answer was published")
+        remaining_window(response, started + timeout)
         if terminal_pending:
             data = "[DONE]"
         else:
             raw = response.readline(MAX_RESPONSE + 1)
+            remaining_window(response, started + timeout)
             require(raw, "Inference stream ended without completion; no answer was published")
             total += len(raw)
             require(len(raw) <= MAX_RESPONSE and total <= MAX_STREAM_BYTES, "Inference stream exceeded its size limit")
@@ -147,7 +162,8 @@ def settings(path=ENV_FILE):
         values[key.strip()] = value
     base = values.get("CODEX_LLM_BASE_URL", "").rstrip("/")
     parsed = urlsplit(base)
-    require(parsed.scheme == "https" and parsed.hostname and parsed.path == "/v1" and not (parsed.username or parsed.password or parsed.query or parsed.fragment), "Inference requires an HTTPS /v1 base URL without embedded credentials")
+    loopback = parsed.scheme == "http" and parsed.hostname in ("127.0.0.1", "::1")
+    require((parsed.scheme == "https" or loopback) and parsed.hostname and parsed.path == "/v1" and not (parsed.username or parsed.password or parsed.query or parsed.fragment), "Inference requires HTTPS or an explicit literal-loopback HTTP /v1 URL without embedded credentials")
     key = values.get("CODEX_LLM_API_KEY", "")
     require(8 <= len(key) <= 4096 and all(33 <= ord(c) <= 126 for c in key), "Missing or invalid inference API key")
     model = values.get("CODEX_LLM_MODEL", "ministral-3:8b")
@@ -170,7 +186,7 @@ class Client:
         # Do not forward the bearer key via redirects or ambient HTTP proxies.
         self.opener = build_opener(ProxyHandler({}), NoRedirect())
 
-    def request(self, route, payload=None, *, timeout=90):
+    def request(self, route, payload=None, *, timeout=None):
         require(route in ("models", "chat/completions"), "Unsupported inference operation")
         if route == "models":
             require(payload is None, "Model availability checks cannot contain a generation payload")
@@ -181,6 +197,8 @@ class Client:
                     "Generation requires a bounded output-token budget of at least 1024")
             require(payload.get("stream") is True, "Generation requires streaming; blocking fallback is disabled")
         streaming = bool(payload and payload.get("stream"))
+        timeout = (GENERATION_TIMEOUT if streaming else 15) if timeout is None else timeout
+        require(type(timeout) in (int, float) and 0 < timeout <= GENERATION_TIMEOUT, "Invalid inference request timeout")
         request = Request(self.config.base_url + "/" + route,
             data=canonical(payload).encode() if payload is not None else None,
             headers={"Authorization": "Bearer " + self.config.api_key, "Content-Type": "application/json", "Accept": "text/event-stream" if streaming else "application/json"},
@@ -189,7 +207,7 @@ class Client:
             started = time.monotonic()
             with self.opener.open(request, timeout=timeout) as response:
                 if streaming:
-                    return stream_response(response, self.config, started)
+                    return stream_response(response, self.config, started, timeout)
                 raw = response.read(MAX_RESPONSE + 1)
             require(len(raw) <= MAX_RESPONSE, "Inference response exceeded the size limit")
             require(self.config.api_key.encode() not in raw, "Inference response contained sensitive configuration and was discarded")

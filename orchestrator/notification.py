@@ -22,10 +22,17 @@ NOTIFY_KINDS = {"decision_response", "resume", "reconcile", "checkpoint", "archi
 
 
 class BrainNotifier:
-    def __init__(self, ledger, cli=None, app_server_binding=None):
+    def __init__(self, ledger, cli=None, app_server_binding=None, desktop_wake=False):
         self.ledger = ledger
         # A trusted local startup option, never supplied by an HTTP request.
-        self.cli = Path(cli) if cli else None
+        from .installed_codex import resolve_cli
+        self.cli = resolve_cli(cli) if cli else None
+        self.desktop_wake = desktop_wake
+        if desktop_wake:
+            from .installed_codex import desktop_bundle
+            if not self.cli or app_server_binding is not None:
+                raise ValueError('Desktop wake requires the existing desktop queue transport')
+            desktop_bundle(self.cli)
         self.app_server = None
         if app_server_binding is not None:
             from .app_server_wake import AppServerWake
@@ -56,7 +63,8 @@ class BrainNotifier:
         if not available:
             return {"status": "unavailable", "detail": "The configured Codex CLI is unavailable. Check the local dashboard startup configuration."}
         return {"status": "configured", "transport": "desktop_queue_only",
-                "detail": "Controls are sent to the existing desktop queue. Its acknowledgment may not start an unloaded brain; check for the separate ledger receipt."}
+                "detail": ("Controls queue once, then open the existing standard-project brain in the signed desktop app. Opening is not a ledger receipt."
+                           if self.desktop_wake else "Controls are sent to the existing desktop queue. Its acknowledgment may not start an unloaded brain; check for the separate ledger receipt.")}
 
     def notify(self, command_id):
         ledger = self.ledger
@@ -84,6 +92,7 @@ class BrainNotifier:
                         or decision["decisionHash"] != command["payload"]["decisionHash"]):
                     return command
             brain_id = meta["brainId"]
+            desktop_wake = self.desktop_wake and bool(getattr(ledger, "workspace_id", None)) and bool(ledger.all(db, "repos")) and all(r["policyProfile"] == "standard" for r in ledger.all(db, "repos"))
             readiness = self.status(brain_id)
             if self.app_server and not (getattr(ledger, "workspace_id", None) and
                     all(r["policyProfile"] == "standard" for r in ledger.all(db, "repos"))):
@@ -200,6 +209,12 @@ class BrainNotifier:
                     result = {"status": "accepted", "nativeMessageId": ack[1],
                               "nativeDelivery": "desktop_queue_only",
                               "detail": "Codex queued the notification, but an unloaded brain may not start. Waiting for the brain's ledger receipt."}
+                    if desktop_wake:
+                        from .installed_codex import open_desktop_brain
+                        opened = open_desktop_brain(self.cli, brain_id)
+                        result["desktopOpen"] = "requested" if opened else "unconfirmed"
+                        result["detail"] = ("Notification queued once; the existing brain was requested open in Codex. Waiting for its ledger receipt."
+                            if opened else "Notification queued once, but opening the desktop brain could not be confirmed. Open that brain in Codex; do not resend the request.")
             except OSError:
                 result = {"status": "unavailable", "detail": "The Codex CLI could not be started. Your request is saved. Open the brain in Codex or use the active heartbeat fallback."}
             except subprocess.TimeoutExpired:
