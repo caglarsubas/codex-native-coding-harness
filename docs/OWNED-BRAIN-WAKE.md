@@ -17,6 +17,10 @@ client; the designated brain is still the only scheduler.
   brain UUID, native project ID and checkout directory. No socket discovery, host start,
   runtime download, desktop IPC, remote listener or fallback to the desktop
   queue is permitted. The binding is loaded only at dashboard startup.
+- Unix app-server sockets use a WebSocket upgrade and text frames, even through
+  the fixed `app-server proxy --sock` byte transport. The endpoint must pin the
+  canonical socket itself: the CLI's `--listen unix://PATH` may leave `PATH` as
+  a symlink to a private daemon socket, and the symlink is deliberately refused.
 - `thread/read` must match brain ID and cwd. `active` uses `codex queue --remote`
   on that same socket. `idle`/`notLoaded` use `thread/resume`, then one
   `turn/start` with the fixed ledger pointer and bound cwd. A competing native
@@ -83,5 +87,14 @@ Local fake-host tests cover idle/unloaded turn start, active same-host queue,
 wrong checkout, pre-send failure, post-send uncertainty and private binding
 validation. They do not establish that the installed Codex version, desktop
 task, native tools and approval workflow interoperate on a real owned host.
+The disposable host check on 2026-09-26 validated the WebSocket transport and
+read the intended task, but this installed Codex build returned `projectId: null`
+for that task. Exact project identity therefore failed closed before
+`thread/resume` or `turn/start`; **no ledger receipt was obtained**. The normal
+macOS app bundle executable also fails the existing ancestor-permission check
+because `/Applications` is group-writable. A private, ad-hoc-signed temporary
+CLI copy was used only to diagnose the disposable host, not installed or bound
+for live use. Both identity gaps require an owner-reviewed, evidence-backed
+solution before a complete pilot or any live migration.
 Keep source merge, installed backend, host migration, ledger receipt and live
 qualification as separate claims. No GitHub Actions or paid service is used.

@@ -19,6 +19,7 @@ class FakeProxy:
     instances = []
     status = "notLoaded"
     fail_at = None
+    project_id = PROJECT
 
     def __init__(self, endpoint, timeout=15):
         self.calls = []
@@ -37,7 +38,7 @@ class FakeProxy:
         if method == self.fail_at:
             raise Refusal("private native error")
         if method == "thread/read":
-            return {"thread": {"id": BRAIN, "cwd": "/fixture/brain", "projectId": PROJECT,
+            return {"thread": {"id": BRAIN, "cwd": "/fixture/brain", "projectId": self.project_id,
                                "status": {"type": self.status}}}
         if method == "thread/resume":
             return {"thread": {"id": BRAIN, "cwd": "/fixture/brain", "projectId": PROJECT}}
@@ -82,6 +83,7 @@ class WakeTest(unittest.TestCase):
         FakeProxy.instances = []
         FakeProxy.status = "notLoaded"
         FakeProxy.fail_at = None
+        FakeProxy.project_id = PROJECT
         self.binding = {"endpoint": {"executable": "/fixture/codex", "socket": "/fixture/codex.sock"},
                         "brains": {BRAIN: {"cwd": "/fixture/brain", "projectId": PROJECT,
                                            "workspaceId": "fixture"}}}
@@ -134,6 +136,14 @@ class WakeTest(unittest.TestCase):
         self.assertEqual([m for m, _ in FakeProxy.instances[0].calls], ["thread/read"])
         self.assertNotIn("private", str(result))
 
+    @patch("orchestrator.app_server_wake.WakeProxy", FakeProxy)
+    def test_missing_native_project_identity_refuses_without_resume_or_start(self):
+        FakeProxy.project_id = None
+        result = self.wake.send(BRAIN, "pointer", "control")
+        self.assertEqual(result["status"], "unavailable")
+        self.assertIn("project identity", result["detail"])
+        self.assertEqual([method for method, _ in FakeProxy.instances[0].calls], ["thread/read"])
+
     def test_binding_is_private_and_exact(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory).resolve() / "binding.json"
@@ -169,9 +179,10 @@ class WakeTest(unittest.TestCase):
     def test_early_turn_completion_is_retained_without_private_content(self):
         proxy = WakeProxy(self.binding["endpoint"])
         proxy._awaiting_start = True
-        proxy.buffer = (json.dumps({"method": "turn/completed", "params": {
+        payload = json.dumps({"method": "turn/completed", "params": {
             "threadId": BRAIN, "turn": {"id": TURN, "status": "completed",
-                                      "items": ["PRIVATE TRANSCRIPT"]}}}) + "\n").encode()
+                                      "items": ["PRIVATE TRANSCRIPT"]}}}).encode()
+        proxy.buffer = b"\x81\x7e" + len(payload).to_bytes(2, "big") + payload
         proxy._line()
         self.assertEqual(proxy._early_completion, (BRAIN, TURN, "completed"))
         ledger = MemoryLedger()

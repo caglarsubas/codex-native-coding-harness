@@ -7,13 +7,12 @@ and exact brain checkout are private operator configuration, never browser input
 import os
 from pathlib import Path
 import re
-import selectors
 import stat
 import subprocess
 import threading
 import time
 
-from .core import Refusal, canonical, require
+from .core import Refusal, require
 from .native_read_client import ReadProxy, decode, file_identity, secure_path, socket_identity, validate_endpoint
 
 UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\Z")
@@ -23,6 +22,9 @@ MAX_BINDING = 16_384
 
 class WakeProxy(ReadProxy):
     """Fixed-purpose write client with bounded event streaming for a full turn."""
+    request_limit = 16_384
+    total_limit = 128_000_000
+
     def _rpc(self, method, params):
         self._awaiting_start = method == "turn/start"
         try:
@@ -30,32 +32,8 @@ class WakeProxy(ReadProxy):
         finally:
             self._awaiting_start = False
 
-    def _write(self, value):
-        raw = (canonical(value) + "\n").encode()
-        require(len(raw) <= 16_384, "Native wake pointer exceeds its bound")
-        while raw:
-            self._ready(self.process.stdin, selectors.EVENT_WRITE)
-            try:
-                size = os.write(self.process.stdin.fileno(), raw)
-            except BlockingIOError:
-                continue
-            require(size > 0, "Native proxy input closed")
-            raw = raw[size:]
-
     def _line(self):
-        while b"\n" not in self.buffer:
-            self._ready(self.process.stdout, selectors.EVENT_READ)
-            try:
-                chunk = os.read(self.process.stdout.fileno(), 65536)
-            except BlockingIOError:
-                continue
-            require(chunk, "Native proxy output closed")
-            self.total += len(chunk)
-            self.buffer += chunk
-            require(self.total <= 128_000_000 and len(self.buffer) <= 1_000_000,
-                    "Native wake stream exceeds its bound")
-        line, self.buffer = self.buffer.split(b"\n", 1)
-        row = decode(line)
+        row = super()._line()
         # A short turn can finish before turn/start returns its response. Keep
         # only the lifecycle fact while the parent RPC drops notifications.
         if getattr(self, "_awaiting_start", False) and isinstance(row, dict) and row.get("method") == "turn/completed":
@@ -175,6 +153,9 @@ class AppServerWake:
             proxy.__enter__()
             read = proxy._rpc("thread/read", {"threadId": brain_id, "includeTurns": False})
             thread = read.get("thread") if isinstance(read, dict) else None
+            if isinstance(thread, dict) and thread.get("projectId") is None:
+                return {"status": "unavailable", "detail":
+                        "Native Codex did not report the brain's project identity; no turn was sent."}
             cwd = self._identity(thread, brain_id)
             status = thread.get("status")
             require(isinstance(status, dict) and status.get("type") in

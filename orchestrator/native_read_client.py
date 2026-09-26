@@ -1,10 +1,12 @@
 """Bounded read-only public Codex proxy client. Never starts an app-server."""
 import hashlib
+import base64
 import json
 import os
 from pathlib import Path
 import selectors
 import stat
+import struct
 import subprocess
 import time
 
@@ -83,6 +85,10 @@ def decode(raw):
 
 class ReadProxy:
     """One explicit connection, fixed argv, allowlisted metadata RPCs only."""
+    request_limit = 4096
+    response_limit = MAX_RESPONSE
+    total_limit = MAX_TOTAL
+
     def __init__(self, endpoint, *, timeout=15):
         self.endpoint = endpoint
         self.timeout = min(15, max(0.05, timeout))
@@ -102,6 +108,7 @@ class ReadProxy:
                 close_fds=True, start_new_session=True)
             os.set_blocking(self.process.stdin.fileno(), False)
             os.set_blocking(self.process.stdout.fileno(), False)
+            self._upgrade()
             response = self._rpc("initialize", {"clientInfo": {"name": "codex_orchestrator_observer", "version": "1"},
                 "capabilities": {"experimentalApi": True}})
             require(isinstance(response, dict), "Missing native server identity")
@@ -133,9 +140,7 @@ class ReadProxy:
             selector.register(stream, event)
             require(selector.select(remaining), "Native read deadline exceeded")
 
-    def _write(self, value):
-        raw = (canonical(value)+"\n").encode()
-        require(len(raw) <= 4096, "Native request exceeds its bound")
+    def _write_bytes(self, raw):
         while raw:
             self._ready(self.process.stdin, selectors.EVENT_WRITE)
             try: size = os.write(self.process.stdin.fileno(), raw)
@@ -143,16 +148,80 @@ class ReadProxy:
             require(size > 0, "Native proxy input closed")
             raw = raw[size:]
 
-    def _line(self):
-        while b"\n" not in self.buffer:
+    def _read_bytes(self, count):
+        require(0 <= count <= self.response_limit + 4096, "Native response exceeds its bound")
+        while len(self.buffer) < count:
             self._ready(self.process.stdout, selectors.EVENT_READ)
             try: chunk = os.read(self.process.stdout.fileno(), 65536)
             except BlockingIOError: continue
             require(chunk, "Native proxy output closed")
             self.total += len(chunk); self.buffer += chunk
-            require(self.total <= MAX_TOTAL and len(self.buffer) <= MAX_RESPONSE, "Native response exceeds its bound")
-        line, self.buffer = self.buffer.split(b"\n", 1)
-        return decode(line)
+            require(self.total <= self.total_limit and len(self.buffer) <= self.response_limit + 4096,
+                    "Native response exceeds its bound")
+        value, self.buffer = self.buffer[:count], self.buffer[count:]
+        return value
+
+    def _upgrade(self):
+        # Unix app-server sockets speak WebSocket, not JSONL. The fixed CLI
+        # proxy copies bytes; it does not perform the HTTP upgrade for us.
+        nonce = base64.b64encode(os.urandom(16)).decode("ascii")
+        request = ("GET / HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\n"
+                   "Connection: Upgrade\r\nSec-WebSocket-Key: " + nonce +
+                   "\r\nSec-WebSocket-Version: 13\r\n\r\n").encode("ascii")
+        self._write_bytes(request)
+        header = b""
+        while b"\r\n\r\n" not in header:
+            require(len(header) < 4096, "Native WebSocket upgrade exceeds its bound")
+            header += self._read_bytes(1)
+        header = header[:-4]
+        require(len(header) <= 4096 and header.startswith(b"HTTP/1.1 101 "),
+                "Native WebSocket upgrade refused")
+        lines = header.decode("ascii", "strict").split("\r\n")
+        fields = {}
+        for line in lines[1:]:
+            require(":" in line, "Invalid native WebSocket upgrade")
+            key, value = line.split(":", 1)
+            key = key.strip().lower()
+            require(key not in fields, "Duplicate native WebSocket header")
+            fields[key] = value.strip()
+        expected = base64.b64encode(hashlib.sha1(
+            (nonce + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode("ascii")).digest()).decode("ascii")
+        require(fields.get("sec-websocket-accept") == expected and
+                fields.get("upgrade", "").lower() == "websocket" and
+                "upgrade" in [part.strip().lower() for part in fields.get("connection", "").split(",")],
+                "Native WebSocket identity or upgrade changed")
+
+    def _send_frame(self, opcode, payload):
+        require(len(payload) <= self.request_limit, "Native request exceeds its bound")
+        mask = os.urandom(4)
+        length = len(payload)
+        prefix = bytes([0x80 | opcode, 0x80 | length]) if length < 126 else (
+            bytes([0x80 | opcode, 0x80 | 126]) + struct.pack("!H", length))
+        self._write_bytes(prefix + mask + bytes(value ^ mask[i % 4] for i, value in enumerate(payload)))
+
+    def _write(self, value):
+        self._send_frame(1, canonical(value).encode("utf-8"))
+
+    def _line(self):
+        for _ in range(16):
+            first, second = self._read_bytes(2)
+            require(not first & 0x70 and not second & 0x80 and first & 0x80,
+                    "Invalid native WebSocket frame")
+            length = second & 0x7f
+            if length == 126:
+                length = struct.unpack("!H", self._read_bytes(2))[0]
+            elif length == 127:
+                length = struct.unpack("!Q", self._read_bytes(8))[0]
+            require(length <= self.response_limit, "Native response exceeds its bound")
+            payload = self._read_bytes(length)
+            opcode = first & 0x0f
+            if opcode == 9:
+                require(length <= 125, "Invalid native WebSocket ping")
+                self._send_frame(10, payload)
+                continue
+            require(opcode == 1, "Unsupported native WebSocket frame")
+            return decode(payload)
+        raise Refusal("Native WebSocket control frame limit exceeded")
 
     def _rpc(self, method, params):
         self.sequence += 1
