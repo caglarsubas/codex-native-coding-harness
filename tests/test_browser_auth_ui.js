@@ -36,7 +36,9 @@ const run=code=>vm.runInContext(code,box),all=root=>[root,...root.children.flatM
   assert.equal(remember.options.headers['X-CSRF-Token'],'global-token');
   assert.deepEqual(JSON.parse(remember.options.body),{rememberDays:30});assert.equal(reloads,1);
   locked=true;const before=requests.length;await run("changeBrowserAccess('/api/logout',{})");assert.equal(requests.length,before);
+  const revealed=[];box.revealPane=name=>revealed.push(name);
   run('browserSignedOut()');assert.equal(box.state,null);assert.equal(box.connected,false);
+  assert.deepEqual(revealed,['workspace'],'Sign-in remains visible in an assistant-only saved layout');
   assert.equal(nodes.get('browser-access').hidden,true);assert.equal(nodes.get('pause').disabled,true);
   run("authMode='account';browserSignedOut()");
   let signIn=all(nodes.get('content')),accountForm=signIn.find(n=>n.tag==='form');
