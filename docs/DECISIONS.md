@@ -2,7 +2,9 @@
 
 The Decision inbox stores owner choices independently of executable packets.
 The native brain remains the only scheduler. The server may notify that existing
-brain via the supported `codex queue` CLI when explicitly enabled at startup. It
+brain via the supported `codex queue` CLI when explicitly enabled at startup. An
+alternative, separately reviewed [owned app-server wake](OWNED-BRAIN-WAKE.md)
+can start a turn for a bound standard-project brain. Neither transport
 never executes a response note, launches a worker or starts a background dispatcher.
 
 ## Operator experience
@@ -14,8 +16,9 @@ never executes a response note, launches a worker or starts a background dispatc
    **Use my own answer instead** clears a selection without losing your text.
 3. Confirm the exact version and record the answer. It is initially **Answer
    recorded**, not executed. With the bridge enabled, it immediately notifies
-   Codex: an idle brain can start now, while an active turn finishes first.
-   **Sent to Codex** means native queue acknowledgment, not a brain receipt.
+   Codex. The legacy desktop queue can acknowledge an unloaded brain without
+   starting its turn; the owned host records a separate turn-start result.
+   Neither result is a brain ledger receipt.
 4. **Received by brain** is an in-flight receipt. **Applied to design** or **Needs
    follow-up** includes the brain's outcome and retained artifact references.
    This is not independent verification, public-schema adoption or acceptance.
@@ -63,9 +66,11 @@ manual recovery; it does not silently restart periodic checks.
 Start `serve --notify-brain /absolute/path/to/codex` from the local Codex-capable
 environment. This trusted startup option cannot be changed by the browser.
 The installed CLI must support `queue --thread <id> --message <text>` and be able
-to reach the existing designated task. A separate app-server daemon is not a
-precondition; the verified desktop queue route works without one. Connection
-availability is established per send, not inferred from an executable on disk.
+to reach the existing designated task. This legacy route needs no separately
+owned app-server, but its queue acknowledgment alone does not prove that an
+unloaded brain was activated. Connection availability is established per send,
+not inferred from an executable on disk. The alternative owned-host route has
+separate private binding, qualification and activation requirements.
 
 Only validated, committed, still-pending dashboard `decision_response`, `resume`,
 `reconcile`, `checkpoint`, `archive`, `brain_stop` and `brain_resume` controls can

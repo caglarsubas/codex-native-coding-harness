@@ -15,9 +15,16 @@ function commandPresentation(c, activity=state?.brainActivity, now=Date.now()/10
     ?{label:"Notifying brain",detail:subject+" saved. Waiting for Codex to acknowledge the notification."}
     :{label:"Delivery unconfirmed",detail:"The send was interrupted or its result is missing. Check the brain; your answer is saved and will not be resent automatically."};
   if(n.status==='accepted') {
+    if(n.nativeTurnStatus==='native_attention_required')return {label:'Native attention required',detail:'The owned Codex host asked for native approval or input. No permission was granted by the dashboard. Inspect the native host before further action.'};
+    if(n.nativeDelivery==='owned_turn_start')return now-n.finishedAt>90
+      ?{label:'Brain receipt overdue',detail:'The bound Codex host started a turn, but no ledger receipt was recorded. Inspect the native turn and any approval prompt; do not resend this control.'}
+      :{label:'Brain turn started · awaiting receipt',detail:'The bound Codex app-server started a turn. The brain has not yet recorded this request in the ledger.'};
+    if(n.nativeDelivery==='owned_active_queue')return now-n.finishedAt>90
+      ?{label:'Brain receipt overdue',detail:'The bound Codex host queued this behind its active turn, but no ledger receipt was recorded. Inspect the native turn; do not resend this control.'}
+      :{label:'Queued on active brain · awaiting receipt',detail:'The bound Codex host queued this behind its active turn. The brain has not yet recorded a ledger receipt.'};
     if(now-n.finishedAt>90)return {label:"Receipt overdue",detail:"Codex accepted the notification, but the brain has not recorded a receipt yet. Open the brain to check progress, approval prompts or availability. A paused heartbeat cannot recover this request."};
     return {label:activity?.fresh&&activity.status==='running'?"Brain active · awaiting receipt":"Sent to Codex",
-      detail:"Codex accepted the notification. An idle brain can start now; an active turn finishes first. Waiting for brain receipt, not a worker slot."
+      detail:"Codex queued the notification, but an unloaded desktop brain may not start a turn. Waiting for brain receipt, not a worker slot."
         +(c.kind==='resume'?" Worker dispatch resume is not yet applied.":c.kind==='brain_stop'?" A safe checkpoint has not yet been reached.":c.kind==='brain_resume'?" Worker dispatch stays unchanged.":"")};
   }
   return {label:n.status==='unavailable'?"Notification unavailable":"Delivery unconfirmed",detail:n.detail};
@@ -41,7 +48,7 @@ function workflowSummary(root, controls=false) {
   info.addEventListener('toggle',()=>{if(info.open)decisionDetailsOpen.add(infoKey);else decisionDetailsOpen.delete(infoKey);});
   info.append(el("summary","Schedule, usage & availability"));
   info.append(el("p",`Native heartbeat: ${w.nativeStatus} (observed ${when(w.nativeObservedAt)}).`));
-  info.append(el("p","Keep this computer and Codex running. Immediate notification uses the existing native task queue; it never interrupts an active turn. Acknowledged delivery is not a brain receipt or permission to execute."));
+  info.append(el("p","Keep the configured Codex host running. The legacy desktop queue can accept a message without starting an unloaded brain. An owner-bound app-server can start its turn; neither delivery nor turn start is a brain ledger receipt or permission to execute."));
   info.append(el("p","Event-driven waiting pauses the native heartbeat when only owner input or an external dependency remains. New answers, approvals and controls notify the brain directly. Active work still needs supervision. Periodic idle checks are optional and consume model usage even when nothing changes."));
   const actions=el("div",null,"inline-actions");
   if(!controls) actions.append(button(w.openDecisions?`Review ${w.openDecisions} decision${w.openDecisions===1?'':'s'}`:"Open decision inbox",()=>navigateView("decisions"),w.openDecisions?"primary":""));

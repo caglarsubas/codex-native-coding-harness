@@ -94,8 +94,11 @@ Synthetic safe-stop verification is not a live worker/acceptance pilot.
 ## Deliberate limits
 
 - Worker tool calls are performed by the brain, not the dashboard process. The
-  only exception is opt-in, fixed-purpose `codex queue` notification of that brain
-  after a saved dashboard answer or allowlisted typed control; no private desktop API is used.
+  legacy exception is opt-in, fixed-purpose `codex queue` notification of that brain
+  after a saved dashboard answer or allowlisted typed control. A separate,
+  not-yet-activated [owned standard-brain wake](OWNED-BRAIN-WAKE.md) uses the
+  documented app-server protocol for the same committed pointer; no private
+  desktop API is used.
 - The native CLI/app must be available. Delivery acknowledgment is not a brain
   receipt. Initial heartbeat activation/reactivation still requires the native
   brain once; notification does not enable the schedule. Native turns and active

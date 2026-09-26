@@ -41,7 +41,12 @@ function brainMessageState(message){
   if(message.reply)return {label:'Replied',detail:'The project brain retained this reply.'};
   if(message.receivedAt)return {label:'Received · reply pending',detail:'The brain received your message. Its reply has not been retained yet.'};
   const n=message.notification;
-  if(n?.status==='accepted')return {label:'Sent to Codex',detail:'Waiting for the brain’s receipt. If it is busy, Codex finishes its active turn first.'};
+  if(n?.status==='accepted'){
+    if(n.nativeTurnStatus==='native_attention_required')return {label:'Native attention required',detail:'The owned Codex host requested native approval or input; no permission was granted here.'};
+    if(n.nativeDelivery==='owned_turn_start')return {label:'Brain turn started',detail:'Waiting for the brain’s separate ledger receipt and retained reply.'};
+    if(n.nativeDelivery==='owned_active_queue')return {label:'Queued on active brain',detail:'Waiting for its active turn and then the separate ledger receipt.'};
+    return {label:'Sent to Codex',detail:'The desktop queue accepted this, but an unloaded brain might not start. Check for a ledger receipt.'};
+  }
   if(n?.status==='uncertain'||n?.status==='sending')return {label:'Delivery unconfirmed',detail:'Your message is saved. Do not send a duplicate; reconcile delivery before retrying.'};
   if(n?.status==='unavailable')return {label:'Saved · notification unavailable',detail:n.detail};
   return {label:'Saved · not notified',detail:'A stopped brain does not wake for a message. Use the explicit Resume control, or check the configured bridge.'};

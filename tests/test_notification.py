@@ -59,6 +59,31 @@ class NotificationTest(unittest.TestCase):
         for key in ("queue", "workers"):
             self.assertEqual(before[key], after[key])
 
+    def test_owned_standard_host_reuses_one_shot_claim_and_fixed_pointer(self):
+        self.ledger.workspace_id = "fixture"
+        self.ledger.platform_root = Path(self.tmp.name)
+        binding = {"endpoint": {}, "brains": {BRAIN: {"workspaceId": "fixture"}}}
+        with patch("orchestrator.app_server_wake.AppServerWake.configured", return_value=True), \
+             patch("orchestrator.app_server_wake.AppServerWake.send", return_value={
+                 "status": "accepted", "nativeDelivery": "owned_turn_start", "nativeTurnId": "turn-1"}) as send:
+            notifier = BrainNotifier(self.ledger, app_server_binding=binding)
+            result = notifier.notify(self.command["id"])
+            self.assertEqual(result["notification"]["nativeDelivery"], "owned_turn_start")
+            self.assertEqual(result["status"], "queued")
+            notifier.notify(self.command["id"])
+            send.assert_called_once()
+            self.assertEqual(send.call_args.args[0], BRAIN)
+            self.assertNotIn("PRIVATE answer", send.call_args.args[1])
+            self.run.assert_not_called()
+
+    def test_owned_host_refuses_nonregistered_scope_before_native_send(self):
+        binding = {"endpoint": {}, "brains": {BRAIN: {"workspaceId": "fixture"}}}
+        with patch("orchestrator.app_server_wake.AppServerWake.configured", return_value=True), \
+             patch("orchestrator.app_server_wake.AppServerWake.send") as send:
+            result = BrainNotifier(self.ledger, app_server_binding=binding).notify(self.command["id"])
+            self.assertEqual(result["notification"]["status"], "unavailable")
+            send.assert_not_called()
+
     def test_duplicate_http_retry_and_restart_never_resend(self):
         self.send()
         replay = self.ledger.submit(self.request)

@@ -2,6 +2,7 @@ import copy
 import json
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import time
 import unittest
@@ -204,7 +205,7 @@ class StandardTest(unittest.TestCase):
         decision=publish(self.ledger,self.token,spec)
         self.control('pause')
         command=self.ledger.submit(envelope(self.ledger,decision,optionId=None,note='Keep Unicode'),actor='dashboard')
-        notifier=BrainNotifier(self.ledger,Path('/Applications/ChatGPT.app/Contents/Resources/codex'))
+        notifier=BrainNotifier(self.ledger,Path(sys.executable))
         with patch('orchestrator.notification.subprocess.run') as send:
             notifier.notify(command['id']);send.assert_not_called()
         self.call('receive')
@@ -327,7 +328,7 @@ class StandardTest(unittest.TestCase):
         import threading
         from orchestrator.server import Dashboard
         server=Dashboard(self.ledger,0,self.root/'missing.env',registry=self.registry,
-                         notification_cli='/Applications/ChatGPT.app/Contents/Resources/codex')
+                         notification_cli=sys.executable)
         thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
         def http(path,body=None,headers=None):
             conn=HTTPConnection('127.0.0.1',server.server_port)

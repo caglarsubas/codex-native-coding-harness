@@ -176,8 +176,16 @@ def main():
     p.add_argument("--public-port", type=int, help="Exact loopback browser port when using the local Compose gateway; backend still binds only loopback")
     p.add_argument("--account-file", type=Path, help="Owner-only local account verifier; disables private token-link login")
     p.add_argument("--notify-brain", type=Path, metavar="CODEX_CLI", help="Opt in to immediate decision notification using an absolute installed Codex CLI path")
+    p.add_argument("--brain-app-server-binding", type=Path, metavar="PRIVATE_JSON",
+                   help="Opt in to the reviewed, exact standard-brain app-server host instead of the desktop queue")
     p.add_argument("--inference-env", type=Path, help="Existing private inference configuration; never a browser-selected path")
     args = parser.parse_args()
+    if args.action == "serve" and args.notify_brain and args.brain_app_server_binding:
+        raise Refusal("Choose one brain notification transport")
+    notification_binding = None
+    if args.action == "serve" and args.brain_app_server_binding:
+        from .app_server_wake import load_binding
+        notification_binding = load_binding(args.brain_app_server_binding)
     from .workspaces import Registry
     if args.workspace and not args.platform:
         raise Refusal("--workspace requires --platform")
@@ -186,6 +194,13 @@ def main():
     if (args.action == "run-readiness" or args.action.startswith(("task-contract-", "model-policy-", "native-evidence-", "brain-cycle-", "phase-checkpoint-", "native-create-", "native-task-", "native-account-", "phase-usage-", "runner-handoff-", "terminal-handoff-", "result-handoff-", "archive-handoff-", "correction-handoff-"))) and not (args.platform and args.workspace):
         raise Refusal("This operation requires an explicit registered workspace")
     registry = Registry(args.platform, create=args.action == "workspace-register") if args.platform else None
+    if notification_binding:
+        if not registry:
+            raise Refusal("Owned app-server wake requires a registered standard project")
+        registered = {w["id"]: w["brainId"] for w in registry.list()}
+        for brain_id, record in notification_binding["brains"].items():
+            if registered.get(record["workspaceId"]) != brain_id:
+                raise Refusal("Reviewed brain binding differs from the project registry")
     if args.action in ("project-list", "project-sync", "project-bind"):
         if not registry or args.workspace:
             raise Refusal("Project catalog operations require --platform; omit --workspace")
@@ -270,7 +285,9 @@ def main():
         workspaces = registry.list()
         if not workspaces:
             raise Refusal("Register at least one workspace before serving")
-        serve(registry.ledger(workspaces[0]["id"]), args.port, notification_cli=args.notify_brain, registry=registry, inference_env=args.inference_env, public_port=args.public_port, account_file=args.account_file)
+        serve(registry.ledger(workspaces[0]["id"]), args.port, notification_cli=args.notify_brain,
+              registry=registry, inference_env=args.inference_env, public_port=args.public_port,
+              account_file=args.account_file, notification_binding=notification_binding)
         return
     if registry and not args.workspace:
         raise Refusal("Select an exact --workspace; no default portfolio is inferred")
@@ -565,7 +582,9 @@ def main():
         out = {"markdown": str(path), "json": str(path.with_suffix(".json"))}
     elif action == "serve":
         from .server import serve
-        serve(ledger, args.port, notification_cli=args.notify_brain, registry=registry, inference_env=args.inference_env, public_port=args.public_port, account_file=args.account_file); return
+        serve(ledger, args.port, notification_cli=args.notify_brain, registry=registry,
+              inference_env=args.inference_env, public_port=args.public_port,
+              account_file=args.account_file, notification_binding=notification_binding); return
     print(json.dumps(out if out is not None else {"ok": True}, ensure_ascii=False, indent=2))
 
 
