@@ -212,14 +212,19 @@ function standardBrainHandoff(panel){
     catch(error){showNotice(error.message,true);}
     });prepare.disabled=readiness?.canPrepare===false;panel.append(prepare);
   }
-  const membershipFresh=handoff?.nativeMembership?.status==='idle'&&handoff.nativeMembership.observedAt>=handoff?.receiptEvidence?.observedAt&&Date.now()/1000-handoff.nativeMembership.observedAt<=3600;
+  const candidate=handoff?.candidate,membership=handoff?.nativeMembership,observedAt=membership?.observedAt,receiptAt=handoff?.receiptEvidence?.observedAt;
+  const membershipFresh=Boolean(candidate?.taskId&&candidate?.projectId&&candidate?.hostId&&handoff?.receipt&&
+    membership?.source==='codex.list_threads'&&membership.taskId===candidate.taskId&&
+    membership.projectId===candidate.projectId&&membership.hostId===candidate.hostId&&membership.status==='idle'&&
+    Number.isFinite(observedAt)&&Number.isFinite(receiptAt)&&observedAt>=receiptAt&&
+    -30<=Date.now()/1000-observedAt&&Date.now()/1000-observedAt<=3600);
   if(handoff?.status==='received'&&readiness?.canFinalize&&membershipFresh)panel.append(button('Review replacement receipt',async()=>{
     try{handoffPreviews.set(workspaceId,{stage:'final',...(await api('/api/brain-handoff/final-preview',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:'{}'}))});render();}
     catch(error){showNotice(error.message,true);}
   }));
-  if(handoff?.status==='received'&&(!readiness?.canFinalize||!membershipFresh))panel.append(el('p',handoff.nativeMembership
-    ?'Final review waits for every server-side checkpoint gate and fresh idle task evidence. A new native observation is required if this one expires; Refresh alone does not renew it.'
-    :'The receipt is recorded, but final review needs separately verified native task identity and project evidence. Refresh alone cannot supply missing evidence; Resume is unrelated.','muted'));
+  if(handoff?.status==='received'&&(!readiness?.canFinalize||!membershipFresh))panel.append(el('p',
+    'Final review is blocked until a fresh Codex list_threads result shows this exact candidate once, in the reviewed project and host, idle after its final reply. A bounded current task list may omit an older candidate; omission proves neither absence nor project membership. The recorded candidate and receipt are one-shot: do not retry or create another candidate. Refresh, Resume, or pinning/unpinning cannot supply that separate membership evidence.'+
+    (membership?' The recorded task-list evidence must also pass every server-side gate; stale, active, unknown or mismatched evidence cannot be reviewed.':' No task-list membership is recorded.'),'muted'));
   if(!pending)return;
   panel.append(el('p',`Review expires ${when(pending.preview.expiresAt)}. ${pending.stage==='prepare'?'The existing brain will create one native replacement and the new task must acknowledge the package.':'This changes the designated brain binding; the phase remains paused.'}`,'muted'));
   if(pending.stage==='prepare')panel.append(el('pre',JSON.stringify(pending.package,null,2),'detail'));

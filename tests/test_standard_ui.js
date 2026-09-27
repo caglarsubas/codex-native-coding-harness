@@ -66,24 +66,40 @@ function all(root){return [root,...root.children.flatMap(x=>x instanceof Element
   assert.ok(nodes.some(n=>String(n.text).includes('notification is off')));
   assert.ok(nodes.some(n=>String(n.text).includes('do not confirm preparation again or use Resume')));
   box.state.brainHandoff={readiness:{canPrepare:false,canFinalize:false,blockers:['Fresh native task-list project membership required before rebinding']},handoff:{status:'received',packageHash:'hash',oldBrainId:'old',
-    candidate:{taskId:'new',projectId:'native-a',observation:'Owner observed native project'},
+    candidate:{taskId:'new',projectId:'native-a',hostId:'local',observation:'Owner observed native project'},
     receipt:{summary:'Exact package reviewed'},receiptEvidence:{source:'local_native_final_reply',observedAt:1}}};
   nodes=all(render());
   assert.ok(nodes.some(n=>String(n.text).includes('Native final reply observed')));
   assert.equal(nodes.find(n=>n.text==='Open replacement task in Codex').href,'codex://threads/new');
   assert.ok(nodes.some(n=>String(n.text).includes('separate Codex task-list observation')));
-  assert.ok(nodes.some(n=>String(n.text).includes('Refresh alone cannot supply missing evidence')));
+  assert.ok(nodes.some(n=>String(n.text).includes('omission proves neither absence nor project membership')));
+  assert.ok(nodes.some(n=>String(n.text).includes('one-shot: do not retry or create another candidate')));
+  assert.ok(nodes.some(n=>String(n.text).includes('Refresh, Resume, or pinning/unpinning cannot supply')));
   assert.ok(!nodes.some(n=>n.text==='Review replacement receipt'));
   assert.ok(nodes.some(n=>String(n.text).includes('Fresh native task-list project membership required')));
-  box.state.brainHandoff.handoff.nativeMembership={projectId:'native-a',hostId:'local',status:'active',observedAt:Date.now()/1000};
-  assert.ok(!all(render()).some(n=>n.text==='Review replacement receipt'));
-  box.state.brainHandoff.handoff.nativeMembership.status='idle';
+  const handoff=box.state.brainHandoff.handoff;
   box.state.brainHandoff.readiness={canPrepare:false,canFinalize:true,blockers:[]};
+  assert.ok(!all(render()).some(n=>n.text==='Review replacement receipt'),'Missing membership stays blocked even with optimistic readiness');
+  handoff.nativeMembership={source:'codex.list_threads',taskId:'new',projectId:'native-a',hostId:'local',status:'idle',observedAt:Date.now()/1000};
+  for(const change of [{status:'active'},{status:'unknown'},{taskId:'another'},{projectId:'other'},{hostId:'other'},{source:'candidate-claim'}]){
+    const original={...handoff.nativeMembership};Object.assign(handoff.nativeMembership,change);
+    assert.ok(!all(render()).some(n=>n.text==='Review replacement receipt'),`Membership ${JSON.stringify(change)} stays blocked`);
+    handoff.nativeMembership=original;
+  }
+  const savedCandidate=handoff.candidate;handoff.candidate=null;
+  assert.ok(!all(render()).some(n=>n.text==='Review replacement receipt'),'Missing candidate identity stays blocked');
+  handoff.candidate=savedCandidate;
+  handoff.nativeMembership.status='active';
+  assert.ok(!all(render()).some(n=>n.text==='Review replacement receipt'));
+  handoff.nativeMembership.status='idle';
   nodes=all(render());
   assert.ok(nodes.some(n=>String(n.text).includes('Codex task list: native-a')));
   assert.ok(nodes.some(n=>n.text==='Review replacement receipt'));
   box.state.brainHandoff.handoff.nativeMembership.observedAt-=7200;
   assert.ok(!all(render()).some(n=>n.text==='Review replacement receipt'),'Expired browser observation cannot show a review action');
+  handoff.receiptEvidence.observedAt=Date.now()/1000-100;
+  handoff.nativeMembership.observedAt=handoff.receiptEvidence.observedAt-1;
+  assert.ok(!all(render()).some(n=>n.text==='Review replacement receipt'),'Pre-reply membership cannot show a review action');
   box.state.standard={available:false,catalogRequired:true,contextHash:'missing',boundary:'Partial observations',catalog:null,run:null,
     blocker:'Brain must record the available native model/effort catalog (valid for 24 hours)',catalogRefresh:null};
   nodes=all(render());const prepare=nodes.find(n=>n.text==='Review Play');assert.equal(prepare.disabled,false);
