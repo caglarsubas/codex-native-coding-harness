@@ -72,6 +72,30 @@ Strict Harness does not use this additional desktop-open behavior.
 
 ## Architecture
 
+### Reply-to-next-step visibility
+
+Delivery notices follow their exact project/request ID through polling instead of
+retaining the original queued text. A retained conversation reply replaces the
+waiting notice. A completed legacy request without a retained reply remains
+explicitly incomplete; a missing record is never treated as successful delivery.
+Unrelated errors and notices from another project are not overwritten.
+
+Roadmap & Play and the assistant show the latest retained brain reply, its original
+timestamp, and the current next action together. A short summary includes an
+explicit next-action sentence when present; the complete unmodified reply remains
+under Details. Reply prose never selects a control or supplies authority: next-step
+buttons use the existing current-state projection and signed previews. Native
+brain replies are labelled separately from advisory inference and remain outside
+its conversation history. Replies received in an open assistant chat also expose
+the current next-step preview directly beneath that reply.
+
+A successor draft displays its own version and stopping checkpoint. The previous
+run's blocked/completed status stays labelled as history, not the state of the new
+plan. Previous usage gaps remain visible before Play. Review and Play are still
+separate owner confirmations; receipt, reply and a new draft never start workers.
+
+See [progress and interval-accounting verification](BRAIN-PROGRESS-VERIFICATION.md).
+
 The model proposes keys from a server-generated catalog. `JourneyProposals`
 creates signed, expiring previews bound to the selected ledger, browser session,
 brain and existing mission/run request. Confirmation composes the existing

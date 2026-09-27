@@ -40,6 +40,9 @@ assert(all(root).some(n=>n.text?.startsWith('1 of 2 tasks')));
 assert(!box.narrativeHighlights('a'.repeat(40)+'. Implemented search.').some(s=>s.includes('a'.repeat(40))));
 const negative='Tests passed only in the fixture; live qualification is not complete.';
 assert(box.narrativeHighlights(negative).includes(negative),'Do not clip qualifications');
+const reply='Diagnosis completed. No workers started. A long irrelevant explanation. Another technical finding. Next exact owner action: review Mission v11. Review alone does not start development.';
+assert(box.narrativeHighlights(reply).includes('Next exact owner action: review Mission v11.'),'Next action is not lost behind earlier technical sentences');
+assert.equal(box.latestBrainReply({commands:[{kind:'reconcile',conversationReply:{at:2}},{kind:'reconcile',conversationReply:{at:1}}]}).conversationReply.at,2);
 for(let i=0;i<110;i++){const d=all(box.narrative(text+i)).find(n=>n.tag==='details');d.open=true;d.events.toggle();}
 assert.equal(vm.runInContext('narrativeDisclosures.size',box),100);
 const chatNodes={'assistant-welcome':new Element('div'),'assistant-log':new Element('div')};box.$=id=>chatNodes[id];
@@ -48,6 +51,9 @@ vm.runInContext(assistant.slice(assistant.indexOf('function chatTurn('),assistan
 root=box.chatTurn('assistant',text);
 assert(all(root).some(n=>n.className==='narrative-full'&&n.text===text));
 assert(all(root).some(n=>n.className==='narrative-boundary'&&n.text.startsWith('AI-generated')));
+root=box.chatTurn('brain',text);
+assert(all(root).some(n=>n.text==='PROJECT BRAIN'));
+assert(!all(root).some(n=>n.text?.startsWith('AI-generated')),'Retained native replies are not advisory inference');
 for(const file of ['journey','standard','conversation','session-map','decisions','activity','workspaces','inference','assistant','app']){
   assert.match(fs.readFileSync('web/'+file+'.js','utf8'),/narrative\(|phaseNarrative\(/,file+' uses shared presentation');
 }

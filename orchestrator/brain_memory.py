@@ -24,7 +24,7 @@ def scope(run):
 
 
 def session_usage(paths, identity, start, end, brain=False):
-    events, gaps, session_starts = {}, [], []
+    events, gaps, session_starts, invalid_totals = {}, [], [], []
     for path in paths:
         with open_regular(path) as stream:
             header_line = stream.readline(MAX_LINE + 1)
@@ -55,23 +55,34 @@ def session_usage(paths, identity, start, end, brain=False):
                 if not info:
                     continue
                 at = stamp(row.get("timestamp"))
-                total, last = token_vector(info.get("total_token_usage")), token_vector(info.get("last_token_usage"))
-                if at is None or total is None or last is None:
+                if at is None:
                     gaps.append("invalid_token_record")
                     continue
-                if at <= end:
-                    # Copied archive/continuation observations do not add usage twice.
-                    events[(at, canonical(total))] = (at, total, last)
+                if at > end:
+                    continue  # Later turns cannot invalidate a historical interval.
+                total, last = token_vector(info.get("total_token_usage")), token_vector(info.get("last_token_usage"))
+                if total is None:
+                    invalid_totals.append(at)
+                    # An invalid cumulative record cannot establish a baseline.
+                    # Inside the interval it also leaves an explicit coverage gap.
+                    if not brain or at >= start:
+                        gaps.append("invalid_token_record")
+                    continue
+                if last is None and (not brain or at >= start):
+                    gaps.append("invalid_token_record")
+                # A validated cumulative baseline does not depend on the previous
+                # call's breakdown. Keep valid totals even when that breakdown is
+                # invalid; never lose known consumption in the measured interval.
+                events[(at, canonical(total))] = (at, total, last)
     ordered = sorted(events.values(), key=lambda e: (e[0], e[1]["total_tokens"]))
     require(ordered, "No token samples for registered task")
-    for previous, current in zip(ordered, ordered[1:]):
-        if any(current[1][k] < previous[1][k] for k in TOKENS):
-            gaps.append("counter_reset_or_regression")
     zero = dict.fromkeys(TOKENS, 0)
     if brain:
         before = [e for e in ordered if e[0] < start]
         if before:
             baseline = before[-1][1]
+            if any(before[-1][0] <= at < start for at in invalid_totals):
+                gaps.append("invalid_token_record")
         else:
             require(session_starts and min(session_starts) >= start and ordered[0][1] == ordered[0][2],
                     "Brain baseline missing; lifetime total cannot be charged to this phase")
@@ -81,11 +92,18 @@ def session_usage(paths, identity, start, end, brain=False):
         baseline = zero
     selected = [e for e in ordered if e[0] >= start] if brain else ordered
     require(selected, "No token sample inside the measured interval")
+    # Compare every in-interval sample with the baseline/high water. A later
+    # regression cannot refund known tokens, even in this read-only report.
+    high_water = dict(baseline)
+    for sample in selected:
+        if any(sample[1][k] < high_water[k] for k in TOKENS):
+            gaps.append("counter_reset_or_regression")
+        high_water = {k: max(high_water[k], sample[1][k]) for k in TOKENS}
     last = selected[-1]
-    values = {k: max(0, last[1][k] - baseline[k]) for k in TOKENS}
+    values = {k: max(0, high_water[k] - baseline[k]) for k in TOKENS}
     unique = {canonical(e[1]) for e in selected}
     return {"sessionId": identity, "tokens": values, "sampleAt": last[0],
-            "calls": len(unique), "lastInputTokens": last[2]["input_tokens"],
+            "calls": len(unique), "lastInputTokens": last[2]["input_tokens"] if last[2] else None,
             "gaps": sorted(set(gaps))}
 
 

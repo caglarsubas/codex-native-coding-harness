@@ -28,7 +28,17 @@ function narrativeHighlights(value){
   const eligible=sentences.filter(s=>s.length<=240&&!/[a-f0-9]{32,}|https?:\/\/|\/Users\//i.test(s));
   const change=eligible.find(s=>/\b(added|changed|implemented|corrected|fixed|completed|retained)\b/i.test(s));
   const boundary=eligible.find(s=>/\b(not|no|unverified|unknown|blocked|untested|requires|pending|only)\b/i.test(s));
-  return [...new Set([change,boundary,...eligible].filter(Boolean))].slice(0,3);
+  const next=sentences.find(s=>s.length<=600&&/^(next(?: exact owner)? (?:action|step)|next:)/i.test(s));
+  return [...new Set([change,boundary,next,...eligible].filter(Boolean))].slice(0,3);
+}
+function latestBrainReply(snapshot){
+  return [...(snapshot.commands||[])].filter(c=>c.kind==='reconcile'&&c.conversationReply)
+    .sort((a,b)=>b.conversationReply.at-a.conversationReply.at)[0];
+}
+function priorPhaseUsageWarning(snapshot){
+  const run=snapshot.standard?.run,spec=snapshot.mission?.document?.spec;
+  if(!run||!['completed','blocked'].includes(run.status)||!spec||spec.phase.id===run.phaseId||!run.usageReport?.gaps?.length)return '';
+  return 'Before Play: the previous phase stopped with incomplete usage evidence. Its recorded usage and gaps remain preserved. The new phase needs a fresh, complete measurement before any worker can start; reviewing this plan does not clear that requirement.';
 }
 function narrative(value,label='Report',facts=[]){
   const text=String(value||'');

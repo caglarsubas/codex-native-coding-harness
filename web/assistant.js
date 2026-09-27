@@ -17,6 +17,7 @@ function assistantConnectionChanged(){
   document.querySelectorAll('[data-question]').forEach(b=>b.disabled=assistantPending);
   refreshAssistantActions();
   assistantNextStep();
+  refreshAssistantStatus();
   if(typeof updateWorkspaceSelector==='function')updateWorkspaceSelector();
 }
 function assistantFailureNotice(message){
@@ -25,7 +26,12 @@ function assistantFailureNotice(message){
     return 'The AI assistant timed out. Your question is still here; it was not sent to the project brain. No automatic retry was sent. Try again later or use a project control.';
   return detail+' Your question is still in the box.'+(/no automatic retry was sent/i.test(detail)?'':' No automatic retry was sent.');
 }
-function assistantStatus(text,error=false){$('assistant-status').textContent=text;$('assistant-status').dataset.error=String(error);}
+function assistantStatus(text,error=false,requestId=null){$('assistant-status').textContent=text;$('assistant-status').dataset.error=String(error);$('assistant-status').dataset.requestId=requestId||'';$('assistant-status').dataset.workspace=workspaceId||'';}
+function refreshAssistantStatus(){
+  const status=$('assistant-status');if(!connected||!status.dataset.requestId||status.dataset.workspace!==(workspaceId||''))return;
+  const c=state.commands.find(c=>c.id===status.dataset.requestId);if(!c)return;
+  const info=commandPresentation(c);status.textContent=c.conversationReply?'Brain replied. Next: '+roadmapJourneyState(state,true).label+'. Review it in this conversation.':info.label+'. '+info.detail;
+}
 function assistantDirectMessage(){
   const text=$('assistant-question').value.trim();
   if(!connected||assistantPending||!text)return;
@@ -34,14 +40,14 @@ function assistantDirectMessage(){
 function chatTurn(role,content){
   $('assistant-welcome').hidden=true;
   const item=el('article',null,'chat-turn');item.dataset.role=role;
-  const body=content.length>280?narrative(content,role==='assistant'?'AI explanation':'Your question'):el('p');
+  const body=content.length>280?narrative(content,role==='brain'?'Project brain reply':role==='assistant'?'AI explanation':'Your question'):el('p');
   // Models sometimes emit emphasis despite the plain-text contract. Only bold
   // text is supported; HTML, URLs and Markdown links never become active markup.
   if(content.length<=280){
     if(role==='assistant')content.split(/(\*\*[^*\n]{1,240}\*\*)/g).forEach(part=>body.append(el(part.startsWith('**')&&part.endsWith('**')?'strong':'span',part.startsWith('**')&&part.endsWith('**')?part.slice(2,-2):part)));
     else body.textContent=content;
   }
-  item.append(el('p',role==='user'?'YOU':'AI · ADVISORY','eyebrow'),body);
+  item.append(el('p',role==='control'?'PROJECT CONTROL':role==='brain'?'PROJECT BRAIN':role==='user'?'YOU':'AI · ADVISORY','eyebrow'),body);
   $('assistant-log').append(item);return item;
 }
 function assistantScroll(){const log=$('assistant-log');log.scrollTop=log.scrollHeight;}
@@ -108,7 +114,7 @@ function assistantActionPreview(item,proposal){
     action.sending=true;action.uncertain=false;assistantConnectionChanged();
     try{
       action.receipt=await api('/api/assistant/confirm',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({proposal,confirmed:true})});
-      const receipt=commandPresentation(action.receipt);assistantStatus(receipt.label+'. '+receipt.detail);
+      const receipt=commandPresentation(action.receipt);assistantStatus(receipt.label+'. '+receipt.detail,false,action.receipt.id);
       await refresh();
     }catch(error){
       // Retain the same signed command ID. Never auto-retry uncertain delivery.

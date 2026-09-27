@@ -58,6 +58,13 @@ all(root).find(n=>n.text==='Review Play').click();assert.deepEqual(calls.at(-1),
 assert(!text(root).includes('Brain handoff'),'Optional recovery is not part of normal Play');
 box.state.standard.run=run('completed');box.state.mission.document.spec.phase.id='phase-2';root=render();
 assert.match(text(root),/Previous phase phase-1/);assert.match(text(root),/Measured remaining tokens: unknown/);
+assert.match(text(root),/Review independent test results/,'New plan displays its own checkpoint, not the old result fallback');
+box.state.mission.document.version=11;box.state.mission.effectiveStatus='draft';
+assert.match(box.projectPhaseStatus(box.state),/Plan v11 awaits review.*Previous phase completed/);
+box.state.standard.run.usageReport={gaps:['invalid_token_record']};
+assert.match(text(render()),/Before Play: the previous phase stopped with incomplete usage evidence/);
+box.state.commands=[{kind:'reconcile',status:'completed',conversationReply:{at:100,message:'Draft saved. No Play occurred. Next exact owner action: review Mission v11.'}}];
+assert.match(text(render()),/Next exact owner action: review Mission v11/);
 box.missionDrafts.set('alpha',{});box.state=base();assert.match(text(render()),/Your phase draft is open/);
 box.state.standard.run=run('running');assert(!text(render()).includes('Your phase draft is open'),'Drafts cannot hide an active phase');
 box.state.standard.run=run('completed');assert.match(text(render()),/Continue phase draft/,'A next-phase draft remains reachable after completion');

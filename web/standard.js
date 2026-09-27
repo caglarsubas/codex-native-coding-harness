@@ -46,7 +46,7 @@ async function requestCatalogForPlay(s){
   try{
     const result=await api('/api/standard/catalog-refresh',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify(request)});
     const status=catalogStatus({...result,deliveryAttempts:(result.notificationHistory||[]).length+(result.notification?1:0),maxDeliveryAttempts:3});
-    showNotice(status.title+'. '+status.detail);await refresh();
+    showNotice(status.title+'. '+status.detail,false,result.id);await refresh();
   }catch(error){if(!error.workspaceChanged)showNotice(error.message,true);}
   finally{standardCatalogInFlight.delete(key);if(workspaceId===key)render();}
 }
@@ -177,7 +177,7 @@ function standardConfirmation(parent,s,run){
       if(invalid()){showNotice('This review is no longer current. Discard it and review the latest phase state.',true);render();return;}
       busy=true;confirm.disabled=true;check.disabled=true;cancel.disabled=true;confirm.textContent='Saving request…';help.textContent='Saving this exact control. Wait for the retained result before sending another request.';updateWorkspaceSelector();
       try{const result=await api('/api/standard/confirm',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({...pending,confirmed:true})});
-        standardPreviews.delete(key);selected=null;showNotice(result.notification?.detail||result.result);await refresh();
+        standardPreviews.delete(key);selected=null;showNotice(result.notification?.detail||result.result,false,result.id);await refresh();
       }catch(error){showNotice(error.message+' Inspect the retained run before retrying.',true);}finally{busy=false;render();updateWorkspaceSelector();}
     },'primary');confirm.disabled=true;check.onchange=()=>{confirm.disabled=!check.checked||busy||invalid();};
     const help=el('p','Select the confirmation above to enable this action.','muted');help.id='phase-confirmation-help';confirm.setAttribute('aria-describedby',help.id);

@@ -72,7 +72,7 @@ function assistantWorkflowPreview(item,proposal){
     action.sending=true;action.uncertain=false;assistantConnectionChanged();
     try{
       action.receipt=await api('/api/assistant/confirm',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({proposal,confirmed:true})});
-      assistantStatus(action.receipt.message);await refresh();
+      assistantStatus(action.receipt.message,false,action.receipt.result?.kind?action.receipt.result.id:null);await refresh();
     }catch(error){if(error.workspaceChanged)return;if([400,401,403,409].includes(error.status))action.rejected=error.message;else action.uncertain=true;assistantStatus(error.message,true);}
     finally{action.sending=false;assistantConnectionChanged();assistantScroll();}
   };
@@ -89,14 +89,13 @@ async function assistantRequestStep(key,text){
   if(!connected||assistantPending)return;
   assistantPending=true;assistantConnectionChanged();
   try{const proposal=await api('/api/assistant/preview',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify(text===undefined?{key}:{key,text})});
-    assistantActionPreview(chatTurn('assistant','Review this next step here.'),proposal);assistantScroll();
+    assistantActionPreview(chatTurn('control','Review this next step here.'),proposal);assistantScroll();
   }catch(error){if(!error.workspaceChanged)assistantStatus(error.message,true);}
   finally{assistantPending=false;assistantConnectionChanged();}
 }
 function assistantNextStep(){
   const root=$('assistant-next-step');if(!root)return;root.replaceChildren();
   if(!connected||!state?.workspace)return;
-  if(state.recovery)recoverySummary(root,state.recovery);
   const messages=[...(state.commands||[])].reverse().filter(c=>c.kind==='reconcile'&&c.payload?.message);
   const pending=messages.find(c=>!c.conversationReply);
   if(pending){const info=commandPresentation(pending,state.brainActivity);root.append(el('p','WITH YOUR PROJECT BRAIN','eyebrow'),el('p',info.label),el('p',info.detail,'muted'));return;}
@@ -105,15 +104,21 @@ function assistantNextStep(){
   if(needsMeasurement&&!journey.request&&['running','paused'].includes(state.standard?.run?.status)){
     root.append(el('p','USAGE CHECK NEEDED','eyebrow'),el('p','Refresh measured usage before the next effect.'),button('Review usage check',()=>assistantRequestStep('usage_check')));return;
   }
-  root.append(el('p','CURRENT PROJECT','eyebrow'),el('p',journey.title));
+  const latest=latestBrainReply(state);
+  root.append(el('p',latest?'BRAIN REPLIED · '+when(latest.conversationReply.at):'CURRENT PROJECT','eyebrow'),el('h3',journey.title));
+  const plan=state.mission;
+  if(journey.action==='mission'&&plan?.document)root.append(el('p',`Plan v${plan.document.version} · ${plan.document.spec.phase.title}`));
   const key=map[journey.action];
   const reviewable=journey.action!=='mission'||(state.mission?.effectiveStatus==='draft'&&!state.mission?.bindingIssues?.length);
   const prepareBlocked=key==='phase_prepare'&&['paused','stopping'].includes(state.standard?.run?.status);
   if(key&&reviewable&&!prepareBlocked){const b=button(journey.label,()=>assistantRequestStep(key));b.disabled=assistantPending;root.append(b);}
   else root.append(el('p',journey.detail,'muted'));
+  if(journey.action==='mission'&&plan?.document)root.append(el('p','Review scope, limits and stopping point here. Review does not start development.','muted'));
   if(journey.request){const info=commandPresentation(journey.request,state.brainActivity);root.append(el('p',info.label+'. '+info.detail,'muted'));}
   if(journey.reasons?.length){const reasons=el('ul');for(const text of journey.reasons)reasons.append(el('li',text));root.append(reasons);}
-  if(messages[0]?.conversationReply){const reply=messages[0].conversationReply;root.append(journeyDisclosure('assistant-brain-reply','Latest project brain reply · '+when(reply.at),details=>details.append(narrative(reply.message,'Retained brain reply'))));}
+  const usageWarning=priorPhaseUsageWarning(state);if(usageWarning)root.append(el('p',usageWarning,'journey-receipt'));
+  if(state.recovery)recoverySummary(root,state.recovery);
+  if(latest)root.append(narrative(latest.conversationReply.message,'Project brain reply'));
 }
 function assistantWorkflowReceipt(action,recorded){
   if(action.proposal.document.workflow==='usage_check'&&action.receipt&&!action.usageShown){
@@ -122,9 +127,19 @@ function assistantWorkflowReceipt(action,recorded){
     if(r.gaps.length){const details=el('details');details.append(el('summary','Measurement gaps'),el('pre',r.gaps.join('\n')));item.append(details);}
   }
   const reply=recorded?.conversationReply;
+  if(action.replyNext){
+    const model=roadmapJourneyState(state,connected),key={prepare:'phase_prepare',mission:'phase_review',catalog:'codex_check',play:'phase_play',pause:'phase_pause',resume:'phase_resume'}[model.action];
+    const current=latestBrainReply(state)?.id===recorded?.id;
+    const signature=JSON.stringify([current,key,model.label,connected,assistantPending]);
+    if(action.replyNextKey!==signature){action.replyNext.replaceChildren();action.replyNextKey=signature;
+      if(current&&key){const b=button('Next: '+model.label,()=>assistantRequestStep(key));b.disabled=!connected||assistantPending;action.replyNext.append(b);}
+    }
+  }
   if(!reply||action.replyHash===reply.hash)return;
   action.replyHash=reply.hash;
-  const item=chatTurn('assistant',reply.message);item.dataset.role='brain';item.querySelector('.eyebrow').textContent='PROJECT BRAIN · '+when(reply.at);
+  const item=chatTurn('brain',reply.message);item.querySelector('.eyebrow').textContent='PROJECT BRAIN · '+when(reply.at);
+  action.replyNext=el('div',null,'assistant-actions');item.append(action.replyNext);
+  assistantWorkflowReceipt(action,recorded);
   // Retained brain text is shown locally, never appended to inference history.
 }
 function assistantUsageSummary(report){
