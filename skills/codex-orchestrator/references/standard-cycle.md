@@ -8,6 +8,20 @@ select model and effort from the owner-bound native catalog, based on complexity
 and remaining allowance. Do not guess speed settings: the native interface does
 not expose them. Keep requested settings distinct from observed settings.
 
+## Pending brain replacement
+
+When an existing replacement candidate and final package receipt are recorded,
+preserve that one-shot candidate. A native final reply proves the receipt, not
+project membership. A bounded current `list_threads` result may omit an older
+candidate; omission proves neither absence nor membership. Do not create, retry,
+fork, message or Resume another candidate, or pin/unpin to fill the gap. Refresh
+does not collect membership. Final owner review requires a separate fresh result
+with exactly one matching task in the reviewed project and host, idle after the
+reply. Missing, omitted, active, unknown or stale membership blocks rebinding.
+Owner rebinding changes only the designated brain binding; selected-project Play
+and activation remain separate owner controls. See `docs/PROJECT-KNOWLEDGE.md`
+in the tooling checkout for the exact handoff and receipt procedure.
+
 ## Source and state
 
 Use the source checkout and private registry supplied in your onboarding or fixed

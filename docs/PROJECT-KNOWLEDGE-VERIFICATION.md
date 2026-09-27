@@ -12,6 +12,12 @@ or strict Harness execution authority.
 | KNW-04 | Immutable package, two signed owner previews, read-only checkpoint/evidence readiness, one-shot native candidate, bounded task-list membership and idle-state import, final-reply-bound package receipt, exact registry rebinding and fail-closed interrupted-commit repair | Disposable local Git/project fixture, missing/foreign/duplicated/active task membership, wrong project/host, missing/stale/non-final/wrong-summary native reply, stale review, unsettled work, replay and recovery tests | Real disposable native Codex task receipt and owner-reviewed browser handoff; tool-reported membership is not cryptographic host attestation |
 | KNW-05 | Fixed evaluation suite and this separate evidence ledger | 19/20 expected owner modules in top ten, two missing-evidence questions with no citation; local suites reported separately below | Merge, optional provider installation and explicit selected standard-project activation |
 
+The final reply receipt and a fresh exact-idle `list_threads` membership are
+separate observations. A bounded list that omits an older candidate leaves
+membership unknown; it does not establish absence, authorize another candidate,
+or permit owner rebinding. Source and UI tests do not qualify the native pilot,
+and a completed owner rebind would still leave selected-project activation separate.
+
 The 20 questions and expected sources are fixed in
 `tests/test_knowledge_eval.py`. They are implementation-location questions,
 not an acceptance test for semantic correctness of arbitrary answers. The

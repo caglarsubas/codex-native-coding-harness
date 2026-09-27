@@ -118,6 +118,15 @@ the candidate, be no older than one hour at final review, and agree with the
 reviewed project binding. It is a brain-imported native tool result, **not** a
 cryptographic Codex-host attestation. The owner must review that boundary;
 a missing task-list observation, native log or marker blocks final rebinding.
+A bounded current `list_threads` result may omit an older candidate. That omission
+proves neither that the candidate is absent nor that it belongs to the reviewed
+project. Keep the recorded candidate and final reply receipt; native creation is
+one-shot and must not be retried or replaced to fill the evidence gap. Refresh,
+Resume and pinning/unpinning do not provide the required fresh, exact, idle
+task-list membership. The final reply proves the package receipt, while the
+separate task-list result provides project/host membership and current idle
+status. Owner rebinding requires both in the signed final review; it does not
+activate the selected project or start Play.
 The ledger commits the binding first; if the second database commit is
 interrupted, project opening fails closed on its identity check. The explicit
 `brain-handoff-recover HANDOFF_ID --confirm` CLI operation repairs only that
