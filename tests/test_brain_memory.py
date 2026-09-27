@@ -59,6 +59,47 @@ class BrainMemoryTest(unittest.TestCase):
         self.write([(200, 900, 400)])
         with self.assertRaises(Refusal): session_usage([self.path], self.identity, 150, 350)
 
+    def corrupt_vector(self, index, field='last_token_usage'):
+        rows = [json.loads(line) for line in self.path.read_text().splitlines()]
+        rows[index]['payload']['info'][field]['total_tokens'] += 1
+        self.path.write_text('\n'.join(json.dumps(row) for row in rows)+'\n')
+
+    def test_previous_call_breakdown_cannot_poison_new_phase_baseline(self):
+        self.write([(100, 500, 500), (200, 900, 400), (300, 1400, 500)])
+        self.corrupt_vector(2)
+        report = session_usage([self.path], self.identity, 250, 350, True)
+        self.assertEqual(report['tokens']['total_tokens'], 500)
+        self.assertEqual(report['gaps'], [])
+        # The same invalid record remains a gap when it belongs to this interval.
+        earlier = session_usage([self.path], self.identity, 150, 250, True)
+        self.assertEqual(earlier['tokens']['total_tokens'], 400)
+        self.assertIn('invalid_token_record', earlier['gaps'])
+        self.assertIsNone(earlier['lastInputTokens'])
+
+    def test_later_bad_record_does_not_change_historical_coverage(self):
+        self.write([(100, 500, 500), (200, 900, 400), (300, 1400, 500)])
+        self.corrupt_vector(3)
+        report = session_usage([self.path], self.identity, 150, 250, True)
+        self.assertEqual(report['gaps'], [])
+        self.assertEqual(report['tokens']['total_tokens'], 400)
+
+    def test_invalid_cumulative_baseline_does_not_fabricate_coverage(self):
+        self.write([(100, 500, 500), (200, 900, 400), (300, 1400, 500)])
+        self.corrupt_vector(2, 'total_token_usage')
+        self.assertIn('invalid_token_record', session_usage([self.path], self.identity, 250, 350, True)['gaps'])
+
+    def test_bad_breakdown_still_retains_known_total_and_worker_gap(self):
+        self.write([(100, 500, 500), (200, 900, 400), (300, 800, 100)], session_start=90)
+        self.corrupt_vector(2)
+        report = session_usage([self.path], self.identity, 150, 350, True)
+        self.assertEqual(report['tokens']['total_tokens'], 400)
+        self.assertEqual(set(report['gaps']), {'invalid_token_record','counter_reset_or_regression'})
+        worker = session_usage([self.path], self.identity, 150, 350)
+        self.assertEqual(worker['tokens']['total_tokens'], 900)
+        self.assertIn('invalid_token_record', worker['gaps'])
+        self.corrupt_vector(1)
+        with self.assertRaises(Refusal): session_usage([self.path], self.identity, 150, 350)
+
     def test_delayed_closeout_is_not_charged_to_checkpoint_interval(self):
         self.write([(100, 500, 500), (200, 900, 400), (300, 1000, 100)])
         phase = session_usage([self.path], self.identity, 150, 250, True)

@@ -8,7 +8,15 @@ function badge(text) {return el("span",text,"badge "+(["complete","completed","v
 function num(n) {return n===null||n===undefined?"—":new Intl.NumberFormat().format(n);}
 function when(ts) {return ts?new Date(ts*1000).toLocaleString():"Not yet observed";}
 function age(ts) {return ts?Math.max(0,Math.floor((Date.now()/1000-ts)/60))+" min ago":"Never reconciled";}
-function showNotice(text,error=false) {$('notice').hidden=false;$('notice').textContent=text;$('notice').dataset.error=String(error);}
+function showNotice(text,error=false,requestId=null) {$('notice').hidden=false;$('notice').textContent=text;$('notice').dataset.error=String(error);$('notice').dataset.requestId=requestId||'';$('notice').dataset.workspace=workspaceId||'';}
+function refreshCommandNotice(){
+ const notice=$('notice');if(notice.hidden||!notice.dataset.requestId||notice.dataset.workspace!==(workspaceId||''))return;
+ const c=state.commands.find(c=>c.id===notice.dataset.requestId);if(!c)return;
+ const info=commandPresentation(c);let text=info.label+'. '+info.detail;
+ if(c.conversationReply)text='Brain replied. '+roadmapJourneyState(state,connected).title+'. The next step is shown below; no new phase starts automatically.';
+ else if(c.kind==='standard_play'&&c.status==='completed'&&c.payload?.runId===state.standard?.run?.id&&state.standard.run.status==='blocked')text='Play was received. The phase stopped at a safety checkpoint; review the reason below.';
+ notice.textContent=text;
+}
 function table(headers, rows) {const wrap=el("div",null,"table-wrap"),t=el("table"),head=el("thead"),tr=el("tr");headers.forEach(h=>tr.append(el("th",h)));head.append(tr);t.append(head);const body=el("tbody");rows.forEach(row=>{const r=el("tr");row.forEach(value=>{const cell=el("td");cell.append(value instanceof Node?value:el("span",value));r.append(cell);});body.append(r);});t.append(body);wrap.append(t);return wrap;}
 function section(title,detail) {const e=el("div",null,"section-heading");e.append(el("h2",title));if(detail)e.append(el("p",detail));return e;}
 function empty(title,body) {const e=el("div",null,"empty");e.append(el("h2",title),el("p",body));return e;}
@@ -37,12 +45,12 @@ async function command(kind,payload={}) {
   const result=await api("/api/commands",{method:"POST",headers:{"Content-Type":"application/json","X-CSRF-Token":csrf},body:JSON.stringify(controlRequests.get(key))});
   controlRequests.delete(key);
   const delivery=commandPresentation(result);
-  showNotice(delivery.label+". "+delivery.detail);
+  showNotice(delivery.label+". "+delivery.detail,false,result.id);
   selected=null;await refresh();
  }catch(e){if(e.message.includes("State changed"))controlRequests.delete(key);showNotice(e.message+" Refresh before retrying; uncertain requests retain the same ID.",true);}
  finally{busy=false;render();updateWorkspaceSelector();}
 }
-async function refresh() {if(unconfiguredProject()){renderUnconfiguredProject();assistantConnectionChanged();return;}try{state=await api("/api/state");connected=true;$('export-report').hidden=false;$('connection').textContent="Ledger connected · "+new Date().toLocaleTimeString();if(state.recovery?.phaseStatus==='blocked'&&!$('notice').hidden&&/Sent to Codex|Waiting for the brain/i.test($('notice').textContent))showNotice('The phase stopped at a safety checkpoint. Review the recorded reason and recovery proposal below.',true);render();}catch(e){if(e.workspaceChanged)return;connected=false;$('connection').textContent="Ledger disconnected";showNotice(e.message,true);$('pause').disabled=true;$('reconcile').disabled=true;if(['overview','roadmap'].includes(view)&&state)render();}finally{if(typeof assistantConnectionChanged==='function')assistantConnectionChanged();}}
+async function refresh() {if(unconfiguredProject()){renderUnconfiguredProject();assistantConnectionChanged();return;}try{state=await api("/api/state");connected=true;$('export-report').hidden=false;$('connection').textContent="Ledger connected · "+new Date().toLocaleTimeString();refreshCommandNotice();render();}catch(e){if(e.workspaceChanged)return;connected=false;$('connection').textContent="Ledger disconnected";showNotice(e.message,true);$('pause').disabled=true;$('reconcile').disabled=true;if(['overview','roadmap'].includes(view)&&state)render();}finally{if(typeof assistantConnectionChanged==='function')assistantConnectionChanged();}}
 function operations(root) {
  const m=state.meta,active=state.workers.filter(w=>!['complete'].includes(w.status));
  journeyReturn(root,'Advanced controls');
@@ -126,7 +134,7 @@ function render() {
  document.querySelector(".page-actions").hidden=['roadmap','workspaces','mission','runReadiness','phaseCheckpoints','retention'].includes(view);
  const m=state.meta,dispatch=dispatchPresentation(m,state.commands),primary=state.workspace?workspacePausePresentation(state):dispatch;
  $('mode').textContent=dispatch.label+" · Brain: "+activityLabel(state.brainActivity)+" · Checkpoint: "+age(m.lastReconciled)+" · Heartbeat (recorded): "+m.heartbeat.status;
- if(state.standard?.run){$('mode').textContent='STANDARD · '+state.standard.run.status.toUpperCase()+' · '+state.standard.run.tasks.filter(t=>!['completed','failed','not_created'].includes(t.status)).length+' registered tasks in flight';document.querySelector('.page-actions').hidden=true;}
+ if(state.standard?.run){$('mode').textContent=projectPhaseStatus(state);document.querySelector('.page-actions').hidden=true;}
  $('pause').textContent=primary.button;$('pause').disabled=!connected||busy||primary.disabled;
  $('pause').title=state.workspace?primary.detail:"Change new worker dispatch only";
  $('pause').classList.toggle('primary',!!state.workspace);$('reconcile').classList.toggle('primary',!state.workspace);

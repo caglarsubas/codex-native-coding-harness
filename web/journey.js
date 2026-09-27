@@ -2,6 +2,12 @@
 // A navigation projection of existing records. Only the existing signed controls
 // can authorize Play, Resume or Pause; this module never submits them directly.
 const journeyDetailsOpen=new Set();
+function projectPhaseStatus(snapshot){
+  const run=snapshot.standard.run,m=snapshot.mission;
+  const next=['completed','blocked'].includes(run.status)&&m?.document?.spec.phase.id!==run.phaseId&&m?.document;
+  const status=next?`Plan v${m.document.version} ${m.effectiveStatus==='reviewed'?'reviewed · Play not started':'awaits review'} · Previous phase ${run.status}`:run.status.toUpperCase();
+  return 'STANDARD · '+status+' · '+run.tasks.filter(t=>!['completed','failed','not_created'].includes(t.status)).length+' registered tasks in flight';
+}
 function journeyDisclosure(key,title,build){
   const details=el('details',null,'journey-disclosure'),identity=(workspaceId||'legacy')+':'+key;
   details.open=journeyDetailsOpen.has(identity);details.append(el('summary',title));
@@ -95,6 +101,10 @@ function roadmapJourney(root){
   else if(model.stage===3&&model.action==='prepare')actions.append(button('Review phase results',()=>navigateView('workers')));
   else if(model.action!=='conversation')actions.append(button('Talk to project brain',()=>navigateView('conversation')));
   lead.append(copy,actions);panel.append(lead);
+  const latest=latestBrainReply(snapshot);
+  if(latest){const reply=latest.conversationReply;panel.append(el('p','Brain replied · '+when(reply.at),'eyebrow'),narrative(reply.message,'Project brain reply'));}
+  const usageWarning=priorPhaseUsageWarning(snapshot);
+  if(usageWarning)panel.append(el('p',usageWarning,'journey-receipt'));
   if(snapshot.recovery)recoverySummary(panel,snapshot.recovery);
   if(model.reasons?.length){const reasons=el('ul',null,'journey-reasons');model.reasons.forEach(reason=>reasons.append(el('li',reason)));panel.append(reasons);}
   if(model.request){const delivery=commandPresentation(model.request);panel.append(el('p',delivery.label+'. '+delivery.detail,'journey-receipt'));}
@@ -106,7 +116,7 @@ function roadmapJourney(root){
     panel.append(el('h3',active?(samePhase?spec?.phase.title||run.phaseId:run.phaseId):spec?.phase.title||run.phaseId,'journey-phase-title'));
     const facts=el('dl',null,'journey-facts');
     const rows=[['Phase token budget',num(limits.tokenBudget)],['Parallel tasks',num(limits.maxParallelTasks)],
-      ['Stopping checkpoint',samePhase&&spec?spec.phase.checkpoint:'See the retained phase result']];
+      ['Stopping checkpoint',spec&&(!active||samePhase)?spec.phase.checkpoint:'See the retained phase result']];
     for(const [label,value] of rows){const row=el('div'),dd=el('dd');dd.append(label==='Stopping checkpoint'?narrative(value,label):el('span',value));row.append(el('dt',label),dd);facts.append(row);}panel.append(facts);
     if(run){const tasks=run.tasks||[],settled=tasks.filter(t=>['completed','failed','not_created'].includes(t.status)).length;
       panel.append(el('p',`${!samePhase?'Previous phase '+run.phaseId+' · ':''}${settled} / ${tasks.length} tasks settled · Measured remaining tokens: ${s.measuredUsage?.remainingMeasured==null?'unknown':num(s.measuredUsage.remainingMeasured)} · `+(s.measuredUsage?'observed '+when(s.measuredUsage.collectedAt):'usage has not been measured'),'journey-receipt'));
