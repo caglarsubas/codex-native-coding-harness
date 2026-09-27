@@ -9,7 +9,7 @@ from .assistant_actions import ActionProposals, TTL
 from .core import digest, require
 from .recovery import describe
 
-KINDS = {"phase_prepare", "phase_review", "phase_play", "phase_pause", "phase_resume", "usage_check", "codex_check", "brain_message"}
+KINDS = {"phase_prepare", "phase_reconcile", "phase_review", "phase_play", "phase_pause", "phase_resume", "usage_check", "codex_check", "brain_message"}
 PREPARE_MESSAGE = (
     "Review this project's configured roadmap sources and latest retained results. "
     "Prepare the next unfinished, bounded phase as a mission draft. Include goal, success criteria, "
@@ -47,6 +47,25 @@ def prepare_message(state):
     )
 
 
+def reconciliation_message(state):
+    recovery = describe(state)
+    require(recovery is not None, "No recorded condition needs reconciliation")
+    run = state["standard"]["run"]
+    return (
+        "Inspect the existing standard run " + run["id"] + " in phase " + run["phaseId"] + ". "
+        "It remains open; no terminal checkpoint is implied. Recorded conditions: " +
+        "; ".join(row["label"] for row in recovery["issues"]) + ". "
+        "Read the latest ledger and exact issued native-effect receipts. Reconcile only existing effects using supported "
+        "read-only native observations and retain exact results within existing authority. A pending client ID is not a task ID; "
+        "a missing listing entry is not proof of non-creation. Do not retry creation, create a replacement, resend a merge, "
+        "dispatch or continue workers, or do implementation work. Preserve ownership, all usage and coverage gaps. "
+        "If exact identity cannot be resolved, retain the blocker and ask me for the confirmed task link or the precise missing evidence. "
+        "Explain each remaining prerequisite and any minimal policy change needing my review. "
+        "Do not increase limits, reset usage, review a mission, start Play or Resume. "
+        "Save a concise reply in this project conversation: what happened, what remains unresolved, and my next safe action."
+    )
+
+
 def catalog(state):
     s, m = state.get("standard"), state.get("mission") or {}
     repos = state.get("repositories") or []
@@ -78,6 +97,15 @@ def catalog(state):
         message_reason or ("Finish the existing brain handoff first." if blocked_handoff else
                            "The current phase needs its checkpoint first." if active else None))
     add("brain_message", "Send your instruction to the project brain", "Send the exact text shown below and follow its reply here.", message_reason)
+    recovery = describe(state)
+    pending_control = any(c.get("kind") in ("standard_play", "standard_pause", "standard_resume") and
+                          c.get("payload", {}).get("runId") == run.get("id") and
+                          c.get("status") in ("queued", "processing") for c in state.get("commands", []))
+    add("phase_reconcile", "Reconcile this phase",
+        "Ask the brain to inspect existing effects and retain a recovery plan here. No worker retry, limit change, Resume or Play.",
+        message_reason or ("Finish the existing brain handoff first." if blocked_handoff else
+                          "The saved phase control still needs its receipt." if pending_control else
+                          "An open running phase with recorded blockers is required." if run.get("status") != "running" or not recovery else None))
     add("phase_review", "Review this phase plan", "Record your review of the exact scope and limits. Play is a separate confirmation.",
         "Finish the current phase or handoff first." if active or blocked_handoff else
         "A current, unchanged mission draft is required." if m.get("effectiveStatus") != "draft" or m.get("bindingIssues") else None)
@@ -137,7 +165,8 @@ class JourneyProposals(ActionProposals):
         elif kind == "usage_check":
             request = {"id": ident, "runId": standard["run"]["id"], "contextHash": standard["contextHash"]}
         else:
-            message = prepare_message(state) if kind == "phase_prepare" else action["payload"]["message"]
+            message = (prepare_message(state) if kind == "phase_prepare" else
+                       reconciliation_message(state) if kind == "phase_reconcile" else action["payload"]["message"])
             request = {"id": ident, "kind": "reconcile", "expectedRevision": state["meta"]["revision"],
                        "payload": {"brainId": state["meta"]["brainId"], "message": message, "confirmed": True}}
             preview["message"] = message
@@ -192,7 +221,7 @@ class JourneyProposals(ActionProposals):
         elif kind == "codex_check":
             result = standard.request_catalog_refresh(ledger, request)
         else:
-            require(kind in ("phase_prepare", "brain_message"), "Unknown conversation action")
+            require(kind in ("phase_prepare", "phase_reconcile", "brain_message"), "Unknown conversation action")
             result = ledger.submit(request, actor="dashboard")
         return self.result(doc, result), True
 

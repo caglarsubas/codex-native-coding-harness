@@ -32,4 +32,6 @@ assert.equal(box.$('notice').textContent,'Saved in alpha','A missing record is n
 box.state.commands=[{id:'play',status:'completed',kind:'standard_play',payload:{runId:'run'}}];
 box.showNotice('Queued',false,'play');box.refreshCommandNotice();
 assert.match(box.$('notice').textContent,/Play was received.*stopped at a safety checkpoint/);
+box.state.standard.run.status='running';box.state.recovery={reconciliationRequired:true};box.refreshCommandNotice();
+assert.match(box.$('notice').textContent,/Play was received, not completed.*Recovery is required/);
 console.log('Progress UI: exact receipt replaces stale delivery, project isolation, errors and blocked Play passed');

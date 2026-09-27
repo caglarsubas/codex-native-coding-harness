@@ -232,6 +232,63 @@ class AssistantJourneyTest(unittest.TestCase):
         self.assertNotIn('Recorded usage context', message)
         self.assertNotIn('Private note', message)
 
+    def pending_creation(self):
+        self.fixture.control()
+        self.fixture.call('receive')
+        self.fixture.claim()
+        self.fixture.call('issue', taskId='task-1')
+        self.fixture.call('bind', taskId='task-1', threadId=None,
+                          clientThreadId='11111111-2222-4333-8444-555555555555', hostId='local')
+
+    def test_open_run_reconciliation_is_signed_read_only_and_one_shot(self):
+        self.pending_creation()
+        before = copy.deepcopy(standard.read(self.ledger)['run'])
+        p = self.prepare('phase_reconcile')
+        self.assertEqual(len(self.ledger.snapshot()['commands']), 1, 'Preview sends nothing')
+        message = p['document']['preview']['message']
+        for text in ('It remains open', 'Do not retry creation', 'Do not increase limits', 'project conversation'):
+            self.assertIn(text, message)
+        self.assertNotIn('stopped at a safety checkpoint', message)
+        with self.assertRaises(Refusal): self.confirm(p, 'foreign')
+        bad = copy.deepcopy(p);bad['document']['request']['payload']['message'] = 'Resume now'
+        with self.assertRaises(Refusal): self.confirm(bad)
+        other, _ = self.fixture.workspace('beta')
+        with self.assertRaises(Refusal):
+            self.proposals.confirm(other, {'proposal':p, 'confirmed':True}, self.session)
+        result, first = self.confirm(p)
+        self.assertTrue(first)
+        self.assertEqual(result['result']['kind'], 'reconcile')
+        self.assertFalse(self.confirm(p)[1], 'Same receipt never renotifies')
+        with self.assertRaises(Refusal): self.prepare('phase_reconcile')
+        conversation.receive(self.ledger, self.fixture.token, result['id'])
+        conversation.reply(self.ledger, self.fixture.token, result['id'], {
+            'message':'Existing identity is unresolved. Do not retry Play.', 'artifactIds':[], 'decisionIds':[]})
+        self.assertEqual(standard.read(self.ledger)['run'], before)
+
+    def test_reconciliation_preview_rejects_pause_race_and_changed_run(self):
+        self.pending_creation()
+        p = self.prepare('phase_reconcile')
+        with patch('orchestrator.assistant_journey.time.time', return_value=p['document']['expiresAt']+1):
+            with self.assertRaises(Refusal): self.confirm(p)
+        self.fixture.control('pause')
+        with self.assertRaises(Refusal): self.confirm(p)
+        with self.assertRaises(Refusal): self.prepare('phase_reconcile')
+        self.assertEqual(standard.read(self.ledger)['run']['status'], 'stopping')
+
+    def test_reconciliation_is_not_available_for_healthy_or_pending_controls(self):
+        self.fixture.control()
+        with self.assertRaises(Refusal): self.prepare('phase_reconcile')
+        self.fixture.call('receive')
+        with self.assertRaises(Refusal): self.prepare('phase_reconcile')
+        self.fixture.claim(); self.fixture.call('issue', taskId='task-1')
+        s = self.snapshot();s['meta']['brainControl'] = {'desired':'stopped'}
+        self.assertFalse(catalog(s,{})['phase_reconcile']['available'])
+        s = self.snapshot();s['repositories'][0]['policyProfile'] = 'harness'
+        self.assertNotIn('phase_reconcile', catalog(s,{}))
+        s = self.snapshot();s['brainHandoff'] = {'handoff':{'status':'candidate'}}
+        self.assertFalse(catalog(s,{})['phase_reconcile']['available'])
+
+
     def test_context_exposes_current_play_not_obsolete_activation_claim(self):
         data, _ = context(self.snapshot(), 'roadmap')
         facts = {f['id']:f['data'] for f in data['facts']}

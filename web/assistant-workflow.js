@@ -1,5 +1,5 @@
 "use strict";
-const workflowPhrases={phase_prepare:'confirm prepare',phase_review:'confirm review',phase_play:'confirm play',phase_pause:'confirm pause',phase_resume:'confirm resume',usage_check:'confirm usage',codex_check:'confirm readiness',brain_message:'confirm send'};
+const workflowPhrases={phase_prepare:'confirm prepare',phase_reconcile:'confirm reconcile',phase_review:'confirm review',phase_play:'confirm play',phase_pause:'confirm pause',phase_resume:'confirm resume',usage_check:'confirm usage',codex_check:'confirm readiness',brain_message:'confirm send'};
 function assistantLocalWorkflow(question,current=state){
   // Exact product starters, not an inferred intent or approval. The normal
   // server catalog still validates and prepares a separate signed preview.
@@ -13,7 +13,7 @@ function assistantLocalWorkflow(question,current=state){
   const pending=(current.commands||[]).some(c=>(c.status==='queued'||c.status==='processing'||c.needsBrainReceipt));
   if(pending){assistantNextStep();assistantStatus('A saved request is still awaiting its receipt. Inspect its status above; no duplicate was sent.');return true;}
   const journey=roadmapJourneyState(current,true);
-  const key={prepare:'phase_prepare',mission:'phase_review',catalog:'codex_check',play:'phase_play',resume:'phase_resume'}[journey.action];
+  const key={prepare:'phase_prepare',reconcile:'phase_reconcile',mission:'phase_review',catalog:'codex_check',play:'phase_play',resume:'phase_resume'}[journey.action];
   if(key)assistantRequestStep(key);
   else{assistantNextStep();assistantStatus(journey.detail||journey.title);}
   return true;
@@ -98,10 +98,10 @@ function assistantNextStep(){
   if(!connected||!state?.workspace)return;
   const messages=[...(state.commands||[])].reverse().filter(c=>c.kind==='reconcile'&&c.payload?.message);
   const pending=messages.find(c=>!c.conversationReply);
-  if(pending){const info=commandPresentation(pending,state.brainActivity);root.append(el('p','WITH YOUR PROJECT BRAIN','eyebrow'),el('p',info.label),el('p',info.detail,'muted'));return;}
-  const journey=roadmapJourneyState(state,true),map={prepare:'phase_prepare',mission:'phase_review',catalog:'codex_check',play:'phase_play',pause:'phase_pause',resume:'phase_resume'};
+  if(pending){const info=commandPresentation(pending,state.brainActivity);root.append(el('p','WITH YOUR PROJECT BRAIN','eyebrow'),el('p',info.label),el('p',info.detail,'muted'));if(state.recovery)recoverySummary(root,state.recovery);return;}
+  const journey=roadmapJourneyState(state,true),map={prepare:'phase_prepare',reconcile:'phase_reconcile',mission:'phase_review',catalog:'codex_check',play:'phase_play',pause:'phase_pause',resume:'phase_resume'};
   const needsMeasurement=(state.standard?.blockers||[]).some(reason=>/measure exact run usage|usage observation expired/i.test(reason));
-  if(needsMeasurement&&!journey.request&&['running','paused'].includes(state.standard?.run?.status)){
+  if(needsMeasurement&&!state.recovery?.reconciliationRequired&&!state.recovery?.budgetBoundaryReached&&!journey.request&&['running','paused'].includes(state.standard?.run?.status)){
     root.append(el('p','USAGE CHECK NEEDED','eyebrow'),el('p','Refresh measured usage before the next effect.'),button('Review usage check',()=>assistantRequestStep('usage_check')));return;
   }
   const latest=latestBrainReply(state);
@@ -117,7 +117,8 @@ function assistantNextStep(){
   if(journey.request){const info=commandPresentation(journey.request,state.brainActivity);root.append(el('p',info.label+'. '+info.detail,'muted'));}
   if(journey.reasons?.length){const reasons=el('ul');for(const text of journey.reasons)reasons.append(el('li',text));root.append(reasons);}
   const usageWarning=priorPhaseUsageWarning(state);if(usageWarning)root.append(el('p',usageWarning,'journey-receipt'));
-  if(state.recovery)recoverySummary(root,state.recovery);
+  if(state.recovery)recoverySummary(root,state.recovery,journey.title!==state.recovery.title);
+  if(state.recovery&&state.meta?.checkpoint){const details=el('details');details.append(el('summary','Last saved brain checkpoint · '+when(state.meta.lastReconciled)),el('p',state.meta.checkpoint));root.append(details);}
   if(latest)root.append(narrative(latest.conversationReply.message,'Project brain reply'));
 }
 function assistantWorkflowReceipt(action,recorded){
@@ -128,7 +129,7 @@ function assistantWorkflowReceipt(action,recorded){
   }
   const reply=recorded?.conversationReply;
   if(action.replyNext){
-    const model=roadmapJourneyState(state,connected),key={prepare:'phase_prepare',mission:'phase_review',catalog:'codex_check',play:'phase_play',pause:'phase_pause',resume:'phase_resume'}[model.action];
+    const model=roadmapJourneyState(state,connected),key={prepare:'phase_prepare',reconcile:'phase_reconcile',mission:'phase_review',catalog:'codex_check',play:'phase_play',pause:'phase_pause',resume:'phase_resume'}[model.action];
     const current=latestBrainReply(state)?.id===recorded?.id;
     const signature=JSON.stringify([current,key,model.label,connected,assistantPending]);
     if(action.replyNextKey!==signature){action.replyNext.replaceChildren();action.replyNextKey=signature;

@@ -66,7 +66,7 @@ def describe(state):
     """Return only recorded facts and closed, non-authorizing recovery guidance."""
     standard = state.get("standard") or {}
     run = standard.get("run") or {}
-    if not run or run.get("status") not in ("running", "paused", "blocked"):
+    if not run or run.get("status") not in ("running", "stopping", "paused", "blocked"):
         return None
     mission_phase = (((state.get("mission") or {}).get("document") or {}).get("spec") or {}).get("phase") or {}
     if run.get("status") == "blocked" and mission_phase.get("id") not in (None, run.get("phaseId")):
@@ -86,7 +86,29 @@ def describe(state):
     known = max(observed or 0, high_water)
     reached = (budget is not None and reserve is not None and (observed is not None or high_water > 0) and
                known + reserve >= budget)
+    tasks = run.get("tasks") or []
+    # An issued creation is still owned even when the last nativeStatus value
+    # says not_created. Only the task's reconciled terminal status can settle it.
+    unresolved = sum(t.get("status") not in ("completed", "failed", "not_created") and
+                     (t.get("status") in ("creating", "pending") or
+                      (t.get("effectIssued") and not t.get("threadId"))) for t in tasks)
+    uncertain_merges = sum(m.get("status") in ("issued", "uncertain") for m in run.get("merges") or [])
+    meta = state.get("meta") or {}
+    unattended = (run["status"] == "running" and "controller" in meta and meta["controller"] is None and
+                  any(t.get("status") not in ("completed", "failed", "not_created") and
+                      t.get("effectIssued") and t.get("threadId") for t in tasks))
     issues = []
+    if unresolved:
+        issues.append(issue("native_identity", "Worker identity not confirmed",
+                            "Reconcile the existing creation receipt. Do not repeat Play or create a replacement worker.",
+                            "platform", "native_reconciliation"))
+    if uncertain_merges:
+        issues.append(issue("unresolved_merge", "Native merge handoff unresolved",
+                            "Reconcile the exact PR before another effect; never resend the merge.", "platform", "native_reconciliation"))
+    if unattended:
+        issues.append(issue("supervision_required", "Registered work still needs supervision",
+                            "The controller was released with unsettled tasks. Ask the brain to inspect their current state.",
+                            "platform", "native_reconciliation"))
     if reached:
         issues.append(issue("token_budget", "Reviewed token boundary reached",
                             "Reconcile measured usage and review a successor phase if needed.", "platform", "policy_review"))
@@ -99,7 +121,7 @@ def describe(state):
     issues.extend(platform_issue(reason) for reason in standard.get("blockers") or [])
     if standard.get("blocker"):
         issues.append(platform_issue(standard["blocker"]))
-    if run["status"] in ("paused", "blocked"):
+    if run["status"] in ("stopping", "paused", "blocked"):
         for code in (run.get("checkpoint") or {}).get("reasonCodes") or []:
             if code in CHECKPOINT_REASONS:
                 label, step, route = CHECKPOINT_REASONS[code]
@@ -123,7 +145,10 @@ def describe(state):
     shown = unique[:8]
     usage_related = any(row["code"].startswith("usage_") or row["code"] == "token_budget" for row in unique)
     non_usage = any(not (row["code"].startswith("usage_") or row["code"] == "token_budget") for row in unique)
-    if non_usage and usage_related:
+    reconciliation = bool(unresolved or uncertain_merges or unattended)
+    if reconciliation:
+        kind, title = "native_reconciliation", "Recovery required before continuing"
+    elif non_usage and usage_related:
         kind, title = "multiple_policy_conditions", "Multiple phase conditions need review"
     elif gaps and reached:
         kind, title = "usage_and_budget", "Token boundary reached; evidence incomplete"
@@ -140,6 +165,9 @@ def describe(state):
         "kind": kind, "title": title,
         "explanation": "Multiple recorded conditions need reconciliation before another effect." if len(unique) > 1 else shown[0]["label"] + ".",
         "phaseStatus": run["status"], "phaseId": run.get("phaseId"),
+        "reconciliationRequired": reconciliation, "unconfirmedTasks": unresolved,
+        "uncertainMerges": uncertain_merges,
+        "supervisionRequired": bool(unattended),
         "issues": shown, "issueCount": len(unique), "issuesTruncated": len(unique) > len(shown),
         "usageRelevant": usage_related, "maxTasks": limits.get("maxTasks"),
         "maxParallelTasks": limits.get("maxParallelTasks"), "expiresAt": run.get("expiresAt"),
@@ -154,7 +182,10 @@ def describe(state):
         "remainingMeasured": (standard.get("measuredUsage") or {}).get("remainingMeasured"),
         "budgetBoundaryReached": reached,
         "requiresOwnerReview": run["status"] == "blocked" or reached,
-        "nextStep": ("Ask the brain to reconcile every recorded stop and propose only the exact changes needed. "
+        "nextStep": ("First reconcile the existing native effect and retain its result. Then review any required policy changes and Resume or Play separately. "
+                     "Do not repeat Play, recreate a worker or resend a merge."
+                     if reconciliation else
+                     "Ask the brain to reconcile every recorded stop and propose only the exact changes needed. "
                      "Review any new phase and Play separately; neither happens automatically."
                      if run["status"] == "blocked" else
                      "Do not Resume until the recorded conditions are resolved; review a new phase if a reviewed limit must change."

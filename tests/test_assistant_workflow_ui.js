@@ -53,3 +53,14 @@ const count=steps.length;box.assistantLocalWorkflow('Help me continue developmen
 assert.equal(steps.length,count,'Do not duplicate a pending request');
 box.state.repositories=[{policyProfile:'harness'}];
 assert.equal(box.assistantLocalWorkflow('Help me continue development'),false,'Strict Harness never enters the standard shortcut');
+box.state.repositories=[{policyProfile:'standard'}];box.state.commands=[];
+box.roadmapJourneyState=()=>({title:'Recovery required',action:'reconcile',label:'Reconcile this phase'});
+box.state.recovery.reconciliationRequired=true;box.state.recovery.budgetBoundaryReached=true;
+box.state.standard.run.status='running';box.state.standard.blockers=['Usage observation expired'];
+box.assistantNextStep();
+assert(rendered(nextStep).some(e=>e.text==='Reconcile this phase'),'Refreshing usage must not hide unresolved native effects');
+assert(!rendered(nextStep).some(e=>e.text==='Review usage check'));
+box.assistantLocalWorkflow('Help me continue development');assert.equal(steps.at(-1),'phase_reconcile');
+box.state.commands=[{id:'recovery',kind:'reconcile',payload:{message:'Retained recovery request'},status:'processing'}];
+box.assistantNextStep();assert(rendered(nextStep).some(e=>e.text==='Usage evidence is incomplete'),'Pending reply must not hide the safety warning');
+assert(!rendered(nextStep).some(e=>e.text==='Reconcile this phase'),'No duplicate recovery button while waiting');
