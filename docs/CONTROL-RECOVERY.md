@@ -44,5 +44,65 @@ credential or destructive-data boundary. Once exact evidence and a new phase
 exist, the normal conversation-first signed controls guide those confirmations.
 Strict Harness controls are unchanged.
 
+## Open phase with unresolved work
+
+A phase can still be recorded as `running` after its controller is released:
+checkpoint settlement refuses while a native creation or merge is unresolved.
+The dashboard must not describe this as healthy progress. Its read-only recovery
+projection covers pending/issued creation identities, uncertain merges, released
+controllers with unsettled confirmed tasks, and existing policy/evidence blockers.
+It never changes the recorded run status, marks a worker absent, releases its
+ownership, or infers current native inactivity from stale observations.
+
+Session map, Roadmap & Play, the status header and the assistant expose this
+attention state. Visible bullets explain identity, budget and coverage conditions;
+measurements and the original saved brain checkpoint remain under Details.
+Completed Play receipts say received, not phase-completed. A pending recovery
+reply does not hide the warning. Reloading reconstructs guidance from the ledger.
+
+**Reconcile this phase** opens a server-generated, signed conversation preview
+for the exact existing run. **Confirm reconcile** (or its Confirm button) submits
+one normal brain-bound message, not a new dispatcher. The request permits only
+inspection/reconciliation of existing effects and a retained diagnosis. It forbids
+implementation, worker creation or continuation, merge retry, policy changes,
+usage reset and Resume/Play. Missing identity asks for precise supporting evidence,
+not a guessed match. Missing evidence and exhausted budget remain separate blockers.
+
+The normal session/project/signature/expiry/revision checks and immutable receipt
+replay apply. A pending phase control or conversation, brain handoff, stopped
+brain or stopping/paused run keeps its existing fence. A new phase remains
+unavailable until the existing owned effects settle. Recovery never increases
+limits automatically; subsequent review and Play are separate owner controls.
+No scheduler, native task discovery on read, inference call or live migration is
+introduced. Native final-answer text is not imported as a dashboard receipt.
+
 Local tests use synthetic blocked runs and no native task or paid service. A
 source merge, installation and live qualification are separate observations.
+
+### Recovery guidance qualification
+
+`tests/test_recovery.py` covers open/stopping/paused/blocked runs, initial
+`nativeStatus: not_created` versus unsettled lifecycle, independent usage gaps and
+overrun, uncertain merges, controller release, and healthy owned tasks. The
+projection leaves its input unchanged and excludes native IDs.
+
+`tests/test_assistant_journey.py` covers signed/session/project bindings, tampering,
+expiry, a Pause race, pending requests, handoff/stop/strict fences, unchanged run
+ownership and usage, and receipt replay without another notification. The UI
+suites cover the header, received-versus-completed notice, Session map warning,
+assistant recovery action, retained details/focus during unchanged map polling,
+disconnection, and duplicate/stopped-brain guidance.
+
+For a rendered rehearsal, run:
+
+```sh
+python3 tests/manual_progress_fixture.py --port 8774 --recovery
+```
+
+Open the emitted disposable URL. Verify **Recovery required**, inspect the
+worker/budget/coverage bullets, and choose **Reconcile this phase**. Type
+**confirm reconcile** only after reading the preview. Enter `reply` in the
+fixture terminal, then reload the dashboard: the retained reply appears and
+unresolved conditions remain visible. Enter `quit` to dispose of the fixture.
+This rehearsal uses neither inference nor a native notifier. It qualifies the
+rendered owner interaction, not live task reconciliation or resumed development.

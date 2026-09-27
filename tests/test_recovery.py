@@ -17,6 +17,49 @@ def state(status="blocked", gaps=None, total=954236):
 
 
 class RecoveryTest(unittest.TestCase):
+    def test_open_phase_with_pending_creation_is_recovery_not_completion(self):
+        import copy
+        for status in ("running", "stopping", "paused", "blocked"):
+            current = state(status=status, gaps=[], total=10)
+            current["standard"]["blockers"] = []
+            current["standard"]["run"]["tasks"] = [{"status": "pending", "effectIssued": True,
+                "clientThreadId": "private-client", "threadId": None, "nativeStatus": "not_created"}]
+            before = copy.deepcopy(current)
+            result = describe(current)
+            self.assertEqual(result["kind"], "native_reconciliation")
+            self.assertTrue(result["reconciliationRequired"])
+            self.assertEqual(result["unconfirmedTasks"], 1)
+            self.assertEqual(result["phaseStatus"], status)
+            self.assertNotIn("private-client", str(result))
+            self.assertIn("Do not repeat Play", result["nextStep"])
+            self.assertEqual(current, before, "Reads must not settle ownership or change status")
+
+    def test_unresolved_identity_and_overrun_remain_separate_conditions(self):
+        current = state(status="running", gaps=["unresolved_native_identity"], total=18966347)
+        current["standard"]["run"]["tasks"] = [{"status": "creating", "effectIssued": True}]
+        result = describe(current)
+        self.assertEqual(result["issues"][0]["code"], "native_identity")
+        self.assertTrue(result["budgetBoundaryReached"])
+        self.assertIsNone(result["remainingMeasured"])
+
+    def test_healthy_owned_tasks_do_not_imply_a_stopped_brain(self):
+        current = state(status="running", gaps=[], total=10)
+        current["standard"]["blockers"] = []
+        for task in ({"status":"claimed", "effectIssued":False},
+                     {"status":"active", "effectIssued":True, "threadId":"confirmed"},
+                     {"status":"not_created", "effectIssued":True},
+                     {"status":"completed", "effectIssued":True}):
+            current["standard"]["run"]["tasks"] = [task]
+            self.assertIsNone(describe(current))
+        current["standard"]["run"]["merges"] = [{"status":"uncertain"}]
+        self.assertTrue(describe(current)["reconciliationRequired"])
+        current["standard"]["run"]["merges"] = []
+        current["standard"]["run"]["tasks"] = [{"status":"active", "effectIssued":True, "threadId":"confirmed"}]
+        current["meta"] = {"controller":None}
+        self.assertTrue(describe(current)["supervisionRequired"])
+        current["meta"]["controller"] = {"owner":"brain"}
+        self.assertIsNone(describe(current))
+
     def test_gap_and_overrun_are_both_visible_without_fabricating_balance(self):
         result = describe(state())
         self.assertEqual(result["kind"], "usage_and_budget")

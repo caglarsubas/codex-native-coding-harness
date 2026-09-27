@@ -1,8 +1,9 @@
 "use strict";
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 class Element{
-  constructor(tag,text='',className=''){Object.assign(this,{tag,text,className,children:[],events:{},isConnected:true});}
+  constructor(tag,text='',className=''){Object.assign(this,{tag,text,className,children:[],events:{},dataset:{},isConnected:true});}
   append(...items){this.children.push(...items);}
+  replaceChildren(...items){this.children=items;}
   prepend(...items){this.children.unshift(...items);}
   setAttribute(name,value){this[name]=value;}
   addEventListener(name,fn){this.events[name]=fn;}
@@ -39,6 +40,17 @@ s.standard.catalogRequired=false;assert.equal(model(s).action,'runReadiness');
 s=base();s.standard.run=run('running');assert.equal(model(s).action,'overview');assert.equal(model(s).canPause,true);
 s.workflow={openDecisions:2};assert.equal(model(s).action,'decisions');assert.equal(model(s).canPause,true);
 s.standard.blockers=['Missing usage'];assert.equal(model(s).action,'pause');
+s.recovery={reconciliationRequired:true};s.meta={controller:null};
+assert.equal(model(s).action,'reconcile','An open stranded run needs reconciliation, not another Play');
+assert.match(box.projectPhaseStatus(s),/RECOVERY REQUIRED/);
+s.meta.brainControl={desired:'stopped'};
+assert.equal(model(s).action,'operations','A stopped brain needs explicit recovery, not a refused ordinary message');
+s.meta.brainControl={desired:'listening'};
+s.commands=[{kind:'reconcile',payload:{message:'Inspect existing work'},status:'completed'}];
+assert.equal(model(s).action,'conversation','A received message without its retained reply still prevents a duplicate');
+s.commands=[];
+s.meta.controller={owner:'brain'};assert.equal(model(s).action,'pause','An owned cycle retains safe Pause');
+s.recovery=null;
 s.standard.run=run('paused');assert.equal(model(s).action,'prepare');
 s.standard.blockers=[];assert.equal(model(s).action,'resume');
 s.standard.run.expiresAt=500;assert.equal(model(s).action,'prepare');
@@ -96,3 +108,25 @@ const disclosure=box.journeyDisclosure('fixture','Details',()=>{});disclosure.op
 assert.equal(box.journeyDisclosure('fixture','Details',()=>{}).open,true);box.workspaceId='alpha';assert.equal(box.journeyDisclosure('fixture','Details',()=>{}).open,false);
 disclosure.isConnected=false;disclosure.open=false;disclosure.events.toggle();box.workspaceId='beta';assert.equal(box.journeyDisclosure('fixture','Details',()=>{}).open,true,'Detached toggle cannot erase a remembered choice');
 console.log('Roadmap journey: state guidance, no implied approval, retained drafts, unknown usage and disclosure isolation passed');
+
+box.busy=false;box.connected=true;box.state=base();box.state.meta={controller:null};box.state.standard.run=run('running');
+box.state.recovery={title:'Recovery required before continuing',explanation:'Two conditions.',reconciliationRequired:true,
+  unconfirmedTasks:1,uncertainMerges:0,usageRelevant:true,budgetBoundaryReached:true,knownUsageLowerBound:18966347,
+  observedTotal:18966347,budget:8000000,checkpointReserve:1000000,gapCount:1,gapLabels:[],issues:[],issueCount:2,
+  nextStep:'Do not repeat Play. Reconcile the existing effect first.',remainingMeasured:null};
+root=render();assert.match(text(root),/identity is not confirmed/);assert.match(text(root),/8000000 phase budget/);
+const prior=calls.length;all(root).find(n=>n.text==='Reconcile this phase').click();
+assert.deepEqual(calls.slice(prior),[['focus','assistant'],['preview','phase_reconcile']]);
+assert(!all(root).some(n=>n.tag==='button'&&['Review Play','Review Resume'].includes(n.text)));
+const sessionSource=fs.readFileSync('web/session-map.js','utf8');
+vm.runInContext(sessionSource.slice(sessionSource.indexOf('function sessionPulse('),sessionSource.indexOf('function sessionResetFilters(')),box);
+box.state.meta.checkpoint='Preserved checkpoint; do not retry.';
+const recoveryRoot=new Element('section');box.sessionRecovery(recoveryRoot);
+assert.match(text(recoveryRoot),/Reconcile this phase/);
+assert.match(text(recoveryRoot),/Last saved brain checkpoint/);
+const unchanged=recoveryRoot.children[0];box.sessionRecovery(recoveryRoot);
+assert.equal(recoveryRoot.children[0],unchanged,'Unchanged polling preserves focus and open details');
+box.connected=false;box.sessionRecovery(recoveryRoot);
+assert.match(text(recoveryRoot),/Reconnect before acting/);assert(!all(recoveryRoot).some(n=>n.tag==='button'));
+box.connected=true;box.state.recovery=null;box.sessionRecovery(recoveryRoot);
+assert.equal(recoveryRoot.hidden,true,'Resolved or foreign project state clears the old warning');

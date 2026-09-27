@@ -15,6 +15,7 @@ function refreshCommandNotice(){
  const info=commandPresentation(c);let text=info.label+'. '+info.detail;
  if(c.conversationReply)text='Brain replied. '+roadmapJourneyState(state,connected).title+'. The next step is shown below; no new phase starts automatically.';
  else if(c.kind==='standard_play'&&c.status==='completed'&&c.payload?.runId===state.standard?.run?.id&&state.standard.run.status==='blocked')text='Play was received. The phase stopped at a safety checkpoint; review the reason below.';
+ else if(c.kind==='standard_play'&&c.status==='completed'&&c.payload?.runId===state.standard?.run?.id&&state.recovery)text='Play was received, not completed. Recovery is required before continuing; review the recorded conditions below.';
  notice.textContent=text;
 }
 function table(headers, rows) {const wrap=el("div",null,"table-wrap"),t=el("table"),head=el("thead"),tr=el("tr");headers.forEach(h=>tr.append(el("th",h)));head.append(tr);t.append(head);const body=el("tbody");rows.forEach(row=>{const r=el("tr");row.forEach(value=>{const cell=el("td");cell.append(value instanceof Node?value:el("span",value));r.append(cell);});body.append(r);});t.append(body);wrap.append(t);return wrap;}

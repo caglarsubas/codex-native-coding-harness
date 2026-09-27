@@ -1,21 +1,32 @@
 "use strict";
 // Presentation only: never rewrite retained evidence or infer a successful outcome.
 const narrativeDisclosures=new Map();
-function recoverySummary(root,recovery){
+function recoverySummary(root,recovery,showTitle=true){
   if(!recovery)return;
   const card=el('section',null,'recovery-summary');card.setAttribute('role','status');
-  card.append(el('p','RECORDED SAFETY STOP','eyebrow'),el('h3',recovery.title),el('p',recovery.explanation));
+  card.append(el('p','RECORDED CONDITIONS · NOT LIVE ACTIVITY','eyebrow'));
+  if(showTitle)card.append(el('h3',recovery.title));
   const facts=el('ul');
-  facts.append(el('li',`${recovery.registeredTasks} of ${recovery.maxTasks??'unknown'} allowed tasks registered · ${recovery.maxParallelTasks??'unknown'} parallel maximum · phase expires ${when(recovery.expiresAt)}`));
-  if(recovery.usageRelevant){
-    facts.append(el('li',`${recovery.observedTotal===null?'Observed usage unknown':num(recovery.observedTotal)+' observed tokens'} · ${num(recovery.budget)} reviewed phase limit · ${num(recovery.checkpointReserve)} checkpoint reserve`));
-    if(recovery.knownUsageLowerBound!==null&&(recovery.observedTotal===null||recovery.knownUsageLowerBound>recovery.observedTotal))
-      facts.append(el('li',`At least ${num(recovery.knownUsageLowerBound)} tokens were retained in the usage high-water mark; a later partial sample cannot reduce that amount.`));
-    if(recovery.observedTotal!==null)facts.append(el('li',`${num(recovery.cachedInput)} cached input · ${num(recovery.uncachedInput)} uncached input · ${num(recovery.output)} output. Cached input is included in the total; this is not a bill.`));
-    facts.append(el('li',`Measured balance ${recovery.remainingMeasured===null?'unknown':num(recovery.remainingMeasured)} · observed ${when(recovery.observedAt)}`));
-  }
+  if(recovery.unconfirmedTasks)facts.append(el('li',`${recovery.unconfirmedTasks} worker ${recovery.unconfirmedTasks===1?'identity is':'identities are'} not confirmed. The phase cannot close its checkpoint while this ownership is unresolved.`));
+  if(recovery.uncertainMerges)facts.append(el('li','A merge outcome is unresolved. Inspect the existing PR; do not resend the merge.'));
+  if(recovery.supervisionRequired)facts.append(el('li','The brain released its controller with unsettled tasks. Their current activity needs checking; it is not proof that they stopped.'));
+  const explained=new Set(['native_identity','unresolved_merge','supervision_required','token_budget','usage_gap']);
+  for(const item of recovery.issues||[])if(!explained.has(item.code))facts.append(el('li',item.label));
+  if(!recovery.issues?.length&&!recovery.reconciliationRequired)facts.append(el('li',recovery.explanation));
+  if(recovery.budgetBoundaryReached)facts.append(el('li',`Token boundary reached: at least ${num(recovery.knownUsageLowerBound)} recorded against the ${num(recovery.budget)} phase budget. New work needs a separately reviewed plan; usage is not reset.`));
+  if(recovery.gapCount)facts.append(el('li','Usage coverage is incomplete. Remaining measured budget is unknown.'));
   card.append(facts,el('p',recovery.nextStep,'recovery-next'));
   const details=el('details');details.append(el('summary',`Details · ${recovery.issueCount} recorded conditions and safety boundary`));
+  const measurements=el('ul');
+  measurements.append(el('li',`${recovery.registeredTasks} of ${recovery.maxTasks??'unknown'} allowed tasks registered · ${recovery.maxParallelTasks??'unknown'} parallel maximum · phase expires ${when(recovery.expiresAt)}`));
+  if(recovery.usageRelevant){
+    measurements.append(el('li',`${recovery.observedTotal===null?'Observed usage unknown':num(recovery.observedTotal)+' observed tokens'} · ${num(recovery.budget)} reviewed phase limit · ${num(recovery.checkpointReserve)} checkpoint reserve`));
+    if(recovery.knownUsageLowerBound!==null&&(recovery.observedTotal===null||recovery.knownUsageLowerBound>recovery.observedTotal))
+      measurements.append(el('li',`At least ${num(recovery.knownUsageLowerBound)} tokens were retained in the usage high-water mark; a later partial sample cannot reduce that amount.`));
+    if(recovery.observedTotal!==null)measurements.append(el('li',`${num(recovery.cachedInput)} cached input · ${num(recovery.uncachedInput)} uncached input · ${num(recovery.output)} output. Cached input is included in the total; this is not a bill.`));
+    measurements.append(el('li',`Measured balance ${recovery.remainingMeasured===null?'unknown':num(recovery.remainingMeasured)} · observed ${when(recovery.observedAt)}`));
+  }
+  details.append(measurements);
   if(recovery.issues?.length){const list=el('ul');for(const item of recovery.issues)list.append(el('li',`${item.label} · ${item.source.replaceAll('_',' ')} · ${item.nextStep}`));details.append(list);}
   if(recovery.issuesTruncated)details.append(el('p','Additional recorded conditions omitted from this bounded summary; inspect project controls.'));
   if(recovery.gapLabels.length){const list=el('ul');for(const label of recovery.gapLabels)list.append(el('li',label));details.append(list);}

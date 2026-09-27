@@ -55,6 +55,10 @@ Empty managed queues are not complete native inventory. A reviewed mission or
 proposed limits alone do not activate work. Strict Harness retains separate gates.
 F43 contains recorded blocker provenance and recovery boundaries; explain relevant
 conditions without calling brain-reported causes independently verified.
+An open run can require recovery even when its recorded status is running. For an
+explicit recovery request use phase_reconcile when available. This inspects only
+existing effects and retains a reply; it never retries a worker, changes limits
+or resumes development. Pending client identity is not confirmed native identity.
 Missing/incomplete usage has no measured remaining balance. Reservations, phase
 allowances, account percentages and observed tokens are different. Never reset
 usage, infer a larger approved budget, or claim configured settings were applied.

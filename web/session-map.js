@@ -168,11 +168,12 @@ function sessionMap(root){
   let shell=root.querySelector('.session-home');
   if(!shell||shell.dataset.workspace!==key){
     shell=el('div',null,'session-home');shell.dataset.workspace=key;
-    shell.append(el('section',null,'session-pulse'),el('section',null,'session-board'),el('section',null,'session-inspector'));
+    shell.append(el('section',null,'session-pulse'),el('section',null,'session-recovery'),el('section',null,'session-board'),el('section',null,'session-inspector'));
     shell.lastElementChild.id='session-inspector';shell.lastElementChild.tabIndex=-1;shell.lastElementChild.setAttribute('aria-label','Selected session details');
     root.replaceChildren(shell);prefs.graphSignature=null;prefs.inspectorSignature=null;
   }
   sessionPulse(shell.querySelector('.session-pulse'),model);
+  sessionRecovery(shell.querySelector('.session-recovery'));
   // Polling must not destroy focused controls, an open conversation, or a draft.
   const signature=JSON.stringify([model,prefs.filter,prefs.query,prefs.facets,sessionVisibleTasks(model,prefs).map(n=>n.id),prefs.page,prefs.layout,prefs.selected,prefs.edge,connected]);
   const board=shell.querySelector('.session-board'),controlSignature=JSON.stringify([prefs.filter,prefs.query,prefs.facets,prefs.page,prefs.layout,prefs.selected,prefs.edge]);
@@ -198,13 +199,23 @@ function sessionMap(root){
 function sessionPulse(root,model){
   const run=state.standard?.run,open=state.workflow?.openDecisions??(state.decisions||[]).filter(d=>d.status==='open').length;
   const pending=(state.commands||[]).filter(c=>['queued','processing'].includes(c.status)).length;
-  const summary=run?({running:'Phase in progress',stopping:'Reaching a safe checkpoint',paused:'Phase paused',completed:'Phase completed',blocked:'Phase needs attention'}[run.status]||'Phase status recorded'):state.meta.paused?'New task dispatch paused':'Approved dispatch enabled';
+  const summary=run?(state.recovery?'Phase needs attention':({running:'Phase in progress',stopping:'Reaching a safe checkpoint',paused:'Phase paused',completed:'Phase completed',blocked:'Phase needs attention'}[run.status]||'Phase status recorded')):state.meta.paused?'New task dispatch paused':'Approved dispatch enabled';
   const signature=JSON.stringify([summary,open,pending,model.groups,state.brainActivity?.observedAt,connected]);
   if(root.dataset.signature===signature)return;root.dataset.signature=signature;root.replaceChildren();
   const story=el('div',null,'session-story');story.append(el('span',state.workspace?.name||'Current project','eyebrow'),el('h2',summary),el('p',open?`${open} decision${open===1?' needs':'s need'} your input.`:model.groups.attention?`${model.groups.attention} task${model.groups.attention===1?' needs':'s need'} a closer look.`:pending?`${pending} saved request${pending===1?' is':'s are'} awaiting completion.`:'Select a session to follow its work.','muted'));
   const facts=el('div',null,'session-counts');
   [[model.tasks.length,'registered tasks'],[model.groups.history,'in history'],[open,'decisions']].forEach(([value,label])=>{const item=el('div');item.append(el('strong',num(value)),el('span',label));facts.append(item);});
   root.append(story,facts);
+}
+function sessionRecovery(root){
+  const journey=roadmapJourneyState(state,connected);
+  const signature=JSON.stringify([workspaceId,state.recovery,journey.action,journey.label,state.meta.checkpoint,state.meta.lastReconciled,connected,busy]);
+  if(root.dataset.signature===signature)return;root.dataset.signature=signature;root.replaceChildren();
+  root.hidden=!state.recovery;if(!state.recovery)return;
+  recoverySummary(root,state.recovery);
+  if(connected){const action=button(journey.label,()=>journeyAction(journey.action),'primary');action.disabled=busy;root.append(action);}
+  else root.append(el('p','Reconnect before acting. These are the last recorded conditions.','muted'));
+  if(state.meta.checkpoint){const details=el('details');details.append(el('summary','Details · Last saved brain checkpoint · '+when(state.meta.lastReconciled)),el('p',state.meta.checkpoint));root.append(details);}
 }
 function sessionResetFilters(prefs){prefs.filter='all';prefs.query='';prefs.page=0;prefs.facets={...SESSION_FILTERS};render();}
 function sessionFilterPanel(root,model,prefs){

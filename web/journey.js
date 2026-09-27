@@ -5,8 +5,10 @@ const journeyDetailsOpen=new Set();
 function projectPhaseStatus(snapshot){
   const run=snapshot.standard.run,m=snapshot.mission;
   const next=['completed','blocked'].includes(run.status)&&m?.document?.spec.phase.id!==run.phaseId&&m?.document;
-  const status=next?`Plan v${m.document.version} ${m.effectiveStatus==='reviewed'?'reviewed · Play not started':'awaits review'} · Previous phase ${run.status}`:run.status.toUpperCase();
-  return 'STANDARD · '+status+' · '+run.tasks.filter(t=>!['completed','failed','not_created'].includes(t.status)).length+' registered tasks in flight';
+  const attention=snapshot.recovery&&(snapshot.recovery.reconciliationRequired||['running','stopping'].includes(run.status));
+  const status=next?`Plan v${m.document.version} ${m.effectiveStatus==='reviewed'?'reviewed · Play not started':'awaits review'} · Previous phase ${run.status}`:attention?'RECOVERY REQUIRED':run.status.toUpperCase();
+  const unsettled=run.tasks.filter(t=>!['completed','failed','not_created'].includes(t.status)).length;
+  return 'STANDARD · '+status+' · '+unsettled+' registered '+(unsettled===1?'task':'tasks')+' unsettled';
 }
 function journeyDisclosure(key,title,build){
   const details=el('details',null,'journey-disclosure'),identity=(workspaceId||'legacy')+':'+key;
@@ -32,6 +34,17 @@ function roadmapJourneyState(snapshot,isConnected=true,now=Date.now()/1000){
   const blockers=[...(s?.blockers||[])];
   if(run&&['running','paused'].includes(run.status)&&run.expiresAt<=now&&!blockers.some(x=>/expir/i.test(x)))blockers.push('The phase time limit has expired.');
   if(run?.status==='running'){
+    if(snapshot.recovery&&!snapshot.meta?.controller){
+      if(snapshot.meta?.brainControl?.desired==='stopped')return result(2,'Brain is stopped; recovery is still needed',
+        'A normal message cannot wake a stopped brain. Inspect its safe checkpoint and explicit brain Resume control before requesting reconciliation.',
+        'Review brain recovery','operations',{canPause:true});
+      if((snapshot.commands||[]).some(c=>c.kind==='reconcile'&&c.payload?.message&&!c.conversationReply))return result(2,'Recovery request is awaiting a reply',
+        'Follow the saved request and its receipt. The recorded blockers remain until reconciled; do not send a duplicate.',
+        'Follow brain reply','conversation',{canPause:true});
+      return result(2,'Recovery required before continuing',
+        'The phase is still open, but its recorded conditions need attention. Reconcile existing work before deciding how to continue.',
+        'Reconcile this phase','reconcile',{canPause:true});
+    }
     if(blockers.length)return result(2,'This phase needs a checkpoint','New work is blocked. Pause at the next safe point, then review the reason below.','Pause at safe checkpoint','pause',{reasons:blockers});
     const count=snapshot.workflow?.openDecisions||0;
     if(count)return result(2,'Your decision is needed',`${count} open ${count===1?'decision needs':'decisions need'} your input. The phase keeps its reviewed scope.`, 'Review decisions','decisions',{canPause:true});
@@ -72,6 +85,7 @@ function prepareRoadmapPhase(){
   document.getElementById('brain-message')?.focus();
 }
 function journeyAction(action){
+  if(action==='reconcile'){focusAssistantConversation();return assistantRequestStep('phase_reconcile');}
   if(action==='refresh')return refresh();
   if(action==='prepare')return prepareRoadmapPhase();
   if(action==='catalog')return requestCatalogForPlay(state.standard);
@@ -101,11 +115,11 @@ function roadmapJourney(root){
   else if(model.stage===3&&model.action==='prepare')actions.append(button('Review phase results',()=>navigateView('workers')));
   else if(model.action!=='conversation')actions.append(button('Talk to project brain',()=>navigateView('conversation')));
   lead.append(copy,actions);panel.append(lead);
+  if(snapshot.recovery)recoverySummary(panel,snapshot.recovery,model.title!==snapshot.recovery.title);
   const latest=latestBrainReply(snapshot);
   if(latest){const reply=latest.conversationReply;panel.append(el('p','Brain replied · '+when(reply.at),'eyebrow'),narrative(reply.message,'Project brain reply'));}
   const usageWarning=priorPhaseUsageWarning(snapshot);
   if(usageWarning)panel.append(el('p',usageWarning,'journey-receipt'));
-  if(snapshot.recovery)recoverySummary(panel,snapshot.recovery);
   if(model.reasons?.length){const reasons=el('ul',null,'journey-reasons');model.reasons.forEach(reason=>reasons.append(el('li',reason)));panel.append(reasons);}
   if(model.request){const delivery=commandPresentation(model.request);panel.append(el('p',delivery.label+'. '+delivery.detail,'journey-receipt'));}
   if(model.catalog){const status=catalogStatus(s.catalogRefresh);panel.append(el('p',status.title+'. '+status.detail,'journey-receipt'));scheduleCatalogFollowup(s);}
