@@ -107,12 +107,13 @@ function assistantNextStep(){
   const latest=latestBrainReply(state);
   root.append(el('p',latest?'BRAIN REPLIED · '+when(latest.conversationReply.at):'CURRENT PROJECT','eyebrow'),el('h3',journey.title));
   const plan=state.mission;
-  if(journey.action==='mission'&&plan?.document){root.append(el('p',`Plan v${plan.document.version} · ${plan.document.spec.phase.title}`),el('p','Next: review the scope, limits and stopping point below. Review saves your decision; it does not start development.','muted'));}
+  if(journey.action==='mission'&&plan?.document)root.append(el('p',`Plan v${plan.document.version} · ${plan.document.spec.phase.title}`));
   const key=map[journey.action];
   const reviewable=journey.action!=='mission'||(state.mission?.effectiveStatus==='draft'&&!state.mission?.bindingIssues?.length);
   const prepareBlocked=key==='phase_prepare'&&['paused','stopping'].includes(state.standard?.run?.status);
   if(key&&reviewable&&!prepareBlocked){const b=button(journey.label,()=>assistantRequestStep(key));b.disabled=assistantPending;root.append(b);}
   else root.append(el('p',journey.detail,'muted'));
+  if(journey.action==='mission'&&plan?.document)root.append(el('p','Review scope, limits and stopping point here. Review does not start development.','muted'));
   if(journey.request){const info=commandPresentation(journey.request,state.brainActivity);root.append(el('p',info.label+'. '+info.detail,'muted'));}
   if(journey.reasons?.length){const reasons=el('ul');for(const text of journey.reasons)reasons.append(el('li',text));root.append(reasons);}
   const usageWarning=priorPhaseUsageWarning(state);if(usageWarning)root.append(el('p',usageWarning,'journey-receipt'));
