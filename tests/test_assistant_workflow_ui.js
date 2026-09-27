@@ -38,3 +38,18 @@ const rendered=(root)=>[root,...root.children.flatMap(rendered)];
 assert(rendered(nextStep).some(e=>e.text==='Usage evidence is incomplete'));
 assert(rendered(nextStep).some(e=>e.text==='Prepare recovery proposal'));
 console.log('Assistant workflow: exact typed consent, stale/foreign previews, receipt recovery and ambiguity passed');
+const steps=[];box.assistantRequestStep=key=>steps.push(key);
+box.state.repositories=[{policyProfile:'standard'}];
+box.state.standard.available=false; // A draft is precisely when preparation is needed.
+box.state.commands=[];
+assert.equal(box.assistantLocalWorkflow('Help me continue development'),true);
+assert.deepEqual(steps,['phase_prepare'],'Exact starter prepares a preview without a model call');
+assert.equal(box.assistantLocalWorkflow('Pause the project safely'),true);
+assert.equal(steps.at(-1),'phase_pause');
+assert.equal(box.assistantLocalWorkflow('What changed in the last phase?'),false,'Questions are not controls');
+assert.equal(box.assistantLocalWorkflow('yes'),false,'No inferred confirmation');
+box.state.commands=[{status:'queued'}];
+const count=steps.length;box.assistantLocalWorkflow('Help me continue development');
+assert.equal(steps.length,count,'Do not duplicate a pending request');
+box.state.repositories=[{policyProfile:'harness'}];
+assert.equal(box.assistantLocalWorkflow('Help me continue development'),false,'Strict Harness never enters the standard shortcut');

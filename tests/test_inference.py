@@ -69,6 +69,15 @@ class InferenceTest(unittest.TestCase):
         self.env.write_text(self.env.read_text() + "CODEX_LLM_MODEL=llama3.2:3b\n")
         self.assertRaises(Refusal, settings, self.env)
 
+    def test_explicit_local_engine_bypasses_tunnel_without_external_http_fallback(self):
+        for base in ('http://127.0.0.1:8080/v1', 'http://[::1]:8080/v1'):
+            self.write_env(base=base)
+            self.assertEqual(settings(self.env).base_url, base)
+        for base in ('http://localhost:8080/v1', 'http://127.0.0.1.evil.test/v1',
+                     'http://192.168.1.2/v1', 'http://0.0.0.0/v1',
+                     'http://user@127.0.0.1/v1', 'http://127.0.0.1/v1?key=x'):
+            self.write_env(base=base)
+            with self.assertRaises(Refusal):settings(self.env)
     def test_separate_assistant_model_is_local_and_server_owned(self):
         self.env.write_text(self.env.read_text()+"CODEX_LLM_ASSISTANT_MODEL=qwen3.8:27b\n")
         cfg=settings(self.env)
@@ -96,7 +105,7 @@ class InferenceTest(unittest.TestCase):
         client.summarize(projection(self.ledger.snapshot()))
         request = client.opener.open.call_args.args[0]
         self.assertEqual(request.full_url, CONFIG.base_url + "/chat/completions")
-        self.assertEqual(client.opener.open.call_args.kwargs, {"timeout": 90})
+        self.assertEqual(client.opener.open.call_args.kwargs, {"timeout": 240})
         self.assertEqual(request.get_header("Authorization"), "Bearer " + CONFIG.api_key)
         payload = json.loads(request.data)
         self.assertEqual(set(payload), {"model", "messages", "temperature", "max_tokens", "stream", "response_format", "stream_options"})

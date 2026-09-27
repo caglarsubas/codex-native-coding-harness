@@ -176,12 +176,15 @@ def main():
     p.add_argument("--public-port", type=int, help="Exact loopback browser port when using the local Compose gateway; backend still binds only loopback")
     p.add_argument("--account-file", type=Path, help="Owner-only local account verifier; disables private token-link login")
     p.add_argument("--notify-brain", type=Path, metavar="CODEX_CLI", help="Opt in to immediate decision notification using an absolute installed Codex CLI path")
+    p.add_argument("--desktop-brain-wake", action="store_true", help="After queue acknowledgment, open the exact existing standard brain in the signed desktop app, in the background")
     p.add_argument("--brain-app-server-binding", type=Path, metavar="PRIVATE_JSON",
                    help="Opt in to the reviewed, exact standard-brain app-server host instead of the desktop queue")
     p.add_argument("--inference-env", type=Path, help="Existing private inference configuration; never a browser-selected path")
     args = parser.parse_args()
     if args.action == "serve" and args.notify_brain and args.brain_app_server_binding:
         raise Refusal("Choose one brain notification transport")
+    if args.action == "serve" and args.desktop_brain_wake and not args.notify_brain:
+        raise Refusal("Desktop brain wake requires --notify-brain")
     notification_binding = None
     if args.action == "serve" and args.brain_app_server_binding:
         from .app_server_wake import load_binding
@@ -287,7 +290,7 @@ def main():
             raise Refusal("Register at least one workspace before serving")
         serve(registry.ledger(workspaces[0]["id"]), args.port, notification_cli=args.notify_brain,
               registry=registry, inference_env=args.inference_env, public_port=args.public_port,
-              account_file=args.account_file, notification_binding=notification_binding)
+              account_file=args.account_file, notification_binding=notification_binding, desktop_wake=args.desktop_brain_wake)
         return
     if registry and not args.workspace:
         raise Refusal("Select an exact --workspace; no default portfolio is inferred")
@@ -584,7 +587,7 @@ def main():
         from .server import serve
         serve(ledger, args.port, notification_cli=args.notify_brain, registry=registry,
               inference_env=args.inference_env, public_port=args.public_port,
-              account_file=args.account_file, notification_binding=notification_binding); return
+              account_file=args.account_file, notification_binding=notification_binding, desktop_wake=args.desktop_brain_wake); return
     print(json.dumps(out if out is not None else {"ok": True}, ensure_ascii=False, indent=2))
 
 

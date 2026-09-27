@@ -2,6 +2,8 @@
 let browserSession=null, dashboardPoll=null, authBusy=false, authMode=null;
 
 function browserSignedOut(message='Open the current private dashboard link to sign in.'){
+  // A saved assistant-only layout must not hide the sign-in form.
+  if(typeof revealPane==='function')revealPane('workspace');
   clearInterval(dashboardPoll);dashboardPoll=null;
   connected=false;state=null;csrf=null;browserSession=null;workspaceGeneration++;
   resetDashboardNavigation();

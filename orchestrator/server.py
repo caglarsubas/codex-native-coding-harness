@@ -26,7 +26,7 @@ class WorkspaceRuntime:
     """All mutable operational state belongs to one ledger, never to UI selection."""
 
     def __init__(self, ledger, inference_env=ENV_FILE, runtime_root=WEB.parent, notification_cli=None,
-                 notification_binding=None):
+                 notification_binding=None, desktop_wake=False):
         self.ledger = ledger
         self.registry = None
         self.workspace_id = None
@@ -42,7 +42,7 @@ class WorkspaceRuntime:
         self.provenance_job = {"status": "idle"}
         self.brain_activity = BrainActivity(ledger)
         self.task_activity = TaskActivity(ledger)
-        self.notifier = BrainNotifier(ledger, notification_cli, notification_binding)
+        self.notifier = BrainNotifier(ledger, notification_cli, notification_binding, desktop_wake)
         from .assistant_journey import JourneyProposals
         self.assistant_proposals = JourneyProposals(self)
         self.run_readiness_report = None
@@ -138,11 +138,11 @@ class Dashboard(ThreadingHTTPServer, WorkspaceRuntime):
 
     def __init__(self, ledger, port=8768, inference_env=ENV_FILE, runtime_root=WEB.parent,
                  notification_cli=None, registry=None, public_port=None, account_file=None,
-                 notification_binding=None):
+                 notification_binding=None, desktop_wake=False):
         if public_port is not None and (type(public_port) is not int or not 1 <= public_port <= 65535):
             raise ValueError("Public port must be an integer between 1 and 65535")
         ThreadingHTTPServer.__init__(self, ("127.0.0.1", port), Handler)
-        WorkspaceRuntime.__init__(self, ledger, inference_env, runtime_root, notification_cli, notification_binding)
+        WorkspaceRuntime.__init__(self, ledger, inference_env, runtime_root, notification_cli, notification_binding, desktop_wake)
         self.registry = registry
         self.origin = f"http://127.0.0.1:{public_port if public_port is not None else self.server_port}"
         self.bootstrap = secrets.token_urlsafe(32)
@@ -159,7 +159,7 @@ class Dashboard(ThreadingHTTPServer, WorkspaceRuntime):
             raise
         self.runtime_lock = threading.Lock()
         self.runtimes = {}
-        self.runtime_options = (inference_env, runtime_root, notification_cli, notification_binding)
+        self.runtime_options = (inference_env, runtime_root, notification_cli, notification_binding, desktop_wake)
         # One configured inference tenancy: serialize explicit calls across workspaces.
         self.shared_inference_lock = self.inference_lock
         self.served_workspaces = {w["id"] for w in registry.list()} if registry else set()
@@ -625,11 +625,15 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/assistant/preview":
                 from .assistant_actions import catalog, resolve_action
                 from .assistant import context
-                if urlsplit(self.path).query or not isinstance(body, dict) or set(body) != {"key"}:
+                direct = isinstance(body, dict) and body.get("key") == "brain_message" and set(body) == {"key", "text"}
+                if urlsplit(self.path).query or not isinstance(body, dict) or (set(body) != {"key"} and not direct):
                     raise Refusal("Select one current assistant action")
+                if direct:
+                    from .assistant import validate_request
+                    validate_request({"view": "conversation", "messages": [{"role": "user", "content": body["text"]}]})
                 snapshot = runtime.snapshot()
                 _, links = context(snapshot, "roadmap")
-                action = resolve_action(body, catalog(snapshot, links), "")
+                action = resolve_action(body, catalog(snapshot, links), body["text"] if direct else "")
                 return self.respond(200, runtime.assistant_proposals.prepare(action, snapshot, csrf))
             if path == "/api/assistant":
                 from .assistant import chat
@@ -722,7 +726,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def serve(ledger, port, notification_cli=None, registry=None, inference_env=None, public_port=None,
-          account_file=None, notification_binding=None):
+          account_file=None, notification_binding=None, desktop_wake=False):
     # Every registered ledger has a single dashboard owner. New registrations
     # become served only after a restart and lock acquisition, never on a GET.
     import fcntl
@@ -741,7 +745,7 @@ def serve(ledger, port, notification_cli=None, registry=None, inference_env=None
         server = Dashboard(ledger, port, notification_cli=notification_cli, registry=registry,
                            inference_env=inference_env if inference_env is not None else ENV_FILE,
                            public_port=public_port, account_file=account_file,
-                           notification_binding=notification_binding)
+                           notification_binding=notification_binding, desktop_wake=desktop_wake)
         # Freeze the exact locked set, including a registration that races startup.
         if registry:
             server.served_workspaces = {w["id"] for w in registered}

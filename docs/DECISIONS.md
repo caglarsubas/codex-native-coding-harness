@@ -5,7 +5,7 @@ The native brain remains the only scheduler. The server may notify that existing
 brain via the supported `codex queue` CLI when explicitly enabled at startup. An
 alternative, separately reviewed [owned app-server wake](OWNED-BRAIN-WAKE.md)
 can start a turn for a bound standard-project brain. Neither transport
-never executes a response note, launches a worker or starts a background dispatcher.
+executes a response note, launches a worker or starts a background dispatcher.
 
 ## Operator experience
 
@@ -71,6 +71,13 @@ owned app-server, but its queue acknowledgment alone does not prove that an
 unloaded brain was activated. Connection availability is established per send,
 not inferred from an executable on disk. The alternative owned-host route has
 separate private binding, qualification and activation requirements.
+
+The optional macOS `--desktop-brain-wake` companion keeps the desktop queue
+transport and opens the exact existing standard-project brain through its native
+deep link after acknowledgment. This lets the desktop consume a cold chat's queue
+without another message. The app signature is checked before opening; failures
+retain the existing request, never resend it. See
+[desktop compatibility and boundaries](ASSISTANT-LED-WORKFLOW.md#desktop-cli-updates).
 
 Only validated, committed, still-pending dashboard `decision_response`, `resume`,
 `reconcile`, `checkpoint`, `archive`, `brain_stop` and `brain_resume` controls can

@@ -260,6 +260,15 @@ class AssistantJourneyTest(unittest.TestCase):
             self.assertEqual(status,200,p)
             self.assertIsNone(standard.read(self.ledger)['run'])
             self.assertEqual(send_http(prefix+'/assistant/preview',{'key':'phase_play','payload':{}},auth)[0],409)
+            with patch('orchestrator.assistant.Client.request') as inference:
+                status,_,direct=send_http(prefix+'/assistant/preview',{'key':'brain_message','text':'Explain the current phase. Do not start work.'},auth)
+                self.assertEqual(status,200,direct)
+                self.assertEqual(direct['document']['preview']['message'],'Explain the current phase. Do not start work.')
+                self.assertFalse(self.ledger.snapshot()['commands'])
+                inference.assert_not_called()
+            self.assertEqual(send_http(prefix+'/assistant/preview',{'key':'phase_play','text':'confirm'},auth)[0],409)
+            self.assertEqual(send_http(prefix+'/assistant/preview',{'key':'brain_message','text':'x'*4001},auth)[0],409)
+            self.assertEqual(send_http(prefix+'/assistant/preview',{'key':'brain_message','text':'hello','target':'foreign'},auth)[0],409)
             body={'proposal':p,'confirmed':True}
             self.assertEqual(send_http(prefix+'/assistant/confirm',{**body,'confirmed':False},auth)[0],409)
             status,_,result=send_http(prefix+'/assistant/confirm',body,auth)
