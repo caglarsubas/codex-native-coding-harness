@@ -9,6 +9,7 @@ acceptance authority. Items change through reviewed repository edits.
 
 - [x] Add an opt-in, exact-bound, documented app-server wake path for registered standard projects, preserving one-shot ledger claims and independent brain receipts
 - [x] Make legacy desktop-queue acknowledgment honest: it may not start an unloaded brain
+- [x] Pin distinct Codex app catalog and owned app-server project IDs explicitly when the installed host reports both for the same verified repository (source and local fixtures; no native write)
 - [ ] Independently qualify native approval handling and a disposable end-to-end owned-host pilot
 - [ ] Review and activate a live migration at a safe checkpoint; verify real ledger receipts before considering Play
 
@@ -59,7 +60,9 @@ navigation and presentation, not native dispatch, Harness authority or merge pol
 - [x] Suggest editable, task-outline-based limits for new standard phases without changing existing runs or usage evidence (source)
 - [x] Add separately owner-reviewed isolated native-worktree producers and a bounded integration task; preserve repository exclusivity by default and strict Harness gates (source and local fixtures)
 - [x] Verify full local suites and rendered desktop/mobile disposable-project journeys (local/disposable, not live qualification)
-- [ ] Merge source, install after quiescing older writers and backing up private state, then qualify the selected live project as separate checkpoints
+- [x] Merge the one-page source on main (PR #98; not installation or live qualification)
+- [ ] Install after quiescing older writers and backing up private state
+- [ ] Qualify the selected live project at a separately reviewed safe checkpoint
 
 See [one-page workspace and isolated worktrees](ONE-PAGE-WORKSPACE.md). Source
 delivery grants no Play, live migration, authority relaxation or automatic

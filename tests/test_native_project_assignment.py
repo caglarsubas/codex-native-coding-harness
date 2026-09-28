@@ -21,6 +21,7 @@ OTHER = "33333333-3333-4333-8333-333333333333"
 
 class NativeProxy:
     project_id = None
+    native_project_id = PROJECT
     cwd = None
     project_roots = None
     status = "notLoaded"
@@ -45,7 +46,8 @@ class NativeProxy:
             type(self).project_reads += 1
             if type(self).project_reads == 3 and type(self).on_project_read:
                 type(self).on_project_read()
-            return {"project": {"id": PROJECT, "roots": [{"path": path} for path in self.project_roots]}}
+            return {"project": {"id": self.native_project_id,
+                                "roots": [{"path": path} for path in self.project_roots]}}
         if method == "thread/read":
             return {"thread": {"id": BRAIN, "cwd": self.cwd, "projectId": self.project_id,
                                "status": {"type": self.status}}}
@@ -78,6 +80,7 @@ class NativeProjectAssignmentTest(unittest.TestCase):
         self.binding = {"endpoint": {"fixture": "pinned"}, "brains": {BRAIN: {
             "workspaceId": "pilot", "projectId": PROJECT, "cwd": str(self.repo)}}}
         NativeProxy.project_id = None
+        NativeProxy.native_project_id = PROJECT
         NativeProxy.cwd = str(self.repo)
         NativeProxy.project_roots = [str(self.repo)]
         NativeProxy.status = "notLoaded"
@@ -120,6 +123,34 @@ class NativeProjectAssignmentTest(unittest.TestCase):
             self.confirm(review)
         self.assertEqual(NativeProxy.writes, 1)
 
+    def test_distinct_catalog_and_app_server_project_ids_are_explicit_and_bound(self):
+        # The desktop's list_projects identity need not be the same as this
+        # installed app-server's project/read identity for the same Git root.
+        self.binding["brains"][BRAIN]["catalogProjectId"] = PROJECT
+        self.binding["brains"][BRAIN]["projectId"] = OTHER
+        NativeProxy.native_project_id = OTHER
+        review = self.preview()
+        self.assertEqual(review["preview"]["catalogProjectId"], PROJECT)
+        self.assertEqual(review["preview"]["projectId"], OTHER)
+        self.assertEqual(self.confirm(review)["status"], "verified")
+        self.assertEqual(NativeProxy.project_id, OTHER)
+        self.assertIn(("thread/metadata/update", {"threadId": BRAIN, "projectId": OTHER}),
+                      NativeProxy.calls)
+        self.assertEqual(assignment.status(self.registry, "pilot")["catalogProjectId"], PROJECT)
+
+    def test_unmapped_or_changed_dual_identity_fails_before_native_write(self):
+        self.binding["brains"][BRAIN]["projectId"] = OTHER
+        NativeProxy.native_project_id = OTHER
+        with self.assertRaises(Refusal):
+            self.preview()  # No implied mapping from the matching project root.
+        self.assertEqual(NativeProxy.calls, [])
+        self.binding["brains"][BRAIN]["catalogProjectId"] = PROJECT
+        review = self.preview()
+        self.binding["brains"][BRAIN]["catalogProjectId"] = OTHER
+        with self.assertRaises(Refusal):
+            self.confirm(review)
+        self.assertEqual(NativeProxy.writes, 0)
+
     def test_lost_response_is_retained_and_reconcile_never_resends(self):
         review = self.preview()
         NativeProxy.fail_update = True
@@ -133,6 +164,21 @@ class NativeProjectAssignmentTest(unittest.TestCase):
         self.assertEqual(NativeProxy.writes, 1)
         with self.assertRaises(Refusal):
             self.preview()
+
+    def test_pre_dual_identity_intent_reconciles_without_a_second_native_write(self):
+        review = self.preview()
+        NativeProxy.fail_update = True
+        self.assertEqual(self.confirm(review)["status"], "uncertain")
+        self.assertEqual(NativeProxy.writes, 1)
+        # PR #100 intents carried one project ID for both native namespaces.
+        # Preserve an otherwise exact historical intent during reconciliation.
+        with self.ledger.tx() as db:
+            prior = assignment._row(db, BRAIN)
+            prior.pop("catalogProjectId")
+            self.ledger.put(db, assignment.TABLE, BRAIN, prior)
+        NativeProxy.project_id = PROJECT
+        self.assertEqual(assignment.reconcile(self.registry, "pilot", self.binding)["status"], "verified")
+        self.assertEqual(NativeProxy.writes, 1)
 
     def test_claim_survives_pre_send_host_failure_without_retry(self):
         review = self.preview()
@@ -169,6 +215,10 @@ class NativeProjectAssignmentTest(unittest.TestCase):
             self.confirm(review)
 
     def test_conflicting_native_project_and_wrong_roots_refuse_before_claim(self):
+        NativeProxy.native_project_id = OTHER
+        with self.assertRaises(Refusal):
+            self.preview()
+        NativeProxy.native_project_id = PROJECT
         NativeProxy.project_id = OTHER
         with self.assertRaises(Refusal):
             self.preview()

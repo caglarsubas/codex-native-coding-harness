@@ -16,6 +16,7 @@ import time
 
 from .core import Refusal, canonical, digest, require
 from .native_read_client import ReadProxy, decode, file_identity, secure_path, socket_identity, validate_endpoint
+from .projects import text as catalog_text
 
 UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\Z")
 MAX_BINDING = 16_384
@@ -109,9 +110,15 @@ def load_binding(path):
     validate_endpoint(value["endpoint"])
     for brain, record in value["brains"].items():
         require(isinstance(brain, str) and UUID.fullmatch(brain) and
-                isinstance(record, dict) and set(record) == {"cwd", "projectId", "workspaceId"} and
+                isinstance(record, dict) and
+                set(record) in ({"cwd", "projectId", "workspaceId"},
+                                {"cwd", "projectId", "catalogProjectId", "workspaceId"}) and
                 isinstance(record["projectId"], str) and UUID.fullmatch(record["projectId"]),
                 "Invalid brain binding entry")
+        # The Codex app's list_projects ID can differ from the app-server's
+        # project ID. Both must be explicit; neither substitutes for the other.
+        if "catalogProjectId" in record:
+            catalog_text(record["catalogProjectId"])
         require(isinstance(record["workspaceId"], str) and
                 re.fullmatch(r"[a-z0-9][a-z0-9-]{0,63}", record["workspaceId"]),
                 "Invalid bound workspace")
@@ -530,6 +537,8 @@ class AppServerWake:
     def _identity(self, thread, brain_id):
         record = self.binding["brains"][brain_id]
         cwd = record["cwd"]
+        # A catalogProjectId, when present, is never inferred from or matched
+        # against this app-server task identity.
         require(isinstance(thread, dict) and thread.get("id") == brain_id and
                 thread.get("cwd") == cwd and thread.get("projectId") == record["projectId"],
                 "Native brain, project or checkout identity differs from owner binding")

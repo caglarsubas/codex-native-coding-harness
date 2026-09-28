@@ -13,6 +13,11 @@ directory scans or `config.toml`. The catalog retains native project order,
 labels and `(hostId, projectId)` identities. ChatGPT projects are excluded. Two
 different native identities are not merged merely because their paths match.
 Paths are hashed, never returned in the dashboard catalog or used for scanning.
+An independently owned Codex app-server may report a different project ID for
+the same named/rooted project. Its ID is not a replacement for this catalog's
+ID. An explicit, separately reviewed dual-ID binding is required before the
+app-server ID can be used for a native brain project assignment; matching
+labels or paths alone never create that binding.
 
 From this dashboard's source checkout:
 
