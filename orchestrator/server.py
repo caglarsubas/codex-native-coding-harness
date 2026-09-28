@@ -250,6 +250,7 @@ class Handler(BaseHTTPRequestHandler):
         static["/decisions.css"] = ("decisions.css", "text/css; charset=utf-8")
         static["/conversation.js"] = ("conversation.js", "text/javascript; charset=utf-8")
         static["/auth.js"] = ("auth.js", "text/javascript; charset=utf-8")
+        static["/assistant-help.js"] = ("assistant-help.js", "text/javascript; charset=utf-8")
         for file in ("summaries.js", "journey.js", "journey.css", "session-map.js", "session-map.css", "panes.js", "assistant.js", "assistant-workflow.js", "routing.js", "workspaces.js", "missions.js", "standard.js", "knowledge.js", "workspace-pause.js", "run-readiness.js", "phase-checkpoints.js", "checkpoint-controls.js", "rereview.js", "model-controls.js", "observer-controls.js", "budget.js", "retention.js", "task-contracts.js", "panes.css"):
             static["/" + file] = (file, "text/javascript; charset=utf-8" if file.endswith(".js") else "text/css; charset=utf-8")
         if path in static:
@@ -277,6 +278,19 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(200, {"csrf": scoped_csrf(session, workspace_id), "workspaceId": workspace_id})
             if path == "/api/profile" and workspace_id:
                 return self.respond(200, self.server.registry.profile(workspace_id))
+            if path == "/api/assistant/help" and workspace_id:
+                if urlsplit(self.path).query:
+                    raise Refusal("Guided help accepts no query parameters")
+                from .development_help import plan
+                from .assistant_journey import catalog
+                snapshot = runtime.snapshot()
+                result = plan(snapshot)
+                # A read may prepare the displayed bounded Help preview, never
+                # confirm it, collect usage, notify a brain or start a phase.
+                if result["mode"] == "prepare":
+                    result["proposal"] = runtime.assistant_proposals.prepare(
+                        catalog(snapshot)["phase_help"], snapshot, scoped_csrf(session, workspace_id))
+                return self.respond(200, result)
             if path == "/api/brain-handoff" and workspace_id:
                 if urlsplit(self.path).query:
                     raise Refusal("Handoff status accepts no query parameters")

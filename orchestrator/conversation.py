@@ -26,6 +26,9 @@ def validate(ledger, db, command, meta, actor):
     text(p["message"], "brain message", 8000)
     require(not any(ord(c) < 32 and c not in "\n\t" for c in p["message"]), "Message contains control characters")
     require(not any(pending(c) for c in ledger.all(db, "commands")), "A brain message is awaiting a reply; use the existing conversation and controls")
+    from .development_help import PREFIX, validate_in
+    if p["message"].startswith(PREFIX):
+        validate_in(ledger, db, meta)
 
 
 def receive_in(ledger, db, command, meta):
