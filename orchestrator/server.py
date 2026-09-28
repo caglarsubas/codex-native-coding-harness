@@ -289,7 +289,7 @@ class Handler(BaseHTTPRequestHandler):
                 # confirm it, collect usage, notify a brain or start a phase.
                 if result["mode"] == "prepare":
                     result["proposal"] = runtime.assistant_proposals.prepare(
-                        catalog(snapshot)["phase_help"], snapshot, scoped_csrf(session, workspace_id))
+                        catalog(snapshot)[result.get("key") or "phase_help"], snapshot, scoped_csrf(session, workspace_id))
                 return self.respond(200, result)
             if path == "/api/brain-handoff" and workspace_id:
                 if urlsplit(self.path).query:

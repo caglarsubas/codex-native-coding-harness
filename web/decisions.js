@@ -5,6 +5,9 @@ const decisionDetailsOpen = new Set();
 const decisionLabels = {open:"Needs your decision", answered:"Answer recorded", received:"Received by brain", applied:"Applied to design", blocked:"Needs follow-up", superseded:"Superseded"};
 
 function commandPresentation(c, activity=state?.brainActivity, now=Date.now()/1000) {
+  if(c.kind==='standard_recovery'&&c.status==='completed')return {label:'Recovery reply retained',detail:'The preparation result is saved. The prior phase remains paused; review the next exact decision.'};
+  if(c.kind==='reconcile'&&c.payload?.message&&!c.notification&&!c.conversationReceivedAt&&state?.standard?.run?.status==='paused')
+    return {label:'Held at checkpoint',detail:'This saved message was not notified while the phase is paused. A separate reviewed recovery-only wake can deliver it once without resuming workers.'};
   if(c.conversationReply)return {label:'Brain replied',detail:'The reply is saved in this project. See the result and next step below.'};
   if(c.kind==='reconcile'&&c.payload?.message&&c.status==='completed')return {label:'Received · reply missing',detail:'The request was marked received, but no reply is saved yet. Inspect this existing request; do not send a duplicate.'};
   if(c.status!=="queued"&&!c.needsBrainReceipt)return {label:c.status==='processing'?(c.kind==='brain_stop'?"Preparing safe checkpoint":"Received by brain"):c.status,detail:c.result||"The brain has received this request."};

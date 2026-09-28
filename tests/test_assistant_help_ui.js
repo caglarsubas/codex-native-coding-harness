@@ -39,6 +39,17 @@ const elements=n=>[n,...n.children.flatMap(elements)];
   command.conversationReply={message:'Need exact identity',at:5};command.notification.status='unavailable';
   progress=box.developmentHelpProgress(command,box.state,400);
   assert.equal(progress.title,'Preparation reply received');assert.equal(progress.rows[1][1],'unverified','Receipt never fabricates transport success');
+  const recovery={id:'recovery-1',kind:'standard_recovery',status:'processing',createdAt:6,receivedAt:7,
+    payload:{messageId:'held-1'},notification:{status:'accepted',finishedAt:6}};
+  box.state.commands=[recovery,{id:'held-1',conversationReply:{message:'Prepare successor',at:8}}];
+  const recoveryProgress=box.developmentHelpProgress(recovery,box.state,9);
+  assert.equal(recoveryProgress.rows[2][1],'done');assert.equal(recoveryProgress.rows[3][1],'done');
+  assert.match(recoveryProgress.detail,/Phase Resume and Play remain separate/);
+  delete recovery.receivedAt;delete box.state.commands[1].conversationReply;
+  box.state.standard={run:{recovery:{id:'recovery-1',receiveBy:10}}};
+  const expired=box.developmentHelpProgress(recovery,box.state,11);
+  assert.equal(expired.rows[2][1],'attention');assert.match(expired.title,/window expired/);
+  box.state.standard={contextHash:'a'};
   box.state.commands=[command];response={mode:'needs_input',requestId:'help-1',title:'Preparation finished',detail:'Missing evidence'};
   box.developmentHelpUpdate();await flush();
   assert(elements(root).some(e=>e.text==='Need exact identity'),'Reloaded ledger reply is shown');

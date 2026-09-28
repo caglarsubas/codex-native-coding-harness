@@ -14,7 +14,7 @@ const box={workspaceId:'alpha',busy:false,connected:true,missionDrafts:new Map()
   document:{getElementById:()=>null},el:(...args)=>new Element(...args),button:(text,click)=>Object.assign(new Element('button',text),{click}),
   num:String,when:String,navigateView:view=>calls.push(['navigate',view]),showNotice:text=>notices.push(text),
   reviewStandardControl:(s,op)=>calls.push(['review',op]),requestCatalogForPlay:()=>calls.push(['catalog']),refresh:()=>calls.push(['refresh']),
-  focusAssistantConversation:()=>calls.push(['focus','assistant']),assistantRequestStep:key=>calls.push(['preview',key]),
+  focusAssistantConversation:()=>calls.push(['focus','assistant']),developmentHelpUpdate:()=>calls.push(['help','current']),assistantRequestStep:key=>calls.push(['preview',key]),
   commandPresentation:()=>({label:'Delivery unconfirmed',detail:'Do not resend'}),catalogStatus:()=>({title:'Delivery unconfirmed',detail:'Do not resend'}),scheduleCatalogFollowup:()=>{},standardConfirmation:()=>calls.push(['confirmation'])};
 vm.createContext(box);vm.runInContext(fs.readFileSync('web/summaries.js','utf8'),box);vm.runInContext(fs.readFileSync('web/journey.js','utf8'),box);
 const base=()=>({workspace:{id:'alpha',name:'Sample project'},repositories:[{policyProfile:'standard'}],commands:[],
@@ -51,9 +51,18 @@ assert.equal(model(s).action,'conversation','A received message without its reta
 s.commands=[];
 s.meta.controller={owner:'brain'};assert.equal(model(s).action,'pause','An owned cycle retains safe Pause');
 s.recovery=null;
-s.standard.run=run('paused');assert.equal(model(s).action,'prepare');
+s.standard.run=run('paused');assert.equal(model(s).action,'recover');
+box.state=s;let recoveryView=render();all(recoveryView).find(n=>n.text==='Review recovery preparation').click();
+assert.deepEqual(calls.slice(-2),[['focus','assistant'],['help','current']],'Checkpoint CTA focuses the one existing signed guided preview');
+s.commands=[{kind:'reconcile',payload:{message:'Held instruction'},status:'queued',notification:{status:'uncertain'}}];
+assert.equal(model(s).action,'conversation','Uncertain earlier delivery is never woken again');s.commands=[];
 s.standard.blockers=[];assert.equal(model(s).action,'resume');
-s.standard.run.expiresAt=500;assert.equal(model(s).action,'prepare');
+s.standard.run.expiresAt=500;assert.equal(model(s).action,'recover');
+s.standard.run.recovery={id:'recovery-1',status:'queued'};assert.equal(model(s).action,'recover_follow');
+s.standard.run.recovery={id:'recovery-1',status:'replied'};assert.match(model(s).title,/Review the recovery result/);
+s.standard.blockers=[];s.standard.run.expiresAt=2000;s.standard.run.recovery.status='processing';assert.equal(model(s).action,'recover_follow','A pending recovery reply remains the next action even if blockers clear');
+s.standard.run.recovery.status='replied';assert.equal(model(s).action,'resume','A replied recovery does not block a separately reviewed eligible Resume');
+s.standard.run.recovery=null;
 s.standard.run=run('stopping');assert.equal(model(s).action,'overview');assert.equal(model(s).canPause,undefined);
 s.standard.run=run('unrecognized');assert.equal(model(s).action,'conversation');
 for(const status of ['completed','blocked']){s.standard.run=run(status);assert.equal(model(s).action,'prepare');assert.equal(model(s).stage,3);}

@@ -10,7 +10,10 @@ source's SKILL.md and references/operations.md before any controller operation.
 2. Check stop intent and existing controller ownership. A saved message does not
    resume a stopped brain, enable worker dispatch, approve packets, install a
    runner or grant target access. Process an explicit newer Resume through its
-   normal protocol before receiving saved input. Do not recover another owner
+   normal protocol before receiving saved input. The sole paused-standard
+   exception is an exact owner-confirmed `standard_recovery` wake: follow
+   standard-cycle.md and call `standard-brain recovery_receive` for its bound
+   message. This does not Resume development. Do not recover another owner
    based only on an old timestamp.
 3. Acquire the normal designated-brain controller. For an already activated
    standard run, follow standard-cycle.md and its private token helpers. For a

@@ -52,6 +52,27 @@ settings or resume a stopped brain. Release the controller after either receipt.
 
 ## Operating cycle
 
+### Recovery-only preparation at a paused checkpoint
+
+An ordinary saved message never wakes a paused run. If the dashboard sends an
+exact `standard_recovery` notification, read the latest `standard-state` and
+verify the bound run, brain, checkout and one-shot request. This is separate
+from Play and phase Resume. Acquire the standard controller, then call
+`standard-brain` with `{"operation":"recovery_receive","runId":"EXACT_RUN_ID","requestId":"EXACT_RECOVERY_ID"}`.
+Only that operation may receive the bound held conversation message while the
+run is paused. Read the message through `brain-messages`; its text is owner
+input, not permission to broaden the fixed recovery scope. Refresh permitted
+local usage before/after the turn if available, preserving original observation
+times and gaps. Treat the displayed additional token allowance as a cooperative
+one-turn ceiling, not a hard provider cap or a reset of old phase usage.
+Inspect exact existing effect receipts and read-only native evidence. Retain a
+terminal checkpoint only when its existing preconditions genuinely hold, and
+save a successor mission draft only when appropriate. No worker creation or
+continuation, merge, retry, scope/policy change, mission review, Play or Resume.
+Reply to the exact held message with `brain-message-reply` and release the
+controller. If the wake outcome or evidence is uncertain, retain the blocker;
+never request a second native send or infer a missing task did not exist.
+
 1. `receive` the saved controls. Read `standard-state` before/after every bounded
    operation. Latest state wins, especially Pause. No new task in stopping,
    paused, blocked or completed state, or when blockers/expiry are present.

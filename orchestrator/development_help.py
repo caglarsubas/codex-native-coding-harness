@@ -86,13 +86,35 @@ def plan(state):
     def step(mode, title, detail, key=None):
         return {**result, "mode": mode, "title": title, "detail": detail, "key": key}
 
+    s, m = state["standard"], state.get("mission") or {}
+    run = s.get("run") or {}
+    authorized = run.get("recovery") or {}
+    recovery_replied = authorized.get("status") == "replied"
+    if run.get("status") == "paused" and (s.get("blockers") or
+            (state.get("recovery") and not recovery_replied) or
+            (authorized and not recovery_replied)):
+        if authorized:
+            result["requestId"] = authorized["id"]
+            if authorized.get("status") in ("queued", "processing"):
+                return step("follow", "Recovery preparation is underway",
+                            "Follow the one-shot native delivery, brain receipt and reply. The phase remains paused.")
+            return step("blocked", "Review the recovery result",
+                        "The one-shot preparation turn has ended. Review its reply and the exact remaining decision; no automatic Resume or Play.")
+        if actions["phase_recovery"]["available"]:
+            from .checkpoint_recovery import pending_message
+            held = pending_message(commands, state["meta"]["brainId"])
+            result["requestId"] = held["id"] if held else None
+            return step("prepare", "Prepare safely from this checkpoint",
+                        "Review one bounded preparation wake. We reuse the saved message if present; no phase Resume or worker effect.",
+                        "phase_recovery")
+        return step("blocked", "Checkpoint recovery needs attention",
+                    actions["phase_recovery"]["unavailableReason"])
+
     pending = next((c for c in commands if c.get("status") in ("queued", "processing") or c.get("needsBrainReceipt") or
                     (c.get("kind") == "reconcile" and c.get("payload", {}).get("message") and not c.get("conversationReply"))), None)
     if pending:
         result["requestId"] = pending["id"]
         return step("follow", "Following your saved request", "No duplicate request will be sent. Delivery, receipt and reply are shown separately.")
-    s, m = state["standard"], state.get("mission") or {}
-    run = s.get("run") or {}
     if ((state.get("brainHandoff") or {}).get("handoff") or {}).get("status") in ("prepared", "candidate", "received"):
         return step("blocked", "Brain handoff needs your review", "Help cannot replace a brain or bypass its identity checks.")
     if (state["meta"].get("brainControl") or {}).get("desired") == "stopped":

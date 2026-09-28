@@ -9,7 +9,7 @@ from .assistant_actions import ActionProposals, TTL
 from .core import digest, require
 from .recovery import describe
 
-KINDS = {"phase_help", "phase_prepare", "phase_reconcile", "phase_review", "phase_play", "phase_pause", "phase_resume", "usage_check", "codex_check", "brain_message"}
+KINDS = {"phase_help", "phase_prepare", "phase_reconcile", "phase_recovery", "phase_review", "phase_play", "phase_pause", "phase_resume", "usage_check", "codex_check", "brain_message"}
 PREPARE_MESSAGE = (
     "Review this project's configured roadmap sources and latest retained results. "
     "Prepare the next unfinished, bounded phase as a mission draft. Include goal, success criteria, "
@@ -110,6 +110,27 @@ def catalog(state):
         message_reason or ("Finish the existing brain handoff first." if blocked_handoff else
                           "The saved phase control still needs its receipt." if pending_control else
                           "An open running phase with recorded blockers is required." if run.get("status") != "running" or not recovery else None))
+    from .checkpoint_recovery import pending_message
+    recovery_reason = None
+    if run.get("status") != "paused" or not (s.get("blockers") or recovery):
+        recovery_reason = "A paused phase with recorded blockers is required."
+    elif run.get("recovery"):
+        recovery_reason = "This phase already has a one-shot preparation wake. Follow its receipt and reply."
+    elif stopped or blocked_handoff or state["meta"].get("controller"):
+        recovery_reason = "Finish Brain Stop, handoff or the owned controller before recovery review."
+    elif any(c.get("kind") in ("standard_play", "standard_pause", "standard_resume") and
+             c.get("status") in ("queued", "processing") for c in state.get("commands", [])):
+        recovery_reason = "A phase control still needs its receipt."
+    else:
+        try:
+            pending_message(state.get("commands", []), state["meta"]["brainId"])
+        except ValueError as error:
+            recovery_reason = str(error)
+    if not recovery_reason and (state.get("brainNotification") or {}).get("transport") != "owned_app_server":
+        recovery_reason = "Recovery wake needs the reviewed, bound Codex app-server host; a desktop queue is not enough."
+    add("phase_recovery", "Prepare safely from this checkpoint",
+        "Authorize one bounded brain preparation turn. It may save evidence, a checkpoint, a draft and a reply; "
+        "the phase stays paused, with no workers, merge, Play or Resume.", recovery_reason)
     add("phase_review", "Review this phase plan", "Record your review of the exact scope and limits. Play is a separate confirmation.",
         "Finish the current phase or handoff first." if active or blocked_handoff else
         "A current, unchanged mission draft is required." if m.get("effectiveStatus") != "draft" or m.get("bindingIssues") else None)
@@ -171,6 +192,26 @@ class JourneyProposals(ActionProposals):
             request = {"id": ident, "contextHash": standard["contextHash"]}
         elif kind == "usage_check":
             request = {"id": ident, "runId": standard["run"]["id"], "contextHash": standard["contextHash"]}
+        elif kind == "phase_recovery":
+            from .checkpoint_recovery import SUGGESTED_TOKENS, instruction, pending_message
+            run = standard["run"]
+            existing = pending_message(state.get("commands", []), state["meta"]["brainId"])
+            message = existing["payload"]["message"] if existing else instruction(run)
+            report = run.get("usageReport") or {}
+            usage = {"knownLowerBound": max(run.get("usageHighWater", 0),
+                                              (report.get("tokens") or {}).get("total_tokens", 0)) or None,
+                     "coverage": report.get("coverage", "unknown"), "gaps": report.get("gaps") if report else None,
+                     "observedAt": report.get("collectedAt"),
+                     "brainObservedBaseline": run.get("brainObservedTokens") if run.get("brainUsageCoverage") != "not_observed" else None}
+            request = {"id": ident, "messageId": existing["id"] if existing else str(uuid.uuid4()),
+                       "existingMessageId": existing["id"] if existing else None, "messageHash": digest(message),
+                       "message": message, "runId": run["id"], "runHash": digest(run), "phaseId": run["phaseId"],
+                       "brainId": state["meta"]["brainId"], "expectedRevision": state["meta"]["revision"],
+                       "allowanceTokens": SUGGESTED_TOKENS, "usage": usage}
+            preview.update(recovery={"runId": run["id"], "phaseId": run["phaseId"],
+                                     "allowanceTokens": SUGGESTED_TOKENS, "usage": usage,
+                                     "reusesMessage": bool(existing), "messageId": request["messageId"],
+                                     "expiresAt": run["expiresAt"]}, message=message)
         else:
             from .development_help import message as help_message, SUMMARY
             message = (help_message(state) if kind == "phase_help" else
@@ -227,6 +268,11 @@ class JourneyProposals(ActionProposals):
             from .brain_memory import refresh
             require(standard.read(ledger)["contextHash"] == request["contextHash"], "Run changed; review a fresh usage request")
             return self.result(doc, refresh(ledger, request["runId"], doc["id"])), False
+        if kind == "phase_recovery":
+            from .checkpoint_recovery import confirm as confirm_recovery
+            current_status = self.runtime.notifier.status(doc["brainId"])
+            result = confirm_recovery(self.runtime.registry, ledger, request, current_status)
+            return self.result(doc, result), True
         if kind in ("phase_play", "phase_pause", "phase_resume"):
             result = self.runtime.standard_controls.confirm(self.runtime.registry, ledger, {**request, "confirmed": True}, session)
         elif kind == "codex_check":
@@ -239,7 +285,8 @@ class JourneyProposals(ActionProposals):
     @staticmethod
     def result(doc, result):
         return {"workflow": doc["workflow"], "id": doc["id"], "result": result,
-                "message": "Phase plan reviewed. You can now review Play here." if doc["workflow"] == "phase_review" else
+                "message": "Recovery-only preparation saved. The phase remains paused; follow native delivery and the brain's separate receipt." if doc["workflow"] == "phase_recovery" else
+                           "Phase plan reviewed. You can now review Play here." if doc["workflow"] == "phase_review" else
                            "Usage refreshed. Remaining measured budget is unknown." if doc["workflow"] == "usage_check" and result.get("gaps") else
                            "Usage refreshed. Existing budget and checkpoint gates still apply." if doc["workflow"] == "usage_check" else
                            "Request saved. Follow its receipt and the brain's response here."}

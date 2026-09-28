@@ -358,12 +358,16 @@ class Controls:
                 require(run and run["status"] in ("running", "stopping"), "No active cooperative run")
                 run["status"] = "stopping"
             elif op == "resume":
+                require(not run or not run.get("recovery") or run["recovery"].get("status") == "replied",
+                        "Recovery preparation still needs its exact reply")
                 require(run and run["status"] == "paused" and not any(t["status"] not in TERMINAL for t in run["tasks"]), "Retain a safe checkpoint before resuming")
                 require(not current_blockers(ledger, db, run), "Run expired or mission changed; review a new phase")
                 require(not any(m["status"] in ("issued", "uncertain") for m in run.get("merges", [])), "Reconcile the unresolved merge before Resume")
                 run["status"] = "running"
             else:
                 require(projection(ledger, db)["available"], "Standard Play prerequisites are missing")
+                require(not run or not run.get("recovery") or run["recovery"].get("status") == "replied",
+                        "Recovery preparation still needs its exact reply")
                 if doc.get("measureUsage"):
                     from .observations import config as observation_config
                     require(observation_config(ledger).get("codexHome"),
@@ -451,12 +455,21 @@ def brain(registry, ledger, token, request):
             return command
         run = meta.get("standardRun")
         require(run and request.get("runId") == run["id"], "Exact cooperative run required")
-        if operation == "receive":
+        if operation == "recovery_receive":
+            exact(request, "operation runId requestId")
+            from .checkpoint_recovery import receive as receive_recovery
+            receive_recovery(ledger, db, meta, run, request["requestId"])
+            meta["inboxCheckedAt"] = time.time()
+            # Conversation receipt events may advance the ledger revision inside
+            # this transaction. Do not overwrite that counter with the earlier
+            # controller snapshot when the run receipt is saved below.
+            meta["revision"] = ledger.get(db, "meta", 1)["revision"]
+        elif operation == "receive":
             exact(request, "operation runId")
             meta["inboxCheckedAt"] = time.time()
             from .conversation import pending, receive_in
             for command in ledger.all(db, "commands"):
-                if command["kind"].startswith("standard_") and command["status"] == "queued":
+                if command["kind"].startswith("standard_") and command["kind"] != "standard_recovery" and command["status"] == "queued":
                     command.update(status="completed", result="Received by designated brain; latest run state governs", completedAt=time.time())
                     ledger.put(db, "commands", command["id"], command)
                 elif command["kind"] == "decision_response" and command["status"] == "queued" and run["status"] not in ("stopping", "paused"):

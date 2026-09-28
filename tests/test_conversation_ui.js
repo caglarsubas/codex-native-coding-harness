@@ -32,6 +32,10 @@ async function render(){const root=new Element('root');box.conversationView(root
   root=new Element('root');box.conversationActivity(root,activity);
   assert(all(root).some(n=>n.text?.includes('check the PR state')));
   assert.equal(box.brainMessageState({}).label,'Saved · not notified');
+  box.state.standard={run:{status:'paused'}};
+  assert.equal(box.brainMessageState({}).label,'Held at checkpoint');
+  assert.match(box.brainMessageState({}).detail,/recovery-only preparation wake/);
+  box.state.standard=null;
   assert.equal(box.brainMessageState({notification:{status:'accepted'}}).label,'Sent to Codex');
   assert.equal(box.brainMessageState({notification:{status:'uncertain'}}).label,'Delivery unconfirmed');
   assert.equal(box.brainMessageState({receivedAt:1}).label,'Received · reply pending');

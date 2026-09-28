@@ -70,7 +70,8 @@ function brainMessageState(message){
   }
   if(n?.status==='uncertain'||n?.status==='sending')return {label:'Delivery unconfirmed',detail:'Your message is saved. Do not send a duplicate; reconcile delivery before retrying.'};
   if(n?.status==='unavailable')return {label:'Saved · notification unavailable',detail:n.detail};
-  return {label:'Saved · not notified',detail:'A stopped brain does not wake for a message. Use the explicit Resume control, or check the configured bridge.'};
+  if(state?.standard?.run?.status==='paused')return {label:'Held at checkpoint',detail:'The phase is paused, so this message was not sent. Review the recovery-only preparation wake; it can reuse this request without resuming development.'};
+  return {label:'Saved · not notified',detail:'The brain has not been notified. Check its recorded controls and configured bridge before another request.'};
 }
 function conversationEntry(root){
   const panel=el('section',null,'brain-entry'),title=state.brainActivity?.title||'Existing Codex brain';
@@ -89,7 +90,7 @@ function conversationView(root){
   head.append(el('p','This is the project brain in Codex, not the advisory inference assistant. Project outcomes, platform messages and retained replies appear here; this is not a full Codex transcript.','checkpoint'));
   const actions=el('div',null,'inline-actions');actions.append(button('Decision inbox',()=>navigateView('decisions')),button('Approved queue',()=>navigateView('queue')),button('Artifact library',()=>navigateView('artifacts')));head.append(actions);root.append(head);
   const stopping=['stop_requested','checkpointing','parked'].includes(state.meta.brainControl?.phase)||['stopping','paused'].includes(state.standard?.run?.status);
-  if(stopping)root.append(callout('Brain paused or stopping','Messages stay saved. Use the explicit Resume control to continue from its checkpoint; sending a message does not resume work.'));
+  if(stopping)root.append(callout('Brain paused or stopping',state.standard?.run?.status==='paused'?'Messages stay saved. If the phase has blockers, review the recovery-only preparation wake; ordinary Resume cannot bypass them.':'Messages stay saved. Sending a message does not resume the phase.'));
   const history=el('section',null,'brain-history');history.setAttribute('aria-label','Project brain messages');history.append(el('p','Loading saved conversation…'));root.append(history);
   const form=el('form',null,'brain-composer'),label=el('label','Message your project brain'),input=el('textarea');input.id='brain-message';input.setAttribute('data-focus','brain-message');input.rows=5;input.maxLength=8000;input.required=true;input.value=draft.text;label.htmlFor=input.id;form.append(label,input);
   const checkLabel=el('label',null,'decision-confirm'),check=el('input');check.type='checkbox';check.checked=draft.confirmed;checkLabel.append(check,el('span','Send to this project’s existing Codex brain. Packet, phase and access approvals still use their review controls.'));form.append(checkLabel);

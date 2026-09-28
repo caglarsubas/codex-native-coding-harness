@@ -2,7 +2,8 @@
 
 Run: python3 tests/manual_journey_fixture.py --port 8797
 Uses the local signed-control API with temporary ledgers and a temporary Git repo.
-Every project is synthetic. No notifier, inference service or scheduler is enabled.
+Every project is synthetic. A recovery-only project uses an inert notifier stub;
+no native Codex task, inference service or scheduler is contacted.
 """
 import argparse
 import json
@@ -76,13 +77,13 @@ if __name__ == '__main__':
                         '-c', 'user.email=fixture@example.invalid', 'commit', '--allow-empty',
                         '-qm', 'Disposable preview'], check=True)
         (fixture.root / 'empty-codex-logs').mkdir()
-        for identity in ['alpha', 'draft', 'running', 'paused', 'completed', 'blocked', 'needs-catalog']:
+        for identity in ['alpha', 'draft', 'running', 'paused', 'recovering', 'completed', 'blocked', 'needs-catalog']:
             ledger, token = (fixture.ledger, fixture.token) if identity == 'alpha' else fixture.workspace(identity)
             (ledger.root / 'observations.json').write_text(json.dumps({'codexHome': str(fixture.root / 'empty-codex-logs')}))
             if identity == 'draft':
                 from orchestrator.missions import read as mission_read
                 change(ledger, request(spec=specification(mode='phase_delegated'), expectedRevision=mission_read(ledger)['revision']))
-            if identity in ('running', 'paused', 'completed', 'blocked'):
+            if identity in ('running', 'paused', 'recovering', 'completed', 'blocked'):
                 fixture.control(ledger=ledger)
                 run_id = read(ledger)['run']['id']
                 brain(fixture.registry, ledger, token, {'operation': 'receive', 'runId': run_id})
@@ -101,12 +102,22 @@ if __name__ == '__main__':
                         'source': 'Synthetic commit', 'tests': 'Synthetic tests', 'artifacts': [],
                         'preservation': 'Disposable fixture', 'summary': 'Synthetic evidence only; no native task ran.'})
                 if identity != 'running':
-                    if identity == 'paused':
+                    if identity in ('paused', 'recovering'):
                         fixture.control('pause', ledger=ledger)
                         brain(fixture.registry, ledger, token, {'operation': 'receive', 'runId': run_id})
                     brain(fixture.registry, ledger, token, {'operation': 'checkpoint', 'runId': run_id,
-                          'outcome': identity, 'summary': 'Synthetic checkpoint: review the result before continuing.',
-                          'brainObservedTokens': None})
+                          'outcome': 'paused' if identity == 'recovering' else identity,
+                          'summary': 'Synthetic checkpoint: review the result before continuing.',
+                          'brainObservedTokens': None,
+                          **({'reasonCodes': ['usage_evidence']} if identity == 'recovering' else {})})
+                    if identity == 'recovering':
+                        from orchestrator.standard import save
+                        with ledger.tx() as db:
+                            meta = ledger.get(db, 'meta', 1)
+                            run = meta['standardRun']
+                            run['expiresAt'] = time.time() - 1
+                            run['usageHighWater'] = 80_000
+                            save(ledger, db, meta, run, 'synthetic_expired_recovery')
                     if identity == 'blocked':
                         from orchestrator.brain_memory import scope
                         with ledger.tx() as db:
@@ -135,6 +146,18 @@ if __name__ == '__main__':
         fixture.registry.register('needs-plan', 'needs-plan', ledger.root)
         server = Dashboard(fixture.ledger, args.port, inference_env=fixture.root / '.env',
                            runtime_root=fixture.root, registry=fixture.registry)
+        class SyntheticWake:
+            def configured(self, brain_id):
+                return True
+
+            def send(self, brain_id, message, command_id):
+                return {'status': 'accepted', 'nativeDelivery': 'owned_turn_start',
+                        'detail': 'Synthetic UI receipt only; no native Codex task was contacted.'}
+
+            def close(self):
+                pass
+
+        server.runtime_for('recovering').notifier.app_server = SyntheticWake()
         server.bootstrap = 'disposable-roadmap-journey-preview'
         print(server.origin + '/#token=' + server.bootstrap, flush=True)
         with contextlib.ExitStack() as stack:

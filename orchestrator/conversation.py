@@ -31,12 +31,17 @@ def validate(ledger, db, command, meta, actor):
         validate_in(ledger, db, meta)
 
 
-def receive_in(ledger, db, command, meta):
+def receive_in(ledger, db, command, meta, recovery_id=None):
     require(is_message(command), "Not a brain conversation request")
     require(command["payload"]["brainId"] == meta["brainId"], "Message belongs to a different brain")
     from .brain_control import stopped
     run = meta.get("standardRun")
-    require(not stopped(meta) and not (run and run["status"] in ("stopping", "paused")), "Resume the brain before receiving saved messages")
+    recovery = (run or {}).get("recovery") or {}
+    recovery_only = (recovery_id is not None and run and run["status"] == "paused" and
+                     recovery.get("id") == recovery_id and recovery.get("messageId") == command["id"] and
+                     recovery.get("status") in ("queued", "processing"))
+    require(not stopped(meta) and (recovery_only or not (run and run["status"] in ("stopping", "paused"))),
+            "Paused messages need an exact owner-reviewed recovery wake; phase Resume is separate")
     if command.get("conversationReply"):
         return command
     if not command.get("conversationReceivedAt"):
@@ -75,6 +80,8 @@ def reply(ledger, token, command_id, result):
         command.update(status="completed", result="Workspace brain reply retained.",
                        conversationReply={**result, "hash": digest(result), "at": time.time()})
         ledger.put(db, "commands", command_id, command)
+        from .checkpoint_recovery import replied as recovery_replied
+        recovery_replied(ledger, db, meta, command)
         ledger.event(db, "brain_message_replied", {"id": command_id, "replyHash": digest(result)})
         return command
 
