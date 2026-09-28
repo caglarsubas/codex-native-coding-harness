@@ -63,13 +63,14 @@ browser sessions expire on restart; do not publish either private URL. Each serv
 ledger has an exclusive dashboard lock. Restart after registering another workspace;
 the running server deliberately does not adopt new roots during ordinary reads.
 
-Use **Development workspace** in the left menu. Selection is tab-local and opens
-Overview; no native task starts. The introduction appears before operational
-status. **Edit project introduction** preserves versions and rejects stale edits.
+Select a project in the compact workspace header. Selection is tab-local and
+opens its graph; no native task starts. The introduction is available in the
+contextual inspector. **Edit project introduction** preserves versions and
+rejects stale edits.
 
-Use **Brain conversation** to send scoped direction to that project's existing
-Codex brain and read its retained reply. This is separate from the advisory
-inference assistant on the right. Delivery, receipt and reply are distinct;
+Select the brain node to send scoped direction to that project's existing
+Codex brain and read its retained reply in the inspector. This is separate from
+the labelled advisory guide. Delivery, receipt and reply are distinct;
 follow-up decisions and artifact links remain in the selected workspace.
 Pause/Resume and execution approvals keep their existing dedicated controls.
 See [the conversation contract](WORKSPACE-CONVERSATION.md). Native security or
@@ -93,9 +94,10 @@ the registry. Unknown or ambiguous selection refuses the request, never falling
 back to the first workspace. The assistant remains scoped to the named workspace
 even while viewing the cross-workspace comparison.
 
-Chat, decision drafts and uncertain command IDs are separated in memory per
-workspace/tab. Switching waits for in-flight mutations or assistant responses;
-late read responses are discarded. Reload clears transient drafts, as before.
+Chat, decision drafts and uncertain command IDs are separated by workspace/tab.
+Switching waits for in-flight mutations or assistant responses; late read
+responses are discarded. The unsent brain-chat draft is retained for refresh
+in this browser tab; other transient drafts have their documented boundaries.
 Assistant confirmations bind both the browser session and workspace. The server
 shares inference capacity, not prompts, conversation history, jobs or action keys.
 

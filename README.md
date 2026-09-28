@@ -82,25 +82,28 @@ dispatch/rerun jobs or provision paid CI: the owner requires no extra Actions
 billing. Read-only GitHub evidence checks do not execute workflows. Missing CI
 remains unavailable, never silently replaced by local-test success.
 
-Start with **Roadmap & Play**. It shows the current phase and one next action:
-prepare a proposal, review the plan, confirm Play, follow sessions, or review a
-checkpoint and prepare the next phase. **Prepare next phase** fills an editable
-message in Brain conversation; review and send it yourself. It never starts work.
-For the complete flow and state explanations, see the
-[Roadmap & Play guide](docs/ROADMAP-PLAY-UX.md).
+The project opens on one graph-centered workspace. Its header shows the saved
+phase, freshness and next action; the strip follows **Plan → Review & Play →
+Develop → Checkpoint**. Select the brain to read and message that project's
+durable conversation in the inspector. Select a task to see its short result,
+observed activity and evidence. Roadmap review, decisions, knowledge, budgets,
+history and advanced controls open in that same inspector. Prior project URLs
+remain deep links to those sections; the graph stays in view. Long records are
+under **Details**. The advisory guide is separately labelled and cannot send a
+brain message or confirm Play. See the [one-page operating guide](docs/ONE-PAGE-WORKSPACE.md)
+and [Roadmap & Play guide](docs/ROADMAP-PLAY-UX.md).
 
-**Session map** remains the activity monitor. Click a node or connection to inspect
-its conversation, evidence or metadata below the graph. **Phase setup & recovery →
-Advanced controls** contains historical and recovery details, including optional
-brain handoff. Normal phase iteration does not require a brain replacement.
+**Prepare next phase** prepares an editable brain message; it never starts work.
+Saving a plan, reviewing it and confirming Play remain separate owner actions.
+Existing runs and strict Harness keep their current authority. Future standard
+phases may propose editable, larger limits, but current usage gaps stay unknown.
+The optional isolated-worktrees mode requires its own exact reviewed phase and
+native worktree/scope proof before concurrent workers become eligible.
 
-Use the top **Navigation / Project / AI assistant** controls to show or collapse
-panes. Drag either divider, or focus it and use Left/Right (Shift for larger
-steps; Home/End for limits). **Reset layout** restores defaults. Type in the right
-panel and choose **Send** (or Cmd/Ctrl+Enter). Suggested questions only fill the
-box. Chat links navigate. To act, request a supported control and separately confirm
-its exact inline preview. Brain activity and worker dispatch are different controls.
-See [Assistant guide and data boundary](docs/ASSISTANT.md).
+The graph has a searchable list alternative. On narrow screens, its inspector
+opens as a dismissible sheet. Keyboard controls, reduced motion and light/dark
+themes remain supported. See [Session map](docs/SESSION-MAP.md) and the
+[assistant data boundary](docs/ASSISTANT.md).
 
 AI briefs are unverified drafts. Initial live trials exposed occasional narrative
 errors; factual-accuracy qualification remains open. Deterministic metrics and

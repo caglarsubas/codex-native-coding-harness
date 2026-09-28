@@ -20,6 +20,7 @@ from .core import ACTIVE, Refusal, canonical, digest, require, safe_relative
 from . import missions
 from .decisions import authorize_brain
 from .enrollment import fence_exists, record_in
+from . import standard_worktrees as worktrees
 
 PROTOCOL = "standard_cooperative_v1"
 CATALOG_REFRESH_KIND = "standard_catalog_refresh"
@@ -152,6 +153,64 @@ def projection(ledger, db):
         result["blocker"] = str(error)
     if run:
         result["blockers"] = current_blockers(ledger, db, run)
+        active = [t for t in run["tasks"] if t["status"] not in TERMINAL]
+        permitted = run["limits"]["maxParallelTasks"]
+        if worktrees.repository_mode(run) != worktrees.MODE:
+            eligible_now, reason = min(1, max(0, permitted-len(active))), "Repository-exclusive mode"
+        elif any(t.get("taskKind") != "producer" or not t.get("worktree") or
+                 time.time()-t["worktree"].get("nativeObservedAt", 0) >= worktrees.NATIVE_AGE for t in active):
+            eligible_now, reason = 0, "A pending, unbound, non-producer or stale native task retains the repository lock"
+        else:
+            mission_phase = (missions.state_in(ledger, db).get("document") or {}).get("spec", {}).get("phase", {})
+            outline = mission_phase.get("taskOutline", [])
+            candidates = []
+            for item in outline:
+                if any(t["repository"] == item["repository"] and
+                       not worktrees.disjoint(t["paths"], item["exactFiles"]) for t in run["tasks"]):
+                    continue
+                if all(t["repository"] != item["repository"] or
+                       worktrees.disjoint(t["paths"], item["exactFiles"]) for t in active):
+                    candidates.append(item)
+            chosen = []
+            for item in candidates:
+                if all(p["repository"] != item["repository"] or
+                       worktrees.disjoint(p["exactFiles"], item["exactFiles"]) for p in chosen):
+                    chosen.append(item)
+            eligible_now = min(len(chosen), max(0, permitted-len(active)),
+                               max(0, run["limits"]["maxTasks"]-len(run["tasks"])))
+            reason = ("Conservative disjoint candidates from the reviewed task outline; exact native and file checks still apply" if outline
+                      else "No reviewed independently scoped next candidate; exact proposed paths are checked at claim")
+            if not outline and permitted > 0:
+                eligible_now = None
+                reason = "Unknown until a reviewed outline identifies independently scoped producer candidates"
+        if worktrees.repository_mode(run) != worktrees.MODE and eligible_now and permitted > 0:
+            outline = (missions.state_in(ledger, db).get("document") or {}).get("spec", {}).get("phase", {}).get("taskOutline", [])
+            if not outline:
+                eligible_now = None
+                reason = "Unknown until a reviewed outline identifies the next task candidate"
+        if run["status"] != "running" or result["blockers"]:
+            eligible_now = 0
+            reason = "Run is stopped, blocked, expired or awaiting a new exact review"
+        integration_ready = False
+        integration_reason = "No fully verified producer set awaiting integration"
+        if worktrees.repository_mode(run) == worktrees.MODE:
+            phase = (missions.state_in(ledger, db).get("document") or {}).get("spec", {}).get("phase", {})
+            for scope in phase.get("scope", []):
+                same = [t for t in run["tasks"] if t["repository"] == scope["repository"]]
+                if (same and "open_pr" in scope["operations"] and
+                    all(t.get("taskKind") == "producer" and t["status"] == "completed" and
+                        t.get("sourceProof") and t.get("headSHA") for t in same) and
+                    run["status"] == "running" and not result["blockers"] and
+                    len(run["tasks"]) < run["limits"]["maxTasks"] and
+                    charged(run)+run["limits"]["checkpointReserveTokens"] < run["limits"]["tokenBudget"]):
+                    integration_ready = True
+                    integration_reason = "A separate budgeted integration task can be proposed; exact claim checks still apply"
+                    break
+        result["parallelEligibility"] = {"permitted": permitted, "currentlyEligible": eligible_now,
+                                         "active": len(active), "reason": reason,
+                                         "mode": worktrees.repository_mode(run),
+                                         "integrationReady": integration_ready,
+                                         "integrationReason": integration_reason}
         observations = [t["observedTokens"] for t in run["tasks"] if t.get("observedTokens") is not None]
         if run["brainUsageCoverage"] != "not_observed":
             observations.append(run["brainObservedTokens"])
@@ -407,7 +466,9 @@ def brain(registry, ledger, token, request):
                 elif pending(command) and run["status"] not in ("stopping", "paused"):
                     receive_in(ledger, db, command, meta)
         elif operation == "claim":
-            exact(request, "operation runId id repository title paths instructions acceptance model effort rationale allowance")
+            mode = worktrees.repository_mode(run)
+            exact(request, "operation runId id repository title paths instructions acceptance model effort rationale allowance" +
+                  (" taskKind" if mode == worktrees.MODE else ""))
             require(run["status"] == "running" and not current_blockers(ledger, db, run), "Run is stopped, expired or stale")
             require(not any(m["status"] in ("prepared", "issued", "uncertain") for m in run.get("merges", [])), "Merge handoff owns the phase checkpoint")
             require(not any(t["id"] == request["id"] for t in run["tasks"]), "Task intent already exists; reconcile, never recreate")
@@ -428,22 +489,95 @@ def brain(registry, ledger, token, request):
             repo = ledger.get(db, "repos", request["repository"])
             identity = git_root(repo["path"])
             require(identity == run["identities"][repo["id"]], "Repository identity changed")
+            task_kind = None
+            start_commit = None
+            producer_sources = []
+            if mode == worktrees.MODE:
+                task_kind = request["taskKind"]
+                require(task_kind in ("producer", "integration"), "Isolated worktree task kind required")
+                require(repo["policyProfile"] == "standard" and repo.get("projectId") not in (None, "projectless"),
+                        "Isolated worktrees require a registered native Git project")
+                start_commit = worktrees.start_commit(repo["path"])
+                pinned_base = run.setdefault("repositoryBases", {}).setdefault(repo["id"], start_commit)
+                require(start_commit == pinned_base, "Repository base moved during the phase")
+                same_repo = [t for t in run["tasks"] if t["repositoryIdentity"] == identity]
+                if task_kind == "producer":
+                    worktrees.exact_files(repo["path"], paths)
+                    require(not any(t.get("taskKind") == "integration" for t in same_repo),
+                            "Integration already owns this repository")
+                    require(all(t.get("taskKind") == "producer" and worktrees.disjoint(paths, t["paths"])
+                                for t in same_repo), "Producer file scopes overlap or are ambiguous")
+                    producer_repos = {t["repository"] for t in run["tasks"] if t.get("taskKind") == "producer"}
+                    integrated_repos = {t["repository"] for t in run["tasks"] if t.get("taskKind") == "integration"}
+                    pending_integration_slots = len((producer_repos | {repo["id"]}) - integrated_repos)
+                    require(len(run["tasks"])+1+pending_integration_slots <= run["limits"]["maxTasks"],
+                            "Reserve one integration task slot per producer repository; review a larger total task limit")
+                else:
+                    require(not any(t.get("taskKind") == "integration" for t in same_repo),
+                            "Integration is one-shot for the repository")
+                    require("open_pr" in scope["operations"], "Reviewed integration scope must permit one PR")
+                    worktrees.exact_files(repo["path"], paths)
+                    require(same_repo and all(t.get("taskKind") == "producer" and t["status"] == "completed" and
+                                              t.get("sourceProof") and t.get("headSHA") for t in same_repo),
+                            "All producers must settle with verified committed source before integration")
+                    producer_sources = [{"taskId": t["id"], "headSHA": t["headSHA"],
+                                         "sourceProof": t["sourceProof"], "paths": t["paths"]} for t in same_repo]
+                    for source in producer_sources:
+                        retained = ledger.get(db, "snapshots", source["sourceProof"])
+                        require(digest(retained) == source["sourceProof"] and
+                                retained["commit"] == source["headSHA"] and
+                                set(retained["changedPaths"]) <= set(source["paths"]) and
+                                retained.get("historyScope", {}).get("bounded") is True,
+                                "Pinned producer source proof is unavailable or changed")
             owners = active[:]
             for row in registry_db.execute("SELECT id,root FROM workspaces WHERE id<>?", (missions.workspace(ledger),)):
                 with read_db(Path(row["root"])/"ledger.sqlite3") as other:
                     other_meta = ledger.get(other, "meta", 1)
                     require(not any(w["status"] in ACTIVE for w in ledger.all(other, "workers")), "Another workspace has legacy/strict owners; use a separate standard registry")
-                    owners.extend(t for t in (other_meta.get("standardRun") or {}).get("tasks", []) if t["status"] not in TERMINAL)
+                    foreign = [t for t in (other_meta.get("standardRun") or {}).get("tasks", []) if t["status"] not in TERMINAL]
+                    require(not any(t["repositoryIdentity"] == identity for t in foreign),
+                            "Repository is owned by a registered task in another workspace")
+                    owners.extend(foreign)
                     require(not any(m["repositoryIdentity"] == identity and m["status"] in ("prepared", "issued", "uncertain") for m in (other_meta.get("standardRun") or {}).get("merges", [])), "Repository has an unresolved merge handoff")
             require(len(owners) < 16, "Registered platform task capacity occupied (16)")
-            require(not any(t["repositoryIdentity"] == identity for t in owners), "Repository is owned by a registered task")
+            same_active = [t for t in active if t["repositoryIdentity"] == identity]
+            if mode != worktrees.MODE or task_kind == "integration":
+                require(not same_active, "Repository is owned by a registered task")
+            else:
+                for owner in same_active:
+                    binding = owner.get("worktree")
+                    require(owner.get("taskKind") == "producer" and owner.get("threadId") and binding and
+                            time.time()-binding.get("nativeObservedAt", 0) < worktrees.NATIVE_AGE,
+                            "Pending or unverified native creation retains the whole-repository lock")
+                    require(worktrees.disjoint(paths, owner["paths"]), "Producer file scopes overlap")
+                    checked = worktrees.verify_worktree(repo["path"], owner, {
+                        "root": binding["root"], "branch": binding["branch"],
+                        "startCommit": binding["startCommit"],
+                        "nativeCreation": binding["nativeCreation"],
+                        "nativeObservation": {"threadId": owner["threadId"], "hostId": owner["hostId"],
+                                              "cwd": binding["root"], "observedAt": binding["nativeObservedAt"],
+                                              "sourceHash": binding["nativeSourceHash"]}}, fresh_native=True)
+                    require(checked["layoutHash"] == binding["layoutHash"], "Existing worktree identity changed")
             task = {k: request[k] for k in ("id", "repository", "title", "paths", "model", "effort", "rationale", "allowance")}
+            if mode == worktrees.MODE:
+                task.update(taskKind=task_kind, startCommit=start_commit,
+                            producerSources=producer_sources, nativeProjectId=repo["projectId"])
             for key in ("title", "rationale"):
                 task[key] = missions.text(task[key], key, 2000)
             seed = {"runId": run["id"], "taskId": task["id"], "mission": m["document"], "repository": repo,
                     "instructions": missions.text(request["instructions"], "Instructions", 16000),
                     "acceptance": missions.strings(request["acceptance"], "Acceptance"), "task": task,
                     "checkpoint": run["checkpoint"], "boundary": BOUNDARY}
+            if mode == worktrees.MODE:
+                seed["nativeWorktreeRequired"] = True
+                seed["nativeCreation"] = {"projectId": repo["projectId"], "environment": "worktree",
+                                          "startingState": {"type": "branch", "branchName": start_commit},
+                                          "boundary": "Use the exact pinned commit as the worktree start ref; a default-ref checkout is not accepted."}
+                seed["producerCommits"] = producer_sources
+                seed["roleBoundary"] = ("Producer: edit, test and commit only in this task's native worktree; "
+                                        "do not open or merge a PR." if task_kind == "producer" else
+                                        "Integration: combine each pinned producer commit, run combined checks, "
+                                        "and open one PR. Conflicts or drift stop for owner review; never retry an uncertain native effect.")
             from .project_knowledge import seed_references
             try:
                 seed["sourceReferences"] = seed_references(ledger, repo["id"], repo["path"], paths)
@@ -473,6 +607,37 @@ def brain(registry, ledger, token, request):
             require(not any(t["id"] != task["id"] and t["threadId"] == request["threadId"] for t in run["tasks"]) if request["threadId"] else True, "Duplicate native task")
             task.update(threadId=request["threadId"], clientThreadId=request["clientThreadId"] or task["clientThreadId"],
                         hostId=missions.text(request["hostId"], "Host", 100), status="active" if request["threadId"] else "pending")
+        elif operation == "worktree_bind":
+            exact(request, "operation runId taskId threadId root branch startCommit nativeObservation nativeCreation")
+            require(worktrees.repository_mode(run) == worktrees.MODE, "Worktree binding is only for reviewed isolated phases")
+            task = find_task(run, request)
+            require(task.get("threadId") and task["threadId"] == request["threadId"] and task["status"] == "active",
+                    "Confirmed active native task required")
+            repo = ledger.get(db, "repos", task["repository"])
+            value = {k: request[k] for k in ("root", "branch", "startCommit", "nativeObservation", "nativeCreation")}
+            prior = task.get("worktree")
+            if prior:
+                native = value["nativeObservation"]
+                if (value["root"] == prior["root"] and value["branch"] == prior["branch"] and
+                    value["startCommit"] == prior["startCommit"] and value["nativeCreation"] == prior["nativeCreation"] and
+                    isinstance(native, dict) and
+                    native == {"threadId": task["threadId"], "hostId": task["hostId"],
+                               "cwd": prior["root"], "observedAt": prior["nativeObservedAt"],
+                               "sourceHash": prior["nativeSourceHash"]}):
+                    return projection(ledger, db)  # Exact historical replay; no I/O or refreshed clock.
+            checked = worktrees.verify_worktree(repo["path"], task, value, fresh_native=True)
+            if prior:
+                require({k: checked[k] for k in ("root", "branch", "startCommit", "layoutHash")} ==
+                        {k: prior[k] for k in ("root", "branch", "startCommit", "layoutHash")} and
+                        checked["nativeObservedAt"] > prior["nativeObservedAt"],
+                        "Worktree binding is immutable; refresh needs newer native evidence")
+            require(not any(t["id"] != task["id"] and t.get("worktree") and
+                            (t["worktree"]["root"] == checked["root"] or
+                             t["worktree"]["layoutHash"] == checked["layoutHash"] or
+                             t["worktree"]["branch"].casefold() == checked["branch"].casefold())
+                            for t in run["tasks"] if t["repositoryIdentity"] == task["repositoryIdentity"]),
+                    "Native worktree or branch is already bound to another task")
+            task["worktree"] = checked
         elif operation == "observe":
             exact(request, "operation runId taskId nativeStatus observedTokens trackedTerminals observedAt source")
             task = find_task(run, request)
@@ -499,6 +664,19 @@ def brain(registry, ledger, token, request):
             require(root_text.returncode == 0, "Artifact must be inside the registered repository or its worktree")
             root = Path(root_text.stdout.strip()).resolve(strict=True)
             require(git_root(root) == task["repositoryIdentity"], "Artifact belongs to a different Git repository")
+            if worktrees.repository_mode(run) == worktrees.MODE:
+                binding = task.get("worktree")
+                require(binding and root == Path(binding["root"]),
+                        "Preserve only from this task's verified native worktree")
+                repo = ledger.get(db, "repos", task["repository"])
+                checked = worktrees.verify_worktree(repo["path"], task, {
+                    "root": binding["root"], "branch": binding["branch"],
+                    "startCommit": binding["startCommit"],
+                    "nativeCreation": binding["nativeCreation"],
+                    "nativeObservation": {"threadId": task["threadId"], "hostId": task["hostId"],
+                                          "cwd": binding["root"], "observedAt": binding["nativeObservedAt"],
+                                          "sourceHash": binding["nativeSourceHash"]}}, fresh_native=True)
+                require(checked["layoutHash"] == binding["layoutHash"], "Worktree identity changed")
             relative = path.relative_to(root).as_posix()
             require(any(fnmatch.fnmatchcase(relative, pattern) for pattern in task["paths"]), "Artifact is outside the approved task paths")
             from .observations import EXTENSIONS, MAX_ARTIFACT, read_regular, capture
@@ -520,7 +698,20 @@ def brain(registry, ledger, token, request):
             require(task.get("nativeStatus") in ("idle", "completed", "failed") and task.get("trackedTerminals") == "none"
                     and time.time()-task.get("observedAt", 0) < 300, "Fresh finished-task and tracked-terminal observation required; not whole-tree proof")
             evidence = request["evidence"]
-            require(isinstance(evidence, dict) and set(evidence) in ({"source", "tests", "artifacts", "preservation", "summary"}, {"source", "tests", "artifacts", "preservation", "summary", "headSHA"}), "Unexpected result evidence fields")
+            require(isinstance(evidence, dict), "Result evidence must be an object")
+            required = {"source", "tests", "artifacts", "preservation", "summary"}
+            mode = worktrees.repository_mode(run)
+            if mode == worktrees.MODE:
+                required |= {"headSHA"}
+                if task.get("taskKind") == "integration":
+                    required |= {"prUrl", "prHeadBranch"}
+                require(request["outcome"] == "failed" or set(evidence) == required,
+                        "Isolated completed result needs exact commit and integration PR evidence")
+                require(request["outcome"] != "failed" or set(evidence) in (required, required-{"headSHA"},
+                        required-{"headSHA", "prUrl", "prHeadBranch"}), "Unexpected isolated failure evidence fields")
+            else:
+                require(isinstance(evidence, dict) and set(evidence) in (required, required | {"headSHA"}),
+                        "Unexpected result evidence fields")
             if "headSHA" in evidence:
                 from .source_observation import oid
                 oid(evidence["headSHA"])
@@ -528,8 +719,32 @@ def brain(registry, ledger, token, request):
             for key in evidence["artifacts"]:
                 require(isinstance(key, str) and (db.execute("SELECT 1 FROM snapshots WHERE id=?", (key,)).fetchone()
                         or db.execute("SELECT 1 FROM artifact_versions WHERE id=?", (key,)).fetchone()), "Preserve referenced artifact first")
+                if mode == worktrees.MODE:
+                    require(key in task.get("artifacts", []),
+                            "Isolated result artifact must be preserved by this exact native task")
             for key in ("source", "tests", "preservation", "summary"):
                 missions.text(evidence[key], key, 8000)
+            if mode == worktrees.MODE and request["outcome"] == "completed":
+                repo = ledger.get(db, "repos", task["repository"])
+                report = worktrees.source_proof(repo["path"], task, evidence["headSHA"])
+                if task["taskKind"] == "integration":
+                    from .github_evidence import pr_target
+                    from .standard_merge import remote_identity
+                    from .resources import git_metadata
+                    slug, number, _ = pr_target(evidence["prUrl"])
+                    require(evidence["prUrl"] == f"https://github.com/{slug}/pull/{number}",
+                            "Canonical integration PR URL required")
+                    require(evidence["prHeadBranch"] == task["worktree"]["branch"],
+                            "Integration PR claim must name its pinned native worktree branch")
+                    common = Path(git_metadata(repo["path"], "rev-parse", "--path-format=absolute", "--git-common-dir"))
+                    require(remote_identity(common) == slug, "Integration PR belongs to another repository origin")
+                    producers = task["producerSources"]
+                    require(all(next((t for t in run["tasks"] if t["id"] == p["taskId"]), {}).get("sourceProof") == p["sourceProof"]
+                                for p in producers), "Producer evidence changed before integration")
+                    worktrees.integrated(repo["path"], task, report, [p["headSHA"] for p in producers])
+                source_key = digest(report)
+                db.execute("INSERT OR IGNORE INTO snapshots VALUES(?,?,?)", (source_key, "standard_worktree_source", canonical(report)))
+                task.update(sourceProof=source_key, headSHA=evidence["headSHA"])
             doc = {"taskId": task["id"], "runId": run["id"], "outcome": request["outcome"], "evidence": evidence, "at": time.time(), "boundary": BOUNDARY}
             key = digest(doc)
             db.execute("INSERT INTO snapshots VALUES(?,?,?)", (key, "standard_result", canonical(doc)))

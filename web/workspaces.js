@@ -1,6 +1,9 @@
 "use strict";
 let workspaceId=null, workspaceGeneration=0, workspaceSwitching=false, workspaceWrites=0, workspaceList=[];
 let projectCatalog=null;
+function guideDraftKey(id){return 'orchestrator-guide-draft:'+(id||'legacy');}
+function saveGuideDraft(id,value){try{if(value)sessionStorage.setItem(guideDraftKey(id),value);else sessionStorage.removeItem(guideDraftKey(id));}catch{}}
+function loadGuideDraft(id){try{return sessionStorage.getItem(guideDraftKey(id))||'';}catch{return '';}}
 function selectedProject(){return workspaceList.find(p=>p.id===workspaceId);}
 function unconfiguredProject(){return selectedProject()?.managed===false;}
 const workspaceTabs=new Map();
@@ -16,6 +19,7 @@ function workspaceLocked(){return busy||workspaceWrites>0||workspaceSwitching||a
 function updateWorkspaceSelector(){const select=$('workspace-select');if(select)select.disabled=workspaceLocked();updateNavigationButton();}
 function saveWorkspaceTab(){
   if(!workspaceId)return;
+  saveGuideDraft(workspaceId,$('assistant-question').value);
   workspaceTabs.set(workspaceId,{history:assistantHistory,turns:assistantTurns,tokens:assistantTokens,missing:assistantMissingUsage,
     actions:[...assistantActions],chat:[...$('assistant-log').querySelectorAll('.chat-turn')],question:$('assistant-question').value,
     status:$('assistant-status').textContent,usage:$('assistant-usage').textContent,drafts:[...decisionDrafts],controls:[...controlRequests],autoObserve});
@@ -26,7 +30,7 @@ function restoreWorkspaceTab(id){
   for(const [map,entries] of [[assistantActions,saved?.actions],[decisionDrafts,saved?.drafts],[controlRequests,saved?.controls]]){map.clear();for(const [k,v] of entries||[])map.set(k,v);}
   $('assistant-log').querySelectorAll('.chat-turn').forEach(node=>node.remove());
   for(const node of saved?.chat||[])$('assistant-log').append(node);
-  $('assistant-question').value=saved?.question||'';$('assistant-welcome').hidden=assistantHistory.length>0;
+  $('assistant-question').value=saved?.question??loadGuideDraft(id);$('assistant-welcome').hidden=assistantHistory.length>0;
   $('assistant-context-preview').textContent='';$('assistant-context-preview').hidden=true;
   $('assistant-status').textContent=saved?.status||'';$('assistant-status').dataset.error='false';
   $('assistant-usage').textContent=saved?.usage||'Chat is private to this project and tab. Actions require confirmation.';
@@ -52,7 +56,8 @@ async function initializeWorkspaces(){
   await selectWorkspaceIdentity(id);
 }
 async function selectWorkspaceIdentity(id){
-  workspaceId=id;workspaceGeneration++;csrf=null;state=null;connected=false;selected=null;view='roadmap';
+  if(typeof sessionParkGuide==='function')sessionParkGuide();
+  workspaceId=id;workspaceGeneration++;csrf=null;state=null;connected=false;selected=null;view='overview';
   $('workspace-select').value=id;$('notice').hidden=true;
   $('mode').textContent='Connecting to '+workspaceList.find(w=>w.id===id).name+'…';
   $('content').replaceChildren(empty('Opening project','Loading only this project’s recorded state.'));
@@ -71,7 +76,7 @@ async function switchWorkspace(id,route=null,updateAddress=true){
   try{
     restoreWorkspaceTab(id);await selectWorkspaceIdentity(id);await refresh();
     if(!connected&&!unconfiguredProject())return false;
-    navigateView(route?.view||'roadmap',route?.id||null,updateAddress);
+    navigateView(route?.view||'overview',route?.id||null,updateAddress);
     return true;
   }catch(error){showNotice(error.message,true);return false;}
   finally{workspaceSwitching=false;updateWorkspaceSelector();}
@@ -113,10 +118,11 @@ function projectCatalogPanel(root){
   root.append(block);
 }
 async function prepareProjectSync(id){
-  const existing=brainDrafts.get(id);
+  const existing=brainDrafts.get(id)||loadBrainDraft(id);
   if(existing?.text||existing?.request){showNotice('This project already has an unsent conversation draft. Open its Brain conversation and preserve or send that draft first.',true);return;}
   if(!await switchWorkspace(id,{view:'conversation'}))return;
   brainDrafts.set(id,{text:'Refresh the platform’s Codex project catalog only. Read docs/PROJECT-CATALOG.md in the dashboard source checkout referenced by this notification, call the native list_projects tool, and import its complete result with the original observation time using project-sync. Preserve all project-to-ledger bindings. Do not create tasks, register ledgers, start development, change authority or resume paused work. Retain a reply with the result.',confirmed:false,request:null});
+  saveBrainDraft(id,brainDrafts.get(id));
   render();showNotice('Sync request prepared, not sent. Review the message and confirm its recipient.');
 }
 function renderUnconfiguredProject(){

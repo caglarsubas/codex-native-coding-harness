@@ -31,58 +31,19 @@ function paneGeometry(width,p){
     assistant:[280,Math.min(640,available-size.navigation-(closed.workspace?44:320))]};
   return {single:false,closed,widths:size,limits};
 }
-let panePreferences=defaultPanes(), paneLayout;
-try{panePreferences=cleanPanePreferences(JSON.parse(localStorage.getItem(PANE_STORE)));}catch{}
-function savePanes(){try{localStorage.setItem(PANE_STORE,JSON.stringify(panePreferences));}catch{}}
-function applyPanes(){
-  const shell=document.getElementById("pane-shell");if(!shell)return;
-  const focused=document.activeElement;
-  paneLayout=paneGeometry(shell.clientWidth,panePreferences);
-  const g=paneLayout;
-  shell.style.gridTemplateColumns=`${g.widths.navigation}px ${g.single?0:8}px ${g.widths.workspace}px ${g.single?0:8}px ${g.widths.assistant}px`;
-  for(const name of PANE_NAMES){
-    const pane=document.getElementById(name+"-pane"), body=pane.querySelector(".pane-body"), expand=pane.querySelector(".pane-expand");
-    pane.hidden=g.single&&g.closed[name];body.hidden=g.closed[name];expand.hidden=!g.closed[name]||g.single;
-    document.querySelectorAll(`[data-pane-toggle="${name}"]`).forEach(b=>b.setAttribute("aria-expanded",String(!g.closed[name])));
-    if(g.closed[name]&&body.contains(focused))document.querySelector(`.pane-toolbar [data-pane-toggle="${name}"]`).focus();
-  }
-  for(const name of ["navigation","assistant"]){
-    const handle=document.getElementById(name+"-resizer"), disabled=g.single||g.closed[name]||(g.closed.workspace&&(name==='assistant'||g.closed.assistant));
-    handle.hidden=g.single;handle.tabIndex=disabled?-1:0;handle.setAttribute("aria-disabled",String(disabled));
-    const [min,max]=g.limits[name]||[0,0];handle.setAttribute("aria-valuemin",Math.min(min,g.widths[name]));handle.setAttribute("aria-valuemax",Math.max(min,max,g.widths[name]));
-    handle.setAttribute("aria-valuenow",Math.round(g.widths[name]));handle.setAttribute("aria-valuetext",Math.round(g.widths[name])+" pixels");
-  }
-}
-function revealPane(name){panePreferences.collapsed[name]=false;panePreferences.focus=name;savePanes();applyPanes();}
-function resizePane(name,value){
-  const [min,max]=paneLayout.limits[name];panePreferences[name]=Math.max(min,Math.min(max,value));savePanes();applyPanes();
-}
+// The project graph now owns the desktop layout. Preserve these compatibility
+// functions for signed chat controls that formerly revealed a separate pane.
+let panePreferences=defaultPanes();
+function savePanes(){}
+function applyPanes(){}
+function revealPane(name){if(name==='assistant'&&typeof sessionShowGuide==='function')sessionShowGuide();}
 function initPanes(){
-  document.querySelectorAll("[data-pane-toggle]").forEach(b=>b.addEventListener("click",()=>{
-    const name=b.dataset.paneToggle;
-    if(paneLayout.single){if(!paneLayout.closed[name]){panePreferences.focus=name==="workspace"?"navigation":"workspace";panePreferences.collapsed[panePreferences.focus]=false;}else revealPane(name);}
-    else{panePreferences.collapsed[name]=!paneLayout.closed[name];if(!panePreferences.collapsed[name])panePreferences.focus=name;}
-    savePanes();applyPanes();document.getElementById("pane-announcement").textContent=name+(paneLayout.closed[name]?" collapsed":" expanded");
-  }));
-  document.getElementById("reset-panes").onclick=()=>{panePreferences=defaultPanes();savePanes();applyPanes();};
-  for(const name of ["navigation","assistant"]){
-    const handle=document.getElementById(name+"-resizer");
-    handle.addEventListener("keydown",e=>{
-      if(handle.getAttribute("aria-disabled")==="true"||!["ArrowLeft","ArrowRight","Home","End"].includes(e.key))return;
-      e.preventDefault();const [min,max]=paneLayout.limits[name], sign=name==="navigation"?1:-1;
-      resizePane(name,e.key==="Home"?min:e.key==="End"?max:paneLayout.widths[name]+(e.key==="ArrowRight"?1:-1)*sign*(e.shiftKey?48:16));
-    });
-    handle.addEventListener("pointerdown",e=>{
-      if(e.button!==0||handle.getAttribute("aria-disabled")==="true")return;
-      e.preventDefault();handle.focus();handle.setPointerCapture(e.pointerId);
-      const start=e.clientX, initial=paneLayout.widths[name];let frame=0, latest=start;
-      const shell=document.getElementById("pane-shell");shell.classList.add("is-resizing");handle.dataset.dragging="true";
-      const update=()=>{frame=0;resizePane(name,initial+(latest-start)*(name==="navigation"?1:-1));};
-      const move=ev=>{latest=ev.clientX;if(!frame)frame=requestAnimationFrame(update);};
-      const end=()=>{if(frame){cancelAnimationFrame(frame);update();}shell.classList.remove("is-resizing");delete handle.dataset.dragging;handle.removeEventListener("pointermove",move);handle.removeEventListener("lostpointercapture",end);};
-      handle.addEventListener("pointermove",move);handle.addEventListener("lostpointercapture",end);
-    });
-  }
-  new ResizeObserver(applyPanes).observe(document.getElementById("pane-shell"));applyPanes();
+  const picker=document.getElementById('workspace-picker'),slot=document.getElementById('project-switch-slot');
+  if(picker&&slot)slot.append(picker);
+  const theme=document.getElementById('theme'),toggle=document.getElementById('theme-toggle');
+  if(theme&&toggle)toggle.onclick=()=>theme.click();
+  document.getElementById('brand-graph').onclick=()=>navigateView('overview');
+  document.getElementById('guide-toggle').onclick=()=>sessionShowGuide();
+  document.getElementById('reset-panes').onclick=()=>navigateView('overview');
 }
 if(typeof document!=="undefined")document.addEventListener("DOMContentLoaded",initPanes,{once:true});

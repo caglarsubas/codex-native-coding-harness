@@ -43,7 +43,7 @@ See [roadmap source configuration](ROADMAP-SOURCES.md) for refresh and boundarie
 
 ## Guided phase iteration — UX source implementation
 
-- [x] Make Roadmap & Play the default project landing view, with Plan → Review & Play → Develop → Checkpoint navigation and a state-specific next action
+- [x] Earlier guided journey: Roadmap & Play was the default project landing view, with Plan → Review & Play → Develop → Checkpoint navigation and a state-specific next action (superseded by the graph-centered workspace below)
 - [x] Prepare the next phase through an editable, explicitly sent brain message; preserve existing drafts, checkpoint evidence and budgets
 - [x] Show signed Play/Resume/Pause reviews in context, with success criteria, scope, limits, exclusions, expiry and unchecked confirmation
 - [x] Separate task evidence, usage and advanced recovery from phase planning; collapse optional handoff, histories and roadmap source detail
@@ -51,6 +51,19 @@ See [roadmap source configuration](ROADMAP-SOURCES.md) for refresh and boundarie
 
 See [Roadmap & Play UX and verification](ROADMAP-PLAY-UX.md). This changes
 navigation and presentation, not native dispatch, Harness authority or merge policy.
+
+## One-page project workspace and future standard parallelism
+
+- [x] Replace the project navigation rail and competing assistant pane with a graph-centered workspace, a contextual inspector and one next action (source and disposable UI)
+- [x] Keep durable brain chat, task evidence, roadmap review and advanced controls in that workspace; preserve old links, keyboard access and narrow-screen reflow (source and disposable UI)
+- [x] Suggest editable, task-outline-based limits for new standard phases without changing existing runs or usage evidence (source)
+- [x] Add separately owner-reviewed isolated native-worktree producers and a bounded integration task; preserve repository exclusivity by default and strict Harness gates (source and local fixtures)
+- [x] Verify full local suites and rendered desktop/mobile disposable-project journeys (local/disposable, not live qualification)
+- [ ] Merge source, install after quiescing older writers and backing up private state, then qualify the selected live project as separate checkpoints
+
+See [one-page workspace and isolated worktrees](ONE-PAGE-WORKSPACE.md). Source
+delivery grants no Play, live migration, authority relaxation or automatic
+continuation of the current paused run.
 
 ## Foundation — v1
 

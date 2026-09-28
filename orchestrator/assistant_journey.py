@@ -153,12 +153,15 @@ class JourneyProposals(ActionProposals):
             op = kind.removeprefix("phase_")
             run = standard.get("run") or {}
             # Safe Pause must not depend on a still-valid mission document.
-            allowance = (max(1, mission["document"]["spec"]["authority"]["tokenBudget"] // 5)
-                         if op == "play" else run["brainAllowance"])
+            from .phase_suggestions import suggest_play_settings
+            proposed_play = (suggest_play_settings(mission["document"]["spec"]["authority"]["tokenBudget"])
+                             if op == "play" else None)
+            allowance = proposed_play["brainAllowanceTokens"] if op == "play" else run["brainAllowance"]
             request = self.runtime.standard_controls.preview(self.runtime.ledger, {
                 "operation": op, "contextHash": standard["contextHash"],
                 "brainAllowance": allowance,
-                "durationHours": 8, "measureUsage": op == "play"}, session)
+                "durationHours": proposed_play["durationHours"] if op == "play" else 8,
+                "measureUsage": op == "play"}, session)
             ident = request["preview"]["id"]
             if op == "play":
                 preview["runSettings"] = {k: request["preview"][k] for k in ("brainAllowance", "durationHours", "measureUsage")}

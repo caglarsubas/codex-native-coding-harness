@@ -15,10 +15,14 @@ function focusRouteTarget(route){
   }else if(route.view==="artifacts"&&route.id)target=document.querySelector(".artifact-reader");
   if(route.id&&!target){showNotice("This linked item is no longer available in the current snapshot. Review the latest items in this view.",true);return;}
   if(target){target.tabIndex=-1;target.scrollIntoView({block:"start"});target.focus({preventScroll:true});}
-  else{document.querySelector(".workspace").scrollTop=0;document.getElementById("main").focus({preventScroll:true});}
+  else{
+    const inspector=document.getElementById('session-inspector');if(inspector)inspector.scrollTop=0;
+    if(route.view==='conversation')document.getElementById('brain-message')?.focus({preventScroll:true});
+    else inspector?.focus({preventScroll:true});
+  }
 }
 async function applyDashboardRoute(activateWorkspace=true){
-  const route=location.hash?dashboardRoute(location.hash):{view:'roadmap',id:null};
+  const route=location.hash?dashboardRoute(location.hash):{view:'overview',id:null};
   if(!route){if(location.hash.startsWith("#/"))showNotice("This dashboard link is not recognized.",true);return false;}
   if(route.workspaceId&&route.workspaceId!==workspaceId)return switchWorkspace(route.workspaceId,route,false);
   if(!state&&!unconfiguredProject())return false;

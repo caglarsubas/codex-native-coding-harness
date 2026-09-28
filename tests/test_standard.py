@@ -280,6 +280,23 @@ class StandardTest(unittest.TestCase):
         with self.assertRaisesRegex(Refusal,'Repository is owned'):
             brain(self.registry,second,token,{'operation':'claim','runId':read(second)['run']['id'], 'id':'b','repository':'a','title':'B','paths':['tests/test_fixture.py'],'instructions':'Fixture','acceptance':['Pass'],'model':'fixture','effort':'low','rationale':'Small','allowance':10000})
 
+    def test_existing_phase_stays_repository_exclusive_after_new_mode_is_available(self):
+        self.control()
+        self.assertIsNone(read(self.ledger)['parallelEligibility']['currentlyEligible'])
+        self.claim()
+        self.call('issue',taskId='task-1')
+        self.call('bind',taskId='task-1',threadId=None,clientThreadId=str(uuid.uuid4()),hostId='local')
+        run=read(self.ledger)['run']
+        self.assertNotIn('repositoryMode',run['limits'])
+        with self.assertRaisesRegex(Refusal,'Repository is owned'):
+            self.call('claim',id='task-2',repository='a',title='Second',paths=['src/fixture/second.py'],
+                      instructions='Fixture',acceptance=['Pass'],model='fixture',effort='low',
+                      rationale='Distinct file',allowance=10000)
+        with self.assertRaises(Refusal):
+            self.call('worktree_bind',taskId='task-1',threadId=str(uuid.uuid4()),root=str(self.repo),
+                      branch='codex/one',startCommit='a'*40,nativeCreation={},nativeObservation={})
+        self.assertEqual(read(self.ledger)['run']['limits'],run['limits'])
+
     def test_out_of_scope_model_and_path_refused(self):
         self.control()
         base={'operation':'claim','runId':read(self.ledger)['run']['id'],'id':'x','repository':'a','title':'X','paths':['escape.py'],'instructions':'Fixture','acceptance':['Pass'],'model':'fixture','effort':'low','rationale':'Small','allowance':10000}

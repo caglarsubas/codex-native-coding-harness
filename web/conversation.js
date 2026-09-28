@@ -1,6 +1,13 @@
 "use strict";
 Object.assign(titles,{conversation:['Brain conversation','Talk to this project’s existing Codex brain. Messages and replies stay in this project.']});
 const brainDrafts=new Map(),brainPages=new Map();
+function brainDraftStorageKey(key){return 'orchestrator-brain-draft:'+key;}
+function loadBrainDraft(key){
+  try{const saved=JSON.parse(sessionStorage.getItem(brainDraftStorageKey(key)));if(saved&&typeof saved.text==='string'&&saved.text.length<=8000)return {text:saved.text,confirmed:saved.confirmed===true,request:saved.request?.kind==='reconcile'&&saved.request?.id?saved.request:null};}catch{}
+  return {text:'',confirmed:false,request:null};
+}
+function saveBrainDraft(key,draft){try{sessionStorage.setItem(brainDraftStorageKey(key),JSON.stringify(draft));}catch{}}
+function clearBrainDraft(key){try{sessionStorage.removeItem(brainDraftStorageKey(key));}catch{}}
 function conversationActivity(root,activity){
   if(!activity)return;
   root.append(section('Project activity','Run outcomes and next actions — separate from message replies'));
@@ -37,6 +44,20 @@ function conversationActivity(root,activity){
   if(activity.limited)root.append(el('p','Older phase versions are outside this bounded view; retained documents remain in Controls & setup history.','muted'));
   const actions=el('div',null,'inline-actions');actions.append(button('Git & delivery · refresh PR status',()=>navigateView('gitStatus')),button('Phase & run details',()=>navigateView('operations')));root.append(actions);
 }
+function sessionTaskOutcomeSummary(root,node){
+  const task=node.raw,heading=el('h3','Recorded result');root.append(heading);
+  if(node.source==='standard'&&['complete','completed'].includes(task.status)&&/^[a-f0-9]{64}$/.test(task.result||'')){
+    const target=el('div',null,'session-task-outcome');target.append(el('p','Reading the retained task result…','muted'));root.append(target);
+    const generation=workspaceGeneration,project=workspaceId;
+    api('/api/documents/'+task.result).then(doc=>{
+      if(!target.isConnected||generation!==workspaceGeneration||project!==workspaceId)return;
+      if(doc.taskId!==task.id||doc.runId!==state.standard?.run?.id||doc.outcome!=='completed')throw new Error('Result identity did not match this registered task.');
+      target.replaceChildren(narrative(doc.evidence?.summary||'A completed result is retained without a short summary.','Task outcome'));
+      target.append(el('p','This is a retained task claim. Review source, tests, preservation and PR state separately.','muted'));
+    }).catch(error=>{if(target.isConnected)target.replaceChildren(el('p','Result summary unavailable: '+error.message,'muted'));});
+  }else if(['complete','completed'].includes(task.status)&&task.note)root.append(narrative(task.note,'Task outcome'));
+  else root.append(el('p',task.result?'A result is retained; open Results & evidence for the exact record.':'No completed task result has been retained.','muted'));
+}
 function brainMessageState(message){
   if(message.reply)return {label:'Replied',detail:'The project brain retained this reply.'};
   if(message.receivedAt)return {label:'Received · reply pending',detail:'The brain received your message. Its reply has not been retained yet.'};
@@ -63,26 +84,27 @@ function conversationEntry(root){
 }
 function conversationView(root){
   if(typeof journeyReturn==='function')journeyReturn(root,'Brain conversation');
-  const key=workspaceId||'legacy',draft=brainDrafts.get(key)||{text:'',confirmed:false,request:null};brainDrafts.set(key,draft);
+  const key=workspaceId||'legacy',draft=brainDrafts.get(key)||loadBrainDraft(key);brainDrafts.set(key,draft);
   const head=el('section');head.append(el('p',(state.workspace?.name||'Current portfolio')+' · '+(state.brainActivity?.title||'Configured Codex brain'),'eyebrow'));
   head.append(el('p','This is the project brain in Codex, not the advisory inference assistant. Project outcomes, platform messages and retained replies appear here; this is not a full Codex transcript.','checkpoint'));
   const actions=el('div',null,'inline-actions');actions.append(button('Decision inbox',()=>navigateView('decisions')),button('Approved queue',()=>navigateView('queue')),button('Artifact library',()=>navigateView('artifacts')));head.append(actions);root.append(head);
   const stopping=['stop_requested','checkpointing','parked'].includes(state.meta.brainControl?.phase)||['stopping','paused'].includes(state.standard?.run?.status);
   if(stopping)root.append(callout('Brain paused or stopping','Messages stay saved. Use the explicit Resume control to continue from its checkpoint; sending a message does not resume work.'));
   const history=el('section',null,'brain-history');history.setAttribute('aria-label','Project brain messages');history.append(el('p','Loading saved conversation…'));root.append(history);
-  const form=el('form',null,'brain-composer'),label=el('label','Message your project brain'),input=el('textarea');input.id='brain-message';input.rows=5;input.maxLength=8000;input.required=true;input.value=draft.text;label.htmlFor=input.id;form.append(label,input);
+  const form=el('form',null,'brain-composer'),label=el('label','Message your project brain'),input=el('textarea');input.id='brain-message';input.setAttribute('data-focus','brain-message');input.rows=5;input.maxLength=8000;input.required=true;input.value=draft.text;label.htmlFor=input.id;form.append(label,input);
   const checkLabel=el('label',null,'decision-confirm'),check=el('input');check.type='checkbox';check.checked=draft.confirmed;checkLabel.append(check,el('span','Send to this project’s existing Codex brain. Packet, phase and access approvals still use their review controls.'));form.append(checkLabel);
   const send=el('button',draft.request?'Retry same saved request':'Send to brain','primary');send.type='submit';
   const status=el('p','No secrets. Your message is retained locally and read by this Codex task. Sending may consume your existing Codex allowance.','muted');form.append(status,send);root.append(form);
   let awaiting=true;
   function validate(){send.disabled=busy||!connected||awaiting||(!draft.request&&(!input.value.trim()||!check.checked));input.disabled=!!draft.request;check.disabled=!!draft.request;}
-  input.oninput=()=>{draft.text=input.value;validate();};check.onchange=()=>{draft.confirmed=check.checked;validate();};validate();
+  input.oninput=()=>{draft.text=input.value;saveBrainDraft(key,draft);validate();};check.onchange=()=>{draft.confirmed=check.checked;saveBrainDraft(key,draft);validate();};validate();
   form.onsubmit=async event=>{event.preventDefault();if(send.disabled)return;
     draft.request=draft.request||{id:crypto.randomUUID(),kind:'reconcile',expectedRevision:state.meta.revision,payload:{message:draft.text,brainId:state.meta.brainId,confirmed:true}};
+    saveBrainDraft(key,draft);
     busy=true;validate();updateWorkspaceSelector();
     let sent=false;
-    try{await api('/api/commands',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify(draft.request)});brainDrafts.delete(key);brainPages.set(key,0);sent=true;}
-    catch(error){if(error.message.includes('State changed')){draft.request=null;draft.confirmed=false;check.checked=false;}status.textContent=error.message+' Your message is preserved. An uncertain request keeps its original ID.';}
+    try{await api('/api/commands',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify(draft.request)});brainDrafts.delete(key);clearBrainDraft(key);brainPages.set(key,0);sent=true;}
+    catch(error){if(error.message.includes('State changed')){draft.request=null;draft.confirmed=false;check.checked=false;}saveBrainDraft(key,draft);status.textContent=error.message+' Your message is preserved. An uncertain request keeps its original ID.';}
     finally{busy=false;validate();updateWorkspaceSelector();}
     if(sent){await refresh();showNotice('Message saved. Delivery, brain receipt and reply are shown separately below.');}
   };

@@ -52,14 +52,24 @@ async function requestCatalogForPlay(s){
 }
 async function reviewStandardControl(s,operation,run){
   if(busy||!connected)return;busy=true;
-  const key=workspaceId;
+  const key=workspaceId;let prepared=false;
   try{
     const budget=state.mission?.document?.spec.authority.tokenBudget||1;
+    const suggestedBrain=Math.max(1,Math.min(Math.floor(budget*.3),12000000));
     const preview=await api('/api/standard/preview',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},
-      body:JSON.stringify({operation,contextHash:s.contextHash,brainAllowance:run?.brainAllowance||Math.max(1,Math.floor(budget*.2)),durationHours:8,measureUsage:operation==='play'})});
+      body:JSON.stringify({operation,contextHash:s.contextHash,brainAllowance:operation==='play'?suggestedBrain:run?.brainAllowance||suggestedBrain,durationHours:operation==='play'?24:8,measureUsage:operation==='play'})});
     if(workspaceId!==key)return;
-    standardPreviews.set(key,preview);selected='standard-confirm';
-  }catch(error){if(!error.workspaceChanged)showNotice(error.message,true);}finally{busy=false;render();updateWorkspaceSelector();}
+    standardPreviews.set(key,preview);selected='standard-confirm';prepared=true;
+  }catch(error){if(!error.workspaceChanged)showNotice(error.message,true);}
+  finally{busy=false;updateWorkspaceSelector();}
+  if(prepared&&workspaceId===key&&typeof navigateView==='function'){
+    // A review can finish while this hash is already current and another
+    // inspector tab is selected. Select the contextual panel explicitly so
+    // the signed preview is visible even if navigation is deferred.
+    if(typeof sessionSelectRoute==='function')sessionSelectRoute('roadmap');
+    navigateView('roadmap');
+    render();
+  }else render();
   const review=document.getElementById('phase-control-review');if(review){review.scrollIntoView({block:'start'});review.focus({preventScroll:true});}
 }
 function standardPanel(root,mode='all'){
@@ -75,6 +85,7 @@ function standardPanel(root,mode='all'){
   else if(mode==='all'&&s.blocker)panel.append(el('p',s.blocker,'checkpoint'));
   if(run){
     panel.append(el('p',`Phase ${run.phaseId} · ${run.tasks.length} / ${run.limits.maxTasks} tasks · expires ${when(run.expiresAt)}`));
+    if(s.parallelEligibility)panel.append(el('p',`${num(s.parallelEligibility.permitted)} parallel tasks permitted; ${s.parallelEligibility.currentlyEligible===null?'unknown':num(s.parallelEligibility.currentlyEligible)} currently eligible. ${s.parallelEligibility.reason}`,'subline'));
     if(['all','usage'].includes(mode)){
     panel.append(table(['Budget observation','Value'],[
       ['Observed tokens (partial)',s.observedTokens===null?'Not observed':num(s.observedTokens)],['Tasks without token observations',num(s.unmeasuredTasks)],
@@ -164,7 +175,7 @@ function standardConfirmation(parent,s,run){
       const spec=state.mission.document.spec;
       panel.append(el('h3',spec.goal),el('p','Owner checkpoint: '+spec.phase.checkpoint),
         table(['Authorized scope','Paths / operations'],spec.phase.scope.map(row=>[row.repository,row.allowedPaths.join(', ')+' · '+row.operations.join(', ')])),
-        table(['Limit','Value'],[['Token budget',num(spec.authority.tokenBudget)],['Checkpoint reserve',num(spec.authority.checkpointReserveTokens)],['Parallel tasks',num(spec.authority.maxParallelTasks)],['Total tasks',num(spec.authority.maxTasks)]]),
+        table(['Limit','Value'],[['Token budget',num(spec.authority.tokenBudget)],['Checkpoint reserve',num(spec.authority.checkpointReserveTokens)],['Parallel tasks',num(spec.authority.maxParallelTasks)],['Total tasks',num(spec.authority.maxTasks)],['Repository ownership',spec.authority.repositoryMode==='isolated_worktrees'?'Isolated native worktrees, exact-file scopes':'Repository-exclusive']]),
         el('p',spec.authority.mergeMode==='brain_exact_pr_v1'?'The brain may cross-check and merge an exact PR within this reviewed phase and repository policy.':'You review and merge pull requests manually.'));
       for(const [title,items] of [['Success criteria',spec.successCriteria],['Stop sooner if…',spec.phase.stopConditions],['Excluded from this phase',spec.exclusions]]){
         const list=el('ul');for(const item of items)list.append(el('li',item));panel.append(el('h3',title),list);

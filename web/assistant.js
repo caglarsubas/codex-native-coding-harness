@@ -156,7 +156,7 @@ async function sendAssistant(event){
     item.append(evidence);
     assistantTurns++;if(Number.isInteger(result.usage.total_tokens))assistantTokens+=result.usage.total_tokens;else assistantMissingUsage++;
     $('assistant-usage').textContent=`This chat: ${assistantTurns} replies · ${num(assistantTokens)} reported service tokens${assistantMissingUsage?' · usage missing for '+assistantMissingUsage+' replies':''}. Separate from Codex usage; not a bill.`;
-    $('assistant-question').value='';assistantStatus(result.proposal?'Review the step below; confirm here when ready.':'Ready for your next question.');
+    $('assistant-question').value='';saveGuideDraft(workspaceId,'');assistantStatus(result.proposal?'Review the step below; confirm here when ready.':'Ready for your next question.');
   }catch(error){
     userTurn.remove();$('assistant-welcome').hidden=assistantHistory.length>0;
     assistantStatus(assistantFailureNotice(error.message),true);
@@ -169,16 +169,16 @@ function initAssistant(){
   $('assistant-focus').onclick=focusAssistantConversation;
   document.querySelectorAll('[data-open-assistant]').forEach(b=>b.addEventListener('click',focusAssistant));
   $('assistant-form').addEventListener('submit',sendAssistant);
-  $('assistant-question').addEventListener('input',assistantConnectionChanged);
+  $('assistant-question').addEventListener('input',()=>{saveGuideDraft(workspaceId,$('assistant-question').value);assistantConnectionChanged();});
   $('assistant-question').addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)&&!e.isComposing){e.preventDefault();$('assistant-form').requestSubmit();}});
   document.querySelectorAll('[data-question]').forEach(b=>b.addEventListener('click',()=>{
     if(b.dataset.question.startsWith('Help me continue development')&&typeof developmentHelpStart==='function'){developmentHelpStart();return;}
-    $('assistant-question').value=b.dataset.question;assistantConnectionChanged();$('assistant-question').focus();}));
+    $('assistant-question').value=b.dataset.question;saveGuideDraft(workspaceId,$('assistant-question').value);assistantConnectionChanged();$('assistant-question').focus();}));
   $('assistant-clear').onclick=()=>{
     if(assistantPending||[...assistantActions.values()].some(a=>a.sending))return;assistantHistory=[];assistantTurns=0;assistantTokens=0;assistantMissingUsage=0;assistantActions.clear();
     if(typeof developmentHelpViews!=='undefined')developmentHelpViews.delete(workspaceId);
     $('assistant-log').querySelectorAll('.chat-turn').forEach(e=>e.remove());$('assistant-welcome').hidden=false;
-    $('assistant-question').value='';$('assistant-context-preview').textContent='';$('assistant-context-preview').hidden=true;
+    $('assistant-question').value='';saveGuideDraft(workspaceId,'');$('assistant-context-preview').textContent='';$('assistant-context-preview').hidden=true;
     $('assistant-usage').textContent='Actions need your confirmation. Recorded requests remain in the ledger after clearing chat.';assistantStatus('Chat cleared from this tab. Recorded controls are unchanged.');assistantConnectionChanged();
   };
   $('assistant-context').onclick=async()=>{

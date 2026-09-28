@@ -4,9 +4,7 @@ const readinessExpanded=new Set();
 Object.assign(titles,{readiness:['Operational readiness','Prepare one supervised pilot. Every gate has an owner and a reason.']});
 
 function openReadiness() {
- view='readiness';selected=null;
- document.querySelectorAll('[data-view]').forEach(b=>{b.removeAttribute('aria-current');if(b.dataset.view===view)b.setAttribute('aria-current','page');});
- render();window.scrollTo(0,0);
+ navigateView('readiness');
 }
 
 function readinessSummary(root) {

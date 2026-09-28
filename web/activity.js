@@ -25,10 +25,10 @@ function navigateView(next, identity=null, updateAddress=true, activateWorkspace
   if(updateAddress&&!recordDashboardVisit(workspaceHref(next,identity&&['decisions','artifacts'].includes(next)?identity:null)))return;
   view=next; selected=next==='decisions'?null:identity; observationPage=0;
   if(identity&&next==='artifacts'){observationRepo='all';artifactQuery='';}
+  if(typeof sessionSelectRoute==='function')sessionSelectRoute(next);
   document.querySelectorAll('[data-view]').forEach(b => b.removeAttribute('aria-current'));
   const nav=document.querySelector('[data-view="'+next+'"]');
-  nav.setAttribute('aria-current','page');
-  if(nav.closest?.('details'))nav.closest('details').open=true;
+  nav?.setAttribute('aria-current','page');
   if(activateWorkspace&&typeof revealPane==='function')revealPane('workspace');
   render();
   if(activateWorkspace){

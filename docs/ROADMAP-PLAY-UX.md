@@ -6,27 +6,28 @@ The previous Mission view repeated run evidence, budgets, optional brain handoff
 and configuration before the user reached the next action. A disabled capability
 button described an internal dependency without explaining how to proceed.
 
-The main path is now **Plan → Review & Play → Develop → Checkpoint**. Roadmap &
-Play is the default landing page for a project; existing deep links and browser
-history remain valid. The session map is still the dedicated activity monitor.
+The main path is **Plan → Review & Play → Develop → Checkpoint**. The project
+lands on the session graph, with this journey in its contextual inspector. The
+graph stays visible while the owner reviews the plan, talks with the brain, or
+follows a task. Existing deep links and browser history select inspector sections.
 
 ## How to use it
 
-1. Select the project, then open **Roadmap & Play**.
-2. Choose **Prepare next phase**. This fills a message in **Brain conversation**;
+1. Select the project. Its graph, phase strip and next action appear together.
+2. Choose **Prepare next phase**. This fills a message in the brain inspector;
    edit it, select the send confirmation and choose **Send to brain**. An existing
    draft or uncertain request is preserved instead of overwritten.
-3. When the brain retains a proposal, open **Phase plan & limits**. Review the
+3. When the brain retains a proposal, open **Phase plan & limits** in the inspector. Review the
    goal, success criteria, repositories/paths, budget, parallel-task limit, merge
    policy and stopping checkpoint. Saving a plan and reviewing it are separate.
-4. Return to **Roadmap & Play**. If requested, choose **Check Codex readiness**;
+4. Return to the phase journey. If requested, choose **Check Codex readiness**;
    it asks the existing brain to retain available models and efforts. Inspect the
    delivery result. It neither starts work nor automatically approves Play.
 5. Choose **Review Play**, read the exact control preview, select the unchecked
    confirmation and choose **Confirm play**. The preview expires after five
    minutes. An old project context, lost connection or expired preview cannot be
    confirmed from this view; the server also revalidates the signed request.
-6. Use **Follow sessions** to see observed activity. **Pause at safe checkpoint**
+6. Follow the graph to see registered activity. **Pause at safe checkpoint**
    remains available even while Play awaits the brain's receipt. Pause has its
    own short review and confirmation; a request is not a completed checkpoint.
 7. At a saved pause, **Review Resume** continues the same phase and its consumed
@@ -57,29 +58,28 @@ Session-map freshness and task evidence remain separate from control state.
 
 ## Information architecture
 
-- **Roadmap & Play:** next action, short phase facts, exact control preview and
-  collapsed source documents. Source filtering and refresh are under **Source
-  freshness & repository filter**; private proposals remain explicitly private.
-- **Phase plan & limits:** outcome and constraints only. Model settings, exact
-  receipts and previous versions are secondary to the current review.
-- **Tasks & evidence:** retained task results and merge evidence, not policy forms.
-- **Token usage:** measurements and reservations remain separate. Unknown measured
-  remaining is displayed as unknown; new-plan facts never relabel old-phase usage.
-- **Advanced controls:** optional brain replacement, history and local diagnostics.
-  Disclosure choices survive refresh within the project and browser tab.
-- **Brain conversation:** owner input and retained replies, not a complete Codex
-  transcript. The advisory assistant remains a separate service and pane.
+- **Graph and compact header:** saved phase, freshness, all active or
+  attention-needing registered tasks, and one next action. History is paginated;
+  the searchable list provides the same task selection.
+- **Contextual inspector:** brain conversation, selected task, roadmap review,
+  decisions, knowledge, token usage, history and advanced controls. Outcome and
+  next step precede collapsible **Details** and exact receipts.
+- **Advisory guide:** a separate, visibly labelled inspector section, not the
+  durable brain conversation. Its model output cannot confirm a control.
+- **Narrow view:** the graph remains the main surface; the inspector becomes a
+  dismissible sheet. Themes retain local fonts and colors.
 
-All three panes keep their existing collapse and keyboard/drag resize behavior.
-The phase steps reflow to two columns in a narrow workspace. Themes retain the
-existing local fonts and colors; no new dependencies or external assets are used.
+New standard-phase drafts may show editable task-count/token/parallel
+suggestions from the structured task outline. They do not modify an old run or
+weaken usage evidence. See [one-page operating guide](ONE-PAGE-WORKSPACE.md).
 
 ## Safety and verification
 
-This is a presentation/navigation change. It reuses the existing signed standard
-control endpoints, conversation submission and capability request protocol. It
-does not create a scheduler, change approval/merge/budget policy, issue a native
-task, install a skill, activate a project or replace a live brain.
+The one-page shell reuses signed standard controls, conversation submission and
+capability requests. New-phase limits are proposals, not execution authority.
+Optional isolated worktrees are a separately reviewed future standard-phase mode;
+strict Harness and current runs retain their existing repository lock. No source
+delivery creates a scheduler, native task, live installation or Play activation.
 
 Automated coverage includes the phase-state matrix, pending/old requests,
 disconnected and stale controls, Harness isolation, draft preservation, source

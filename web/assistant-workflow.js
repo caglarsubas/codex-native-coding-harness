@@ -169,4 +169,4 @@ function assistantUsageSummary(report){
   return `${observed} · observed ${when(report.collectedAt)}. ${report.gaps.length?'Remaining measured budget is unknown.':'Local registered-session coverage recorded; not a provider billing total.'}`;
 }
 function focusAssistant(){focusAssistantConversation();}
-function focusAssistantConversation(){panePreferences.collapsed.workspace=true;panePreferences.collapsed.assistant=false;panePreferences.focus='assistant';savePanes();applyPanes();$('assistant-question').focus();}
+function focusAssistantConversation(){sessionShowGuide();}

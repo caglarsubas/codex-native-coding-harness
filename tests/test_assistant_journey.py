@@ -76,6 +76,8 @@ class AssistantJourneyTest(unittest.TestCase):
     def test_play_pause_and_resume_use_existing_controls_and_preserve_budget(self):
         p = self.prepare('phase_play')
         self.assertTrue(p['document']['request']['preview']['measureUsage'])
+        self.assertEqual(p['document']['request']['preview']['durationHours'], 24)
+        self.assertEqual(p['document']['request']['preview']['brainAllowance'], 30_000)
         result, _ = self.confirm(p)
         self.assertEqual(result['result']['kind'], 'standard_play')
         run = standard.read(self.ledger)['run']

@@ -4,12 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <title>Codex Orchestrator · Roadmap &amp; Play</title>
+  <title>Codex Orchestrator · Project workspace</title>
   <link rel="stylesheet" href="/style.css">
   <link rel="stylesheet" href="/decisions.css">
   <link rel="stylesheet" href="/panes.css">
   <link rel="stylesheet" href="/session-map.css">
   <link rel="stylesheet" href="/journey.css">
+  <link rel="stylesheet" href="/one-page.css">
   <script src="/app.js" defer></script>
   <script src="/summaries.js" defer></script>
   <script src="/auth.js" defer></script>
@@ -44,18 +45,19 @@
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
-  <header class="pane-toolbar" aria-label="Navigation and pane controls">
+  <header class="pane-toolbar onepage-toolbar" aria-label="Project controls">
+    <button id="brand-graph" class="onepage-brand" type="button" aria-label="Show project graph"><span class="brand-mark" aria-hidden="true">co.</span><span>Codex<br>Orchestrator</span></button>
+    <div id="project-switch-slot" class="project-switch-slot"></div>
     <div class="pane-switches">
-      <button id="navigation-back" type="button" aria-label="Back to previous dashboard page" title="No previous dashboard page" disabled>← Back</button>
-      <button data-pane-toggle="navigation" aria-controls="navigation-pane" aria-expanded="true">Navigation</button>
-      <button data-pane-toggle="workspace" aria-controls="workspace-pane" aria-expanded="true">Project</button>
-      <button data-pane-toggle="assistant" aria-controls="assistant-pane" aria-expanded="true">AI assistant</button>
+      <button id="navigation-back" type="button" aria-label="Back to previous workspace section" title="No previous workspace section" disabled>← Back</button>
+      <button id="guide-toggle" type="button">Advisory guide</button>
+      <button id="theme-toggle" type="button">Theme</button>
     </div>
-    <button id="reset-panes" title="Restore default pane sizes and visibility">Reset layout</button>
+    <button id="reset-panes" title="Return to the project graph">Show graph</button>
     <span id="pane-announcement" class="sr-only" role="status"></span>
   </header>
   <div class="pane-shell" id="pane-shell">
-  <section id="navigation-pane" class="pane navigation-pane" aria-label="Navigation pane">
+  <section id="navigation-pane" class="pane navigation-pane" aria-label="Legacy route controls" hidden>
   <button class="pane-expand" data-pane-toggle="navigation" aria-label="Expand navigation" hidden>Menu →</button>
   <aside class="rail pane-body">
     <a class="brand" href="/" aria-label="Codex Orchestrator home"><span class="brand-mark" aria-hidden="true">co.</span><span>Codex<br>Orchestrator</span></a>
@@ -105,7 +107,7 @@
   </div>
   </section>
   <div class="pane-resizer" id="assistant-resizer" role="separator" aria-label="Resize assistant pane" aria-orientation="vertical" aria-controls="assistant-pane" aria-valuemin="280" aria-valuemax="640" aria-valuenow="350" tabindex="0" title="Drag to resize. Arrow keys adjust; Shift for larger steps; Home/End for limits."></div>
-  <section id="assistant-pane" class="pane assistant-pane" aria-label="AI assistant pane">
+  <section id="assistant-pane" class="pane assistant-pane" aria-label="Advisory guide storage" hidden>
     <button class="pane-expand" data-pane-toggle="assistant" aria-label="Expand AI assistant" hidden>← Assistant</button>
     <div class="assistant-body pane-body">
       <header class="assistant-heading"><div><p class="eyebrow" id="assistant-workspace">PROJECT COMPANION</p><h2>Let’s move your project forward</h2></div><button data-pane-toggle="assistant" aria-label="Collapse AI assistant" title="Collapse assistant">→</button></header>

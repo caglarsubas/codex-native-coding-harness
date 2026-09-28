@@ -5,20 +5,23 @@ class Element{
   append(...children){this.children.push(...children);}
   setAttribute(name,value){this[name]=value;}
 }
-const messages=[],sent=[];
+const messages=[],sent=[],routes=[];
 const box={Map,Set,JSON,Math,String,crypto:{randomUUID:()=>`request-${sent.length}`},setTimeout:()=>1,workspaceId:'alpha',busy:false,connected:true,csrf:'fixture',selected:null,
   document:{getElementById:()=>null},
   state:{standard:{available:true,contextHash:'h',boundary:'Partial observations',catalog:{models:[{model:'native',efforts:['low']}]},run:null},mission:null},
   el:(tag,text)=>new Element(tag,text),button:(text,callback)=>Object.assign(new Element('button',text),{click:callback}),
   section:(text)=>new Element('h2',text),table:(heads,rows)=>new Element('table',JSON.stringify(rows)),
   callout:(a,b)=>new Element('p',a+' '+b),num:String,when:String,textCell:(a,b)=>a+' '+b,
-  missionDocument(){},render(){},updateWorkspaceSelector(){},refresh:async()=>{},showNotice:(message)=>messages.push(message),
+  missionDocument(){},render(){},updateWorkspaceSelector(){},refresh:async()=>{},showNotice:(message)=>messages.push(message),navigateView:(route)=>routes.push(route),
   api:async(path,opts)=>{sent.push({path,body:JSON.parse(opts.body)});if(path.endsWith('preview'))return {preview:{operation:'play',contextHash:'h',brainAllowance:1,durationHours:8,expiresAt:Date.now()/1000+300},signature:'signed'};return {result:'Recorded'};}};
 vm.createContext(box);vm.runInContext(fs.readFileSync('web/summaries.js','utf8'),box);vm.runInContext(fs.readFileSync('web/standard.js','utf8'),box);
 const render=(mode)=>{const root=new Element('root');box.standardPanel(root,mode);return root;};
 function all(root){return [root,...root.children.flatMap(x=>x instanceof Element?all(x):[])];}
 (async()=>{
   let nodes=all(render());await nodes.find(n=>n.text==='Review Play').click();
+  assert.equal(routes.at(-1),'roadmap','A signed Play preview opens its visible inspector section');
+  assert.equal(sent[0].body.durationHours,24,'New Play suggests a 24-hour window');
+  assert.equal(sent[0].body.brainAllowance,1,'A missing reviewed budget never fabricates a large allowance');
   nodes=all(render());let confirm=nodes.find(n=>n.text==='Confirm play');assert.equal(confirm.disabled,true);
   let check=nodes.find(n=>n.type==='checkbox');check.checked=true;check.onchange();assert.equal(confirm.disabled,false);
   box.workspaceId='beta';assert.ok(!all(render()).some(n=>n.text==='Confirm play'),'Project preview isolation');

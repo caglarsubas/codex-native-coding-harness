@@ -5,9 +5,11 @@ No value in this module can enable dispatch, change native settings, or schedule
 work. Activation must be introduced with resource/budget admission and run gates.
 """
 import contextlib
+import fnmatch
 import json
 import re
 import time
+import unicodedata
 
 from .core import canonical, digest, require, safe_relative
 
@@ -66,7 +68,9 @@ def validate(spec, repositories):
     criteria = strings(spec["successCriteria"], "Success criteria")
     exclusions = strings(spec["exclusions"], "Exclusions")
     phase = spec["phase"]
-    require(isinstance(phase, dict) and set(phase) == {"id", "title", "objective", "checkpoint", "stopConditions", "scope"},
+    require(isinstance(phase, dict) and set(phase) in (
+        {"id", "title", "objective", "checkpoint", "stopConditions", "scope"},
+        {"id", "title", "objective", "checkpoint", "stopConditions", "scope", "taskOutline"}),
             "Phase fields must match the v1 contract")
     require(isinstance(phase["id"], str) and re.fullmatch(r"[a-z0-9][a-z0-9-]{0,63}", phase["id"]), "Invalid phase ID")
     clean_phase = {key: text(phase[key], "Phase " + key) for key in ("title", "objective", "checkpoint")}
@@ -88,11 +92,47 @@ def validate(spec, repositories):
     require(len({s["repository"] for s in scope}) == len(scope), "Duplicate repository scope")
     scope.sort(key=lambda s: s["repository"])
     repo_bindings = bindings(repositories, scope)
+    if "taskOutline" in phase:
+        outline = phase["taskOutline"]
+        require(isinstance(outline, list) and 1 <= len(outline) <= 20,
+                "Task outline requires 1–20 planned tasks")
+        by_repo = {row["repository"]: row for row in scope}
+        clean_outline = []
+        for row in outline:
+            require(isinstance(row, dict) and set(row) == {"title", "repository", "exactFiles"},
+                    "Task outline rows need title, repository and exact files")
+            title = text(row["title"], "Planned task title", 200)
+            repo = text(row["repository"], "Planned task repository", 100)
+            require(repo in by_repo, "Planned task repository is outside phase scope")
+            files = strings(row["exactFiles"], "Planned exact files", maximum=40)
+            for path in files:
+                safe_relative(path)
+                require(not any(char in path for char in "*?[]\\") and not path.endswith("/")
+                        and not any(part in ("", ".", "..") for part in path.split("/"))
+                        and unicodedata.normalize("NFC", path) == path,
+                        "Planned task scope needs exact repository-relative files")
+                require(any(path == allowed or fnmatch.fnmatchcase(path, allowed)
+                            for allowed in by_repo[repo]["allowedPaths"]),
+                        "Planned exact file is outside phase scope")
+            clean_outline.append({"title": title, "repository": repo, "exactFiles": files})
+        clean_phase["taskOutline"] = clean_outline
     authority = spec["authority"]
-    require(isinstance(authority, dict) and set(authority) in ({"approvalMode", "maxParallelTasks", "maxTasks", "tokenBudget", "checkpointReserveTokens"}, {"approvalMode", "maxParallelTasks", "maxTasks", "tokenBudget", "checkpointReserveTokens", "mergeMode"}),
+    authority_base = {"approvalMode", "maxParallelTasks", "maxTasks", "tokenBudget", "checkpointReserveTokens"}
+    require(isinstance(authority, dict) and authority_base <= set(authority)
+            and set(authority) <= authority_base | {"mergeMode", "repositoryMode"},
             "Authority fields must match the v1 contract")
     require(authority["approvalMode"] in MODES, "Unknown approval mode")
     clean_authority = {"approvalMode": authority["approvalMode"]}
+    if "repositoryMode" in authority:
+        require(authority["repositoryMode"] in ("repo_exclusive", "isolated_worktrees"),
+                "Unknown repository ownership mode")
+        if authority["repositoryMode"] == "isolated_worktrees":
+            require(authority["approvalMode"] == "phase_delegated" and repo_bindings
+                    and all(b["policyProfile"] == "standard" for b in repo_bindings),
+                    "Isolated worktrees require a standard phase-delegated mission")
+            require(all("open_pr" in row["operations"] for row in scope),
+                    "Isolated worktree integration requires open_pr scope in every repository")
+        clean_authority["repositoryMode"] = authority["repositoryMode"]
     if "mergeMode" in authority:
         require(authority["mergeMode"] in ("manual", "brain_exact_pr_v1"), "Unknown phase merge mode")
         clean_authority["mergeMode"] = authority["mergeMode"]
@@ -106,6 +146,11 @@ def validate(spec, repositories):
         clean_authority[key] = integer(authority[key], key, 1, upper)
     require(authority["maxParallelTasks"] <= authority["maxTasks"], "Parallel task limit exceeds total task limit")
     require(authority["checkpointReserveTokens"] < authority["tokenBudget"], "Checkpoint reserve must be smaller than the phase token budget")
+    if clean_authority.get("repositoryMode") == "isolated_worktrees" and clean_phase.get("taskOutline"):
+        outline = clean_phase["taskOutline"]
+        integration_repositories = {row["repository"] for row in outline}
+        require(clean_authority["maxTasks"] >= len(outline) + len(integration_repositories),
+                "Isolated worktree outline must reserve one integration task slot per repository")
     for row, binding in zip(scope, repo_bindings):
         require(not (binding["policyProfile"] == "harness" and authority["approvalMode"] == "phase_delegated"),
                 "Harness requires exact owner-approved packets; phase delegation is not allowed")

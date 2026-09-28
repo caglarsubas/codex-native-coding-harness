@@ -171,6 +171,64 @@ class MissionTest(unittest.TestCase):
         self.assertEqual(current["document"]["spec"]["authority"]["mergeMode"], "brain_exact_pr_v1")
         self.assertFalse(self.review(current)["activation"]["available"])
 
+    def test_optional_structured_outline_and_worktree_mode_are_reviewed_not_active(self):
+        spec = specification(mode="phase_delegated")
+        spec["phase"]["taskOutline"] = [
+            {"title": "Source change", "repository": "a", "exactFiles": ["src/fixture/one.py"]},
+            {"title": "Separate test", "repository": "a", "exactFiles": ["tests/test_fixture.py"]},
+        ]
+        spec["authority"]["repositoryMode"] = "isolated_worktrees"
+        current = self.save(spec)
+        self.assertEqual(current["document"]["spec"]["phase"]["taskOutline"], spec["phase"]["taskOutline"])
+        self.assertEqual(current["document"]["spec"]["authority"]["repositoryMode"], "isolated_worktrees")
+        reviewed = self.review(current)
+        self.assertFalse(reviewed["activation"]["available"])
+        self.assertFalse(self.ledger.snapshot()["meta"].get("standardRun"))
+
+    def test_worktree_mode_cannot_cross_harness_or_exact_owner_boundary(self):
+        for spec in (specification(), specification("harness")):
+            spec["authority"]["repositoryMode"] = "isolated_worktrees"
+            with self.assertRaisesRegex(Refusal, "standard phase-delegated"):
+                self.save(spec)
+        spec = specification(mode="phase_delegated")
+        spec["authority"]["repositoryMode"] = "other"
+        with self.assertRaisesRegex(Refusal, "ownership mode"):
+            self.save(spec)
+
+    def test_isolated_phase_requires_pr_scope_before_review(self):
+        spec = specification(mode="phase_delegated")
+        spec["authority"]["repositoryMode"] = "isolated_worktrees"
+        spec["phase"]["scope"][0]["operations"].remove("open_pr")
+        with self.assertRaisesRegex(Refusal, "integration requires open_pr"):
+            self.save(spec)
+        self.assertEqual(read(self.ledger)["version"], 0)
+
+    def test_isolated_outline_reserves_a_separate_integration_task_slot(self):
+        spec = specification(mode="phase_delegated")
+        spec["authority"].update(repositoryMode="isolated_worktrees", maxParallelTasks=3, maxTasks=10)
+        spec["phase"]["taskOutline"] = [
+            {"title": f"Producer {index}", "repository": "a",
+             "exactFiles": [f"src/fixture/{index}.py"]}
+            for index in range(10)
+        ]
+        with self.assertRaisesRegex(Refusal, "integration task slot"):
+            self.save(spec)
+        spec["authority"]["maxTasks"] = 11
+        current = self.save(spec)
+        self.assertEqual(current["document"]["spec"]["authority"]["maxTasks"], 11)
+
+    def test_task_outline_is_exact_bounded_metadata_not_path_authority(self):
+        for files in (["../secret"], ["src/fixture/**"], ["elsewhere.py"],
+                      ["src/fixture/a\\b.py"], ["src/fixture/cafe\u0301.py"], []):
+            spec = specification(mode="phase_delegated")
+            spec["phase"]["taskOutline"] = [{"title": "Planned work", "repository": "a", "exactFiles": files}]
+            with self.subTest(files=files), self.assertRaises(Refusal):
+                self.save(spec)
+        spec = specification(mode="phase_delegated")
+        spec["phase"]["taskOutline"] = [{"title": "Foreign", "repository": "harness", "exactFiles": ["src/fixture/a.py"]}]
+        with self.assertRaisesRegex(Refusal, "outside phase scope"):
+            self.save(spec)
+
     def test_scope_validation(self):
         variants = []
         for path in ("../elsewhere", "/etc/passwd", "**", "*", "./src/a.py", "src//a.py", "src/../a.py", "src/", "src\\a.py"):

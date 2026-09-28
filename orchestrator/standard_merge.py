@@ -60,6 +60,9 @@ def authority(ledger, db, run, task):
     require(run["limits"].get("mergeMode") == MODE, "Manual merge is the default; exact opt-in required")
     require(all(t["status"] in standard.TERMINAL for t in run["tasks"]), "Unresolved registered native work")
     require(task["status"] == "completed" and task.get("threadId") and task.get("result"), "Completed registered result required")
+    if standard.worktrees.repository_mode(run) == standard.worktrees.MODE:
+        require(task.get("taskKind") == "integration" and task.get("sourceProof") and task.get("producerSources"),
+                "Only the separately verified integration task may own the phase PR or merge")
     repo = ledger.get(db, "repos", task["repository"])
     require(repo["policyProfile"] == "standard" and repo["mergePolicy"] == "required_checks", "Harness and manual repository policies refuse merge")
     mission = missions.state_in(ledger, db)
@@ -209,8 +212,11 @@ def source(repo, task, binding):
         raw = git_read(view, ["diff-tree", "--no-commit-id", "--raw", "-r", "--no-renames", "-z", binding["baseSHA"], binding["headSHA"]])
         changed = changes(raw)
         blobs = {}; preserved_bytes = 0
+        allowed = set(task["paths"])
+        if task.get("taskKind") == "integration":
+            allowed.update(path for producer in task.get("producerSources", []) for path in producer["paths"])
         for row in changed:
-            require(any(fnmatch.fnmatchcase(row["path"], p) for p in task["paths"]), "Changed source outside registered task paths")
+            require(any(fnmatch.fnmatchcase(row["path"], p) for p in allowed), "Changed source outside registered task paths")
             if row["change"] != "D" and row["newObject"] not in blobs:
                 raw_blob = git_read(view, ["cat-file", "blob", row["newObject"]], bound=2_000_000)
                 preserved_bytes += len(raw_blob)
@@ -398,7 +404,18 @@ def brain(registry, ledger, token, request):
                 require(prior["request"]["requestId"] != request["requestId"] and prior["binding"]["prUrl"] != binding["prUrl"], "Duplicate PR or merge request remains permanently retained")
         if operation in ("merge_prepare", "merge_check"):
             repo = authority(ledger, db, run, task)
-            require(document(ledger, db, task["result"])["evidence"].get("headSHA") == binding["headSHA"], "Completed result must record the exact merge head")
+            result_evidence = document(ledger, db, task["result"])["evidence"]
+            require(result_evidence.get("headSHA") == binding["headSHA"], "Completed result must record the exact merge head")
+            if standard.worktrees.repository_mode(run) == standard.worktrees.MODE:
+                require(result_evidence.get("prUrl") == binding["prUrl"] and
+                        result_evidence.get("prHeadBranch") == binding["headBranch"],
+                        "Merge PR differs from the verified integration result")
+                proof = document(ledger, db, task["sourceProof"])
+                require(proof["commit"] == binding["headSHA"] and
+                        proof["baseSHA"] == binding["baseSHA"] and
+                        proof["branch"] == binding["headBranch"] and
+                        proof.get("historyScope", {}).get("bounded") is True,
+                        "Integration PR base or head drifted from the pinned native source proof")
             registry_guard(registry_db=rdb, ledger=ledger, task=task, binding=binding)
         else:
             require(entry is not None, "Existing merge journal required")

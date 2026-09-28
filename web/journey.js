@@ -76,11 +76,11 @@ function prepareRoadmapPhase(){
   if(state?.recovery?.phaseStatus==='blocked'){
     focusAssistantConversation();assistantRequestStep('phase_prepare');return;
   }
-  const key=workspaceId||'legacy',existing=brainDrafts.get(key);
+  const key=workspaceId||'legacy',existing=brainDrafts.get(key)||(typeof loadBrainDraft==='function'?loadBrainDraft(key):null);
   if(existing?.text||existing?.request){navigateView('conversation');showNotice('Your existing message is preserved. Finish or discard it before preparing another phase request.');return;}
   const phase=state.standard?.run?.phaseId;
   const message='Review this project’s configured roadmap sources and latest retained results'+(phase?' for phase '+phase:'')+'. Prepare the next unfinished, bounded phase as a mission draft. Include the goal, measurable success criteria, repository and path scope, token budget, parallel-task limit, merge policy, exclusions and stopping checkpoint. Explain any prerequisite or unresolved checkpoint first. Preserve consumed usage and previous results. Save the draft for my review and reply in the project conversation with the result. Do not start Play or approve the phase.';
-  brainDrafts.set(key,{text:message,confirmed:false,request:null});
+  brainDrafts.set(key,{text:message,confirmed:false,request:null});if(typeof saveBrainDraft==='function')saveBrainDraft(key,brainDrafts.get(key));
   navigateView('conversation');showNotice('Phase request prepared. Review the message below, then select the confirmation and Send to brain.');
   document.getElementById('brain-message')?.focus();
 }
