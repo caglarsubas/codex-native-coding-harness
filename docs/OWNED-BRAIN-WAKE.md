@@ -21,18 +21,28 @@ client; the designated brain is still the only scheduler.
   the fixed `app-server proxy --sock` byte transport. The endpoint must pin the
   canonical socket itself: the CLI's `--listen unix://PATH` may leave `PATH` as
   a symlink to a private daemon socket, and the symlink is deliberately refused.
-- `thread/read` must match brain ID and cwd. `active` uses `codex queue --remote`
-  on that same socket. `idle`/`notLoaded` use `thread/resume`, then one
-  `turn/start` with the fixed ledger pointer and bound cwd. A competing native
-  turn or lost response is uncertain, not a reason to resend.
-- The app-server subscription is retained through the turn when possible.
-  Only sanitized turn status is recorded. Native approval/user-input requests
-  are **not** granted by this source bridge: they are marked as needing native
-  attention and the connection is closed. A later approval relay requires its
-  own owner-reviewed design and qualification before a live migration that
-  might encounter prompts.
-- `accepted` means the native queue acknowledged the pointer or app-server
-  returned a turn ID. Neither is the brain's ledger receipt, safe checkpoint,
+- `thread/read` must match brain ID, project ID and cwd. `idle`/`notLoaded`
+  use `thread/resume`, then one `turn/start` with the fixed ledger pointer and
+  bound cwd. An already `active` brain is refused before delivery: queuing
+  behind its turn would lose this client's approval subscription. A competing
+  native turn or lost response is uncertain, not a reason to resend.
+- The app-server subscription is retained through the owned turn. A bounded
+  command/file-change approval prompt can appear in the brain inspector, with
+  the exact request and one-time accept/decline/cancel choices. The dashboard
+  signs a two-minute owner preview bound to the exact ledger revision and
+  journals the decision claim before
+  answering on that same native connection. It never approves automatically,
+  grants session-wide permissions, or sends an unsupported/partial prompt as
+  an approval. Acceptance requires a running, unblocked standard phase and
+  checkout-bound command/file paths; an exact native permission response does
+  not expand the reviewed mission, task or repository scope. The owner still
+  evaluates the complete command or change semantics in the exact prompt; a
+  syntactically valid path is not semantic safety evidence. The raw prompt is
+  ephemeral and owner-only, excluded from the
+  inference payload and durable ledger. An expired, resolved, uncertain or
+  unsupported prompt fails closed; there is no automatic resend. Other native
+  user-input and security requests still require attention outside this relay.
+- `accepted` means app-server returned a turn ID. Neither is the brain's ledger receipt, safe checkpoint,
   worker dispatch, result acceptance or proof of turn completion.
 
 ## Separate activation review
@@ -83,10 +93,11 @@ grant phase authority or automatically update Codex project membership.
 
 ## Evidence and remaining qualification
 
-Local fake-host tests cover idle/unloaded turn start, active same-host queue,
-wrong checkout, pre-send failure, post-send uncertainty and private binding
-validation. They do not establish that the installed Codex version, desktop
-task, native tools and approval workflow interoperate on a real owned host.
+Local fake-host tests cover idle/unloaded turn start, active-turn refusal,
+wrong checkout, pre-send failure, post-send uncertainty, private binding,
+owner approval previews, exact one-shot responses, prompt races and isolation.
+They do not establish that the installed Codex version, desktop task, native
+tools and approval workflow interoperate on a real owned host.
 The disposable host check on 2026-09-26 validated the WebSocket transport and
 read the intended task, but this installed Codex build returned `projectId: null`
 for that task. Exact project identity therefore failed closed before
@@ -98,3 +109,48 @@ for live use. Both identity gaps require an owner-reviewed, evidence-backed
 solution before a complete pilot or any live migration.
 Keep source merge, installed backend, host migration, ledger receipt and live
 qualification as separate claims. No GitHub Actions or paid service is used.
+
+## Explicit native project assignment qualification
+
+The installed app-server v2 schema exposes `project/read` and
+`thread/metadata/update` with only `threadId` and `projectId` needed for this
+operation. The separate `native-project-*` operator commands use them only for
+an existing registered **standard** brain whose exact native project is already
+linked in the retained `list_projects` catalog and private app-server binding.
+They refuse a conflicting non-null task project, an active turn, unsafe or
+unsettled dispatch or brain stop/resume, unresolved task/merge/notification effects, a changed
+endpoint, or a project root outside the checkout's verified Git common
+repository. This first qualifier accepts exactly one native project root;
+multi-root projects need a separate reviewed design. The project is never
+inferred from a task title or directory.
+
+The owner first inspects a read-only preview. Example placeholders below are
+not real paths or identities; create the saved preview in a private directory
+with mode `0600` (for example, set `umask 077` before redirection):
+
+```text
+python3 -m orchestrator.cli --platform PRIVATE_PLATFORM --workspace EXACT_WORKSPACE \
+  native-project-preview PRIVATE_BRAIN_BINDING > PRIVATE_PREVIEW.json
+python3 -m orchestrator.cli --platform PRIVATE_PLATFORM --workspace EXACT_WORKSPACE \
+  native-project-confirm PRIVATE_BRAIN_BINDING PRIVATE_PREVIEW.json \
+  --confirm-hash EXACT_PREVIEW_SHA256 --confirm
+python3 -m orchestrator.cli --platform PRIVATE_PLATFORM --workspace EXACT_WORKSPACE \
+  native-project-status
+python3 -m orchestrator.cli --platform PRIVATE_PLATFORM --workspace EXACT_WORKSPACE \
+  native-project-reconcile PRIVATE_BRAIN_BINDING
+```
+
+Confirmation rechecks the exact preview and writes a private ledger intent
+**before** calling `thread/metadata/update` once. It rechecks the local safety
+state, catalog and intent revision under registry→ledger locks and holds those
+locks through the bounded native write response. This is a cooperative local
+fence, not an atomic transaction with Codex or a lock on external native UI
+activity. This explicit confirmation
+creates the local journal table; preview and status do not initialize it. A
+crash, timeout or lost response after the claim remains uncertain and cannot
+authorize another update. `native-project-reconcile` only calls `project/read`
+and `thread/read`, preserving the one-shot intent. An already correctly
+assigned task needs no write. A verified project assignment is only metadata
+qualification: it neither installs/binds a host nor wakes a task, approves a
+prompt, starts Play, resets usage, or qualifies the live project. A disposable
+pilot must still demonstrate the host and approval path separately.

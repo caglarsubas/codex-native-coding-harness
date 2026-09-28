@@ -70,6 +70,9 @@ class WorkspaceRuntime:
         self.observer_controls = ObserverControls()
         self.observer_inspection = None
         self.observer_lock = threading.Lock()
+        from .native_approval_controls import NativeApprovalControls
+        self.native_approval_controls = NativeApprovalControls()
+        self.native_approval_lock = threading.Lock()
         from .standard import Controls
         self.standard_controls = Controls()
         from .brain_handoff import Controls as HandoffControls
@@ -326,6 +329,11 @@ class Handler(BaseHTTPRequestHandler):
                 if set(query) - {"page"} or (query.get("page") and (len(query["page"]) != 1 or not query["page"][0].isdigit())):
                     return self.respond(400, {"error": "Expected one conversation page number"})
                 return self.respond(200, read(runtime.ledger, int(query.get("page", ["0"])[0])))
+            if path == "/api/native-permission" and workspace_id:
+                if urlsplit(self.path).query:
+                    raise Refusal("Native permission inspection accepts no query parameters")
+                from .native_approval_controls import inspect
+                return self.respond(200, inspect(runtime.ledger, runtime.notifier.app_server))
             if path == "/api/mission" and workspace_id:
                 from .missions import read
                 return self.respond(200, read(runtime.ledger))
@@ -460,7 +468,7 @@ class Handler(BaseHTTPRequestHandler):
             if not 0 < length <= 32768:
                 return self.respond(413, {"error": "Invalid request size"})
             raw = self.rfile.read(length)
-            if urlsplit(self.path).path.endswith(("/retention/preview", "/retention/confirm", "/checkpoint-decisions/preview", "/checkpoint-decisions/confirm", "/result-review-controls/preview", "/result-review-controls/confirm", "/model-policy-controls/preview", "/model-policy-controls/confirm", "/native-observer-controls/preview", "/native-observer-controls/confirm")):
+            if urlsplit(self.path).path.endswith(("/retention/preview", "/retention/confirm", "/checkpoint-decisions/preview", "/checkpoint-decisions/confirm", "/result-review-controls/preview", "/result-review-controls/confirm", "/model-policy-controls/preview", "/model-policy-controls/confirm", "/native-observer-controls/preview", "/native-observer-controls/confirm", "/native-permission/preview", "/native-permission/confirm")):
                 from .retention_controls import decode
                 body = decode(raw)
             else:
@@ -518,6 +526,18 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(200, self.server.registry.save_profile(workspace_id, body["profile"], body["expectedVersion"]))
             if path == "/api/commands":
                 return self.respond(200, runtime.submit_control(body))
+            if path in ("/api/native-permission/preview", "/api/native-permission/confirm") and workspace_id:
+                if urlsplit(self.path).query:
+                    raise Refusal("Native permission controls accept no query parameters")
+                if not runtime.native_approval_lock.acquire(blocking=False):
+                    return self.respond(409, {"error": "Native permission review is already in progress"})
+                try:
+                    args = (runtime.ledger, runtime.notifier.app_server)
+                    if path.endswith("/preview"):
+                        return self.respond(200, runtime.native_approval_controls.preview(*args, body, csrf))
+                    return self.respond(200, runtime.native_approval_controls.confirm(*args, body, csrf))
+                finally:
+                    runtime.native_approval_lock.release()
             if path == "/api/mission" and workspace_id:
                 from .missions import change
                 return self.respond(200, change(runtime.ledger, body))
