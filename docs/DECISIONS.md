@@ -9,7 +9,7 @@ executes a response note, launches a worker or starts a background dispatcher.
 
 ## Operator experience
 
-1. Open **Decision inbox** from Overview or the navigation rail.
+1. Open **Decisions** in the project graph's contextual inspector.
 2. Read the question, scope, next step and linked immutable artifacts. Either
    write **Your answer · in your own words** without selecting an option, or choose
    a suggestion and add any requested information. No option is preselected.

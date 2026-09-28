@@ -1,7 +1,9 @@
 # Session map
 
-The landing page follows one selected project: its designated brain, registered
-tasks, recorded relationships, and the next attention item. It uses the existing
+The one-page project workspace follows its designated brain, registered
+tasks, recorded relationships, and the next attention item. The graph remains
+visible while a contextual inspector shows conversation, phase review, task
+evidence, decisions, knowledge, budgets, history and advanced controls. It uses the existing
 authenticated state snapshot; opening or filtering the graph performs no native
 collection, dispatch, model call, approval or transcript import.
 
@@ -9,7 +11,8 @@ collection, dispatch, model call, approval or transcript import.
 
 - The project summary shows phase/dispatch state, registered task and history
   counts, and decisions requiring input.
-- The brain anchors a stable graph. Four task nodes appear per page; search and
+- The brain anchors a stable graph. Every active or attention-needing registered
+  task remains visible; older history is paginated. Search and
   All/Open/Attention/History filters make larger inventories navigable. The brain
   remains visible when a search has no results.
 - Zoom in/out, reset to 100%, or Fit the current page. Drag the background to pan;
@@ -20,8 +23,9 @@ collection, dispatch, model call, approval or transcript import.
   30-day, older, unknown and inclusive local-calendar date ranges. Sort by recent
   or oldest activity or title; unknown dates remain last. Reset filters clears
   the search and lifecycle filter too. Matching counts cover all result pages.
-- Selecting a node opens details below. Selecting a line or its text label opens
-  the responsibility view for that task. Selection never sends a control.
+- Selecting the brain opens its durable conversation in the inspector, ready for
+  an owner message. Selecting a task or connection opens its contextual inspector.
+  Selection never sends a control.
 - Overview describes responsibility and timestamped activity. Conversation shows
   saved project-brain messages inline, or links to the confirmed worker in Codex.
   Evidence exposes the existing retained scope, results and linked artifacts.
@@ -29,10 +33,10 @@ collection, dispatch, model call, approval or transcript import.
   Delivery & activity shows the exact commit, saved PR state, GitHub observation
   time, CI evidence reference, packet/phase ID and last recorded activity used
   by the filters. Nodes display compact PR and CI labels.
-- The brain's Controls tab uses the existing control components and confirmation
-  gates. Plan & controls → Controls & setup retains the previous full overview.
-- The advisory assistant is collapsed by default for new layouts; saved pane
-  preferences are preserved. Focus map makes room without changing project state.
+- The brain's Controls section uses existing confirmation gates. The advisory
+  guide is visibly separate from brain chat and has no direct execution authority.
+  On narrow screens the inspector is a dismissible sheet; the searchable list
+  remains a keyboard-friendly alternative to the graph.
 
 ## Meaning of the graph
 

@@ -1,6 +1,6 @@
 "use strict";
 const $ = (id) => document.getElementById(id);
-let state = null, csrf = null, view = "roadmap", selected = null, busy = false, connected = false;
+let state = null, csrf = null, view = "overview", selected = null, busy = false, connected = false;
 const titles = {overview:["Session map","Follow your brain, its tasks, and what needs you next."],queue:["Approved queue","Approval is bound to exact packet and inheritance hashes."],workers:["Workers & evidence","Native Codex tasks. Separate ownership and acceptance states."],knowledge:["Knowledge continuity","Decisions survive the conversation. Workers inherit only what they need."],metrics:["Portfolio metrics","Aggregate and repository-level measurements, with explicit coverage."]};
 function el(tag, text, cls) {const e=document.createElement(tag);if(text!==undefined&&text!==null)e.textContent=String(text);if(cls)e.className=cls;return e;}
 function button(text, action, cls="") {const b=el("button",text,cls);b.type="button";b.addEventListener("click",action);return b;}
@@ -51,7 +51,7 @@ async function command(kind,payload={}) {
  }catch(e){if(e.message.includes("State changed"))controlRequests.delete(key);showNotice(e.message+" Refresh before retrying; uncertain requests retain the same ID.",true);}
  finally{busy=false;render();updateWorkspaceSelector();}
 }
-async function refresh() {if(unconfiguredProject()){renderUnconfiguredProject();assistantConnectionChanged();return;}try{state=await api("/api/state");connected=true;$('export-report').hidden=false;$('connection').textContent="Ledger connected · "+new Date().toLocaleTimeString();refreshCommandNotice();render();}catch(e){if(e.workspaceChanged)return;connected=false;$('connection').textContent="Ledger disconnected";showNotice(e.message,true);$('pause').disabled=true;$('reconcile').disabled=true;if(['overview','roadmap'].includes(view)&&state)render();}finally{if(typeof assistantConnectionChanged==='function')assistantConnectionChanged();}}
+async function refresh() {if(unconfiguredProject()){renderUnconfiguredProject();assistantConnectionChanged();return;}try{state=await api("/api/state");connected=true;$('export-report').hidden=false;$('connection').textContent="Ledger connected · "+new Date().toLocaleTimeString();refreshCommandNotice();render();}catch(e){if(e.workspaceChanged)return;connected=false;$('connection').textContent="Ledger disconnected";showNotice(e.message,true);$('pause').disabled=true;$('reconcile').disabled=true;if(state)render();}finally{if(typeof assistantConnectionChanged==='function')assistantConnectionChanged();}}
 function operations(root) {
  const m=state.meta,active=state.workers.filter(w=>!['complete'].includes(w.status));
  journeyReturn(root,'Advanced controls');
@@ -139,13 +139,10 @@ function render() {
  $('pause').textContent=primary.button;$('pause').disabled=!connected||busy||primary.disabled;
  $('pause').title=state.workspace?primary.detail:"Change new worker dispatch only";
  $('pause').classList.toggle('primary',!!state.workspace);$('reconcile').classList.toggle('primary',!state.workspace);
- $('reconcile').disabled=!connected||busy;$('title').textContent=titles[view][0];$('subtitle').textContent=titles[view][1];
- document.title='Codex Orchestrator · '+titles[view][0];
+ $('reconcile').disabled=!connected||busy;$('title').textContent='Project workspace';$('subtitle').textContent='Your brain, work and next action in one place.';
+ document.title='Codex Orchestrator · '+(state.workspace?.name||'Project workspace');
  const root=$('content');
- if(view==='overview'){sessionMap(root);return;}
- root.replaceChildren();
- ({operations,conversation:conversationView,decisions,queue,workers,knowledge,metrics,usage,gitStatus,artifacts,roadmap,readiness,mission:missionView,runReadiness:runReadinessView,phaseCheckpoints:phaseCheckpointsView,retention:retentionView,workspaces:allWorkspaces})[view](root);
- if(!['roadmap','conversation','workspaces','mission','runReadiness','phaseCheckpoints','retention'].includes(view)&&state.commands.length){const history=journeyDisclosure('control-requests','Control request history',body=>body.append(table(["Request","Status","Result"],[...state.commands].reverse().slice(0,8).map(c=>{const delivery=commandPresentation(c);return [textCell(c.kind,when(c.createdAt)),badge(delivery.label),delivery.detail];}))));history.id='control-request-history';root.append(history);}
+ sessionMap(root);
 }
 document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>navigateView(b.dataset.view)));
 $('pause').onclick=()=>command(state.workspace?workspacePausePresentation(state).kind:state.meta.paused?'resume':'pause');$('reconcile').onclick=()=>command('reconcile');$('refresh').onclick=refresh;

@@ -1,7 +1,12 @@
-# Dashboard assistant and three-pane workspace
+# Advisory guide in the one-page workspace
 
-The assistant is the primary interaction surface for standard-project development.
-It explains recorded process state and carries the phase loop in one conversation.
+## The assistant remains advisory
+
+The project brain's durable conversation is the primary place to ask the
+project to continue. Select the brain node in the graph to open it in the
+inspector. The on-prem assistant is a separately labelled **Advisory guide**
+there: it explains recorded process state and can propose only supported
+controls. It is not the project brain, and its messages are not brain replies.
 See [the conversation workflow](ASSISTANT-LED-WORKFLOW.md) for preparation, review,
 Play, Pause, Resume and direct project-brain instructions.
 It can propose supported controls and free-text decision answers; only a separate
@@ -11,13 +16,14 @@ provision infrastructure or directly operate native workers.
 
 ## Using it
 
-1. Open the authenticated dashboard. **Ask assistant** opens the focused conversation.
+1. Open the authenticated project workspace. Select **Advisory guide** in the
+   inspector to ask about state; select the brain node for durable brain chat.
 2. Ask, for example, “What needs my attention?” or “Why is work waiting?”
 3. Choose **Send**, or Cmd/Ctrl+Enter. Enter alone adds a new line. Suggested
    questions populate the box without sending anything.
 4. Review the proposed step directly in the conversation. Standard-project phase
    controls accept the displayed confirmation phrase (for example, **confirm play**)
-   or the inline confirmation button. Pages remain optional inspection links. Decision links focus the exact
+   or the inline confirmation button. Contextual inspector sections remain optional inspection links. Decision links focus the exact
    version; artifact links open the retained version's inert reader. Check the
    evidence. For a requested supported action, review its inline preview: title,
    target, impact, exact payload/scope, state revision and five-minute expiry.
@@ -32,7 +38,7 @@ not sent to the browser or included in prompts. **Context & privacy** previews t
 bounded dashboard data; submitted messages are additionally sent. Never type
 secrets. See [the exact inference contract](INFERENCE.md#assistant-chat-data-boundary).
 
-Conversation history and drafts survive view changes and pane collapse within
+Advisory history and drafts survive inspector changes within
 the tab. They are deliberately not persisted across reloads, tabs, or server
 reconnection that requires a page reload. **Clear chat** removes the local transcript
 and draft, not upstream records. Failed requests retain the question for manual
@@ -82,23 +88,15 @@ is recorded but the brain has not been woken. Opening another tab/reloading lose
 chat but not the confirmed command: its pending state and latest brain reply remain
 in the conversation's current-project summary, with full history in Control requests.
 
-## Pane layout
+## Workspace layout
 
-- **Navigation / Workspace / AI assistant** at the top toggle each pane; collapsed
-  desktop rails also have expand buttons. These controls remain accessible.
-- Drag a vertical divider. The navigation divider adjusts navigation/workspace;
-  the assistant divider adjusts workspace/assistant. Minimum widths keep content
-  usable. Collapsed panes do not have an active adjacent resizing surface unless
-  it can transfer space to an expanded pane.
-- Keyboard: Tab to a divider, then Left/Right. Shift changes by a larger step;
-  Home/End selects its minimum/maximum. Focus indicators and ARIA sizes are present.
-- Widths and visibility are saved in this browser's localStorage. **Reset layout**
-  restores defaults. No layout preference is synchronized between browsers.
-- Narrow layouts automatically fit panes without overwriting saved widths.
-  Below 720 CSS pixels one pane is shown at a time. Top controls switch panes;
-  a chat link brings the workspace forward. This also supports narrow Codex panels.
-- Each expanded pane scrolls independently. The middle workspace responds to its
-  own width, so tables remain scrollable and section layouts stack when needed.
+The graph stays visible on desktop while its contextual inspector holds the
+brain conversation, advisory guide, roadmap, decisions and evidence. Select a
+node or use **Explore project** to change inspector context without opening a
+separate project page. On narrow screens, the inspector becomes a dismissible
+sheet; the graph and searchable task list remain available beneath it. Old
+project links select the corresponding inspector section. Exact control previews
+and confirmation gates are unchanged. See [one-page workspace](ONE-PAGE-WORKSPACE.md).
 
 ## Verification
 

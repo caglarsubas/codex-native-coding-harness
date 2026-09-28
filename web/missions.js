@@ -4,6 +4,44 @@ const missionDrafts=new Map(),missionRequests=new Map();
 const missionModes={prepare_only:'Prepare only',exact_owner:'Exact owner-approved packets',phase_delegated:'Brain approves within a reviewed phase'};
 const missionOperations=['edit','test','commit','push','open_pr','merge'];
 const missionLines=value=>value.split('\n').map(x=>x.trim()).filter(Boolean);
+function missionTaskOutline(raw){
+  const lines=missionLines(raw);if(!lines.length)return {rows:[],error:null};
+  if(lines.length>20)return {rows:[],error:'Use at most 20 planned tasks.'};
+  const rows=[];
+  for(const line of lines){
+    const parts=line.split('|').map(part=>part.trim());
+    if(parts.length!==3||!parts[0]||!parts[1]||!parts[2])return {rows:[],error:'Use “Task title | repository | exact/file.py, another/file.py” for each task.'};
+    const exactFiles=parts[2].split(',').map(path=>path.trim()).filter(Boolean);
+    if(!exactFiles.length||exactFiles.some(path=>path.startsWith('/')||path.includes('..')||path.normalize('NFC')!==path||/[\\*?\[\]]/.test(path)))
+      return {rows:[],error:'Planned files must be exact repository-relative paths, without wildcards or parent traversal.'};
+    rows.push({title:parts[0],repository:parts[1],exactFiles});
+  }
+  return {rows,error:null};
+}
+function missionLimitSuggestion(outline,repositoryMode='repo_exclusive'){
+  const planned=Array.isArray(outline)?outline.length:0;
+  if(planned>10)return {limits:null,eligible:1,reason:'More than 10 planned tasks need explicit limits or a smaller phase.'};
+  const [tokenBudget,maxTasks]=planned<=2?[20000000,3]:planned<=5?[30000000,6]:[40000000,10];
+  let complete=planned>0;
+  const scopes=(outline||[]).map(task=>{
+    if(!task?.repository||!Array.isArray(task.exactFiles)||!task.exactFiles.length){complete=false;return new Set();}
+    const names=task.exactFiles.map(path=>task.repository.normalize('NFC').toLowerCase()+':'+path.normalize('NFC').toLowerCase());
+    if(names.length!==new Set(names).size)complete=false;
+    return new Set(names);
+  });
+  let independent=1;
+  if(complete)for(let a=0;a<scopes.length;a++)for(let b=a+1;b<scopes.length;b++){
+    if([...scopes[a]].some(name=>scopes[b].has(name)))continue;
+    independent=Math.max(independent,2);
+    for(let c=b+1;c<scopes.length;c++)if(![...scopes[c]].some(name=>scopes[a].has(name)||scopes[b].has(name)))independent=3;
+  }
+  const maxParallelTasks=complete?Math.max(1,Math.min(3,independent)):1;
+  const integrationCount=repositoryMode==='isolated_worktrees'&&planned?new Set(outline.map(task=>task.repository)).size:0;
+  const integrationWarning=integrationCount&&planned+integrationCount>maxTasks?
+    ` The outline needs ${planned+integrationCount} total task slots, including one separate integration task per repository. Edit the suggested total before review or split the phase.`:'';
+  return {limits:{tokenBudget,maxTasks,maxParallelTasks,checkpointReserveTokens:Math.floor(tokenBudget*.1)},
+    eligible:maxParallelTasks,reason:(complete?`${maxParallelTasks} independently scoped task${maxParallelTasks===1?'':'s'} in this outline; actual native worktree eligibility is checked later.`:'Task outline is missing or incomplete. Parallel eligibility is provisional; missing usage is never zero.')+integrationWarning};
+}
 function missionSummary(root){
   if(typeof standardPanel==='function')standardPanel(root);
   if(state.standard?.available||state.standard?.run)return;
@@ -50,7 +88,8 @@ function missionView(root){
   })));
   root.append(el('p',a.mergeMode==='brain_exact_pr_v1'?'Merge opt-in: designated brain may cross-check and issue one exact PR merge in a separately activated standard phase. Existing repository policy still applies.':'Merge mode: manual (default).'));
   root.append(section('Phase limits',standard?'Applied when you confirm Play for this reviewed phase.':'Proposed limits only. Strict-mode activation and packet approvals remain separate.'));
-  root.append(table(['Setting','Proposed value'],[['Packet approval',missionModes[a.approvalMode]],['Parallel tasks',num(a.maxParallelTasks)],['Total tasks in this phase',num(a.maxTasks)],['Phase token allocation',num(a.tokenBudget)],['Included checkpoint reserve',num(a.checkpointReserveTokens)]]));
+  root.append(table(['Setting','Proposed value'],[['Packet approval',missionModes[a.approvalMode]],['Repository ownership',a.repositoryMode==='isolated_worktrees'?'Isolated native worktrees · exact-file scopes':'Repository-exclusive (default)'],['Parallel tasks',num(a.maxParallelTasks)],['Total tasks in this phase',num(a.maxTasks)],['Phase token allocation',num(a.tokenBudget)],['Included checkpoint reserve',num(a.checkpointReserveTokens)]]));
+  if(phase.taskOutline?.length){const outline=el('details');outline.append(el('summary',`Planned task outline · ${phase.taskOutline.length} tasks`));const planned=el('ul');for(const item of phase.taskOutline)planned.append(el('li',`${item.title} · ${item.repository} · ${item.exactFiles.join(', ')}`));outline.append(planned);root.append(outline);}
   root.append(el('p','The token allocation includes brain, workers, review and checkpoint reserve. Usage coverage is reported separately; the allocation is a cooperative limit.','muted'));
   const actions=el('section',null,'mission-review');actions.append(button('Revise as a new draft',()=>openMissionEditor()));
   if(m.status==='draft'&&!m.bindingIssues.length)missionConfirmation(actions,m,'review','Review this phase plan',`I reviewed version ${m.version}, its scope, limits and stopping checkpoint. Work starts only after a separate Play confirmation.`);
@@ -82,11 +121,13 @@ function openMissionEditor(source=null){
   const m=state.mission,spec=m.document?.spec;
   const note=source?missionRoadmapNote(source):null;
   if(source&&!note)return false;
+  const standard=state.repositories?.length&&state.repositories.every(repo=>repo.policyProfile==='standard');
+  const initial=standard?missionLimitSuggestion([]).limits:null;
   const draftSpec=source?{goal:source.text.trim().replace(/\s+/g,' '),successCriteria:[],exclusions:[],
     phase:{id:'',title:'',objective:note,checkpoint:'',stopConditions:[],scope:[]},
-    authority:{approvalMode:'prepare_only',maxParallelTasks:'',maxTasks:'',tokenBudget:'',checkpointReserveTokens:''}}:
-    spec?JSON.parse(JSON.stringify(spec)):{goal:'',successCriteria:[],exclusions:[],phase:{id:'',title:'',objective:'',checkpoint:'',stopConditions:[],scope:[]},authority:{approvalMode:'exact_owner',maxParallelTasks:'',maxTasks:'',tokenBudget:'',checkpointReserveTokens:''}};
-  missionDrafts.set(workspaceId,{revision:m.revision,spec:draftSpec,source:source?{...source,note}:null});
+    authority:{approvalMode:'prepare_only',repositoryMode:'repo_exclusive',maxParallelTasks:initial?.maxParallelTasks??'',maxTasks:initial?.maxTasks??'',tokenBudget:initial?.tokenBudget??'',checkpointReserveTokens:initial?.checkpointReserveTokens??''}}:
+    spec?JSON.parse(JSON.stringify(spec)):{goal:'',successCriteria:[],exclusions:[],phase:{id:'',title:'',objective:'',checkpoint:'',stopConditions:[],scope:[]},authority:{approvalMode:'exact_owner',repositoryMode:'repo_exclusive',maxParallelTasks:initial?.maxParallelTasks??'',maxTasks:initial?.maxTasks??'',tokenBudget:initial?.tokenBudget??'',checkpointReserveTokens:initial?.checkpointReserveTokens??''}};
+  missionDrafts.set(workspaceId,{revision:m.revision,spec:draftSpec,source:source?{...source,note}:null,touchedLimits:new Set()});
   selected='mission-edit';render();document.querySelector('.mission-form textarea')?.focus();
   return true;
 }
@@ -128,14 +169,54 @@ function missionEditor(root,m){
     group.append(ops);form.append(group);
   }
   if(!state.repositories.length)form.append(el('p','No repositories are registered in this project. Register a repository before saving a phase.','muted'));
-  form.append(section('Proposed authority & limits','No defaults for token or task allowances: choose them explicitly.'));
+  const standard=state.repositories?.length&&state.repositories.every(repo=>repo.policyProfile==='standard');
+  if(standard){
+    form.append(section('Planned task outline','Optional planning context, not task approval. Exact files make the parallel suggestion more useful.'));
+    const outlineLabel=el('label','One task per line · Task title | repository | exact/file.py, another/file.py');
+    const outline=el('textarea');outline.rows=4;outline.maxLength=12000;
+    outline.value=draft.outlineText??(phase.taskOutline||[]).map(row=>`${row.title} | ${row.repository} | ${row.exactFiles.join(', ')}`).join('\n');
+    outlineLabel.append(outline);form.append(outlineLabel);
+    const outlineStatus=el('p',null,'muted');form.append(outlineStatus);
+    const numericInputs={};draft._numericInputs=numericInputs;
+    draft._refreshSuggestion=()=>{
+      const parsed=missionTaskOutline(outline.value);draft.outlineText=outline.value;
+      outline.setCustomValidity(parsed.error||'');
+      if(parsed.error){delete phase.taskOutline;outlineStatus.textContent=parsed.error;return;}
+      if(parsed.rows.length)phase.taskOutline=parsed.rows;else delete phase.taskOutline;
+      const suggestion=missionLimitSuggestion(parsed.rows,a.repositoryMode);
+      const priorUsage=state.standard?.measuredUsage;
+      const usageNote=(!priorUsage||priorUsage.gaps?.length)?' Prior measured remaining budget is unknown; no gap counts as zero.':' Prior measured usage is historical, not this new phase’s balance.';
+      outlineStatus.textContent=(suggestion.limits?`Suggested for a new standard phase: ${num(suggestion.limits.tokenBudget)} tokens, ${num(suggestion.limits.checkpointReserveTokens)} included reserve, ${suggestion.limits.maxTasks} total tasks, up to ${suggestion.limits.maxParallelTasks} parallel; Play suggests 24 hours and 30% brain allowance (up to 12M). `:'')+suggestion.reason+usageNote+' These values do not change the current run or grant Play.';
+      if(suggestion.limits&&!m.document)for(const [key,input] of Object.entries(numericInputs)){
+        if(draft.touchedLimits?.has(key))continue;
+        a[key]=suggestion.limits[key];input.value=a[key];
+      }
+    };
+    outline.oninput=draft._refreshSuggestion;
+  }
+  form.append(section('Proposed authority & limits',standard?'Editable suggestions for a new phase only. Review and Play remain separate; missing usage does not mean zero.':'Choose task and token allowances explicitly. Strict-project gates are unchanged.'));
   const mergeLabel=el('label','Phase merge mode'),mergeMode=el('select');
   for(const [value,label] of [['manual','Manual merge (default)'],['brain_exact_pr_v1','Designated brain · one exact PR']]){const option=el('option',label);option.value=value;mergeMode.append(option);}
   mergeMode.value=a.mergeMode||'manual';mergeMode.onchange=()=>a.mergeMode=mergeMode.value;mergeLabel.append(mergeMode);form.append(mergeLabel);
   const mergeDetails=el('details');mergeDetails.append(el('summary','Requirements for brain-managed merges'),el('p','Opt-in requires phase delegation, exactly one standard repository with merge scope and a checks-based repository policy. Manual repository policy remains a refusal. Verify the installed launcher is compatible with the merged source before merge-enabled Play; a schema-1-only launcher cannot operate this protocol.','muted'));form.append(mergeDetails);
   const modeLabel=el('label','Packet approval mode'),mode=el('select');for(const [value,label] of Object.entries(missionModes)){const option=el('option',label);option.value=value;mode.append(option);}mode.value=a.approvalMode;mode.onchange=()=>a.approvalMode=mode.value;modeLabel.append(mode);form.append(modeLabel);
   form.append(el('p','Harness scopes require exact owner approval. Standard projects can delegate task approval within this reviewed phase; confirm Play separately to begin.','muted'));
-  for(const [key,label,max] of [['maxParallelTasks','Maximum parallel tasks',16],['maxTasks','Maximum tasks in this phase',1000],['tokenBudget','Phase token allocation',1000000000],['checkpointReserveTokens','Checkpoint reserve · included in the allocation',1000000000]])field(label,a[key],v=>a[key]=v,{type:'number',max});
+  if(standard){const ownership=el('label','Repository ownership mode'),selection=el('select');
+    for(const [value,label] of [['repo_exclusive','One task per repository (default)'],['isolated_worktrees','Parallel producers in distinct native worktrees']]){const option=el('option',label);option.value=value;selection.append(option);}
+    selection.value=a.repositoryMode||'repo_exclusive';selection.onchange=()=>{a.repositoryMode=selection.value;draft._refreshSuggestion?.();};ownership.append(selection);form.append(ownership);
+    const note=el('details');note.append(el('summary','When isolated worktrees can run in parallel'),el('p','Only a future explicitly reviewed standard phase can opt in. Every scoped repository needs open_pr permission for its required integration task. Distinct confirmed native worktrees and non-overlapping exact-file scopes are required. Pending identities hold the whole repository. Producers commit only; a separate integration task combines pinned commits and opens the PR. Conflicts stop at a checkpoint. This does not change an active or paused run.','muted'));form.append(note);
+  }
+  for(const [key,label,max] of [['maxParallelTasks','Maximum parallel tasks',16],['maxTasks','Maximum tasks in this phase',1000],['tokenBudget','Phase token allocation',1000000000],['checkpointReserveTokens','Checkpoint reserve · included in the allocation',1000000000]]){
+    const input=field(label,a[key],v=>{a[key]=v;draft.touchedLimits?.add(key);},{type:'number',max});
+    if(draft._numericInputs)draft._numericInputs[key]=input;
+  }
+  if(draft._refreshSuggestion)draft._refreshSuggestion();
+  if(standard&&m.document){form.append(button('Apply outline suggestions to this new draft',()=>{
+    const suggestion=missionLimitSuggestion(phase.taskOutline||[],a.repositoryMode);
+    if(!suggestion.limits){showNotice(suggestion.reason,true);return;}
+    for(const [key,value] of Object.entries(suggestion.limits)){a[key]=value;draft._numericInputs[key].value=value;draft.touchedLimits?.add(key);}
+    showNotice('Suggested values copied into this unsaved draft. Review and Play remain separate.');
+  }));}
   form.append(el('p','Standard-project limits take effect only after Play. Strict-mode activation remains separate. Token limits use observations and checkpoints, not provider billing caps.','muted'));
   const save=el('button','Save draft','primary');save.type='submit';save.disabled=!state.repositories.length;
   const cancel=button('Discard unsaved edits',()=>{if(busy)return;missionDrafts.delete(workspaceId);selected=null;render();});form.append(save,cancel);

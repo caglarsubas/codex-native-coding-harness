@@ -1,7 +1,10 @@
 # Conversation as the main project control surface
 
-The owner directs development through the AI assistant. Project pages are optional
-inspection surfaces. A routine standard-project cycle stays in the conversation:
+The owner directs development through the one-page project workspace. Select
+the brain on its persistent graph for durable instructions and replies; choose
+the separately labelled advisory guide for explanations and signed-control
+previews. Roadmap and evidence open in the same inspector. A routine
+standard-project cycle stays in this workspace:
 
 1. Click **Help me continue development** below its preparation summary. This
    confirms the displayed, signed preparation request; no prompt writing is needed.

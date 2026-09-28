@@ -5,6 +5,7 @@ class Node{
   constructor(tag,text=''){this.tag=tag;this.tagName=tag.toUpperCase();this.textContent=text;this.children=[];this.classList={contains:()=>false};}
   append(...children){this.children.push(...children);}
   setAttribute(){}
+  setCustomValidity(message){this.validationMessage=message;}
   after(){}
   closest(){return null;}
   reportValidity(){return true;}
@@ -15,19 +16,34 @@ const box={titles:{},Map,JSON,crypto:{randomUUID:()=>`fixture-${++sequence}`},bu
   state:{mission:{revision:1,document:{spec:{goal:'Earlier reviewed scope'}}},repositories:[{id:'fixture',policyProfile:'standard',mergePolicy:'manual'}]},
   document:{querySelector:()=>null},render(){},
   el:(tag,text)=>new Node(tag,text),section:(title)=>new Node('h2',title),callout:(title,body)=>new Node('aside',title+' '+body),
-  button:(title,click)=>Object.assign(new Node('button',title),{click}),updateWorkspaceSelector(){},
+  button:(title,click)=>Object.assign(new Node('button',title),{click}),num:String,updateWorkspaceSelector(){},
   showNotice:(message)=>notices.push(message),refresh:async()=>{},
   api:async(path,options)=>{sent.push({path,body:JSON.parse(options.body)});if(fail)throw new Error('Connection lost');return {receipt:{executionAuthorized:false}};}};
 vm.createContext(box);vm.runInContext(fs.readFileSync('web/missions.js','utf8'),box);
 const run=code=>vm.runInContext(code,box),control={disabled:false,closest:()=>null,after(){}};
 (async()=>{
+  for(const [count,tokens,total] of [[1,20000000,3],[2,20000000,3],[3,30000000,6],[5,30000000,6],[6,40000000,10],[10,40000000,10]]){
+    const result=run(`missionLimitSuggestion(Array.from({length:${count}},(_,i)=>({title:'Task '+i,repository:'fixture',exactFiles:['src/task-'+i+'.py']})))`);
+    assert.equal(result.limits.tokenBudget,tokens);assert.equal(result.limits.maxTasks,total);
+    assert.equal(result.limits.checkpointReserveTokens,tokens/10);
+    assert.equal(result.limits.maxParallelTasks,Math.min(3,count));
+  }
+  assert.equal(run("missionLimitSuggestion([{title:'a',repository:'fixture',exactFiles:['a.py']},{title:'b',repository:'fixture',exactFiles:['a.py']}]).limits.maxParallelTasks"),1);
+  assert.equal(run("missionLimitSuggestion([{title:'a',repository:'fixture',exactFiles:['a.py','b.py']},{title:'b',repository:'fixture',exactFiles:['a.py']},{title:'c',repository:'fixture',exactFiles:['b.py']}]).limits.maxParallelTasks"),2,
+    'Choose the largest disjoint task subset, not merely the first task');
+  assert.equal(run("missionLimitSuggestion([]).limits.maxParallelTasks"),1);
+  assert.equal(run("missionLimitSuggestion(Array.from({length:11},(_,i)=>({title:String(i),repository:'fixture',exactFiles:[i+'.py']}))).limits"),null);
+  assert.match(run("missionLimitSuggestion(Array.from({length:10},(_,i)=>({title:String(i),repository:'fixture',exactFiles:[i+'.py']})),'isolated_worktrees').reason"),/11 total task slots/);
+  assert.match(run("missionTaskOutline('One | fixture | ../secret.py').error"),/exact repository-relative/);
   box.source={repository:'fixture',path:'docs/plan.md',commit:'a'.repeat(40),documentId:'b'.repeat(64),
     documentVersion:3,observedAt:12,kind:'checklist',line:4,text:'Build a bounded fixture'};
   assert.equal(run('openMissionEditor(source)'),true);
   const handoff=run("missionDrafts.get('alpha')");
   assert.equal(handoff.revision,1);assert.equal(handoff.spec.goal,'Build a bounded fixture');
   assert.equal(handoff.spec.authority.approvalMode,'prepare_only');
-  assert.equal(handoff.spec.phase.scope.length,0);assert.equal(handoff.spec.authority.tokenBudget,'');
+  assert.equal(handoff.spec.phase.scope.length,0);assert.equal(handoff.spec.authority.tokenBudget,20000000);
+  assert.equal(handoff.spec.authority.checkpointReserveTokens,2000000);
+  assert.equal(handoff.spec.authority.maxParallelTasks,1,'No outline cannot imply independent work');
   assert.match(handoff.spec.phase.objective,/Roadmap source: fixture \/ docs\/plan.md/);
   assert.match(handoff.spec.phase.objective,/retained document b{64} v3; checklist line 4: Build a bounded fixture/);
   assert.equal(sent.length,0,'Preparing a local draft sends no request');

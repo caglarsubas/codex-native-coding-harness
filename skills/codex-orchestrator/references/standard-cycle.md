@@ -99,6 +99,10 @@ settings or resume a stopped brain. Release the controller after either receipt.
    stop/checkpoint criteria and instruction to report artifacts. Never fork the
    full brain history. Workers cannot spawn descendants, change budgets, approve
    work, archive, merge, run paid APIs/Actions or alter controller state.
+   Only a **future** exact reviewed standard phase whose authority says
+   `repositoryMode: isolated_worktrees` may use the separate producer/integration
+   flow below. An existing or paused run remains repository-exclusive. Do not
+   infer permission from a higher parallel limit.
 6. `bind` the exact returned native task/client ID and host. Keep supervising
    with native `wait_threads`, using cursors and bounded waits. Read the ledger
    between waits. On Pause, tell active tasks to finish their current bounded
@@ -132,14 +136,32 @@ Run operations below include `runId`; the pre-Play catalog operations use
 - `receive`: no additional fields.
 - `claim`: `id, repository, title, paths:[…], instructions, acceptance:[…], model,
   effort, rationale, allowance`. Paths must be exact files or phase-listed patterns.
+  In reviewed `isolated_worktrees` mode add `taskKind` (`producer` or
+  `integration`); paths must be exact files. Each task has a separate allowance.
 - `issue`, `cancel_unissued`: `taskId` only.
 - `bind`: `taskId, threadId, clientThreadId, hostId`; exactly one ID non-null.
+- `worktree_bind` (isolated mode only): `taskId, threadId, root, branch,
+  startCommit, nativeCreation, nativeObservation`. Bind a confirmed native task,
+  never a pending client ID. `nativeCreation` records exact `projectId`,
+  `environment: worktree`, pinned `startingCommit`, `seedHash`, returned
+  `threadId` and `hostId`. `nativeObservation` is a separate current native
+  `thread/read` metadata observation with that task/host, canonical worktree
+  `cwd`, original `observedAt` and `sourceHash`. The local Git worktree, common
+  repository, branch, start commit and observation must all agree. These are
+  supplied observations plus independent local Git checks, not host attestation.
+  Before another same-repository claim, preservation or committed-source
+  verification, refresh with a newer native observation of the same immutable
+  worktree binding. Exact replay cannot renew its age.
 - `observe`: `taskId, nativeStatus` (active/idle/completed/failed/unknown),
   `observedTokens` (cumulative observed integer or null), `trackedTerminals`
   (running/none/unknown), `observedAt` (actual UNIX observation time), `source`.
 - `finish`: `taskId, outcome` (completed/failed), `evidence:{source,tests,
   artifacts:[preserved document hashes],preservation,summary}`. Source/tests are
-  independently checked references/results, not claims of unrun CI.
+  independently checked references/results, not claims of unrun CI. A completed
+  isolated task also needs exact `headSHA`; an integration task additionally
+  needs its canonical `prUrl` and `prHeadBranch`, matching the bound repository
+  origin and native worktree branch. This records a PR claim, not a verified
+  remote PR; later GitHub evidence is separate. A producer cannot claim it.
 - `preserve`: `taskId, path` (absolute canonical artifact path), `createdAt`
   (observed UNIX creation time or null).
   This explicitly reads an approved artifact path in the task's pinned Git
@@ -162,6 +184,50 @@ Recovery: restart reads the same journal. Reacquire only after the previous
 controller is explicitly reconciled with native state. The legacy `recover`
 command must fence cooperative work as well. Do not delete state, reset
 allowances, change phase IDs merely to retry, or invent not-created receipts.
+
+## Optional isolated-worktree phase
+
+This mode is **not** a way to resume, upgrade or loosen an already active run.
+The owner must review a new all-standard, phase-delegated mission with exact
+files and `repositoryMode: isolated_worktrees`, then separately confirm Play.
+Every repository in the reviewed phase scope must permit `open_pr` for its
+mandatory integration task; a producer-only PR scope is not reviewable.
+Strict Harness, pending identities and other workspaces retain the whole-repository
+exclusion. The reviewed parallel count is only a ceiling; current eligible
+capacity may be lower. Recheck scope, Pause, usage and authority at every effect.
+Each repository with outlined producers needs a separate integration-task slot
+inside the reviewed total. The controller reserves that slot from the first
+producer claim; an outline whose producer count already fills the total must
+be revised and reviewed before Play.
+
+For a producer, claim `taskKind: producer` with its non-overlapping exact files.
+The seed pins the registered native Git project and repository base commit.
+Issue once, then call native `create_thread` with `environment: worktree` and
+`startingState: {type: branch, branchName: <that exact commit>}`. Never accept a
+default-ref checkout in place of the pinned base. Record the one-shot result with
+`bind`, then supply a separate fresh native task-metadata observation to
+`worktree_bind`. If creation is pending, its response is lost, metadata is stale,
+or the worktree cannot be proven distinct, retain the entire repository lock and
+reconcile; do not create another producer. Producers edit/test/commit only their
+own exact files, never merge or open the phase PR. Preserve any task artifacts
+from that producer's pinned native worktree. Before completed `finish`, inspect
+its committed diff against its exact scope and retain the exact head SHA. A
+worker message or created branch alone is insufficient.
+Source verification checks each commit edge from pinned base to head; an
+out-of-scope edit followed by a revert is still a violation. History beyond
+the bounded 80-commit check stops for review rather than being assumed safe.
+
+After every producer is settled with verified source, claim one separately
+budgeted `taskKind: integration` task. Its seed includes immutable producer
+commit/evidence references. Bind its **own** distinct native worktree as above;
+combine those exact commits, run the combined checks and open the phase PR only
+from integration. The completed integration head must contain every producer
+commit and the combined diff must remain within the union of producer and
+integration exact files. Record its exact canonical PR URL and head branch;
+verify remote PR existence and checks separately. Conflicts, drift,
+failed/unknown delivery or missing checks stop at an owner-visible checkpoint;
+there is no automatic retry or merge. Manual merge remains default unless a
+separately reviewed exact PR merge authority and evidence gate applies.
 
 ## Optional exact PR merge in a future reviewed phase
 
