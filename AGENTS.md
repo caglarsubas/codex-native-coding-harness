@@ -48,6 +48,18 @@ one-shot claim, exact brain/checkout, private pinned local host, no automatic
 resend and an independent ledger receipt remain mandatory. Strict Harness keeps
 its existing transport fence.
 
+The source-only native project-assignment qualifier and owner approval relay in
+docs/OWNED-BRAIN-WAKE.md do not install a host or qualify live use. Project
+assignment needs its own exact owner-reviewed preview, durable one-shot intent
+and read-only reconciliation after uncertainty. The approval relay may accept
+only a complete prompt on the retained owned connection; decline and cancel
+remain available as fail-closed choices. Each response requires an authenticated
+signed exact owner confirmation and durable decision claim; it is not mission,
+repository, task, Play or merge authority. Pause and current standard-run
+blockers fence a native accept at the send boundary. Neither feature may mutate
+the live paused workspace, start a turn, retry an uncertain native effect or
+relax strict Harness controls during source delivery.
+
 ## Codex project catalog (2026-09-22)
 
 User-facing projects correspond to native Codex projects. Internal workspace

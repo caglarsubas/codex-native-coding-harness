@@ -50,6 +50,31 @@ async function render(){const root=new Element('root');box.conversationView(root
   fail=false;await nodes.find(n=>n.tag==='form').onsubmit({preventDefault(){}});assert.equal(JSON.stringify(sent[1]),first);
   assert.equal(sent[1].payload.brainId,'brain-a');assert.equal(sent[1].kind,'reconcile');
   pending=1;nodes=await render();assert.equal(nodes.find(n=>n.type==='submit').disabled,true);
+  let nativePending=true;const nativeCalls=[];
+  const native={status:'pending',pending:{commandId:'cmd-1',brainId:'brain-a',turnId:'turn-1',itemId:'item-1',requestId:4,
+    method:'item/commandExecution/requestApproval',requestHash:'a'.repeat(64),observedAt:1,expiresAt:9999999999,
+    canAccept:false,allowedDecisions:['accept','decline','cancel'],request:{command:'do-not-run <script>',cwd:'/fixture'},item:null}};
+  box.api=async(path,options)=>{
+    if(path==='/api/native-permission')return nativePending?native:{status:'unavailable'};
+    if(path==='/api/native-permission/preview'){
+      const body=JSON.parse(options.body);nativeCalls.push(['preview',body]);
+      return {document:{...native.pending,decision:body.decision,boundary:'Permission only'},signature:'signed'};
+    }
+    if(path==='/api/native-permission/confirm'){
+      nativeCalls.push(['confirm',JSON.parse(options.body)]);nativePending=false;
+      return {status:'queued',detail:'One response queued'};
+    }
+    return {pending:0,total:0,messages:[],hasOlder:false};
+  };
+  root=new Element('root');box.nativePermissionPanel(root);await Promise.resolve();await Promise.resolve();
+  nodes=all(root);assert(nodes.some(n=>n.tag==='pre'&&n.text.includes('do-not-run <script>')));
+  assert(!nodes.some(n=>n.text==='Approve this request once'));
+  await nodes.find(n=>n.text==='Decline').click();
+  nodes=all(root);assert.equal(nativeCalls[0][0],'preview');
+  const nativeCheck=nodes.find(n=>n.type==='checkbox'),nativeConfirm=nodes.find(n=>n.text==='Confirm decline');
+  assert.equal(nativeConfirm.disabled,true);nativeCheck.checked=true;nativeCheck.onchange();
+  await nativeConfirm.click();assert.equal(nativeCalls[1][0],'confirm');
+  assert.equal(nativeCalls[1][1].confirmed,true);
   const source=fs.readFileSync('web/conversation.js','utf8');assert(!source.includes('innerHTML'));
   assert(source.includes("navigateView('artifacts',id)"));assert(source.includes("navigateView('decisions',id)"));
   console.log('Conversation UI: project drafts, explicit confirmation, immutable retry, receipt labels and pending guard passed');

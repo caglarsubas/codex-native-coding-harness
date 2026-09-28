@@ -1,6 +1,71 @@
 "use strict";
 Object.assign(titles,{conversation:['Brain conversation','Talk to this project’s existing Codex brain. Messages and replies stay in this project.']});
 const brainDrafts=new Map(),brainPages=new Map();
+const nativePermissionPreviews=new Map();
+function nativePermissionPanel(root){
+  const panel=el('section',null,'brain-exchange native-permission');root.append(panel);
+  const key=workspaceId||'legacy',generation=typeof workspaceGeneration==='undefined'?0:workspaceGeneration;
+  const same=()=>panel.isConnected&&generation===(typeof workspaceGeneration==='undefined'?0:workspaceGeneration)&&key===(workspaceId||'legacy');
+  let shown=null;
+  function post(path,body){return api(path,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify(body)});}
+  function paint(value,force=false){
+    if(!same())return;
+    const signature=value.status==='pending'?'pending:'+value.pending.requestHash+':'+(value.pending.canAccept?'accept':'no-accept'):value.status+':'+(value.delivery||'');
+    if(!force&&signature===shown)return;
+    shown=signature;
+    panel.replaceChildren();
+    if(value.status!=='pending'){
+      nativePermissionPreviews.delete(key);
+      if(value.status!=='disabled'&&value.detail&&value.detail!=='No current native permission request; inspect the brain before retrying')
+        panel.append(el('p',(value.status==='response_claimed'?'Native permission · '+value.delivery+': ':'Native approval unavailable: ')+value.detail,'muted'));
+      return;
+    }
+    const pending=value.pending,preview=nativePermissionPreviews.get(key);
+    if(preview&&(preview.document?.requestHash!==pending.requestHash||preview.document?.decision==='accept'&&!pending.canAccept))nativePermissionPreviews.delete(key);
+    const current=nativePermissionPreviews.get(key);
+    panel.append(el('p','NATIVE CODEX PERMISSION · EXACT OWNER REVIEW','eyebrow'),el('h3','The brain is waiting for a native permission decision'),
+      el('p','This is a Codex security prompt, not phase or task approval. No permission is granted automatically.','checkpoint'));
+    const facts=el('ul');
+    facts.append(el('li','Type: '+pending.method),el('li','Observed: '+when(pending.observedAt)),
+      el('li','Expires: '+when(pending.expiresAt)),el('li','Approval available here: '+(pending.canAccept?'yes, after exact review':'no; decline or inspect in Codex')));
+    panel.append(facts);
+    const details=el('details'),exact=el('pre',JSON.stringify({request:pending.request,item:pending.item||null},null,2),'brain-message-text');
+    details.open=true;details.append(el('summary','Exact native request and item context'),exact);panel.append(details);
+    const actions=el('div',null,'inline-actions');
+    for(const [decision,label] of [['accept','Approve this request once'],['decline','Decline'],['cancel','Cancel']]){
+      if(!pending.allowedDecisions?.includes(decision)||decision==='accept'&&!pending.canAccept)continue;
+      const b=button(label,async()=>{
+        b.disabled=true;
+        try{const proposal=await post('/api/native-permission/preview',{commandId:pending.commandId,requestHash:pending.requestHash,decision});
+          if(!same())return;nativePermissionPreviews.set(key,proposal);paint(value,true);
+        }catch(error){if(same())showNotice('Native permission preview failed: '+error.message,true);}
+        finally{b.disabled=false;}
+      });actions.append(b);
+    }
+    panel.append(actions);
+    if(current){
+      const p=current.document;
+      const review=el('div',null,'brain-exchange');review.append(el('h4','Confirm one native response: '+p.decision),
+        el('p',p.boundary,'checkpoint'),el('p','This preview is bound to the current brain, turn, request and browser session. It expires '+when(p.expiresAt)+'.','muted'));
+      const checkLabel=el('label',null,'decision-confirm'),check=el('input');check.type='checkbox';
+      checkLabel.append(check,el('span','I reviewed the exact native request above and confirm this one response.'));review.append(checkLabel);
+      const confirm=button('Confirm '+p.decision,async()=>{
+        if(!check.checked)return;
+        confirm.disabled=true;
+        try{const result=await post('/api/native-permission/confirm',{proposal:current,confirmed:true});
+          if(!same())return;nativePermissionPreviews.delete(key);showNotice(result.detail||'Native permission response claimed.');
+          const refreshed=await api('/api/native-permission');if(same())paint(refreshed,true);await refresh();
+        }catch(error){if(same())showNotice('Native permission result is uncertain or stale: '+error.message+' Inspect before any new action.',true);}
+        finally{confirm.disabled=false;}
+      },'primary');confirm.disabled=true;check.onchange=()=>{confirm.disabled=!check.checked;};review.append(confirm);panel.append(review);
+    }
+  }
+  function load(){
+    api('/api/native-permission').then(value=>paint(value)).catch(error=>{if(same())panel.replaceChildren(el('p','Native permission status unavailable: '+error.message,'muted'));})
+      .finally(()=>{if(same()&&typeof window!=='undefined')window.setTimeout(load,5000);});
+  }
+  load();
+}
 function brainDraftStorageKey(key){return 'orchestrator-brain-draft:'+key;}
 function loadBrainDraft(key){
   try{const saved=JSON.parse(sessionStorage.getItem(brainDraftStorageKey(key)));if(saved&&typeof saved.text==='string'&&saved.text.length<=8000)return {text:saved.text,confirmed:saved.confirmed===true,request:saved.request?.kind==='reconcile'&&saved.request?.id?saved.request:null};}catch{}
@@ -91,6 +156,7 @@ function conversationView(root){
   const actions=el('div',null,'inline-actions');actions.append(button('Decision inbox',()=>navigateView('decisions')),button('Approved queue',()=>navigateView('queue')),button('Artifact library',()=>navigateView('artifacts')));head.append(actions);root.append(head);
   const stopping=['stop_requested','checkpointing','parked'].includes(state.meta.brainControl?.phase)||['stopping','paused'].includes(state.standard?.run?.status);
   if(stopping)root.append(callout('Brain paused or stopping',state.standard?.run?.status==='paused'?'Messages stay saved. If the phase has blockers, review the recovery-only preparation wake; ordinary Resume cannot bypass them.':'Messages stay saved. Sending a message does not resume the phase.'));
+  nativePermissionPanel(root);
   const history=el('section',null,'brain-history');history.setAttribute('aria-label','Project brain messages');history.append(el('p','Loading saved conversation…'));root.append(history);
   const form=el('form',null,'brain-composer'),label=el('label','Message your project brain'),input=el('textarea');input.id='brain-message';input.setAttribute('data-focus','brain-message');input.rows=5;input.maxLength=8000;input.required=true;input.value=draft.text;label.htmlFor=input.id;form.append(label,input);
   const checkLabel=el('label',null,'decision-confirm'),check=el('input');check.type='checkbox';check.checked=draft.confirmed;checkLabel.append(check,el('span','Send to this project’s existing Codex brain. Packet, phase and access approvals still use their review controls.'));form.append(checkLabel);

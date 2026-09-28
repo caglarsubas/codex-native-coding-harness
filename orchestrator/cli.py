@@ -29,6 +29,15 @@ def main():
     p = sub.add_parser("project-bind", help="Owner mapping of an existing ledger to one exact Codex project")
     p.add_argument("id"); p.add_argument("--host-id", required=True); p.add_argument("--project-id", required=True)
     p.add_argument("--catalog-hash", required=True); p.add_argument("--confirm", action="store_true")
+    p = sub.add_parser("native-project-preview", help="Read-only review of one standard brain's missing native project assignment")
+    p.add_argument("binding", type=Path, help="Existing private owned app-server brain binding")
+    p = sub.add_parser("native-project-confirm", help="One-shot, owner-confirmed native project metadata assignment")
+    p.add_argument("binding", type=Path); p.add_argument("preview", type=Path)
+    p.add_argument("--confirm-hash", required=True, help="Exact SHA-256 printed by native-project-preview")
+    p.add_argument("--confirm", action="store_true")
+    sub.add_parser("native-project-status", help="Read the durable assignment intent; no native call")
+    p = sub.add_parser("native-project-reconcile", help="Read native project metadata after an uncertain one-shot assignment")
+    p.add_argument("binding", type=Path)
     sub.add_parser("platform-resources", help="Explicit read-only repository identity and ownership audit; not admission")
     sub.add_parser("platform-enrollment-preview", help="Review exact workspace enrollment scope; no writes or activation")
     sub.add_parser("platform-enrollment-status", help="Inspect retained enrollment stages and owners")
@@ -217,6 +226,31 @@ def main():
             if not args.confirm: raise Refusal("Explicit --confirm required; binding does not start work")
             projects.bind(registry, args.id, args.host_id, args.project_id, args.catalog_hash)
         print(json.dumps(projects.catalog(registry), ensure_ascii=False, indent=2)); return
+    if args.action.startswith("native-project-"):
+        if not registry or not args.workspace or args.state:
+            raise Refusal("Native project qualification requires --platform and exact --workspace")
+        from . import native_project_assignment as native_project
+        if args.action == "native-project-status":
+            out = native_project.status(registry, args.workspace)
+        else:
+            from .app_server_wake import load_binding
+            binding = load_binding(args.binding)
+            if args.action == "native-project-preview":
+                out = native_project.preview(registry, args.workspace, binding)
+            elif args.action == "native-project-reconcile":
+                out = native_project.reconcile(registry, args.workspace, binding)
+            else:
+                if not args.confirm:
+                    raise Refusal("Exact --confirm and --confirm-hash are required; a preview is not authority")
+                from .observations import read_regular
+                import stat
+                file = args.preview.absolute()
+                info = file.lstat()
+                if info.st_uid != os.getuid() or info.st_nlink != 1 or info.st_mode & 0o077 or not stat.S_ISREG(info.st_mode):
+                    raise Refusal("Saved native project preview must be one private regular owner file")
+                proposal = json.loads(read_regular(file, file.parent, native_project.MAX_PREVIEW))
+                out = native_project.confirm(registry, args.workspace, binding, proposal, args.confirm_hash)
+        print(json.dumps(out, ensure_ascii=False, indent=2)); return
     if args.action.startswith("platform-reconciliation-"):
         if not registry or args.workspace:
             raise Refusal("Reconciliation is platform-wide: supply --platform and omit --workspace")
