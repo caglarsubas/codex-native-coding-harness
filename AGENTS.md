@@ -12,6 +12,16 @@ screen-only restrictions for those standard controls, not strict Harness gates.
 Keep source scope and mission review visible, review separate from Play, and
 brain replies outside inference history. Do not introduce a parallel dispatcher.
 
+The displayed **Help me continue development** button confirms only its signed,
+bounded preparation request. Generate the investigation/phase-preparation prompt
+server-side and use the same one-shot brain conversation receipt. Follow pending
+requests instead of duplicating them. Reading/polling may prepare a preview but
+must never confirm it or notify a brain. Help may ask for permitted evidence
+refresh and reconciliation; it cannot change active policy, retry effects,
+replace a brain, review a mission or start/resume development. Show durable
+delivery/receipt/reply progress and exact missing evidence. Subsequent authority
+changes, Review and Play retain separate owner confirmations.
+
 ## Owned app-server wake source (2026-09-26)
 
 The owner approved implementing an opt-in, documented Codex app-server wake

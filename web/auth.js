@@ -22,6 +22,7 @@ function browserSignedOut(message='Open the current private dashboard link to si
   if(typeof brainDrafts!=='undefined')brainDrafts.clear();
   if(typeof sessionMapPreferences!=='undefined')sessionMapPreferences.clear();
   if(typeof assistantHistory!=='undefined'){assistantHistory=[];assistantActions.clear();}
+  if(typeof developmentHelpViews!=='undefined')developmentHelpViews.clear();
   assistantConnectionChanged();
 }
 

@@ -3,10 +3,13 @@
 The owner directs development through the AI assistant. Project pages are optional
 inspection surfaces. A routine standard-project cycle stays in the conversation:
 
-1. “Help me continue development.” The assistant reads the current project snapshot
-   and presents its first available prerequisite.
-2. “Prepare the next phase.” Confirm the exact instruction once. Its delivery,
-   receipt and retained brain reply appear in the conversation.
+1. Click **Help me continue development** below its preparation summary. This
+   confirms the displayed, signed preparation request; no prompt writing is needed.
+   The existing brain inspects blockers, refreshes permitted evidence, reconciles
+   existing work and prepares a safe next step in one bounded turn.
+2. Follow **Preparation progress** in the conversation: saved, notification,
+   brain receipt and retained reply. Existing pending requests are followed, not
+   duplicated. If a plan is already ready, the assistant offers its review directly.
 3. Review the proposed outcome, budget, concurrency, merge policy and stopping point.
    Expand scope, success criteria and exclusions when needed. Type **confirm review**.
 4. If native capabilities need refreshing, confirm that request here and follow its
@@ -30,11 +33,31 @@ an inference call, and applies only to one current preview in this project.
 
 ### Keep control and native conversation independent of inference
 
-The product's exact **Help me continue development**, **Pause the project safely**
-and **Resume the project** starter phrases prepare the existing signed standard
-control preview directly. They do not wait for an advisory model, interpret vague
-assent, apply a control, or enter strict Harness. A pending request is inspected
-instead of duplicated. Review and Play remain separate confirmations.
+**Help me continue development** uses a server-generated preparation instruction,
+not an inference-generated prompt. The bounded scope and token-use notice are
+visible before the Help button; the exact instruction is under Details. Clicking
+it confirms that signed, project/session/revision-bound preparation only. The
+exact typed starter can confirm this same displayed Help preview; it does not
+invent or confirm an unseen plan. If no current preview is displayed, it first
+loads one. **Pause the project safely** and **Resume the project** still prepare
+their own separate signed previews. Vague assent is never confirmation.
+
+The preparation request covers policy, scope, task limits, timing, readiness,
+usage coverage and uncertain native effects. The brain must perform available
+bounded checks before asking for missing evidence. It cannot waive a control,
+start workers, change limits or replay effects. A returned unresolved condition
+does not trigger another automatic request. A small evidence/decision field
+prepares the follow-up wording, with an exact message preview before sending.
+Review and Play remain separate confirmations. Strict Harness is unchanged.
+
+The authenticated, project-scoped `GET /api/workspaces/<id>/assistant/help`
+projects the next step and may sign the preparation preview. Reads and polls
+never collect evidence or notify a brain. The existing `/assistant/confirm`
+adapter saves the normal reconcile message; the existing one-shot notifier sends
+its fixed pointer. There is no help scheduler or second dispatcher. Reloading
+reconstructs progress from the same durable command and retained reply. Missing,
+overdue or uncertain delivery stays visible without blind resend; a receipt is
+not proof of current activity, and a preparation reply is not phase completion.
 
 For any other instruction, type it and choose **Send to project brain…**. The
 assistant shows the exact text and selected project; **confirm send** saves and
@@ -144,3 +167,28 @@ This change does not start the user's project phase.
 
 Merge, live installation and qualification with the configured inference service
 remain separate rollout steps. No GitHub Actions workflow was added or invoked.
+
+## Guided preparation verification — 2026-09-28
+
+- Full local Python discovery: 1,795 tests, successful with one optional pinned
+  Graphify subprocess test skipped. All 29 JavaScript UI suites, all 31 browser
+  script syntax checks, Python compilation and Git whitespace checks passed.
+- The 12 focused help tests cover signature/session/project/expiry checks,
+  concurrent confirmations, exact receipt replay, paused/stopped/handoff races,
+  missing replies, current-run correlation, strict-project exclusion and reads
+  that neither notify nor mutate the ledger. No inference service is required.
+- Rendered disposable recovery rehearsal: one Help click saves one request;
+  unavailable notification remains honestly labelled; a synthetic retained reply
+  survives reload and offers only a short missing-evidence field. Its generated
+  follow-up is a separate exact message preview. Unconfirmed creation ownership,
+  usage gaps and the budget overrun remain intact.
+- Rendered disposable completed-phase rehearsal: Help, retained draft, exact
+  Review confirmation, then **Next: Review Play** beside the saved review.
+  The Play preview was inspected but not confirmed. Details stay collapsed by
+  default and the initial Help button is visible at a 1280-by-720 viewport.
+- Both rehearsals deliberately disabled native notification and used synthetic
+  brain replies. They qualify local UI/ledger behavior, not live Codex delivery
+  or model compliance. No live brain, task, budget or running service changed.
+
+Installation and real native-turn qualification remain separate rollout steps.
+No GitHub Actions workflow, paid service or automatic recovery loop was added.

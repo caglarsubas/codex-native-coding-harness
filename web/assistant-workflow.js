@@ -1,5 +1,5 @@
 "use strict";
-const workflowPhrases={phase_prepare:'confirm prepare',phase_reconcile:'confirm reconcile',phase_review:'confirm review',phase_play:'confirm play',phase_pause:'confirm pause',phase_resume:'confirm resume',usage_check:'confirm usage',codex_check:'confirm readiness',brain_message:'confirm send'};
+const workflowPhrases={phase_help:'confirm help',phase_prepare:'confirm prepare',phase_reconcile:'confirm reconcile',phase_review:'confirm review',phase_play:'confirm play',phase_pause:'confirm pause',phase_resume:'confirm resume',usage_check:'confirm usage',codex_check:'confirm readiness',brain_message:'confirm send'};
 function assistantLocalWorkflow(question,current=state){
   // Exact product starters, not an inferred intent or approval. The normal
   // server catalog still validates and prepares a separate signed preview.
@@ -10,6 +10,7 @@ function assistantLocalWorkflow(question,current=state){
   if(stop.includes(phrase)){assistantRequestStep('phase_pause');return true;}
   if(resume.includes(phrase)){assistantRequestStep('phase_resume');return true;}
   if(!next.includes(phrase))return false;
+  if(typeof developmentHelpStart==='function'){developmentHelpStart();return true;}
   const pending=(current.commands||[]).some(c=>(c.status==='queued'||c.status==='processing'||c.needsBrainReceipt));
   if(pending){assistantNextStep();assistantStatus('A saved request is still awaiting its receipt. Inspect its status above; no duplicate was sent.');return true;}
   const journey=roadmapJourneyState(current,true);
@@ -33,12 +34,14 @@ function assistantWorkflowState(action,current=state,now=Date.now()/1000){
     request.preview?(request.preview.operation!=='pause'&&current?.standard?.contextHash!==request.preview.contextHash):
     ['codex_check','usage_check'].includes(doc.workflow)?current?.standard?.contextHash!==request.contextHash:current?.meta?.revision!==request.expectedRevision;
   if(stale||current?.meta?.brainId!==doc.brainId)return {locked:true,label:'Project changed',detail:'Ask again to review its current state.'};
-  return {locked:false,label:'Ready for your confirmation',detail:'Type “'+workflowPhrases[doc.workflow]+'” or use the button below.'};
+  return {locked:false,label:'Ready for your confirmation',detail:action.guided?'Click Help to run this bounded preparation. Review and Play stay separate.':'Type “'+workflowPhrases[doc.workflow]+'” or use the button below.'};
 }
-function assistantWorkflowPreview(item,proposal){
+function assistantWorkflowPreview(item,proposal,guided=false){
   const doc=proposal.document,p=doc.preview,section=el('section',null,'chat-action');
   section.setAttribute('aria-label','Review '+p.title);
-  section.append(el('p','REVIEW TOGETHER','eyebrow'),el('h3',p.title),el('p',p.impact));
+  if(guided){section.append(el('h3','Check blockers and prepare what’s next'),el('p','Uses Codex tokens. No Play, policy changes or task retries.','muted'));}
+  else section.append(el('p','REVIEW TOGETHER','eyebrow'),el('h3',p.title),el('p',p.impact));
+  if(p.summary&&!guided){const list=el('ul');for(const text of p.summary)list.append(el('li',text));section.append(list);}
   if(p.mission){
     const {spec,version}=p.mission,a=spec.authority;
     section.append(el('p',spec.phase.title+' · plan v'+version,'chat-phase-title'),narrative(spec.goal,'Proposed outcome'),narrative(spec.phase.objective,'Phase objective'));
@@ -58,13 +61,18 @@ function assistantWorkflowPreview(item,proposal){
   }
   if(p.runSettings)section.append(el('p',`${p.runSettings.durationHours} hours maximum · ${num(p.runSettings.brainAllowance)} tokens allocated to the brain.${p.runSettings.measureUsage?' Missing usage coverage stops new effects.':''}`,'muted'));
   if(p.retainedRun)section.append(el('p',`Existing limits and consumed usage are preserved. Original phase expiry: ${when(p.retainedRun.expiresAt)}.`,'muted'));
-  if(p.message)section.append(narrative(p.message,'Exact instruction to the project brain'));
+  if(p.message){
+    if(guided){const details=el('details'),list=el('ul');for(const text of p.summary||[])list.append(el('li',text));details.append(el('summary','Details · checks and prepared instruction'),list,el('p',p.impact),el('p',p.message));section.append(details);}
+    else section.append(narrative(p.message,'Exact instruction to the project brain'));
+  }
   const exact=el('details');exact.append(el('summary','Receipt binding & expiry'),el('p','Expires '+when(doc.expiresAt)),el('pre',JSON.stringify({project:doc.workspaceId,mission:p.mission?.documentHash,requestId:doc.id},null,2)));section.append(exact);
   const status=el('p',null,'chat-action-status');status.setAttribute('role','status');
   const controls=el('div',null,'assistant-actions'),confirm=el('button','Confirm','primary'),dismiss=el('button','Dismiss');confirm.type=dismiss.type='button';controls.append(dismiss,confirm);section.append(status,controls);
-  const action={proposal,workspace:workspaceId,element:section,status,confirm,dismiss,sending:false,receipt:null};
+  if(guided)section.insertBefore(controls,section.children[2]);
+  const action={proposal,workspace:workspaceId,element:section,status,confirm,dismiss,sending:false,receipt:null,guided};
   // A newly requested preview replaces only unsubmitted, certain previews.
-  for(const old of assistantActions.values())if(old.proposal.document.workflow&&!old.receipt&&!old.sending&&!old.uncertain)old.cancelled=true;
+  if(!guided)for(const old of assistantActions.values())if(old.proposal.document.workflow&&!old.receipt&&!old.sending&&!old.uncertain&&!old.guided)old.cancelled=true;
+  if(guided)dismiss.hidden=true;
   assistantActions.set(doc.id,action);
   dismiss.onclick=()=>{action.cancelled=true;refreshAssistantActions();};
   action.submit=async()=>{
@@ -74,9 +82,10 @@ function assistantWorkflowPreview(item,proposal){
       action.receipt=await api('/api/assistant/confirm',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({proposal,confirmed:true})});
       assistantStatus(action.receipt.message,false,action.receipt.result?.kind?action.receipt.result.id:null);await refresh();
     }catch(error){if(error.workspaceChanged)return;if([400,401,403,409].includes(error.status))action.rejected=error.message;else action.uncertain=true;assistantStatus(error.message,true);}
-    finally{action.sending=false;assistantConnectionChanged();assistantScroll();}
+    finally{action.sending=false;assistantConnectionChanged();if(action.guided)$('assistant-log').scrollTop=0;else assistantScroll();}
   };
   confirm.onclick=action.submit;item.append(section);refreshAssistantActions();
+  return action;
 }
 function assistantTypedConfirmation(question){
   const phrase=question.trim().toLowerCase().replace(/[.!]$/,'');
@@ -94,6 +103,7 @@ async function assistantRequestStep(key,text){
   finally{assistantPending=false;assistantConnectionChanged();}
 }
 function assistantNextStep(){
+  if(typeof developmentHelpUpdate==='function'&&developmentHelpUpdate())return;
   const root=$('assistant-next-step');if(!root)return;root.replaceChildren();
   if(!connected||!state?.workspace)return;
   const messages=[...(state.commands||[])].reverse().filter(c=>c.kind==='reconcile'&&c.payload?.message);
@@ -122,6 +132,17 @@ function assistantNextStep(){
   if(latest)root.append(narrative(latest.conversationReply.message,'Project brain reply'));
 }
 function assistantWorkflowReceipt(action,recorded){
+  // Keep the next owner decision beside the just-saved local control. Do not
+  // make the owner scroll back to the top after confirming Review or Usage.
+  if(action.receipt&&['phase_review','usage_check'].includes(action.proposal.document.workflow)){
+    const next=roadmapJourneyState(state,connected),key={play:'phase_play',resume:'phase_resume',catalog:'codex_check'}[next.action];
+    if(!action.localNext){action.localNext=el('div',null,'assistant-actions');action.element.append(action.localNext);}
+    const signature=JSON.stringify([key,next.title,connected,assistantPending]);
+    if(action.localNextKey!==signature){action.localNextKey=signature;action.localNext.replaceChildren();
+      if(key){const b=button('Next: '+next.label,()=>assistantRequestStep(key));b.disabled=!connected||assistantPending;action.localNext.append(b);}
+      else action.localNext.append(el('p',next.title,'muted'));
+    }
+  }
   if(action.proposal.document.workflow==='usage_check'&&action.receipt&&!action.usageShown){
     action.usageShown=true;const r=action.receipt.result;
     const item=chatTurn('assistant',assistantUsageSummary(r));

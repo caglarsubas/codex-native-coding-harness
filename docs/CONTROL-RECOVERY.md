@@ -1,5 +1,20 @@
 # Guided recovery from a standard phase policy or safety stop
 
+## One-click preparation
+
+Use **Help me continue development** in the assistant. Its visible summary and
+collapsed exact instruction form a signed preparation preview; the Help click is
+the owner's confirmation. The existing brain investigates all current conditions
+and prepares the next safe decision without requiring a handwritten prompt.
+Follow saved / notified / received / replied progress in the same panel. The
+reply reports checks completed, changes prepared, remaining blockers and the next
+owner decision. A missing confirmed identity remains missing, never a retry permit.
+
+If evidence or a decision is still required, enter only that missing item in the
+follow-up field. The platform prepares the exact instruction for confirmation.
+It does not automatically resend the original request or apply policy changes.
+See [assistant-led workflow](ASSISTANT-LED-WORKFLOW.md) for boundaries.
+
 The dashboard projects a deterministic, read-only explanation of a stopped or
 blocked cooperative phase into Roadmap & Play and the assistant. Conditions can
 involve usage evidence or budget, duration, reviewed mission/authority, task

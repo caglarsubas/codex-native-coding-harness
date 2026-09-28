@@ -22,6 +22,7 @@ on its existing transport until a separate owner-reviewed migration.
 - [x] Prepare phases and send exact brain instructions with retained delivery and reply visibility in chat
 - [x] Review mission scope and confirm standard Play/Pause/Resume inline, including exact typed confirmation phrases
 - [x] Reuse signed session/project bindings, existing transactional controls and durable replay receipts
+- [x] One-click bounded development help: generated preparation/recovery instructions, durable progress, short evidence follow-up and separate next-step confirmations (local/disposable verification; not live activation)
 - [ ] Merge, install and qualify the assistant-led loop against the selected live project and inference service
 
 See [assistant-led workflow](ASSISTANT-LED-WORKFLOW.md). Strict Harness activation

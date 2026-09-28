@@ -64,3 +64,19 @@ box.assistantLocalWorkflow('Help me continue development');assert.equal(steps.at
 box.state.commands=[{id:'recovery',kind:'reconcile',payload:{message:'Retained recovery request'},status:'processing'}];
 box.assistantNextStep();assert(rendered(nextStep).some(e=>e.text==='Usage evidence is incomplete'),'Pending reply must not hide the safety warning');
 assert(!rendered(nextStep).some(e=>e.text==='Reconcile this phase'),'No duplicate recovery button while waiting');
+
+// The saved Review offers a fresh Play preview at the same scroll position;
+// it never confirms Play or reuses the previous mission review as authority.
+box.button=(text,onclick)=>Object.assign(new Element('button',text),{onclick});
+box.roadmapJourneyState=()=>({title:'Ready to review Play',action:'play',label:'Review Play'});
+const reviewed={receipt:{result:{}},element:new Element('section'),proposal:{document:{workflow:'phase_review'}}};
+box.assistantWorkflowReceipt(reviewed,true);
+const nextPlay=rendered(reviewed.element).find(e=>e.text==='Next: Review Play');
+assert(nextPlay);assert.equal(nextPlay.disabled,false);
+nextPlay.onclick();assert.equal(steps.at(-1),'phase_play');
+assert.equal(run('sent'),1,'Next step prepares only; it never confirms the control');
+box.assistantPending=true;box.assistantWorkflowReceipt(reviewed,true);
+assert(rendered(reviewed.element).find(e=>e.text==='Next: Review Play').disabled);
+box.assistantPending=false;box.roadmapJourneyState=()=>({title:'Evidence is missing',action:'usage',label:'Refresh usage'});
+box.assistantWorkflowReceipt(reviewed,true);
+assert(!rendered(reviewed.element).some(e=>e.text==='Next: Review Play'),'A changed gate removes the old next step');

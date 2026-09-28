@@ -124,6 +124,15 @@ consumption or turn missing counters into complete coverage. No separate
 assistant execution ledger or task scheduler is added. See
 [assistant-led workflow](ASSISTANT-LED-WORKFLOW.md).
 
+`GET /api/workspaces/<id>/assistant/help` is an authenticated read-only projection
+and optional signed preparation preview. The visible Help button confirms only
+that fixed bounded instruction through the normal conversation adapter. No new
+execution ledger exists: its command receipt, notification, received time and
+reply remain the durable progress records. The reserved preparation/follow-up
+message prefixes correlate this run's history; they grant no authority. An older
+phase's reply cannot supply the current phase's next action. Polls never confirm
+controls, refresh usage or send notifications.
+
 Static: GET `/`, `/app.js`, `/style.css`. Auth: POST `/api/login`, GET `/api/session`.
 Authenticated reads: GET `/api/state`, `/api/documents/<sha256>`, `/api/export`.
 Mutation: POST `/api/commands` with exact origin, authenticated cookie and CSRF token.

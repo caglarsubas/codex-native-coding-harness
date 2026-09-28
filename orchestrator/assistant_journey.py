@@ -9,7 +9,7 @@ from .assistant_actions import ActionProposals, TTL
 from .core import digest, require
 from .recovery import describe
 
-KINDS = {"phase_prepare", "phase_reconcile", "phase_review", "phase_play", "phase_pause", "phase_resume", "usage_check", "codex_check", "brain_message"}
+KINDS = {"phase_help", "phase_prepare", "phase_reconcile", "phase_review", "phase_play", "phase_pause", "phase_resume", "usage_check", "codex_check", "brain_message"}
 PREPARE_MESSAGE = (
     "Review this project's configured roadmap sources and latest retained results. "
     "Prepare the next unfinished, bounded phase as a mission draft. Include goal, success criteria, "
@@ -101,6 +101,10 @@ def catalog(state):
     pending_control = any(c.get("kind") in ("standard_play", "standard_pause", "standard_resume") and
                           c.get("payload", {}).get("runId") == run.get("id") and
                           c.get("status") in ("queued", "processing") for c in state.get("commands", []))
+    from .development_help import BOUNDARY
+    add("phase_help", "Help me continue development", BOUNDARY,
+        message_reason or ("Finish the existing brain handoff first." if blocked_handoff else
+                          "Follow the existing saved request first." if any(c.get("status") in ("queued", "processing") for c in state.get("commands", [])) else None))
     add("phase_reconcile", "Reconcile this phase",
         "Ask the brain to inspect existing effects and retain a recovery plan here. No worker retry, limit change, Resume or Play.",
         message_reason or ("Finish the existing brain handoff first." if blocked_handoff else
@@ -165,11 +169,15 @@ class JourneyProposals(ActionProposals):
         elif kind == "usage_check":
             request = {"id": ident, "runId": standard["run"]["id"], "contextHash": standard["contextHash"]}
         else:
-            message = (prepare_message(state) if kind == "phase_prepare" else
+            from .development_help import message as help_message, SUMMARY
+            message = (help_message(state) if kind == "phase_help" else
+                       prepare_message(state) if kind == "phase_prepare" else
                        reconciliation_message(state) if kind == "phase_reconcile" else action["payload"]["message"])
             request = {"id": ident, "kind": "reconcile", "expectedRevision": state["meta"]["revision"],
                        "payload": {"brainId": state["meta"]["brainId"], "message": message, "confirmed": True}}
             preview["message"] = message
+            if kind == "phase_help":
+                preview["summary"] = SUMMARY
         if kind in ("phase_review", "phase_play", "phase_resume"):
             preview["mission"] = {"version": mission["version"], "documentHash": mission["documentHash"],
                                   "spec": mission["document"]["spec"]}
@@ -221,7 +229,7 @@ class JourneyProposals(ActionProposals):
         elif kind == "codex_check":
             result = standard.request_catalog_refresh(ledger, request)
         else:
-            require(kind in ("phase_prepare", "phase_reconcile", "brain_message"), "Unknown conversation action")
+            require(kind in ("phase_help", "phase_prepare", "phase_reconcile", "brain_message"), "Unknown conversation action")
             result = ledger.submit(request, actor="dashboard")
         return self.result(doc, result), True
 

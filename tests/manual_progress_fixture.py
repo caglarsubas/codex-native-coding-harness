@@ -23,8 +23,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--port', type=int, default=8774)
     parser.add_argument('--recovery', action='store_true', help='Start with an open run, pending worker and budget overrun')
+    parser.add_argument('--completed', action='store_true', help='Start at a settled checkpoint needing its next phase')
     args = parser.parse_args()
     fixture = AssistantJourneyTest(); fixture.setUp()
+    if args.completed and not args.recovery:
+        fixture.fixture.activate(); fixture.fixture.observe(); fixture.fixture.finish()
+        fixture.fixture.call('checkpoint', outcome='completed', summary='Disposable completed phase.', brainObservedTokens=None)
     if args.recovery:
         fixture.pending_creation()
         with fixture.ledger.tx() as db:

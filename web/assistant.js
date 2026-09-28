@@ -8,13 +8,13 @@ function assistantMessages(history,question){
 }
 function assistantConnectionChanged(){
   const configured=connected&&state?.inference?.configured;
-  $('assistant-service').textContent=!connected?"Connect to the ledger to ask a question.":configured?"On-prem inference · "+(state.inference.assistantModel||state.inference.model):"Inference not configured. Ask the local operator to check the private .env.";
+  $('assistant-service').textContent=!connected?"Connect to the ledger to ask a question.":configured?"On-prem inference · "+(state.inference.assistantModel||state.inference.model):state?.standard?"Guided help does not need inference. Advisory inference is not configured.":"Inference not configured. Ask the local operator to check the private .env.";
   $('assistant-send').disabled=!connected||assistantPending||!$('assistant-question').value.trim();
   $('assistant-question').readOnly=assistantPending;
   $('assistant-direct').disabled=!connected||assistantPending||!$('assistant-question').value.trim()||!state?.workspace;
   $('assistant-clear').disabled=assistantPending||[...assistantActions.values()].some(a=>a.sending);
   $('assistant-context').disabled=!connected||assistantPending;
-  document.querySelectorAll('[data-question]').forEach(b=>b.disabled=assistantPending);
+  document.querySelectorAll('[data-question]').forEach(b=>{b.disabled=assistantPending;b.hidden=b.dataset.question.startsWith('Help me continue development')&&!!state?.standard&&state?.repositories?.every(r=>r.policyProfile==='standard');});
   refreshAssistantActions();
   assistantNextStep();
   refreshAssistantStatus();
@@ -73,10 +73,10 @@ function refreshAssistantActions(){
   for(const action of assistantActions.values()){
     if(action.proposal.document.workflow){
       const info=assistantWorkflowState(action);action.status.textContent=info.detail.startsWith(info.label+'.')?info.detail:info.label+'. '+info.detail;
-      action.confirm.disabled=!connected||info.locked;action.confirm.textContent=info.recorded?'Saved':action.uncertain?'Recover receipt':workflowPhrases[action.proposal.document.workflow];
+      action.confirm.disabled=!connected||info.locked||assistantPending;action.confirm.textContent=info.recorded?'Saved':action.uncertain?'Recover receipt':action.guided?'Help me continue development':workflowPhrases[action.proposal.document.workflow];
       action.dismiss.disabled=!!info.recorded||action.sending||action.cancelled||action.uncertain;
       action.element.dataset.actionState=info.recorded?'recorded':info.locked?'closed':'review';
-      assistantWorkflowReceipt(action,info.recorded);continue;
+      if(!action.guided)assistantWorkflowReceipt(action,info.recorded);continue;
     }
     const info=assistantActionState(action);
     action.status.textContent=info.label+'. '+info.detail;
@@ -171,9 +171,12 @@ function initAssistant(){
   $('assistant-form').addEventListener('submit',sendAssistant);
   $('assistant-question').addEventListener('input',assistantConnectionChanged);
   $('assistant-question').addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)&&!e.isComposing){e.preventDefault();$('assistant-form').requestSubmit();}});
-  document.querySelectorAll('[data-question]').forEach(b=>b.addEventListener('click',()=>{$('assistant-question').value=b.dataset.question;assistantConnectionChanged();$('assistant-question').focus();}));
+  document.querySelectorAll('[data-question]').forEach(b=>b.addEventListener('click',()=>{
+    if(b.dataset.question.startsWith('Help me continue development')&&typeof developmentHelpStart==='function'){developmentHelpStart();return;}
+    $('assistant-question').value=b.dataset.question;assistantConnectionChanged();$('assistant-question').focus();}));
   $('assistant-clear').onclick=()=>{
     if(assistantPending||[...assistantActions.values()].some(a=>a.sending))return;assistantHistory=[];assistantTurns=0;assistantTokens=0;assistantMissingUsage=0;assistantActions.clear();
+    if(typeof developmentHelpViews!=='undefined')developmentHelpViews.delete(workspaceId);
     $('assistant-log').querySelectorAll('.chat-turn').forEach(e=>e.remove());$('assistant-welcome').hidden=false;
     $('assistant-question').value='';$('assistant-context-preview').textContent='';$('assistant-context-preview').hidden=true;
     $('assistant-usage').textContent='Actions need your confirmation. Recorded requests remain in the ledger after clearing chat.';assistantStatus('Chat cleared from this tab. Recorded controls are unchanged.');assistantConnectionChanged();
