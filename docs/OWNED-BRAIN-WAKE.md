@@ -14,7 +14,10 @@ client; the designated brain is still the only scheduler.
   this bridge. A duplicate request or process restart cannot send it again.
 - A private operator binding pins the installed executable, existing Unix
   socket identity, expected app-server initialization identity, each exact
-  brain UUID, native project ID and checkout directory. No socket discovery, host start,
+  brain UUID, app-server project ID and checkout directory. When the Codex app
+  project catalog uses a different ID for the same project, the binding must
+  additionally pin that distinct `catalogProjectId`; the two IDs are never
+  inferred from a matching name or directory. No socket discovery, host start,
   runtime download, desktop IPC, remote listener or fallback to the desktop
   queue is permitted. The binding is loaded only at dashboard startup.
 - Unix app-server sockets use a WebSocket upgrade and text frames, even through
@@ -79,6 +82,7 @@ The file is owner-only (`0600`), outside source control, and has exactly:
     "11111111-1111-4111-8111-111111111111": {
       "workspaceId": "exact-registered-project",
       "projectId": "22222222-2222-4222-8222-222222222222",
+      "catalogProjectId": "33333333-3333-4333-8333-333333333333",
       "cwd": "/absolute/exact/brain/checkout"
     }
   }
@@ -87,6 +91,12 @@ The file is owner-only (`0600`), outside source control, and has exactly:
 
 Values above are shape examples, not usable identities. The endpoint shape
 matches the existing read-only native observer's `inspect_endpoint` output.
+`projectId` is the ID returned by this owned host's `project/read` and later
+`thread/read`. `catalogProjectId` is the separately observed ID from the
+complete native Codex app `list_projects` result; omit it only when both IDs
+are equal. The native project root must equal the catalog's retained location
+and identify the bound checkout's Git common repository. A matching root alone
+never creates an ID mapping or authorizes a native write.
 Do not copy a live socket or identity into this repository. Any socket or
 executable replacement requires an exact new review. The binding does not
 grant phase authority or automatically update Codex project membership.
@@ -107,6 +117,23 @@ because `/Applications` is group-writable. A private, ad-hoc-signed temporary
 CLI copy was used only to diagnose the disposable host, not installed or bound
 for live use. Both identity gaps require an owner-reviewed, evidence-backed
 solution before a complete pilot or any live migration.
+On 2026-09-28 a private complete copy of the installed, signed CLI bundle
+passed signature, executable-hash and endpoint-path checks. A disposable owned
+socket read the exact unloaded pilot task without starting a turn. The Codex
+app's complete `list_projects` observation and the owned app-server's
+`project/list` observation gave **different IDs** for the pilot's same
+named/rooted project. `project/read` with the app catalog ID returned project
+not found, whereas the app-server listed its own ID. This is a host-surface
+identity distinction, not proof that either ID can stand in for the other.
+The dual-ID binding above is source-qualified by local tests only; no native
+metadata write, ledger receipt, approval response or live binding occurred. A
+read-only `native-project-preview` against a separately initialized disposable
+ledger and the owned socket passed both project/root checks and showed an
+unloaded brain with no project assignment. The preview was **not confirmed**.
+The live Codex-Orchestrator entry on this app-server currently has two roots,
+including a Harness repository; the one-root qualifier deliberately refuses it.
+The disposable success does not qualify that live project or justify dropping
+its separate-root safety boundary.
 Keep source merge, installed backend, host migration, ledger receipt and live
 qualification as separate claims. No GitHub Actions or paid service is used.
 
@@ -115,8 +142,9 @@ qualification as separate claims. No GitHub Actions or paid service is used.
 The installed app-server v2 schema exposes `project/read` and
 `thread/metadata/update` with only `threadId` and `projectId` needed for this
 operation. The separate `native-project-*` operator commands use them only for
-an existing registered **standard** brain whose exact native project is already
-linked in the retained `list_projects` catalog and private app-server binding.
+an existing registered **standard** brain whose exact Codex app project is
+already linked in the retained `list_projects` catalog and whose potentially
+distinct app-server project ID is explicit in the private binding.
 They refuse a conflicting non-null task project, an active turn, unsafe or
 unsettled dispatch or brain stop/resume, unresolved task/merge/notification effects, a changed
 endpoint, or a project root outside the checkout's verified Git common

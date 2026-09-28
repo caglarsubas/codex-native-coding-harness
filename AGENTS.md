@@ -51,10 +51,17 @@ its existing transport fence.
 The source-only native project-assignment qualifier and owner approval relay in
 docs/OWNED-BRAIN-WAKE.md do not install a host or qualify live use. Project
 assignment needs its own exact owner-reviewed preview, durable one-shot intent
-and read-only reconciliation after uncertainty. The approval relay may accept
-only a complete prompt on the retained owned connection; decline and cancel
-remain available as fail-closed choices. Each response requires an authenticated
-signed exact owner confirmation and durable decision claim; it is not mission,
+and read-only reconciliation after uncertainty. If Codex's app project catalog
+and the owned app-server report different IDs for the same project, pin both
+identities separately in that private review.
+Never substitute a matching project name or checkout path for either identity;
+only the app-server ID may satisfy its thread/project read and native write.
+The retained Codex app catalog mapping and app-server project root must each
+match the exact registered repository before a project-assignment preview.
+The approval relay may accept only a complete prompt on the retained owned
+connection; decline and cancel remain available as fail-closed choices. Each
+response requires an authenticated, signed, exact owner confirmation and a
+durable decision claim; it is not mission,
 repository, task, Play or merge authority. Pause and current standard-run
 blockers fence a native accept at the send boundary. Neither feature may mutate
 the live paused workspace, start a turn, retry an uncertain native effect or

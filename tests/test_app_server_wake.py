@@ -188,6 +188,23 @@ class WakeTest(unittest.TestCase):
         self.assertIn("project identity", result["detail"])
         self.assertEqual([method for method, _ in FakeProxy.instances[0].calls], ["thread/read"])
 
+    @patch("orchestrator.app_server_wake.threading.Thread", FakeThread)
+    @patch("orchestrator.app_server_wake.WakeProxy", FakeProxy)
+    def test_distinct_catalog_project_id_does_not_replace_app_server_identity(self):
+        self.binding["brains"][BRAIN]["catalogProjectId"] = OTHER
+        result = self.wake.send(BRAIN, "fixed pointer", "control")
+        self.assertEqual(result["status"], "accepted")
+        self.assertEqual([method for method, _ in FakeProxy.instances[0].calls],
+                         ["thread/read", "thread/resume", "turn/start"])
+
+    @patch("orchestrator.app_server_wake.WakeProxy", FakeProxy)
+    def test_catalog_project_id_cannot_authorize_a_different_native_project(self):
+        self.binding["brains"][BRAIN]["catalogProjectId"] = OTHER
+        FakeProxy.project_id = OTHER
+        result = self.wake.send(BRAIN, "fixed pointer", "control")
+        self.assertEqual(result["status"], "unavailable")
+        self.assertEqual([method for method, _ in FakeProxy.instances[0].calls], ["thread/read"])
+
     def test_binding_is_private_and_exact(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory).resolve() / "binding.json"
@@ -199,6 +216,24 @@ class WakeTest(unittest.TestCase):
                 self.binding["brains"][BRAIN]["cwd"] = str(Path(directory).resolve())
                 path.write_text(json.dumps(self.binding))
                 self.assertEqual(load_binding(path)["brains"][BRAIN]["cwd"], str(Path(directory).resolve()))
+                self.binding["brains"][BRAIN]["catalogProjectId"] = OTHER
+                path.write_text(json.dumps(self.binding))
+                self.assertEqual(load_binding(path)["brains"][BRAIN]["catalogProjectId"], OTHER)
+                self.binding["brains"][BRAIN]["catalogProjectId"] = "local-project-identity"
+                path.write_text(json.dumps(self.binding))
+                self.assertEqual(load_binding(path)["brains"][BRAIN]["catalogProjectId"],
+                                 "local-project-identity")
+                self.binding["brains"][BRAIN]["catalogProjectId"] = "bad\nidentity"
+                path.write_text(json.dumps(self.binding))
+                with self.assertRaises(Refusal):
+                    load_binding(path)
+                self.binding["brains"][BRAIN]["catalogProjectId"] = OTHER
+                self.binding["brains"][BRAIN]["extra"] = PROJECT
+                path.write_text(json.dumps(self.binding))
+                with self.assertRaises(Refusal):
+                    load_binding(path)
+                del self.binding["brains"][BRAIN]["extra"]
+                path.write_text(json.dumps(self.binding))
                 path.chmod(0o644)
                 with self.assertRaises(Refusal):
                     load_binding(path)

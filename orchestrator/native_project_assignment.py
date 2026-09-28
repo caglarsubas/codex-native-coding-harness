@@ -16,7 +16,7 @@ from .activity import common_directory
 from .core import ACTIVE, Ledger, Refusal, canonical, digest, require
 from .enrollment import fence_exists
 from .native_read_client import ReadProxy, validate_endpoint
-from .projects import _read as read_catalog
+from .projects import _read as read_catalog, text as catalog_text
 from .standard import PROTOCOL, TERMINAL
 from .workspaces import inspect_ledger, private_path
 
@@ -120,13 +120,15 @@ def _scope(registry, workspace_id, binding):
     require(record and record.get("workspaceId") == workspace_id,
             "Binding does not name this registered brain and workspace")
     project_id, cwd = record.get("projectId"), record.get("cwd")
+    catalog_project_id = record.get("catalogProjectId", project_id)
     require(isinstance(project_id, str) and UUID.fullmatch(project_id) and
             isinstance(brain_id, str) and UUID.fullmatch(brain_id) and
             isinstance(cwd, str) and
             Path(cwd).is_absolute() and str(Path(cwd).resolve(strict=True)) == cwd,
             "Reviewed native project or checkout binding changed")
+    catalog_text(catalog_project_id)
     linked = [item for item in (saved or {}).get("projects", [])
-              if item["projectId"] == project_id and item["projectKind"] == "local" and
+              if item["projectId"] == catalog_project_id and item["projectKind"] == "local" and
               (bindings.get(item["key"]) or {}).get("workspaceId") == workspace_id and
               (bindings.get(item["key"]) or {}).get("brainId") == brain_id and
               (bindings.get(item["key"]) or {}).get("databaseIdentity") == inspected["databaseIdentity"] and
@@ -135,7 +137,8 @@ def _scope(registry, workspace_id, binding):
             "Native catalog must retain one exact local project mapping")
     require(inspected["databaseIdentity"] and inspected["revision"] >= 0,
             "Registered ledger identity is unavailable")
-    return {"root": root, "brainId": brain_id, "projectId": project_id, "cwd": cwd,
+    return {"root": root, "brainId": brain_id, "projectId": project_id,
+            "catalogProjectId": catalog_project_id, "cwd": cwd,
             "hostId": linked[0]["hostId"], "ledgerIdentity": inspected["databaseIdentity"],
             "ledgerRevision": inspected["revision"], "endpointHash": digest(binding["endpoint"]),
             "bindingHash": digest(binding), "catalogHash": saved["hash"],
@@ -203,6 +206,7 @@ def preview(registry, workspace_id, binding):
     now = time.time()
     doc = {"kind": KIND, "workspaceId": workspace_id,
            "brainId": scope["brainId"], "projectId": scope["projectId"],
+           "catalogProjectId": scope["catalogProjectId"],
            "checkout": scope["cwd"], "projectRoots": roots,
            "ledgerIdentity": scope["ledgerIdentity"], "ledgerRevision": scope["ledgerRevision"],
            "catalogHash": scope["catalogHash"],
@@ -249,7 +253,7 @@ def _catalog_still_bound(db, workspace_id, scope, doc):
             registered.get("databaseIdentity") == scope["ledgerIdentity"],
             "Registered brain or ledger identity changed during confirmation")
     saved, bindings = read_catalog(db)
-    key = digest([scope["hostId"], scope["projectId"]])
+    key = digest([scope["hostId"], scope["catalogProjectId"]])
     require(saved and saved["hash"] == doc["catalogHash"] and
             any(item["key"] == key and item["locationHash"] == doc["projectLocationHash"]
                 for item in saved["projects"]) and
@@ -276,7 +280,7 @@ def confirm(registry, workspace_id, binding, proposal, confirmation_hash):
     current = preview(registry, workspace_id, binding)["preview"]
     # Native status may move between idle and notLoaded without authorizing a
     # different target. Everything else, including the revision, is exact.
-    for key in ("workspaceId", "brainId", "projectId", "checkout", "projectRoots",
+    for key in ("workspaceId", "brainId", "projectId", "catalogProjectId", "checkout", "projectRoots",
                 "ledgerIdentity", "ledgerRevision", "catalogHash", "projectLocationHash",
                 "endpointHash", "bindingHash", "nativeBeforeProjectId"):
         require(doc.get(key) == current[key], "Native project or ledger changed; inspect a fresh preview")
@@ -292,7 +296,8 @@ def confirm(registry, workspace_id, binding, proposal, confirmation_hash):
         require(_row(db, scope["brainId"]) is None,
                 "Native project assignment was already claimed; reconcile, never resend")
         attempt = {"kind": KIND, "workspaceId": workspace_id, "brainId": scope["brainId"],
-                   "projectId": scope["projectId"], "checkout": scope["cwd"],
+                   "projectId": scope["projectId"],
+                   "catalogProjectId": scope["catalogProjectId"], "checkout": scope["cwd"],
                    "ledgerIdentity": scope["ledgerIdentity"], "endpointHash": scope["endpointHash"],
                    "bindingHash": scope["bindingHash"], "previewHash": confirmation_hash,
                    "claimedAt": time.time(), "status": "intent_committed", "nativeAttempted": False,
@@ -343,8 +348,13 @@ def reconcile(registry, workspace_id, binding):
     """Read-only native observation; update only the local receipt, never resend."""
     scope = _scope(registry, workspace_id, binding)
     prior = status(registry, workspace_id)
+    # PR #100 retained same-ID intents before catalogProjectId was introduced.
+    # Their unchanged binding hash proves that the single recorded projectId
+    # was also the catalog ID; never require a second native write to recover.
+    prior_catalog_id = prior.get("catalogProjectId", prior.get("projectId"))
     require(prior.get("kind") == KIND and prior.get("brainId") == scope["brainId"] and
             prior.get("projectId") == scope["projectId"] and
+            prior_catalog_id == scope["catalogProjectId"] and
             prior.get("endpointHash") == scope["endpointHash"] and
             prior.get("bindingHash") == scope["bindingHash"],
             "Exact prior assignment intent and host binding required")
