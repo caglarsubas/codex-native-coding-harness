@@ -51,7 +51,23 @@ function roadmapJourneyState(snapshot,isConnected=true,now=Date.now()/1000){
     return result(2,'Phase is active','Play is active up to the reviewed stopping checkpoint. Follow the sessions for observed task activity, or pause safely at any time.','Follow sessions','overview',{canPause:true});
   }
   if(run?.status==='paused'){
-    if(blockers.length)return result(3,'Resolve the checkpoint before resuming','The saved phase cannot resume with its current limits or evidence. Ask the brain to explain the blocker and prepare the next review.','Prepare checkpoint follow-up','prepare',{reasons:blockers});
+    const recovery=run.recovery;
+    if(recovery&&recovery.status!=='replied')return result(3,'Recovery preparation is underway',
+      'One owner-reviewed preparation wake is saved. Follow native delivery, brain receipt and reply here; no second request is sent.',
+      'Follow recovery progress','recover_follow',{reasons:blockers});
+    if(blockers.length){
+      if(recovery)return result(3,'Review the recovery result',
+        'The brain saved its preparation reply. Review the remaining evidence or exact owner decision; this phase is still paused.',
+        'Review recovery result','recover_follow',{reasons:blockers});
+      const held=(snapshot.commands||[]).find(c=>c.kind==='reconcile'&&c.payload?.message&&!c.conversationReply);
+      if(held?.notification)return result(3,'Check the existing brain delivery',
+        'An earlier message has an attempted native send but no reply. Its outcome must be reconciled before another wake.',
+        'Inspect saved request','conversation',{reasons:blockers});
+      return result(3,'Prepare safely from this checkpoint',
+        'The phase stays paused. Review one bounded recovery-only brain turn. It will '+
+        (held?'reuse your saved message':'create one focused instruction')+' and propose the next exact decision without starting development work.',
+        'Review recovery preparation','recover',{reasons:blockers});
+    }
     return result(2,'Paused at a checkpoint','Review Resume to continue the same phase with its existing scope and consumed budget.','Review Resume','resume');
   }
   if(run&&!['completed','blocked'].includes(run.status))return result(2,'Phase status needs reconciliation','The recorded phase is not in a recognized control state. Ask the brain to reconcile it before starting or resuming work.','Talk to project brain','conversation');
@@ -85,6 +101,16 @@ function prepareRoadmapPhase(){
   document.getElementById('brain-message')?.focus();
 }
 function journeyAction(action){
+  if(action==='recover'||action==='recover_follow'){
+    focusAssistantConversation();
+    if(typeof developmentHelpUpdate==='function')developmentHelpUpdate();
+    const next=document.getElementById('assistant-next-step');
+    next?.scrollIntoView({block:'start'});
+    const first=next?.querySelector('button:not([hidden]):not(:disabled)');
+    if(first)first.focus({preventScroll:true});
+    else if(next){next.setAttribute('tabindex','-1');next.focus({preventScroll:true});}
+    return;
+  }
   if(action==='reconcile'){focusAssistantConversation();return assistantRequestStep('phase_reconcile');}
   if(action==='refresh')return refresh();
   if(action==='prepare')return prepareRoadmapPhase();

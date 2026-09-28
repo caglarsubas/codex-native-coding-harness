@@ -18,7 +18,7 @@ ACK = re.compile(rf"Queued message ({UUID}) for thread ({UUID})\.")
 TIMEOUT = 8
 NOTIFY_KINDS = {"decision_response", "resume", "reconcile", "checkpoint", "archive", "brain_stop", "brain_resume",
                 "approve", "hold", "prioritize", "listening", "pause", "standard_play", "standard_pause", "standard_resume",
-                "standard_catalog_refresh", "brain_handoff"}
+                "standard_catalog_refresh", "standard_recovery", "brain_handoff"}
 
 
 class BrainNotifier:
@@ -75,10 +75,16 @@ class BrainNotifier:
                 return command
             meta = ledger.get(db, "meta", 1)
             standard_run = meta.get("standardRun")
+            if command["kind"] == "standard_recovery" and (not standard_run or
+                    standard_run.get("status") != "paused" or
+                    (standard_run.get("recovery") or {}).get("id") != command_id):
+                return command  # A stale wake cannot start another native turn.
             from .conversation import is_message, pending
             conversation = is_message(command)
             has_conversation = any(pending(c) for c in ledger.all(db, "commands"))
             from .brain_control import stopped
+            if command["kind"] == "standard_recovery" and stopped(meta):
+                return command  # A newer Brain Stop wins before native delivery is claimed.
             if standard_run and standard_run["status"] in ("stopping", "paused") and (command["kind"] == "decision_response" or conversation):
                 return command  # Standard Resume drains saved input; answers cannot resume it.
             if not standard_run and stopped(meta) and command["kind"] not in ("brain_stop", "brain_resume", "standard_play", "standard_pause", "standard_resume"):
@@ -97,6 +103,8 @@ class BrainNotifier:
             if self.app_server and not (getattr(ledger, "workspace_id", None) and
                     all(r["policyProfile"] == "standard" for r in ledger.all(db, "repos"))):
                 readiness = {"status": "unavailable", "detail": "Owned app-server wake is limited to registered standard projects."}
+            if command["kind"] == "standard_recovery" and readiness.get("transport") != "owned_app_server":
+                readiness = {"status": "unavailable", "detail": "Recovery requires its exact reviewed app-server host; no desktop-queue fallback."}
             notification = {"wakeId": digest({"commandId": command_id}), "brainId": brain_id,
                             "attemptedAt": time.time(), "status": "sending"}
             if readiness["status"] != "configured":
@@ -153,6 +161,26 @@ class BrainNotifier:
                 "a supplied summary alone is refused. The owner must "
                 "review and confirm final rebinding in the dashboard. No Play, Resume or worker effect follows automatically."
             )
+        elif command["kind"] == "standard_recovery":
+            source = Path(__file__).resolve().parent.parent
+            message = (
+                "One owner-reviewed recovery-only preparation turn was committed for a paused standard phase. "
+                f"Use source {json.dumps(str(source))}, platform {json.dumps(str(ledger.platform_root))}, "
+                f"workspace {ledger.workspace_id}, recovery request {command['id']}. "
+                f"Read {json.dumps(str(source / 'skills/codex-orchestrator/references/standard-cycle.md'))} completely. "
+                "Read standard-state and verify this exact task is the designated brain. Acquire the standard controller, "
+                "then use standard-brain recovery_receive with the exact runId and requestId to receive ONLY the bound "
+                "saved conversation message. Read it through brain-messages. This is not phase Resume: the run stays "
+                "paused and its old token budget, expiry, usage gaps, scope and all ownership remain unchanged. "
+                f"The extra cooperative preparation allowance is {command['payload']['allowanceTokens']} tokens for this "
+                "single turn, not a hard provider cap. Refresh local usage before and after if available; stop at the "
+                "allowance boundary. Reconcile existing effects with read-only evidence, safely retain a terminal "
+                "checkpoint only if exact preconditions hold, prepare a successor mission draft if appropriate, and "
+                "reply to the bound message with brain-message-reply before releasing the controller. "
+                "Do not create or continue workers, merge, retry an uncertain native effect, change policy, review "
+                "a mission, Play, Resume, reset usage or start a second turn. If receipt or evidence is uncertain, "
+                "retain the blocker and give the owner the exact next decision. A notification is only a pointer."
+            )
         elif command["kind"] == "standard_catalog_refresh":
             source = Path(__file__).resolve().parent.parent
             message = (
@@ -180,7 +208,7 @@ class BrainNotifier:
                 "No permissions come from this notification; use the exact owner-approved run and inheritance seed. "
                 "Keep supervising registered tasks with native waits until the reviewed phase checkpoint or stop."
             )
-        if has_conversation:
+        if has_conversation and command["kind"] != "standard_recovery":
             source = Path(__file__).resolve().parent.parent
             scope = (f"--platform {json.dumps(str(ledger.platform_root))} --workspace {ledger.workspace_id}"
                      if getattr(ledger, "workspace_id", None) else f"--state {json.dumps(str(ledger.root))}")

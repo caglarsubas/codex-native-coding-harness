@@ -1,5 +1,5 @@
 "use strict";
-const workflowPhrases={phase_help:'confirm help',phase_prepare:'confirm prepare',phase_reconcile:'confirm reconcile',phase_review:'confirm review',phase_play:'confirm play',phase_pause:'confirm pause',phase_resume:'confirm resume',usage_check:'confirm usage',codex_check:'confirm readiness',brain_message:'confirm send'};
+const workflowPhrases={phase_help:'confirm help',phase_prepare:'confirm prepare',phase_reconcile:'confirm reconcile',phase_recovery:'confirm recovery',phase_review:'confirm review',phase_play:'confirm play',phase_pause:'confirm pause',phase_resume:'confirm resume',usage_check:'confirm usage',codex_check:'confirm readiness',brain_message:'confirm send'};
 function assistantLocalWorkflow(question,current=state){
   // Exact product starters, not an inferred intent or approval. The normal
   // server catalog still validates and prepares a separate signed preview.
@@ -14,7 +14,7 @@ function assistantLocalWorkflow(question,current=state){
   const pending=(current.commands||[]).some(c=>(c.status==='queued'||c.status==='processing'||c.needsBrainReceipt));
   if(pending){assistantNextStep();assistantStatus('A saved request is still awaiting its receipt. Inspect its status above; no duplicate was sent.');return true;}
   const journey=roadmapJourneyState(current,true);
-  const key={prepare:'phase_prepare',reconcile:'phase_reconcile',mission:'phase_review',catalog:'codex_check',play:'phase_play',resume:'phase_resume'}[journey.action];
+  const key={prepare:'phase_prepare',reconcile:'phase_reconcile',recover:'phase_recovery',mission:'phase_review',catalog:'codex_check',play:'phase_play',resume:'phase_resume'}[journey.action];
   if(key)assistantRequestStep(key);
   else{assistantNextStep();assistantStatus(journey.detail||journey.title);}
   return true;
@@ -39,7 +39,7 @@ function assistantWorkflowState(action,current=state,now=Date.now()/1000){
 function assistantWorkflowPreview(item,proposal,guided=false){
   const doc=proposal.document,p=doc.preview,section=el('section',null,'chat-action');
   section.setAttribute('aria-label','Review '+p.title);
-  if(guided){section.append(el('h3','Check blockers and prepare what’s next'),el('p','Uses Codex tokens. No Play, policy changes or task retries.','muted'));}
+  if(guided){section.append(el('h3',doc.workflow==='phase_recovery'?'Prepare safely from this checkpoint':'Check blockers and prepare what’s next'),el('p','Uses Codex tokens. No Play, policy changes or task retries.','muted'));}
   else section.append(el('p','REVIEW TOGETHER','eyebrow'),el('h3',p.title),el('p',p.impact));
   if(p.summary&&!guided){const list=el('ul');for(const text of p.summary)list.append(el('li',text));section.append(list);}
   if(p.mission){
@@ -61,6 +61,12 @@ function assistantWorkflowPreview(item,proposal,guided=false){
   }
   if(p.runSettings)section.append(el('p',`${p.runSettings.durationHours} hours maximum · ${num(p.runSettings.brainAllowance)} tokens allocated to the brain.${p.runSettings.measureUsage?' Missing usage coverage stops new effects.':''}`,'muted'));
   if(p.retainedRun)section.append(el('p',`Existing limits and consumed usage are preserved. Original phase expiry: ${when(p.retainedRun.expiresAt)}.`,'muted'));
+  if(p.recovery){
+    const r=p.recovery,u=r.usage||{};
+    const gaps=Array.isArray(u.gaps)?`${u.gaps.length} recorded gap(s)`:'gap count unknown';
+    section.append(el('p',`Paused phase ${r.phaseId} · one preparation turn · ${num(r.allowanceTokens)} additional cooperative tokens. ${r.reusesMessage?'Reuses the saved message; no duplicate.':'Creates one bounded preparation message.'}`),
+      el('p',`Recorded usage lower bound: ${u.knownLowerBound==null?'unknown':num(u.knownLowerBound)} · coverage ${u.coverage||'unknown'} · ${gaps}. Old phase budget and expiry stay unchanged. This is not a hard provider cap.`,'muted'));
+  }
   if(p.message){
     if(guided){const details=el('details'),list=el('ul');for(const text of p.summary||[])list.append(el('li',text));details.append(el('summary','Details · checks and prepared instruction'),list,el('p',p.impact),el('p',p.message));section.append(details);}
     else section.append(narrative(p.message,'Exact instruction to the project brain'));
@@ -118,7 +124,7 @@ function assistantNextStep(){
   root.append(el('p',latest?'BRAIN REPLIED · '+when(latest.conversationReply.at):'CURRENT PROJECT','eyebrow'),el('h3',journey.title));
   const plan=state.mission;
   if(journey.action==='mission'&&plan?.document)root.append(el('p',`Plan v${plan.document.version} · ${plan.document.spec.phase.title}`));
-  const key=map[journey.action];
+  const key=map[journey.action]||({recover:'phase_recovery'})[journey.action];
   const reviewable=journey.action!=='mission'||(state.mission?.effectiveStatus==='draft'&&!state.mission?.bindingIssues?.length);
   const prepareBlocked=key==='phase_prepare'&&['paused','stopping'].includes(state.standard?.run?.status);
   if(key&&reviewable&&!prepareBlocked){const b=button(journey.label,()=>assistantRequestStep(key));b.disabled=assistantPending;root.append(b);}
@@ -150,7 +156,7 @@ function assistantWorkflowReceipt(action,recorded){
   }
   const reply=recorded?.conversationReply;
   if(action.replyNext){
-    const model=roadmapJourneyState(state,connected),key={prepare:'phase_prepare',reconcile:'phase_reconcile',mission:'phase_review',catalog:'codex_check',play:'phase_play',pause:'phase_pause',resume:'phase_resume'}[model.action];
+    const model=roadmapJourneyState(state,connected),key={prepare:'phase_prepare',reconcile:'phase_reconcile',recover:'phase_recovery',mission:'phase_review',catalog:'codex_check',play:'phase_play',pause:'phase_pause',resume:'phase_resume'}[model.action];
     const current=latestBrainReply(state)?.id===recorded?.id;
     const signature=JSON.stringify([current,key,model.label,connected,assistantPending]);
     if(action.replyNextKey!==signature){action.replyNext.replaceChildren();action.replyNextKey=signature;

@@ -3,6 +3,19 @@
 // No polling callback confirms a control or sends a message to the brain.
 const developmentHelpViews=new Map();
 function developmentHelpProgress(command,current,now=Date.now()/1000){
+  if(command.kind==='standard_recovery'){
+    const target=current.commands?.find(c=>c.id===command.payload?.messageId),n=command.notification;
+    const info=commandPresentation(command,current.brainActivity,now),reply=target?.conversationReply;
+    const receiveBy=current.standard?.run?.recovery?.id===command.id?current.standard.run.recovery.receiveBy:null;
+    const expired=!command.receivedAt&&!reply&&receiveBy!=null&&now>=receiveBy;
+    const rows=[['Recovery request saved','done',command.createdAt],
+      ['Native notification',n?.status==='accepted'?'done':n?.status==='unavailable'||n?.status==='uncertain'?'attention':'waiting',n?.finishedAt],
+      ['Brain received recovery scope',command.receivedAt?'done':expired?'attention':'waiting',command.receivedAt],
+      ['Preparation reply saved',reply?'done':'waiting',reply?.at]];
+    return {rows,title:reply?'Recovery reply received':expired?'Recovery receipt window expired':command.receivedAt?'Brain preparing your next step':info.label,
+      detail:reply?'Review the saved result. Phase Resume and Play remain separate.':expired?'No brain receipt was saved within the reviewed window. Inspect the existing Codex turn and host binding; do not send another wake.':info.detail,
+      attention:expired||n?.status==='unavailable'||n?.status==='uncertain'||/overdue|attention/i.test(info.label)};
+  }
   const n=command.notification,reply=command.conversationReply;
   const received=!!command.conversationReceivedAt, message=command.kind==='reconcile'&&!!command.payload?.message;
   let info=commandPresentation(command,current.brainActivity,now);
@@ -56,11 +69,12 @@ function developmentHelpRender(root,entry){
   panel.setAttribute('aria-label','Guided development help');
   const command=state.commands?.find(c=>c.id===data.requestId);
   if(command){
+    const paired=command.kind==='standard_recovery'?state.commands?.find(c=>c.id===command.payload?.messageId):command;
     entry.progress=el('div',null,'development-progress');
-    if(command.conversationReply){const details=el('details');details.append(el('summary','Details · preparation progress'),entry.progress);panel.append(details);}
+    if(paired?.conversationReply){const details=el('details');details.append(el('summary','Details · preparation progress'),entry.progress);panel.append(details);}
     else panel.append(entry.progress);
     developmentHelpRenderProgress(entry.progress,command);
-    if(command.conversationReply)panel.append(narrative(command.conversationReply.message,'Preparation result · '+when(command.conversationReply.at)));
+    if(paired?.conversationReply)panel.append(narrative(paired.conversationReply.message,'Preparation result · '+when(paired.conversationReply.at)));
   }
   if(data.proposal){
     // This is a displayed signed preview; its Help button is the owner's direct

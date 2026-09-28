@@ -22,6 +22,20 @@ replace a brain, review a mission or start/resume development. Show durable
 delivery/receipt/reply progress and exact missing evidence. Subsequent authority
 changes, Review and Play retain separate owner confirmations.
 
+For an already paused, blocked standard phase, ordinary saved messages remain
+held. The separately signed `standard_recovery` control may authorize exactly
+one recovery-only preparation wake on the reviewed, bound Codex app-server host.
+It reuses one unsent saved message or creates one server-generated message in the
+same owner-confirmed transaction. It does not Resume the phase, worker dispatch,
+its expired duration or token budget. Its additional brain allowance is a
+cooperative one-turn limit, not a provider billing cap; missing usage remains
+unknown. Only `standard-brain recovery_receive` may receive that exact held
+message while paused. No other paused message, uncertain prior delivery, task
+effect or merge may use the exception. Native delivery remains one-shot and
+separate from the ledger receipt and reply. A successor mission still needs
+its own review and Play. Source delivery does not activate this path on live
+state or reconfigure a host binding. See docs/CHECKPOINT-RECOVERY-WAKE.md.
+
 ## Owned app-server wake source (2026-09-26)
 
 The owner approved implementing an opt-in, documented Codex app-server wake

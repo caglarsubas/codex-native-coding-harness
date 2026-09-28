@@ -22,11 +22,17 @@ standard-project cycle stays in this workspace:
    If usage needs measuring first, confirm the local usage check in chat. Missing
    coverage remains unknown and blocks further effects; it is never treated as zero.
 
-When a standard phase stops on a control blocker, Roadmap & Play and the assistant
-show a deterministic explanation before the owner asks the model. Confirming
-**Prepare recovery proposal** sends one exact, bounded investigation/draft request
-to the existing brain. It does not change a budget, review a new mission or Play.
-See [guided control recovery](CONTROL-RECOVERY.md).
+When a running standard phase stops on a control blocker, the workspace shows
+a deterministic explanation before the owner asks the model. A paused phase
+with unresolved limits/evidence is different: ordinary brain messages are held,
+and phase Resume remains refused. **Help me continue development** or **Review
+recovery preparation** shows a signed, exact recovery-only wake preview. One
+owner confirmation may deliver a single bounded preparation turn through the
+reviewed, bound Codex app-server host, reusing a held unsent message. The old
+phase stays paused and its consumption and expiry are unchanged. The dashboard
+then shows native delivery, brain receipt and reply separately. See
+[checkpoint recovery wake](CHECKPOINT-RECOVERY-WAKE.md) and
+[guided control recovery](CONTROL-RECOVERY.md).
 
 The assistant can also send an explicitly requested, verbatim instruction to the
 project brain, such as a requested phase revision. It never invents the owner's
