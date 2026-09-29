@@ -21,6 +21,7 @@ function commandPresentation(c, activity=state?.brainActivity, now=Date.now()/10
     :{label:"Delivery unconfirmed",detail:"The send was interrupted or its result is missing. Check the brain; your answer is saved and will not be resent automatically."};
   if(n.status==='accepted') {
     if(n.nativeTurnStatus==='native_attention_required')return {label:'Native attention required',detail:'The owned Codex host asked for native approval or input. No permission was granted by the dashboard. Inspect the native host before further action.'};
+    if(['completed','failed','interrupted'].includes(n.nativeTurnStatus))return {label:'Native turn ended · receipt missing',detail:'Codex ended the existing turn, but this request has no ledger receipt. Its outcome is unverified. Inspect that turn and the host binding; do not send a duplicate.'};
     if(n.nativeDelivery==='owned_turn_start')return now-n.finishedAt>90
       ?{label:'Brain receipt overdue',detail:'The bound Codex host started a turn, but no ledger receipt was recorded. Inspect the native turn and any approval prompt; do not resend this control.'}
       :{label:'Brain turn started · awaiting receipt',detail:'The bound Codex app-server started a turn. The brain has not yet recorded this request in the ledger.'};

@@ -17,6 +17,10 @@ assert.equal(present({status:'accepted',finishedAt:99},{fresh:true,status:'idle'
 assert.equal(present({status:'accepted',finishedAt:99},{fresh:true,status:'running'}).label,'Brain active · awaiting receipt');
 assert.equal(present({status:'accepted',finishedAt:99},{fresh:false,status:'running'}).label,'Sent to Codex');
 assert.equal(present({status:'accepted',finishedAt:1}).label,'Receipt overdue');
+const ended={status:'accepted',nativeDelivery:'owned_turn_start',nativeTurnStatus:'completed',finishedAt:1};
+assert.equal(present(ended).label,'Native turn ended · receipt missing');
+assert.match(present(ended).detail,/do not send a duplicate/);
+assert.equal(present({...ended,nativeTurnStatus:'failed'}).label,'Native turn ended · receipt missing');
 assert.equal(context.commandPresentation({...command,status:'processing',notification:{status:'uncertain'}}).label,'Received by brain');
 assert.equal(context.commandPresentation({...command,status:'completed',result:'Retained outcome'}).detail,'Retained outcome');
 assert.equal(context.commandPresentation({kind:'approve',status:'completed',needsBrainReceipt:true}).label,'Approval saved');

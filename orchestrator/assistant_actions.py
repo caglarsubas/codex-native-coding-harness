@@ -18,6 +18,8 @@ def catalog(state, links):
     control = meta.get("brainControl") or {}
     stopped = control.get("desired") == "stopped"
     pending = [c for c in state["commands"] if c["status"] in ("queued", "processing")]
+    unanswered_message = any(c.get("kind") == "reconcile" and "message" in c.get("payload", {}) and
+                             not c.get("conversationReply") for c in state["commands"])
     result = {}
 
     def add(key, title, kind, payload, impact, view="overview", reason=None, target="Designated brain", details=None):
@@ -46,7 +48,9 @@ def catalog(state, links):
             brain_missing or ("Resume the brain first." if stopped else "Worker dispatch is already enabled." if not meta["paused"] else None))
     add("reconcile", "Request brain reconciliation", "reconcile", {},
         "Ask the designated brain to reconcile recorded controls, ownership and evidence. No new packet approval. Saved until explicit resume if the brain is stopped.",
-        reason=brain_missing)
+        reason=brain_missing or ("Follow the existing brain request and its receipt before sending another." if unanswered_message else
+                                 "Use this project's phase or conversation controls; generic reconciliation cannot run during a standard phase."
+                                 if meta.get("standardRun") else None))
     enabled = meta.get("decisionListener", {}).get("enabled", False)
     for value in (False, True):
         add("periodic_checks" if value else "event_waiting", "Enable periodic idle checks" if value else "Use event-driven waiting",

@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 from orchestrator.core import Ledger, Refusal, digest
 from orchestrator import conversation
+from orchestrator.assistant_actions import catalog
 from orchestrator.decisions import inbox, publish
 from orchestrator.notification import BrainNotifier
 from test_decisions import fixture
@@ -129,10 +130,16 @@ class ConversationTest(unittest.TestCase):
         request = envelope(self.ledger)
         self.ledger.submit(request)
         with self.assertRaises(Refusal): self.ledger.submit(envelope(self.ledger))
-        # A ordinary reconcile does not consume or suppress the message.
-        self.ledger.submit({**envelope(self.ledger), "payload": {}})
+        self.assertFalse(catalog(self.ledger.snapshot(), {})['reconcile']['available'])
+        # Generic reconciliation cannot create a second request while this
+        # exact conversation is still awaiting its reply.
+        with self.assertRaisesRegex(Refusal, 'awaiting its reply'):
+            self.ledger.submit({**envelope(self.ledger), "payload": {}})
         conflict = copy.deepcopy(request); conflict["payload"]["message"] = "Changed retry"
         with self.assertRaises(Refusal): self.ledger.submit(conflict)
+        conversation.receive(self.ledger, self.token, request['id'])
+        conversation.reply(self.ledger, self.token, request['id'], self.answer)
+        self.assertTrue(catalog(self.ledger.snapshot(), {})['reconcile']['available'])
 
     def test_no_forged_reply_wrong_controller_or_foreign_references(self):
         command = self.ledger.submit(envelope(self.ledger))
