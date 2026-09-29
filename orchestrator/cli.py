@@ -31,6 +31,8 @@ def main():
     p.add_argument("--catalog-hash", required=True); p.add_argument("--confirm", action="store_true")
     p = sub.add_parser("native-project-preview", help="Read-only review of one standard brain's missing native project assignment")
     p.add_argument("binding", type=Path, help="Existing private owned app-server brain binding")
+    p = sub.add_parser("native-project-host-preview", help="Read-only identity check for an already assigned brain on a replacement host")
+    p.add_argument("binding", type=Path, help="Candidate private owned app-server brain binding")
     p = sub.add_parser("native-project-confirm", help="One-shot, owner-confirmed native project metadata assignment")
     p.add_argument("binding", type=Path); p.add_argument("preview", type=Path)
     p.add_argument("--confirm-hash", required=True, help="Exact SHA-256 printed by native-project-preview")
@@ -237,6 +239,8 @@ def main():
             binding = load_binding(args.binding)
             if args.action == "native-project-preview":
                 out = native_project.preview(registry, args.workspace, binding)
+            elif args.action == "native-project-host-preview":
+                out = native_project.host_preview(registry, args.workspace, binding)
             elif args.action == "native-project-reconcile":
                 out = native_project.reconcile(registry, args.workspace, binding)
             else:

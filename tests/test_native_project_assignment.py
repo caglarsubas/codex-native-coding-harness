@@ -106,6 +106,10 @@ class NativeProjectAssignmentTest(unittest.TestCase):
     def confirm(self, review):
         return assignment.confirm(self.registry, "pilot", self.binding, review, review["previewHash"])
 
+    def replacement_binding(self):
+        return {"endpoint": {"fixture": "replacement"}, "brains": {
+            BRAIN: dict(self.binding["brains"][BRAIN])}}
+
     def test_preview_is_read_only_and_exact_confirmation_is_one_shot(self):
         before = self.ledger.snapshot()["meta"]["revision"]
         review = self.preview()
@@ -309,6 +313,68 @@ class NativeProjectAssignmentTest(unittest.TestCase):
         self.assertEqual(changed["status"], "conflict")
         self.assertEqual(changed["verifiedAt"], verified_at)
         self.assertEqual(changed["observedProjectId"], OTHER)
+        self.assertEqual(NativeProxy.writes, 1)
+
+    def test_replacement_host_preview_is_read_only_and_preserves_one_shot_assignment(self):
+        saved = self.confirm(self.preview())
+        revision = self.ledger.snapshot()["meta"]["revision"]
+        replacement = self.replacement_binding()
+        NativeProxy.calls = []
+        report = assignment.host_preview(self.registry, "pilot", replacement)
+        doc = report["preview"]
+        self.assertEqual(doc["assignmentPreviewHash"], saved["previewHash"])
+        self.assertEqual(doc["nativeProjectId"], PROJECT)
+        self.assertEqual(doc["nativeStatus"], "notLoaded")
+        self.assertEqual(doc["candidateEndpointHash"], digest(replacement["endpoint"]))
+        self.assertNotEqual(doc["originalEndpointHash"], doc["candidateEndpointHash"])
+        self.assertEqual(report["previewHash"], digest(doc))
+        self.assertEqual({name for name, _ in NativeProxy.calls}, {"project/read", "thread/read"})
+        self.assertEqual(assignment.status(self.registry, "pilot"), saved)
+        self.assertEqual(self.ledger.snapshot()["meta"]["revision"], revision)
+        self.assertEqual(NativeProxy.writes, 1)
+        with self.assertRaises(Refusal):
+            self.preview()
+
+    def test_replacement_host_preview_refuses_unverified_or_same_host(self):
+        replacement = self.replacement_binding()
+        with self.assertRaises(Refusal):
+            assignment.host_preview(self.registry, "pilot", replacement)
+        self.confirm(self.preview())
+        with self.assertRaises(Refusal):
+            assignment.host_preview(self.registry, "pilot", self.binding)
+        with self.ledger.tx() as db:
+            prior = assignment._row(db, BRAIN)
+            prior["status"] = "uncertain"
+            self.ledger.put(db, assignment.TABLE, BRAIN, prior)
+        with self.assertRaises(Refusal):
+            assignment.host_preview(self.registry, "pilot", replacement)
+        self.assertEqual(NativeProxy.writes, 1)
+
+    def test_replacement_host_preview_refuses_wrong_identity_or_unsettled_state(self):
+        self.confirm(self.preview())
+        replacement = self.replacement_binding()
+        replacement["brains"][BRAIN]["projectId"] = OTHER
+        with self.assertRaises(Refusal):
+            assignment.host_preview(self.registry, "pilot", replacement)
+        replacement = self.replacement_binding()
+        NativeProxy.project_id = OTHER
+        with self.assertRaises(Refusal):
+            assignment.host_preview(self.registry, "pilot", replacement)
+        NativeProxy.project_id = PROJECT
+        NativeProxy.native_project_id = OTHER
+        with self.assertRaises(Refusal):
+            assignment.host_preview(self.registry, "pilot", replacement)
+        NativeProxy.native_project_id = PROJECT
+        NativeProxy.status = "active"
+        with self.assertRaises(Refusal):
+            assignment.host_preview(self.registry, "pilot", replacement)
+        NativeProxy.status = "idle"
+        with self.ledger.tx() as db:
+            meta = self.ledger.get(db, "meta", 1)
+            meta["paused"] = False
+            self.ledger.put(db, "meta", 1, meta)
+        with self.assertRaises(Refusal):
+            assignment.host_preview(self.registry, "pilot", replacement)
         self.assertEqual(NativeProxy.writes, 1)
 
 

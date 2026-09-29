@@ -168,6 +168,26 @@ python3 -m orchestrator.cli --platform PRIVATE_PLATFORM --workspace EXACT_WORKSP
   native-project-reconcile PRIVATE_BRAIN_BINDING
 ```
 
+If that assignment is already **verified** and the disposable host socket or
+signed executable changes, do not repeat `native-project-confirm` or reconcile
+against the replacement binding. A new read-only report can check whether the
+replacement host independently sees the same assigned, idle/not-loaded brain,
+native project and exact checkout repository:
+
+```text
+python3 -m orchestrator.cli --platform PRIVATE_PLATFORM --workspace EXACT_WORKSPACE \
+  native-project-host-preview PRIVATE_REPLACEMENT_BINDING
+```
+
+This command requires a settled, paused standard ledger and the original
+verified one-shot assignment. It checks the current catalog and replacement
+endpoint without writing a ledger row or calling `thread/metadata/update`.
+Its hash is an inspection receipt, **not** a confirmation token for
+`native-project-confirm`, a host-binding review, a wake permit or evidence that
+native approvals work. A changed host still needs its separate exact owner
+review before any native turn. An uncertain or conflicting original assignment
+must be reconciled on its original host; this report cannot repair it.
+
 Confirmation rechecks the exact preview and writes a private ledger intent
 **before** calling `thread/metadata/update` once. It rechecks the local safety
 state, catalog and intent revision under registry→ledger locks and holds those
