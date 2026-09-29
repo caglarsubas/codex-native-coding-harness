@@ -67,6 +67,10 @@ its fixed pointer. There is no help scheduler or second dispatcher. Reloading
 reconstructs progress from the same durable command and retained reply. Missing,
 overdue or uncertain delivery stays visible without blind resend; a receipt is
 not proof of current activity, and a preparation reply is not phase completion.
+If the native Codex turn ends without a ledger receipt, the workspace labels the
+outcome unverified and points to that existing turn and host binding. It does not
+offer a generic legacy reconciliation control during a standard phase or allow a
+second generic reconciliation while a brain message still awaits its reply.
 
 For any other instruction, type it and choose **Send to project brain…**. The
 assistant shows the exact text and selected project; **confirm send** saves and

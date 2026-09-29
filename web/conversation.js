@@ -129,6 +129,7 @@ function brainMessageState(message){
   const n=message.notification;
   if(n?.status==='accepted'){
     if(n.nativeTurnStatus==='native_attention_required')return {label:'Native attention required',detail:'The owned Codex host requested native approval or input; no permission was granted here.'};
+    if(['completed','failed','interrupted'].includes(n.nativeTurnStatus))return {label:'Native turn ended · receipt missing',detail:'Codex ended this turn, but the project brain recorded neither a ledger receipt nor a reply. Inspect the existing turn and host binding; do not send a duplicate.'};
     if(n.nativeDelivery==='owned_turn_start')return {label:'Brain turn started',detail:'Waiting for the brain’s separate ledger receipt and retained reply.'};
     if(n.nativeDelivery==='owned_active_queue')return {label:'Queued on active brain',detail:'Waiting for its active turn and then the separate ledger receipt.'};
     return {label:'Sent to Codex',detail:'The desktop queue accepted this, but an unloaded brain might not start. Check for a ledger receipt.'};

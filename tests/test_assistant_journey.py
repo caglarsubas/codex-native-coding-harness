@@ -175,6 +175,14 @@ class AssistantJourneyTest(unittest.TestCase):
         self.assertEqual(strict_facts['F31']['activation'], s['mission']['activation'])
         self.assertFalse(catalog(self.snapshot(),{})['dispatch_resume']['available'])
 
+    def test_standard_phase_never_offers_legacy_reconciliation(self):
+        self.confirm(self.prepare('phase_play'))
+        actions = catalog(self.snapshot(), {})
+        self.assertFalse(actions['reconcile']['available'])
+        self.assertIn('phase or conversation controls', actions['reconcile']['unavailableReason'])
+        with self.assertRaises(Refusal):
+            resolve_action({'key':'reconcile'}, actions, 'Reconcile this phase')
+
     def test_blocked_phase_prepares_exact_recovery_request_not_play(self):
         self.confirm(self.prepare('phase_play'))
         with self.ledger.tx() as db:

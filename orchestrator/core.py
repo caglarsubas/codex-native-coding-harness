@@ -337,6 +337,10 @@ class Ledger:
                 validate_message(self, db, command, meta, actor)
             elif kind in ("resume", "reconcile"):
                 require(not any(c["kind"] == kind and not is_message(c) and c["status"] in ("queued", "processing") for c in self.all(db, "commands")), "Equivalent request already pending")
+                if kind == "reconcile":
+                    from .conversation import pending as pending_message
+                    require(not any(pending_message(c) for c in self.all(db, "commands")),
+                            "A brain message is awaiting its reply; follow the existing request")
             if kind == "resume":
                 from .enrollment import require_legacy_unfenced
                 require_legacy_unfenced(self, meta)
