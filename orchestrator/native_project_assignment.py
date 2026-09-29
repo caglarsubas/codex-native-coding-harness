@@ -227,6 +227,62 @@ def status(registry, workspace_id):
                                       "nativeAttempted": False, "nativeOutcome": "not_observed"}
 
 
+def host_preview(registry, workspace_id, binding):
+    """Read-only requalification of a previously verified assignment on a new host.
+
+    The assignment journal remains bound to its original one-shot metadata
+    write. A replacement endpoint must prove the same native project and brain
+    independently; this report is never a host-binding or wake permission.
+    """
+    scope = _scope(registry, workspace_id, binding)
+    with _read_database(scope["root"]) as db:
+        meta = _safe_state(db, scope["brainId"], scope["root"])
+        prior = _row(db, scope["brainId"])
+        require(meta["revision"] == scope["ledgerRevision"],
+                "Ledger changed during host qualification")
+    prior_catalog_id = prior.get("catalogProjectId", prior.get("projectId")) if prior else None
+    require(prior and prior.get("kind") == KIND and prior.get("status") == "verified" and
+            prior.get("nativeAttempted") is True and
+            prior.get("observedProjectId") == scope["projectId"] and
+            prior.get("brainId") == scope["brainId"] and
+            prior.get("projectId") == scope["projectId"] and
+            prior_catalog_id == scope["catalogProjectId"] and
+            prior.get("checkout") == scope["cwd"] and
+            prior.get("ledgerIdentity") == scope["ledgerIdentity"],
+            "Exact verified native project assignment required")
+    require(prior.get("endpointHash") != scope["endpointHash"] and
+            prior.get("bindingHash") != scope["bindingHash"],
+            "Use the existing verified host binding; no replacement host is present")
+    with ReadProxy(binding["endpoint"]) as proxy:
+        thread, roots = _native_identity(proxy, scope)
+    require(thread["projectId"] == scope["projectId"],
+            "Replacement host has not observed the verified brain project assignment")
+    # Read-only observations are not authority, but avoid presenting a report
+    # whose local identity changed during the two native reads.
+    require(_scope(registry, workspace_id, binding) == scope,
+            "Registered ledger or native project catalog changed during host qualification")
+    with _read_database(scope["root"]) as db:
+        meta = _safe_state(db, scope["brainId"], scope["root"])
+        require(meta["revision"] == scope["ledgerRevision"] and
+                _row(db, scope["brainId"]) == prior,
+                "Assignment or ledger changed during host qualification")
+    doc = {"kind": "native_project_host_preview_v1", "workspaceId": workspace_id,
+           "brainId": scope["brainId"], "projectId": scope["projectId"],
+           "catalogProjectId": scope["catalogProjectId"], "checkout": scope["cwd"],
+           "projectRoots": roots, "ledgerIdentity": scope["ledgerIdentity"],
+           "ledgerRevision": scope["ledgerRevision"], "catalogHash": scope["catalogHash"],
+           "projectLocationHash": scope["locationHash"],
+           "assignmentPreviewHash": prior["previewHash"],
+           "originalEndpointHash": prior["endpointHash"],
+           "candidateEndpointHash": scope["endpointHash"],
+           "candidateBindingHash": scope["bindingHash"],
+           "nativeProjectId": thread["projectId"],
+           "nativeStatus": thread["status"]["type"], "observedAt": time.time(),
+           "effect": "Read-only replacement-host identity check; no metadata write, host binding, turn, Play or worker"}
+    require(len(canonical(doc).encode("utf-8")) <= MAX_PREVIEW, "Host report exceeds its bound")
+    return {"preview": doc, "previewHash": digest(doc)}
+
+
 def _update_row(ledger, brain_id, state, after, observed_project_id=None):
     with ledger.tx() as db:
         current = _row(db, brain_id)
