@@ -39,6 +39,14 @@ def catalog(state, links):
         reason=brain_missing or ("Wait for the workspace safe checkpoint before resuming." if workspace_pause and control.get("phase") != "parked" else
                                 "Brain resume is already requested." if control.get("phase") == "resume_requested" else None),
         details={"recordedBrainPhase": control.get("phase"), "checkpointAt": (control.get("checkpoint") or {}).get("at")})
+    if control.get("phase") == "checkpointing" and control.get("commandId"):
+        add("brain_checkpoint_continue", "Continue the safe checkpoint", "brain_checkpoint_continue",
+            {"stopCommandId": control["commandId"]},
+            "Wake the designated brain once to finish this exact stop. Dispatch stays paused; this is not Resume, Play, or permission for new work.",
+            reason=("A reviewed owned Codex host is required." if
+                    (state.get("brainNotification") or {}).get("transport") != "owned_app_server" else
+                    "Use the standard phase controls for this active run." if state.get("standard", {}).get("run") else None),
+            details={"stopCommandId": control["commandId"]})
     add("dispatch_pause", "Pause worker dispatch", "pause", {},
         "Prevent new worker launches. Existing work continues; the brain is not stopped.",
         reason="Worker dispatch is already paused." if meta["paused"] else None)

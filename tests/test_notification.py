@@ -84,6 +84,31 @@ class NotificationTest(unittest.TestCase):
             self.assertEqual(result["notification"]["status"], "unavailable")
             send.assert_not_called()
 
+    def test_checkpoint_continuation_is_one_shot_and_keeps_stop_dominant(self):
+        self.ledger.workspace_id = "fixture"
+        self.ledger.platform_root = Path(self.tmp.name)
+        stop = self.ledger.submit({"id": "stop-fixture-one", "kind": "brain_stop",
+            "expectedRevision": self.ledger.snapshot()["meta"]["revision"], "payload": {}})
+        self.ledger.process(self.token)
+        continuation = self.ledger.submit({"id": "continue-fixture-one", "kind": "brain_checkpoint_continue",
+            "expectedRevision": self.ledger.snapshot()["meta"]["revision"],
+            "payload": {"stopCommandId": stop["id"]}})
+        binding = {"endpoint": {}, "brains": {BRAIN: {"workspaceId": "fixture"}}}
+        with patch("orchestrator.app_server_wake.AppServerWake.configured", return_value=True), \
+             patch("orchestrator.app_server_wake.AppServerWake.send", return_value={
+                 "status": "accepted", "nativeDelivery": "owned_turn_start", "nativeTurnId": "turn-2"}) as send:
+            notifier = BrainNotifier(self.ledger, app_server_binding=binding)
+            result = notifier.notify(continuation["id"])
+            self.assertEqual(result["notification"]["status"], "accepted")
+            self.assertIn(stop["id"], send.call_args.args[1])
+            notifier.notify(continuation["id"])
+            send.assert_called_once()
+            self.ledger.process(self.token)
+            state = self.ledger.snapshot()
+            self.assertEqual(state["meta"]["brainControl"]["phase"], "checkpointing")
+            self.assertTrue(state["meta"]["paused"])
+            self.assertEqual(next(c for c in state["commands"] if c["id"] == continuation["id"])["status"], "completed")
+
     def test_duplicate_http_retry_and_restart_never_resend(self):
         self.send()
         replay = self.ledger.submit(self.request)

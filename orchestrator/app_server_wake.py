@@ -23,6 +23,12 @@ MAX_BINDING = 16_384
 MAX_APPROVAL = 16_000
 APPROVAL_SECONDS = 600
 APPROVAL_METHODS = {"item/commandExecution/requestApproval", "item/fileChange/requestApproval"}
+# The owned observer must see native approval requests on its retained socket.
+# A resume can otherwise inherit danger-full-access/never and let an escalated
+# command finish without an app-server prompt. The exact restricted policy is
+# owner-pinned in the private binding and reapplied before every owned turn.
+NATIVE_APPROVAL_POLICY = {"sandbox": "workspace-write", "approvalPolicy": "on-request",
+                          "codeMode": False}
 COMMAND_FIELDS = {"threadId", "turnId", "itemId", "reason", "command", "cwd",
                   "commandActions", "proposedExecpolicyAmendment", "networkApprovalContext",
                   "availableDecisions", "additionalPermissions", "kind", "startedAtMs",
@@ -111,10 +117,16 @@ def load_binding(path):
     for brain, record in value["brains"].items():
         require(isinstance(brain, str) and UUID.fullmatch(brain) and
                 isinstance(record, dict) and
-                set(record) in ({"cwd", "projectId", "workspaceId"},
-                                {"cwd", "projectId", "catalogProjectId", "workspaceId"}) and
+                set(record) in ({"cwd", "projectId", "workspaceId", "nativePolicy"},
+                                {"cwd", "projectId", "catalogProjectId", "workspaceId", "nativePolicy"}) and
                 isinstance(record["projectId"], str) and UUID.fullmatch(record["projectId"]),
                 "Invalid brain binding entry")
+        policy = record["nativePolicy"]
+        require(isinstance(policy, dict) and set(policy) == set(NATIVE_APPROVAL_POLICY) and
+                policy["sandbox"] == "workspace-write" and
+                policy["approvalPolicy"] == "on-request" and
+                type(policy["codeMode"]) is bool and not policy["codeMode"],
+                "Owned brain requires an exact reviewed native approval policy")
         # The Codex app's list_projects ID can differ from the app-server's
         # project ID. Both must be explicit; neither substitutes for the other.
         if "catalogProjectId" in record:
@@ -163,9 +175,9 @@ class AppServerWake:
             if pending is None or pending["cancelled"] or pending["decision"] is not None or time.time() >= pending["projection"]["expiresAt"]:
                 return None
             projection = copy.deepcopy(pending["projection"])
-        # UI state is advisory. Never advertise an accepting choice after a
-        # phase stop even if Codex still offers it on the old native request.
-        if projection["canAccept"] and not self._phase_allows_accept(brain_id):
+        # UI state is advisory. Never advertise acceptance for an incomplete
+        # prompt or after a phase stop, even if Codex offers the raw choice.
+        if not projection["canAccept"] or not self._phase_allows_accept(brain_id):
             projection["canAccept"] = False
             projection["allowedDecisions"] = [choice for choice in projection["allowedDecisions"] if choice != "accept"]
         return projection
@@ -219,15 +231,22 @@ class AppServerWake:
         if not isinstance(item_id, str) or not 0 < len(item_id) <= 128:
             return False
         if method == "item/commandExecution/requestApproval":
-            if (not set(params) <= COMMAND_FIELDS or params.get("kind") != "command" or
+            if (not set(params) <= COMMAND_FIELDS or params.get("kind", "command") != "command" or
                     type(params.get("startedAtMs")) is not int or params["startedAtMs"] < 0 or
-                    "environmentId" not in params or
-                    (params["environmentId"] is not None and
+                    (params.get("environmentId") is not None and
                      (not isinstance(params["environmentId"], str) or
                       not 0 < len(params["environmentId"]) <= 128)) or
                     any(params.get(key) is not None for key in
-                        ("additionalPermissions", "networkApprovalContext", "proposedExecpolicyAmendment",
+                        ("additionalPermissions", "networkApprovalContext",
                          "proposedNetworkPolicyAmendments", "approvalId"))):
+                return False
+            # A suggested persistent exec-policy rule may accompany a
+            # one-command approval. Keep it visible to the owner, but only
+            # ever send the plain `accept` decision; never the amendment.
+            amendment = params.get("proposedExecpolicyAmendment")
+            if amendment is not None and (not isinstance(amendment, list) or len(amendment) > 16 or
+                                          any(not isinstance(part, str) or not 0 < len(part) <= 4096
+                                              for part in amendment)):
                 return False
             command = params.get("command")
             cwd = params.get("cwd")
@@ -571,7 +590,11 @@ class AppServerWake:
                 # subscription for active turns is qualified, refuse the effect.
                 return {"status": "unavailable", "detail":
                         "The bound brain already has an active turn; native approval coverage for queued turns is unavailable. No message was sent."}
-            resumed = proxy._rpc("thread/resume", {"threadId": brain_id})
+            policy = self.binding["brains"][brain_id]["nativePolicy"]
+            resumed = proxy._rpc("thread/resume", {"threadId": brain_id,
+                                                    "config": {"features": {"code_mode": {"enabled": policy["codeMode"]}}},
+                                                    "sandbox": policy["sandbox"],
+                                                    "approvalPolicy": policy["approvalPolicy"]})
             self._identity(resumed.get("thread") if isinstance(resumed, dict) else None, brain_id)
             # Immediately before this boundary a concurrent native turn may start.
             # A rejection or lost response is uncertain, never permission to retry.

@@ -8,7 +8,7 @@ import time
 import unittest
 from unittest.mock import patch
 
-from orchestrator.app_server_wake import AppServerWake, WakeProxy, load_binding
+from orchestrator.app_server_wake import AppServerWake, NATIVE_APPROVAL_POLICY, WakeProxy, load_binding
 from orchestrator.core import Refusal
 from orchestrator.native_read_client import ReadProxy
 
@@ -134,7 +134,7 @@ class WakeTest(unittest.TestCase):
         FakeProxy.project_id = PROJECT
         self.binding = {"endpoint": {"executable": "/fixture/codex", "socket": "/fixture/codex.sock"},
                         "brains": {BRAIN: {"cwd": "/fixture/brain", "projectId": PROJECT,
-                                           "workspaceId": "fixture"}}}
+                                           "workspaceId": "fixture", "nativePolicy": NATIVE_APPROVAL_POLICY.copy()}}}
         self.wake = AppServerWake(self.binding, None)
         self.configured = patch.object(self.wake, "configured", return_value=True)
         self.configured.start()
@@ -150,6 +150,10 @@ class WakeTest(unittest.TestCase):
         self.assertEqual(result["nativeDelivery"], "owned_turn_start")
         self.assertEqual([m for m, _ in FakeProxy.instances[0].calls],
                          ["thread/read", "thread/resume", "turn/start"])
+        self.assertEqual(FakeProxy.instances[0].calls[1][1],
+                         {"threadId": BRAIN,
+                          "config": {"features": {"code_mode": {"enabled": False}}},
+                          "sandbox": "workspace-write", "approvalPolicy": "on-request"})
         self.assertEqual(FakeProxy.instances[0].calls[-1][1],
                          {"threadId": BRAIN, "input": [{"type": "text", "text": "fixed pointer"}],
                           "cwd": "/fixture/brain"})
@@ -228,6 +232,16 @@ class WakeTest(unittest.TestCase):
                 with self.assertRaises(Refusal):
                     load_binding(path)
                 self.binding["brains"][BRAIN]["catalogProjectId"] = OTHER
+                del self.binding["brains"][BRAIN]["nativePolicy"]
+                path.write_text(json.dumps(self.binding))
+                with self.assertRaises(Refusal):
+                    load_binding(path)
+                self.binding["brains"][BRAIN]["nativePolicy"] = {**NATIVE_APPROVAL_POLICY,
+                                                                   "approvalPolicy": "never"}
+                path.write_text(json.dumps(self.binding))
+                with self.assertRaises(Refusal):
+                    load_binding(path)
+                self.binding["brains"][BRAIN]["nativePolicy"] = NATIVE_APPROVAL_POLICY.copy()
                 self.binding["brains"][BRAIN]["extra"] = PROJECT
                 path.write_text(json.dumps(self.binding))
                 with self.assertRaises(Refusal):
@@ -266,7 +280,9 @@ class WakeTest(unittest.TestCase):
                 "threadId": BRAIN, "turnId": TURN, "itemId": "item-1",
                 **COMMAND_REQUIRED,
                 "command": "echo test", "cwd": "/fixture/brain", "reason": "run a check",
-                "availableDecisions": ["accept", "decline", "cancel"]}})
+                "proposedExecpolicyAmendment": ["echo test"],
+                "availableDecisions": ["accept", {"acceptWithExecpolicyAmendment": {
+                    "execpolicy_amendment": ["echo test"]}}, "decline", "cancel"]}})
         with patch.object(self.wake, "_within_bound_checkout", return_value=True), \
                 patch.object(self.wake, "_phase_allows_accept", return_value=True):
             observer = threading.Thread(target=self.wake._observe_turn,
@@ -492,6 +508,39 @@ class WakeTest(unittest.TestCase):
             self.assertNotIn("accept", stopped["allowedDecisions"])
         self.wake.close()
         observer.join(timeout=2)
+
+    def test_incomplete_native_prompt_never_advertises_accept(self):
+        self.wake.ledger = MemoryLedger()
+        proxy = ApprovalProxy({"id": 5, "method": "item/commandExecution/requestApproval",
+            "params": {"threadId": BRAIN, "turnId": TURN, "itemId": "item-1",
+                       "command": "echo test", "cwd": "/fixture/brain"}})
+        observer = threading.Thread(target=self.wake._observe_turn,
+                                    args=(proxy, "control", BRAIN, TURN))
+        observer.start()
+        current = wait_pending(self.wake)
+        self.assertFalse(current["canAccept"])
+        self.assertNotIn("accept", current["allowedDecisions"])
+        with self.assertRaises(Refusal):
+            self.wake.confirm_approval(BRAIN, "control", current["requestHash"], "accept")
+        self.wake.close()
+        observer.join(timeout=2)
+        self.assertEqual(proxy.writes, [])
+
+    def test_installed_schema_default_command_fields_are_complete(self):
+        request = {"method": "item/commandExecution/requestApproval",
+                   "params": {"threadId": BRAIN, "turnId": TURN, "itemId": "item-1",
+                              "startedAtMs": 1, "command": "/usr/bin/true",
+                              "cwd": "/fixture/brain", "availableDecisions": ["accept", "cancel"]}}
+        self.assertTrue(self.wake._complete_approval(request, BRAIN, TURN, None))
+        request["params"]["proposedExecpolicyAmendment"] = ["/usr/bin/true"]
+        request["params"]["availableDecisions"] = ["accept", {"acceptWithExecpolicyAmendment": {
+            "execpolicy_amendment": ["/usr/bin/true"]}}, "cancel"]
+        self.assertTrue(self.wake._complete_approval(request, BRAIN, TURN, None))
+        request["params"]["proposedExecpolicyAmendment"] = [""]
+        self.assertFalse(self.wake._complete_approval(request, BRAIN, TURN, None))
+        request["params"]["proposedExecpolicyAmendment"] = ["/usr/bin/true"]
+        request["params"]["kind"] = "stdin"
+        self.assertFalse(self.wake._complete_approval(request, BRAIN, TURN, None))
 
     def test_pause_writer_cannot_commit_between_accept_guard_and_frame(self):
         class LockedLedger:

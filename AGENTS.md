@@ -66,6 +66,12 @@ repository, task, Play or merge authority. Pause and current standard-run
 blockers fence a native accept at the send boundary. Neither feature may mutate
 the live paused workspace, start a turn, retry an uncertain native effect or
 relax strict Harness controls during source delivery.
+An owned-host binding must pin the exact workspace-write/on-request native
+approval profile with Code Mode disabled; the bridge reapplies it at resume.
+Never let an inherited danger-full-access/never context count as approval-relay
+qualification. A proposed exec-policy amendment is display-only unless a
+separate authority explicitly supports it; this relay emits only one-command
+accept, decline or cancel, never persistent or session-wide approval.
 
 ## Codex project catalog (2026-09-22)
 
@@ -138,7 +144,10 @@ committed dashboard decision response or typed resume/reconcile/checkpoint/archi
 brain_stop/brain_resume or locally applied approve/hold/prioritize/listening/pause
 control awaiting its brain receipt. A brain stop is a cooperative checkpoint, never
 a process kill. Saved ordinary inputs do not wake a stopping/parked brain; only
-explicit brain resume does. No response text, arbitrary argv, target,
+explicit brain resume does. An exact owner-reviewed checkpoint-continuation
+control may wake a brain still checkpointing the same stop, without resuming
+dispatch or draining ordinary inputs; it is one-shot and never automatic.
+No response text, arbitrary argv, target,
 model or effort comes from the browser. Claim before sending; never blindly retry
 uncertain delivery. All worker operations and authority remain with the brain.
 
