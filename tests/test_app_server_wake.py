@@ -8,7 +8,9 @@ import time
 import unittest
 from unittest.mock import patch
 
-from orchestrator.app_server_wake import AppServerWake, NATIVE_APPROVAL_POLICY, WakeProxy, load_binding
+from orchestrator.app_server_wake import (AppServerWake, NATIVE_APPROVAL_POLICY,
+                                          THREAD_EVENT_LIMIT, THREAD_STREAM_GAP,
+                                          WakeProxy, load_binding)
 from orchestrator.core import Refusal
 from orchestrator.native_read_client import ReadProxy
 
@@ -135,7 +137,8 @@ class WakeTest(unittest.TestCase):
         self.binding = {"endpoint": {"executable": "/fixture/codex", "socket": "/fixture/codex.sock"},
                         "brains": {BRAIN: {"cwd": "/fixture/brain", "projectId": PROJECT,
                                            "workspaceId": "fixture", "nativePolicy": NATIVE_APPROVAL_POLICY.copy()}}}
-        self.wake = AppServerWake(self.binding, None)
+        self.wake = AppServerWake(self.binding, MemoryLedger())
+        self.wake.ledger.command["notification"]["status"] = "sending"
         self.configured = patch.object(self.wake, "configured", return_value=True)
         self.configured.start()
 
@@ -158,6 +161,98 @@ class WakeTest(unittest.TestCase):
                          {"threadId": BRAIN, "input": [{"type": "text", "text": "fixed pointer"}],
                           "cwd": "/fixture/brain"})
         self.assertFalse(FakeProxy.instances[0].closed)  # event subscription retained
+        observation = self.wake.ledger.command["notification"]["nativeThreadObservation"]
+        self.assertEqual(observation["streamStatus"], "open")
+        self.assertFalse(observation["complete"])
+        self.assertEqual(observation["gaps"], [THREAD_STREAM_GAP])
+
+    def test_owned_thread_events_are_bounded_private_and_never_complete(self):
+        self.wake._begin_thread_observation("control", BRAIN)
+        child = "44444444-4444-4444-8444-444444444444"
+        grandchild = "55555555-5555-4555-8555-555555555555"
+        event = {"method": "thread/started", "params": {"thread": {
+            "id": child, "parentThreadId": BRAIN, "ephemeral": True,
+            "preview": "PRIVATE MESSAGE", "cwd": "/private/foreign"}}}
+        self.wake._record_thread_started("control", BRAIN, event)
+        self.wake._record_thread_started("control", BRAIN, event)
+        self.wake._record_thread_started("control", BRAIN, {"method": "thread/started", "params": {"thread": {
+            "id": grandchild, "parentThreadId": child, "ephemeral": False,
+            "turns": ["PRIVATE TURN"]}}})
+        self.wake._record_thread_started("control", BRAIN, {"method": "thread/started", "params": {"thread": {
+            "id": OTHER, "parentThreadId": PROJECT, "preview": "FOREIGN PRIVATE"}}})
+        observation = self.wake.ledger.command["notification"]["nativeThreadObservation"]
+        self.assertEqual([item["threadId"] for item in observation["events"]], [child, grandchild])
+        self.assertEqual([item["ephemeral"] for item in observation["events"]], [True, False])
+        self.assertNotIn("PRIVATE", str(observation))
+        self.wake._finish_thread_observation("control", BRAIN, TURN, "completed")
+        self.assertEqual(observation["streamStatus"], "closed")
+        self.assertFalse(observation["complete"])
+        self.assertEqual(observation["gaps"], [THREAD_STREAM_GAP])
+
+    def test_thread_event_conflict_and_limit_retain_gaps_without_foreign_ids(self):
+        self.wake._begin_thread_observation("control", BRAIN)
+        child = "44444444-4444-4444-8444-444444444444"
+        self.wake._record_thread_started("control", BRAIN, {"params": {"thread": {
+            "id": child, "parentThreadId": BRAIN, "ephemeral": True}}})
+        self.wake._record_thread_started("control", BRAIN, {"params": {"thread": {
+            "id": child, "parentThreadId": BRAIN, "ephemeral": False}}})
+        for index in range(THREAD_EVENT_LIMIT):
+            self.wake._record_thread_started("control", BRAIN, {"params": {"thread": {
+                "id": f"{index + 1:08x}-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                "parentThreadId": BRAIN}}})
+        observation = self.wake.ledger.command["notification"]["nativeThreadObservation"]
+        self.assertEqual(len(observation["events"]), THREAD_EVENT_LIMIT)
+        self.assertIn("conflicting_thread_event", observation["gaps"])
+        self.assertIn("thread_event_limit", observation["gaps"])
+        self.assertFalse(observation["complete"])
+
+    def test_failed_start_and_stream_loss_remain_unconfirmed(self):
+        self.wake._begin_thread_observation("control", BRAIN)
+        self.wake._finish_thread_observation("control", BRAIN, None, "unconfirmed", event_error=True)
+        observation = self.wake.ledger.command["notification"]["nativeThreadObservation"]
+        self.assertEqual(observation["streamStatus"], "unconfirmed")
+        self.assertIn("stream_ended_without_confirmed_turn", observation["gaps"])
+        self.assertIn("thread_event_persist_failed", observation["gaps"])
+        self.assertFalse(observation["complete"])
+        self.wake._finish_thread_observation("control", BRAIN, TURN, "completed")
+        self.assertEqual(observation["streamStatus"], "unconfirmed")
+
+    def test_wake_proxy_intercepts_thread_start_even_during_rpc(self):
+        proxy = WakeProxy({})
+        captured = []
+        proxy._on_thread_started = captured.append
+        event = {"method": "thread/started", "params": {"thread": {
+            "id": "44444444-4444-4444-8444-444444444444", "parentThreadId": BRAIN}}}
+        with patch.object(ReadProxy, "_line", return_value=event):
+            self.assertEqual(proxy._line(), event)
+        self.assertEqual(captured, [event])
+
+    @patch("orchestrator.app_server_wake.threading.Thread", FakeThread)
+    def test_start_reply_race_retains_owned_child_before_notification_ack(self):
+        child = "44444444-4444-4444-8444-444444444444"
+
+        class EventDuringStartProxy(FakeProxy):
+            def _rpc(self, method, params):
+                if method == "turn/start":
+                    self._on_thread_started({"method": "thread/started", "params": {"thread": {
+                        "id": child, "parentThreadId": BRAIN, "ephemeral": True,
+                        "preview": "PRIVATE EARLY TURN"}}})
+                return super()._rpc(method, params)
+
+        with patch("orchestrator.app_server_wake.WakeProxy", EventDuringStartProxy):
+            result = self.wake.send(BRAIN, "fixed pointer", "control")
+        self.assertEqual(result["status"], "accepted")
+        observation = self.wake.ledger.command["notification"]["nativeThreadObservation"]
+        self.assertEqual([item["threadId"] for item in observation["events"]], [child])
+        self.assertNotIn("PRIVATE", str(observation))
+
+    @patch("orchestrator.app_server_wake.WakeProxy", FakeProxy)
+    def test_failed_durable_marker_refuses_before_native_turn_start(self):
+        with patch.object(self.wake, "_begin_thread_observation", side_effect=Refusal("ledger unavailable")):
+            result = self.wake.send(BRAIN, "fixed pointer", "control")
+        self.assertEqual(result["status"], "unavailable")
+        self.assertEqual([method for method, _ in FakeProxy.instances[0].calls],
+                         ["thread/read", "thread/resume"])
 
     @patch("orchestrator.app_server_wake.WakeProxy", FakeProxy)
     def test_active_brain_refuses_without_owned_prompt_stream(self):
