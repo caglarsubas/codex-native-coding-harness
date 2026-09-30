@@ -10,6 +10,7 @@ acceptance authority. Items change through reviewed repository edits.
 - [x] Add an opt-in, exact-bound, documented app-server wake path for registered standard projects, preserving one-shot ledger claims and independent brain receipts
 - [x] Make legacy desktop-queue acknowledgment honest: it may not start an unloaded brain
 - [x] Pin distinct Codex app catalog and owned app-server project IDs explicitly when the installed host reports both for the same verified repository (source and local fixtures; no native write)
+- [ ] Qualify a complete native task/descendant observation contract before another owned-host checkpoint pilot; persisted and loaded thread listings alone are not completeness evidence
 - [ ] Independently qualify native approval handling and a disposable end-to-end owned-host pilot
 - [ ] Review and activate a live migration at a safe checkpoint; verify real ledger receipts before considering Play
 
