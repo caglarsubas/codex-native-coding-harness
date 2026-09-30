@@ -88,6 +88,18 @@ def plan(state):
 
     s, m = state["standard"], state.get("mission") or {}
     run = s.get("run") or {}
+    pause = state.get("workspacePause") or {}
+    control = state["meta"].get("brainControl") or {}
+    if (control.get("desired") == "stopped" and control.get("phase") == "checkpointing" and
+            pause.get("status") == "pausing"):
+        codes = {item.get("code") for item in pause.get("blockers", []) if isinstance(item, dict)}
+        if codes & {"inventory_missing", "inventory_incomplete"}:
+            return step("blocked", "Native checkpoint evidence is missing",
+                        "The saved Pause is still checkpointing. The designated brain needs complete native task and descendant evidence. "
+                        "If its observation tools are unavailable, this is an operator capability gap; another Help, Play or message cannot clear it. "
+                        "Keep the existing stop and ownership intact while the observer is qualified.")
+        return step("blocked", "The saved Pause is still checkpointing",
+                    "Follow its recorded blockers. Help cannot replace the checkpoint, repeat Pause or resume development.")
     authorized = run.get("recovery") or {}
     recovery_replied = authorized.get("status") == "replied"
     if run.get("status") == "paused" and (s.get("blockers") or

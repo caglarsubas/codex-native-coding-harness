@@ -45,6 +45,16 @@ assert.equal(model(s).action,'reconcile','An open stranded run needs reconciliat
 assert.match(box.projectPhaseStatus(s),/RECOVERY REQUIRED/);
 s.meta.brainControl={desired:'stopped'};
 assert.equal(model(s).action,'operations','A stopped brain needs explicit recovery, not a refused ordinary message');
+s.meta.brainControl={desired:'stopped',phase:'checkpointing',protocol:'workspace_pause_v1'};
+s.workspacePause={status:'pausing',blockers:[{code:'inventory_missing'}]};
+assert.equal(model(s).action,'operations');assert.equal(model(s).stage,3);
+assert.match(model(s).title,/Native checkpoint evidence is missing/);
+assert.match(model(s).detail,/another Help, Play or message cannot clear it/);
+const savedRecovery=s.recovery;s.recovery=null;box.state=s;
+let checkpointView=render();all(checkpointView).find(n=>n.text==='Inspect checkpoint blockers').click();
+assert.deepEqual(calls.at(-1),['navigate','operations'],'No preparation confirmation is opened for an incomplete native inventory');
+s.recovery=savedRecovery;
+delete s.workspacePause;
 s.meta.brainControl={desired:'listening'};
 s.commands=[{kind:'reconcile',payload:{message:'Inspect existing work'},status:'completed'}];
 assert.equal(model(s).action,'conversation','A received message without its retained reply still prevents a duplicate');

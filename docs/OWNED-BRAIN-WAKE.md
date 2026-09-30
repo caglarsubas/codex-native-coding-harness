@@ -181,6 +181,24 @@ Complete descendant coverage and a parked checkpoint are still missing.
 Neither a receipt nor this prompt observation qualifies live migration or Play.
 Do not migrate the live project or enable Play on this basis.
 
+The next checkpoint attempt must pass an evidence-capability gate **before**
+requesting another owner confirmation. The installed `codex-cli 0.158.0-alpha.2.1`
+schema exposes `thread/list` descendant filters and `thread/loaded/list`, but
+[the documented contract](https://learn.chatgpt.com/docs/app-server) describes
+stored-thread pages and threads currently loaded in memory, not an exhaustive
+historical-and-ephemeral task inventory. The current collector correctly keeps
+complete-tree coverage false. A future qualified observer must establish its
+coverage from the first native effect, retain gaps across disconnect/restart,
+and reconcile every owned task without equating an empty page with no work.
+This is a new protocol/host qualification, not a replay of the stopped pilot.
+The signed approval **response** remains a separate running-phase pilot gate.
+
+While an existing workspace Pause is checkpointing with missing/incomplete
+inventory, the one-page graph and guided Help show the operator evidence gap and
+link to the saved blockers. They do not offer another preparation confirmation,
+Play, or duplicate wake as a way to clear it. This is guidance only: it neither
+asserts complete coverage nor changes the retained stop, ownership or live host.
+
 ## Explicit native project assignment qualification
 
 The installed app-server v2 schema exposes `project/read` and

@@ -139,6 +139,23 @@ class DevelopmentHelpTest(unittest.TestCase):
         with self.assertRaises(Refusal): self.f.confirm(p)
         self.assertEqual(standard.read(self.ledger)['run']['status'], 'stopping')
 
+    def test_unfinished_native_checkpoint_is_not_another_help_preview(self):
+        state = self.f.snapshot()
+        state['meta']['brainControl'] = {'desired': 'stopped', 'phase': 'checkpointing',
+                                         'protocol': 'workspace_pause_v1'}
+        state['workspacePause'] = {'status': 'pausing',
+                                   'blockers': [{'code': 'inventory_missing'}]}
+        before = copy.deepcopy(state)
+        result = plan(state)
+        self.assertEqual(result['mode'], 'blocked')
+        self.assertIsNone(result['key'])
+        self.assertIn('operator capability gap', result['detail'])
+        self.assertEqual(state, before)
+        state['workspacePause']['blockers'] = [{'code': 'inventory_incomplete'}]
+        self.assertEqual(plan(state)['mode'], 'blocked')
+        state['workspacePause']['blockers'] = [{'code': 'runner_owned'}]
+        self.assertIn('recorded blockers', plan(state)['detail'])
+
     def test_signature_session_project_expiry_and_strict_boundaries(self):
         p = self.f.prepare('phase_help')
         bad = copy.deepcopy(p);bad['document']['request']['payload']['message'] = 'Play'

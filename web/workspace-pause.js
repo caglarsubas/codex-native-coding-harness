@@ -42,6 +42,8 @@ function workspacePausePanel(root) {
       }
       panel.append(list);
       if(blockers.length>12)panel.append(el('p',`${blockers.length-12} further checks are listed in the brain inbox.`,'muted'));
+      if(blockers.some(item=>['inventory_missing','inventory_incomplete'].includes(item.code)))
+        panel.append(el('p','Native inventory is an operator evidence check, not another owner approval. If the designated brain lacks the observation tools, keep this stop intact and qualify the observer; do not repeat Play or send a duplicate wake.','muted'));
     } else if(pause.readyToPark)panel.append(el('p','Worker and schedule checks are satisfied. The brain still needs to retain the combined checkpoint and finish its turn.'));
     panel.append(button('Inspect workers & evidence',()=>navigateView('workers')));
     const checkpoint=state.meta.brainControl?.checkpoint;

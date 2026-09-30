@@ -24,6 +24,13 @@ function roadmapJourneyState(snapshot,isConnected=true,now=Date.now()/1000){
   const repos=snapshot.repositories;
   if(!snapshot.workspace||!Array.isArray(repos)||!repos.length||repos.some(r=>r.policyProfile!=='standard'))
     return result(0,'This project uses packet approvals','Review the approved queue and project readiness to continue this roadmap. Phase Play is available for configured standard projects.','Review approved queue','queue',{strict:true});
+  const pause=snapshot.workspacePause||{},control=snapshot.meta?.brainControl||{};
+  if(control.desired==='stopped'&&pause.status==='pausing'&&control.phase==='checkpointing'){
+    const missing=(pause.blockers||[]).some(item=>['inventory_missing','inventory_incomplete'].includes(item.code));
+    return result(3,missing?'Native checkpoint evidence is missing':'The saved Pause is still checkpointing',
+      missing?'The brain needs complete native task and descendant evidence. If its observation tools are unavailable, this is an operator capability gap; another Help, Play or message cannot clear it.':'Follow the recorded stop blockers. Do not repeat Pause or start new work.',
+      'Inspect checkpoint blockers','operations');
+  }
   const handoff=snapshot.brainHandoff?.handoff;
   if(handoff&&['prepared','candidate','received'].includes(handoff.status))return result(3,'Finish the brain handoff',
     handoff.status==='received'?'The replacement received its checkpoint. Project identity and final owner review still need to be resolved before continuing.':'A replacement brain is being prepared. Follow its recorded progress before continuing the phase.',
