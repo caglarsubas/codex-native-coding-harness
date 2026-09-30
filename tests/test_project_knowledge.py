@@ -73,6 +73,20 @@ class ProjectKnowledgeTest(unittest.TestCase):
         with self.assertRaises(Refusal):
             knowledge.status(self.ledger, 'app')
 
+    def test_path_stem_is_a_ranking_hint_not_a_fabricated_citation(self):
+        (self.repo / 'src' / 'observations.py').write_text('# observed token counter\n')
+        (self.repo / 'src' / 'aaa.py').write_text('# observed token counter\n')
+        subprocess.run(['git', '-C', str(self.repo), 'add', 'src/observations.py', 'src/aaa.py'], check=True)
+        subprocess.run(['git', '-C', str(self.repo), '-c', 'user.email=test@example.invalid',
+                        '-c', 'user.name=Fixture', 'commit', '-qm', 'ranking fixture'], check=True)
+        knowledge.refresh(self.ledger, 'app')
+        result = knowledge.search(self.ledger, 'app', 'observed token counter')
+        self.assertEqual(result['results'][0]['path'], 'src/observations.py')
+        hit = result['results'][0]
+        source = knowledge.source(self.ledger, 'app', hit['indexHash'], hit['path'], hit['line'])
+        self.assertEqual(source['commit'], hit['commit'])
+        self.assertEqual(knowledge.search(self.ledger, 'app', 'UNRECORDED_TOKEN_PROOF')['results'], [])
+
     def test_pem_guard_rejects_real_marker_without_refusing_code_literal(self):
         (self.repo / 'src' / 'service.py').write_text('PEM_EXAMPLE = "-----BEGIN PRIVATE KEY-----"\n')
         subprocess.run(['git', '-C', str(self.repo), 'add', 'src/service.py'], check=True)
