@@ -297,16 +297,18 @@ def candidate(ledger, token, value):
 def _current_membership(handoff):
     evidence = handoff.get("nativeMembership")
     reply = handoff.get("receiptEvidence")
-    require(isinstance(evidence, dict) and evidence.get("source") == "codex.list_threads"
+    source = evidence.get("source") if isinstance(evidence, dict) else None
+    require(source in ("codex.list_threads", "owned_app_server.thread_read")
             and isinstance(reply, dict) and type(reply.get("observedAt")) in (int, float)
             and evidence.get("taskId") == handoff["candidate"]["taskId"]
             and evidence.get("projectId") == handoff["project"]["projectId"]
             and evidence.get("hostId") == handoff["project"]["hostId"]
-            and evidence.get("status") == "idle"
+            and (evidence.get("status") == "idle" or
+                 (source == "owned_app_server.thread_read" and evidence.get("status") == "notLoaded"))
             and type(evidence.get("observedAt")) in (int, float)
             and evidence["observedAt"] >= reply["observedAt"]
             and -30 <= time.time() - evidence.get("observedAt", 0) <= MEMBERSHIP_MAX_AGE,
-            "Fresh native task-list project membership required before rebinding")
+            "Fresh native task project membership required before rebinding")
     return evidence
 
 
@@ -360,6 +362,83 @@ def native_observation(ledger, token, result, observed_at):
         ledger.put(db, "meta", 1, meta)
         ledger.event(db, "brain_handoff_native_membership", {"id": handoff["id"],
                      "taskId": row["id"], "resultHash": evidence["resultHash"]})
+        return handoff
+
+
+def native_exact_observation(registry, ledger, token, binding):
+    """Read one replacement from an exact owned host; never page a broad task list."""
+    from .activity import common_directory
+    from .native_project_assignment import _native_identity, _scope
+    from .native_read_client import ReadProxy
+    scope = _scope(registry, ledger.workspace_id, binding)
+    require(scope["root"] == ledger.root, "Owned host binding belongs to another workspace ledger")
+    with read_db(ledger.db) as db:
+        meta = authorize_brain(ledger, db, token)
+        _, run = _safe(ledger, db, allow_controller=True)
+        handoff = meta.get("brainHandoff")
+        require(handoff and handoff["status"] in ("candidate", "received") and handoff["candidate"],
+                "Exact replacement candidate required")
+        require(scope["brainId"] == meta["brainId"] and
+                scope["catalogProjectId"] == handoff["project"]["projectId"] and
+                scope["hostId"] == handoff["project"]["hostId"],
+                "Owned host does not match the reviewed native project")
+        before = digest(handoff)
+        run_revision = run["revision"]
+        candidate_id = handoff["candidate"]["taskId"]
+    with ReadProxy(binding["endpoint"]) as proxy:
+        _, roots = _native_identity(proxy, scope, require_idle=False)
+        result = proxy._rpc("thread/read", {"threadId": candidate_id, "includeTurns": False})
+        observed_at = time.time()
+    thread = result.get("thread") if isinstance(result, dict) else None
+    require(isinstance(thread, dict) and thread.get("id") == candidate_id and
+            thread.get("projectId") == scope["projectId"] and
+            thread.get("ephemeral") is False and not thread.get("forkedFromId"),
+            "Replacement native task or project differs from the reviewed binding")
+    status = thread.get("status")
+    require(isinstance(status, dict) and status.get("type") in ("active", "idle", "notLoaded"),
+            "Replacement native task activity is unavailable")
+    cwd = thread.get("cwd")
+    try:
+        same_checkout = (isinstance(cwd, str) and Path(cwd).is_absolute() and
+                         str(Path(cwd).resolve(strict=True)) == cwd and
+                         common_directory(cwd) == common_directory(scope["cwd"]))
+    except (OSError, ValueError, UnicodeError, Refusal):
+        same_checkout = False
+    require(same_checkout, "Replacement native checkout differs from the reviewed repository")
+    # The proof hash covers only the fields used for this gate, never preview,
+    # title, turns or other conversation content returned by the host.
+    native_fields = {key: thread.get(key) for key in
+                     ("id", "projectId", "cwd", "ephemeral", "forkedFromId", "status")}
+    raw = canonical({"projectRoots": roots, "thread": native_fields}).encode()
+    require(len(raw) <= 128_000, "Native replacement read exceeds its bound")
+    evidence = {"source": "owned_app_server.thread_read", "taskId": candidate_id,
+                "projectId": scope["catalogProjectId"], "nativeProjectId": scope["projectId"],
+                "hostId": scope["hostId"], "status": status["type"], "observedAt": observed_at,
+                "resultHash": hashlib.sha256(raw).hexdigest(),
+                "endpointHash": scope["endpointHash"], "bindingHash": scope["bindingHash"],
+                "boundary": "Exact bound native metadata read; not exhaustive inventory or a host attestation"}
+    require(_scope(registry, ledger.workspace_id, binding) == scope,
+            "Owned host or project binding changed during native observation")
+    with registry.tx() as registry_db, ledger.tx() as db:
+        meta = authorize_brain(ledger, db, token)
+        _, run = _safe(ledger, db, allow_controller=True)
+        handoff = meta.get("brainHandoff")
+        require(handoff and digest(handoff) == before and run["revision"] == run_revision and
+                _project(registry, ledger.workspace_id, registry_db) == handoff["project"],
+                "Replacement or project binding changed during native observation")
+        require(observed_at >= handoff.get("candidateAt", handoff["createdAt"]) and
+                time.time() - observed_at <= MEMBERSHIP_MAX_AGE,
+                "Exact native observation predates candidate or has expired")
+        prior = handoff.get("nativeMembership")
+        require(not prior or observed_at > prior["observedAt"] or evidence == prior,
+                "Older or conflicting native task observation")
+        if evidence == prior:
+            return handoff
+        handoff["nativeMembership"] = evidence
+        meta["brainHandoff"] = handoff
+        ledger.put(db, "meta", 1, meta)
+        ledger.event(db, "brain_handoff_native_membership", {"id": handoff["id"],
+                     "taskId": candidate_id, "resultHash": evidence["resultHash"]})
         return handoff
 
 

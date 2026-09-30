@@ -100,33 +100,50 @@ candidate's native task ID. The reader checks the
 task ID, reviewed Git checkout identity, post-preparation final reply and exact
 package/summary marker; it retains the native record hash and observation time, not the
 transcript. The native project membership is still a brain-observed claim in
-the candidate record. Before final rebinding, the old brain must also import
-a bounded native `list_threads` result containing exactly one matching Codex
-task, project ID and host ID:
+the candidate record. Before final rebinding, the old brain must also retain
+a fresh exact native task/project observation. It may import a bounded native
+`list_threads` result containing exactly one matching Codex task, project ID
+and host ID:
 
 ```sh
 python3 -m orchestrator.cli --platform /private/platform --workspace EXACT_PROJECT brain-handoff-native-observation /private/list-threads.json --observed-at ORIGINAL_UNIX_SECONDS
 ```
 
+When an existing reviewed owned app-server binding is available, the old brain
+may instead read only the candidate's exact `thread/read` metadata on that host:
+
+```sh
+python3 -m orchestrator.cli --platform /private/platform --workspace EXACT_PROJECT brain-handoff-native-exact-read /private/brain-wake.json
+```
+
+This read revalidates the old brain, both separately pinned project IDs, native
+project root, candidate UUID, non-ephemeral local checkout and native activity
+before retaining a bounded metadata hash. It never starts/resumes a task or
+changes the binding. An unassigned, foreign, forked, active-at-final-review or
+unavailable candidate fails closed. The bound host read is an alternative to a
+truncated global list, **not** a complete native task/descendant inventory or a
+cryptographic host attestation.
+
 Call this after the replacement's final reply, while the old brain owns the
 controller, then release the controller before final owner review. A result
 showing the replacement still active may be retained, but final review waits
-for a fresh result showing it idle. This stores only exact membership and
+for a fresh result showing it idle (or `notLoaded` on the bound exact-read
+path). This stores only exact membership and
 status, the result hash and observation time; titles,
 summaries and unrelated task rows are discarded. The observation must follow
 the candidate, be no older than one hour at final review, and agree with the
-reviewed project binding. It is a brain-imported native tool result, **not** a
-cryptographic Codex-host attestation. The owner must review that boundary;
-a missing task-list observation, native log or marker blocks final rebinding.
+reviewed project binding. The imported list remains a brain-observed tool
+result, **not** a cryptographic Codex-host attestation. The owner must review
+that boundary; missing native membership, native log or marker blocks rebinding.
 A bounded current `list_threads` result may omit an older candidate. That omission
 proves neither that the candidate is absent nor that it belongs to the reviewed
 project. Keep the recorded candidate and final reply receipt; native creation is
 one-shot and must not be retried or replaced to fill the evidence gap. Refresh,
-Resume and pinning/unpinning do not provide the required fresh, exact, idle
-task-list membership. The final reply proves the package receipt, while the
-separate task-list result provides project/host membership and current idle
-status. Owner rebinding requires both in the signed final review; it does not
-activate the selected project or start Play.
+Resume and pinning/unpinning do not provide the required fresh, exact, inactive
+membership. The final reply proves the package receipt, while the
+separate native observation provides project/host membership and current
+inactive status. Owner rebinding requires both in the signed final review; it
+does not activate the selected project or start Play.
 The ledger commits the binding first; if the second database commit is
 interrupted, project opening fails closed on its identity check. The explicit
 `brain-handoff-recover HANDOFF_ID --confirm` CLI operation repairs only that
