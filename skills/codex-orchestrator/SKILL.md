@@ -37,8 +37,8 @@ registered-task checkpoints, not Harness assurance. A mission review or tooling
 installation does not select this mode. Its native model/effort choices are
 authorized only by the exact run's catalog and phase limits.
 For a pending standard brain replacement, follow the separate handoff guidance
-in that reference; a replacement's final reply is not task-list membership or
-owner rebinding, and rebinding does not activate a selected project.
+in that reference; a replacement's final reply is not native project membership
+or owner rebinding, and rebinding does not activate a selected project.
 
 For schema v3/run-authority workspaces, immutable task contracts or admission-managed
 workers, read `references/managed-cycle.md` before the cycle. It composes the
