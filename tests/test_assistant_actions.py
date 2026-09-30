@@ -127,7 +127,7 @@ class AssistantActionsTest(unittest.TestCase):
         state = self.ledger.snapshot()
         unavailable = catalog(state, {})["brain_checkpoint_continue"]
         self.assertFalse(unavailable["available"])
-        state["brainNotification"] = {"transport": "owned_app_server"}
+        state["brainNotification"] = {"transport": "owned_app_server", "checkpointInventoryQualified": True}
         action = resolve_action({"key": "brain_checkpoint_continue"}, catalog(state, {}), "Continue checkpoint")
         proposal = self.proposals.prepare(action, state, self.session)
         self.assertEqual(self.ledger.snapshot()["meta"]["brainControl"]["phase"], "checkpointing")
@@ -136,6 +136,30 @@ class AssistantActionsTest(unittest.TestCase):
         self.assertEqual(command["payload"], {"stopCommandId": stop["id"]})
         self.assertEqual(command["actor"], "assistant_owner_confirmed")
         self.assertTrue(self.ledger.snapshot()["meta"]["paused"])
+
+    def test_missing_tree_after_native_attempt_does_not_offer_another_checkpoint_wake(self):
+        stop, _ = self.confirm(self.proposal("brain_stop"))
+        self.ledger.process(self.token)
+        state = self.ledger.snapshot()
+        state["brainNotification"] = {"transport": "owned_app_server", "checkpointInventoryQualified": False}
+        state["meta"]["brainControl"]["protocol"] = "workspace_pause_v1"
+        state["workspacePause"] = {"status": "pausing", "blockers": [{"code": "inventory_missing"}]}
+        self.assertFalse(catalog(state, {})["brain_checkpoint_continue"]["available"])
+        self.assertIn("no qualified complete native task", catalog(state, {})["brain_checkpoint_continue"]["unavailableReason"])
+        state["brainNotification"]["checkpointInventoryQualified"] = True
+        self.assertTrue(catalog(state, {})["brain_checkpoint_continue"]["available"])
+        state["commands"].append({"id": "prior-continuation", "kind": "brain_checkpoint_continue",
+                                  "payload": {"stopCommandId": stop["id"]}, "status": "completed",
+                                  "notification": {"status": "accepted"}})
+        action = catalog(state, {})["brain_checkpoint_continue"]
+        self.assertFalse(action["available"])
+        self.assertIn("Qualify the observer", action["unavailableReason"])
+        with self.assertRaises(Refusal):
+            resolve_action({"key": "brain_checkpoint_continue"}, catalog(state, {}), "Continue checkpoint")
+        state["workspacePause"]["blockers"] = [{"code": "inventory_incomplete"}]
+        self.assertFalse(catalog(state, {})["brain_checkpoint_continue"]["available"])
+        state["commands"][-1]["notification"]["status"] = "unavailable"
+        self.assertTrue(catalog(state, {})["brain_checkpoint_continue"]["available"])
 
     def test_inference_only_returns_proposal_never_submits(self):
         r = response("Review the safe checkpoint stop below; it has not been executed.")

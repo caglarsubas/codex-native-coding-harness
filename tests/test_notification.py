@@ -67,6 +67,7 @@ class NotificationTest(unittest.TestCase):
              patch("orchestrator.app_server_wake.AppServerWake.send", return_value={
                  "status": "accepted", "nativeDelivery": "owned_turn_start", "nativeTurnId": "turn-1"}) as send:
             notifier = BrainNotifier(self.ledger, app_server_binding=binding)
+            self.assertIs(notifier.status(BRAIN)["checkpointInventoryQualified"], False)
             result = notifier.notify(self.command["id"])
             self.assertEqual(result["notification"]["nativeDelivery"], "owned_turn_start")
             self.assertEqual(result["status"], "queued")
