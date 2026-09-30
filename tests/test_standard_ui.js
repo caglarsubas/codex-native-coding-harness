@@ -74,7 +74,7 @@ function all(root){return [root,...root.children.flatMap(x=>x instanceof Element
   nodes=all(render());
   assert.ok(nodes.some(n=>String(n.text).includes('Native final reply observed')));
   assert.equal(nodes.find(n=>n.text==='Open replacement task in Codex').href,'codex://threads/new');
-  assert.ok(nodes.some(n=>String(n.text).includes('separate Codex task-list observation')));
+  assert.ok(nodes.some(n=>String(n.text).includes('separate exact native observation')));
   assert.ok(nodes.some(n=>String(n.text).includes('omission proves neither absence nor project membership')));
   assert.ok(nodes.some(n=>String(n.text).includes('one-shot: do not retry or create another candidate')));
   assert.ok(nodes.some(n=>String(n.text).includes('Refresh, Resume, or pinning/unpinning cannot supply')));
@@ -96,13 +96,34 @@ function all(root){return [root,...root.children.flatMap(x=>x instanceof Element
   assert.ok(!all(render()).some(n=>n.text==='Review replacement receipt'));
   handoff.nativeMembership.status='idle';
   nodes=all(render());
-  assert.ok(nodes.some(n=>String(n.text).includes('Codex task list: native-a')));
+  assert.ok(nodes.some(n=>String(n.text).includes('Codex task list: Codex project native-a')));
   assert.ok(nodes.some(n=>n.text==='Review replacement receipt'));
   box.state.brainHandoff.handoff.nativeMembership.observedAt-=7200;
   assert.ok(!all(render()).some(n=>n.text==='Review replacement receipt'),'Expired browser observation cannot show a review action');
   handoff.receiptEvidence.observedAt=Date.now()/1000-100;
   handoff.nativeMembership.observedAt=handoff.receiptEvidence.observedAt-1;
   assert.ok(!all(render()).some(n=>n.text==='Review replacement receipt'),'Pre-reply membership cannot show a review action');
+  handoff.nativeMembership={source:'owned_app_server.thread_read',taskId:'new',projectId:'native-a',nativeProjectId:'app-server-a',
+    hostId:'local',status:'idle',observedAt:Date.now()/1000};
+  nodes=all(render());
+  assert.ok(nodes.some(n=>String(n.text).includes('Owned-host exact task read: Codex project native-a · app-server project app-server-a')));
+  assert.ok(nodes.some(n=>String(n.text).includes('not complete task inventory or host attestation')));
+  assert.ok(nodes.some(n=>n.text==='Review replacement receipt'),'Fresh exact owned-host read permits review');
+  await nodes.find(n=>n.text==='Review replacement receipt').click();
+  nodes=all(render());
+  assert.equal(nodes.find(n=>n.text==='Confirm replacement brain').disabled,true,'Exact read opens review, not automatic rebinding');
+  nodes.find(n=>n.text==='Cancel review').click();
+  handoff.nativeMembership.status='notLoaded';
+  assert.ok(all(render()).some(n=>n.text==='Review replacement receipt'),'Unloaded exact candidate may be reviewed');
+  for(const change of [{status:'active'},{status:'unknown'},{taskId:'another'},{projectId:'other'},
+    {hostId:'other'},{source:'candidate-claim'},{observedAt:Date.now()/1000-7200},
+    {observedAt:handoff.receiptEvidence.observedAt-1}]){
+    const original={...handoff.nativeMembership};Object.assign(handoff.nativeMembership,change);
+    assert.ok(!all(render()).some(n=>n.text==='Review replacement receipt'),`Exact read ${JSON.stringify(change)} stays blocked`);
+    handoff.nativeMembership=original;
+  }
+  handoff.nativeMembership.source='codex.list_threads';
+  assert.ok(!all(render()).some(n=>n.text==='Review replacement receipt'),'Task-list notLoaded is not qualified');
   box.state.standard={available:false,catalogRequired:true,contextHash:'missing',boundary:'Partial observations',catalog:null,run:null,
     blocker:'Brain must record the available native model/effort catalog (valid for 24 hours)',catalogRefresh:null};
   nodes=all(render());const prepare=nodes.find(n=>n.text==='Review Play');assert.equal(prepare.disabled,false);
