@@ -210,12 +210,17 @@ function standardBrainHandoff(panel){
   if(handoff?.status==='candidate')panel.append(el('p','One replacement task has been recorded. Wait for its final package receipt; do not create or resend another task.','muted'));
   if(handoff?.candidate)panel.append(el('p',`Candidate ${handoff.candidate.taskId} · ${handoff.candidate.projectId} · ${handoff.candidate.observation}`,'subline'));
   if(handoff?.candidate){const task=el('a','Open replacement task in Codex','button');task.href='codex://threads/'+encodeURIComponent(handoff.candidate.taskId);panel.append(task);}
-  if(handoff?.candidate)panel.append(el('p',handoff.nativeMembership
-    ?`Codex task list: ${handoff.nativeMembership.projectId} · ${handoff.nativeMembership.hostId} · ${handoff.nativeMembership.status} · observed ${new Date(handoff.nativeMembership.observedAt*1000).toLocaleString()} · brain-imported, not cryptographic attestation`
-    :'Codex task-list project membership not yet recorded; final rebinding is blocked.','subline'));
+  if(handoff?.candidate){
+    const membership=handoff.nativeMembership;
+    const exactRead=membership?.source==='owned_app_server.thread_read';
+    const sourceLabel=exactRead?'Owned-host exact task read':membership?.source==='codex.list_threads'?'Codex task list':'Unrecognized native observation';
+    panel.append(el('p',membership
+      ?`${sourceLabel}: Codex project ${membership.projectId}${exactRead?` · app-server project ${membership.nativeProjectId||'unknown'}`:''} · ${membership.hostId} · ${membership.status} · observed ${new Date(membership.observedAt*1000).toLocaleString()} · ${exactRead?'read-only exact membership, not complete task inventory or host attestation':'brain-imported, not cryptographic attestation'}`
+      :'Native task/project membership not yet recorded; final rebinding is blocked. Use the reviewed owned-host exact read if available, or a matching Codex task-list observation.','subline'));
+  }
   if(handoff?.receipt){
     panel.append(el('p',`Replacement receipt: ${handoff.receipt.summary}`,'subline'));
-    panel.append(el('p',`Native final reply observed ${handoff.receiptEvidence?.observedAt?new Date(handoff.receiptEvidence.observedAt*1000).toLocaleString():'unknown'} · project membership needs a separate Codex task-list observation`,'subline'));
+    panel.append(el('p',`Native final reply observed ${handoff.receiptEvidence?.observedAt?new Date(handoff.receiptEvidence.observedAt*1000).toLocaleString():'unknown'} · project membership needs a separate exact native observation`,'subline'));
   }
   if(!handoff||['cancelled','complete'].includes(handoff.status)){
     const prepare=button('Review brain handoff',async()=>{
@@ -224,9 +229,11 @@ function standardBrainHandoff(panel){
     });prepare.disabled=readiness?.canPrepare===false;panel.append(prepare);
   }
   const candidate=handoff?.candidate,membership=handoff?.nativeMembership,observedAt=membership?.observedAt,receiptAt=handoff?.receiptEvidence?.observedAt;
+  const membershipStatusOk=membership?.source==='codex.list_threads'?membership.status==='idle':
+    membership?.source==='owned_app_server.thread_read'&&['idle','notLoaded'].includes(membership.status);
   const membershipFresh=Boolean(candidate?.taskId&&candidate?.projectId&&candidate?.hostId&&handoff?.receipt&&
-    membership?.source==='codex.list_threads'&&membership.taskId===candidate.taskId&&
-    membership.projectId===candidate.projectId&&membership.hostId===candidate.hostId&&membership.status==='idle'&&
+    membershipStatusOk&&membership.taskId===candidate.taskId&&
+    membership.projectId===candidate.projectId&&membership.hostId===candidate.hostId&&
     Number.isFinite(observedAt)&&Number.isFinite(receiptAt)&&observedAt>=receiptAt&&
     -30<=Date.now()/1000-observedAt&&Date.now()/1000-observedAt<=3600);
   if(handoff?.status==='received'&&readiness?.canFinalize&&membershipFresh)panel.append(button('Review replacement receipt',async()=>{
@@ -234,8 +241,8 @@ function standardBrainHandoff(panel){
     catch(error){showNotice(error.message,true);}
   }));
   if(handoff?.status==='received'&&(!readiness?.canFinalize||!membershipFresh))panel.append(el('p',
-    'Final review is blocked until a fresh Codex list_threads result shows this exact candidate once, in the reviewed project and host, idle after its final reply. A bounded current task list may omit an older candidate; omission proves neither absence nor project membership. The recorded candidate and receipt are one-shot: do not retry or create another candidate. Refresh, Resume, or pinning/unpinning cannot supply that separate membership evidence.'+
-    (membership?' The recorded task-list evidence must also pass every server-side gate; stale, active, unknown or mismatched evidence cannot be reviewed.':' No task-list membership is recorded.'),'muted'));
+    'Final review needs a fresh exact native read showing this candidate idle or notLoaded on the reviewed owned host, or a matching Codex list_threads result showing it idle, after its final reply. A bounded task list may omit an older candidate; omission proves neither absence nor project membership. The recorded candidate and receipt are one-shot: do not retry or create another candidate. Refresh, Resume, or pinning/unpinning cannot supply that evidence.'+
+    (membership?' The recorded membership must also pass every server-side gate; stale, active, unknown or mismatched evidence cannot be reviewed.':' No native membership is recorded.'),'muted'));
   if(!pending)return;
   panel.append(el('p',`Review expires ${when(pending.preview.expiresAt)}. ${pending.stage==='prepare'?'The existing brain will create one native replacement and the new task must acknowledge the package.':'This changes the designated brain binding; the phase remains paused.'}`,'muted'));
   if(pending.stage==='prepare')panel.append(el('pre',JSON.stringify(pending.package,null,2),'detail'));

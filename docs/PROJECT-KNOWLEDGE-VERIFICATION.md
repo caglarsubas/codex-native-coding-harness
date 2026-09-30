@@ -9,7 +9,7 @@ or strict Harness execution authority.
 | KNW-01 | `brain_memory.py`, standard admission/projection, immutable usage and terminal closeout snapshots | Duplicate, prefix, reset, malformed, delayed closeout, new-brain baseline, concurrency/high-water and budget-gate tests | Provider billing completeness or a hard provider cap |
 | KNW-02 | Private allowlisted Git index, optional Graphify 0.9.66 executable/version/hash adapter, content manifest and retained record links | Mocked safety tests plus actual 0.9.66 code-only/no-cluster extraction in a disposable Git project; cross-file relationship resolved; real PEM marker refused while source-code literal is accepted | Owner-reviewed installation and live-project configuration; complete dependency attestation is not claimed |
 | KNW-03 | Knowledge status/refresh/search/source/related/records API and CLI, dashboard view, direct HEAD fallback, bounded worker references and advisory metadata-only context | HTTP project/auth/CSRF test, Knowledge UI test, rendered isolated fixture search/source/real Graphify relationship review and fixed 20-question retrieval evaluation | Fresh-index quality on a selected live project |
-| KNW-04 | Immutable package, two signed owner previews, read-only checkpoint/evidence readiness, one-shot native candidate, bounded task-list membership and idle-state import, final-reply-bound package receipt, exact registry rebinding and fail-closed interrupted-commit repair | Disposable local Git/project fixture, missing/foreign/duplicated/active task membership, wrong project/host, missing/stale/non-final/wrong-summary native reply, stale review, unsettled work, replay and recovery tests | Real disposable native Codex task receipt and owner-reviewed browser handoff; tool-reported membership is not cryptographic host attestation |
+| KNW-04 | Immutable package, two signed owner previews, read-only checkpoint/evidence readiness, one-shot native candidate, bounded task-list or exact owned-host membership read, final-reply-bound package receipt, exact registry rebinding and fail-closed interrupted-commit repair | Disposable local Git/project fixture, missing/foreign/duplicated/active task membership, wrong project/host, missing/stale/non-final/wrong-summary native reply, stale review, unsettled work, replay and recovery tests; both membership routes exercise the dashboard's final-review gate | Real disposable native Codex task receipt and owner-reviewed browser handoff; exact membership is not complete descendant inventory or cryptographic host attestation |
 | KNW-05 | Fixed evaluation suite and this separate evidence ledger | 20/20 expected owner modules in top ten after a bounded filename-stem ranking improvement; two missing-evidence questions with no citation; local suites reported separately below | Merge, optional provider installation and explicit selected standard-project activation |
 
 The final reply receipt and a fresh exact-idle `list_threads` membership are
@@ -17,6 +17,11 @@ separate observations. A bounded list that omits an older candidate leaves
 membership unknown; it does not establish absence, authorize another candidate,
 or permit owner rebinding. Source and UI tests do not qualify the native pilot,
 and a completed owner rebind would still leave selected-project activation separate.
+The dashboard also accepts a fresh reviewed owned-host exact read showing the
+candidate `idle` or `notLoaded` after its final reply, matching the server gate.
+It displays the distinct Codex catalog and app-server project IDs and still
+requires a separate signed owner confirmation. Neither route establishes a
+complete native task tree for the older stopped wake pilot.
 
 The 20 questions and expected sources are fixed in
 `tests/test_knowledge_eval.py`. They are implementation-location questions,
@@ -42,6 +47,10 @@ navigation destination.
   JavaScript tests passed. The final handoff-focused rerun is recorded in the
   corresponding PR; these are source checks, not a native-task pilot.
 - JavaScript: 23 local tests passed, including Knowledge UI.
+- Post-PR #109 UI alignment: 1,899 local Python tests passed (one optional
+  Graphify executable test skipped); all 30 JavaScript suites, `node --check`
+  and `git diff --check` passed. The UI test covers exact owned-host `idle` and
+  `notLoaded` evidence, stale/foreign/active refusal and separate owner review.
 - Rendered browser: isolated local fixture displayed index status, accepted a
   scoped search, opened the versioned Git source, and displayed real Graphify
   `EXTRACTED` cross-file relationships. One-time fixture browser tokens were
