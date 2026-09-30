@@ -20,6 +20,18 @@ client; the designated brain is still the only scheduler.
   inferred from a matching name or directory. No socket discovery, host start,
   runtime download, desktop IPC, remote listener or fallback to the desktop
   queue is permitted. The binding is loaded only at dashboard startup.
+- The binding also pins `nativePolicy` to workspace-write sandboxing,
+  on-request approvals and Code Mode disabled. Every owned `thread/resume`
+  reapplies those exact settings before `turn/start`; an inherited
+  danger-full-access/never context can otherwise run an escalated command
+  without an app-server approval event. The installed app-server schema lets
+  `kind: command` and `environmentId: null` be omitted, so the bridge accepts
+  those defaults only when the other scoped fields are complete. The host may
+  offer a persistent exec-policy amendment alongside a one-command `accept`;
+  the bridge validates the bounded proposal but never sends the amendment or
+  session-wide acceptance decision. Missing or changed policy fails closed at
+  binding load. This does not authorize a command or approval, and it requires
+  separate host qualification before live use.
 - Unix app-server sockets use a WebSocket upgrade and text frames, even through
   the fixed `app-server proxy --sock` byte transport. The endpoint must pin the
   canonical socket itself: the CLI's `--listen unix://PATH` may leave `PATH` as
@@ -47,6 +59,15 @@ client; the designated brain is still the only scheduler.
   user-input and security requests still require attention outside this relay.
 - `accepted` means app-server returned a turn ID. Neither is the brain's ledger receipt, safe checkpoint,
   worker dispatch, result acceptance or proof of turn completion.
+- If an exact Brain Stop has been received but remains `checkpointing`, an
+  authenticated owner may submit one `brain_checkpoint_continue` control bound
+  to that stop command ID. It uses the same durable notification claim and
+  owned app-server transport. The brain receives only the existing stop; this
+  does not Resume, reopen dispatch, drain ordinary messages, or authorize new
+  work. A parked or superseded stop cannot be continued; a queued continuation
+  is rejected if that checkpoint parks or a newer brain control supersedes it
+  before delivery. Repeated attempts need new explicit owner review and can
+  never resend an earlier claimed wake.
 
 ## Separate activation review
 
@@ -83,6 +104,7 @@ The file is owner-only (`0600`), outside source control, and has exactly:
       "workspaceId": "exact-registered-project",
       "projectId": "22222222-2222-4222-8222-222222222222",
       "catalogProjectId": "33333333-3333-4333-8333-333333333333",
+      "nativePolicy": {"sandbox": "workspace-write", "approvalPolicy": "on-request", "codeMode": false},
       "cwd": "/absolute/exact/brain/checkout"
     }
   }
@@ -136,6 +158,28 @@ The disposable success does not qualify that live project or justify dropping
 its separate-root safety boundary.
 Keep source merge, installed backend, host migration, ledger receipt and live
 qualification as separate claims. No GitHub Actions or paid service is used.
+
+The 2026-09-30 disposable legacy-history check obtained a real owned-host turn,
+same-turn ledger receipt, retained reply and a restart-safe one-shot claim. Its
+Brain Stop fenced dispatch and was received, but remained `checkpointing`:
+the brain lacked complete native task/descendant observation. A separate
+checkpoint-continuation wake retained its receipt and a checkpoint artifact,
+but correctly refused to claim complete inventory. A harmless permission probe
+with the host's default Code Mode and danger-full-access context produced no
+app-server approval request. A direct disposable native probe subsequently
+observed `item/commandExecution/requestApproval` when it pinned Code Mode off,
+workspace-write and on-request policy at `thread/resume`, without approving the
+request. The dashboard bridge then started a bound disposable turn, retained
+the brain's ledger receipt and observed the native approval request on its
+owned connection. The paused pilot could not accept it; the connection closed
+without a response, and the exact disposable turn was interrupted. Its
+controller was recovered with dispatch paused and no workers or runner. An
+incomplete or paused prompt must not advertise `accept` even when Codex includes
+it in the raw choices. The native approval **request path** is qualified on this
+host; the signed owner response path remains unqualified in a running phase.
+Complete descendant coverage and a parked checkpoint are still missing.
+Neither a receipt nor this prompt observation qualifies live migration or Play.
+Do not migrate the live project or enable Play on this basis.
 
 ## Explicit native project assignment qualification
 

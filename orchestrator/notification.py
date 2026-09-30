@@ -16,7 +16,7 @@ from .core import digest
 UUID = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 ACK = re.compile(rf"Queued message ({UUID}) for thread ({UUID})\.")
 TIMEOUT = 8
-NOTIFY_KINDS = {"decision_response", "resume", "reconcile", "checkpoint", "archive", "brain_stop", "brain_resume",
+NOTIFY_KINDS = {"decision_response", "resume", "reconcile", "checkpoint", "archive", "brain_stop", "brain_resume", "brain_checkpoint_continue",
                 "approve", "hold", "prioritize", "listening", "pause", "standard_play", "standard_pause", "standard_resume",
                 "standard_catalog_refresh", "standard_recovery", "brain_handoff"}
 
@@ -83,11 +83,17 @@ class BrainNotifier:
             conversation = is_message(command)
             has_conversation = any(pending(c) for c in ledger.all(db, "commands"))
             from .brain_control import stopped
+            if command["kind"] == "brain_checkpoint_continue":
+                control = meta.get("brainControl") or {}
+                if (not self.app_server or control.get("desired") != "stopped" or
+                        control.get("phase") != "checkpointing" or
+                        control.get("commandId") != command["payload"]["stopCommandId"]):
+                    return command  # No queue fallback or stale checkpoint wake.
             if command["kind"] == "standard_recovery" and stopped(meta):
                 return command  # A newer Brain Stop wins before native delivery is claimed.
             if standard_run and standard_run["status"] in ("stopping", "paused") and (command["kind"] == "decision_response" or conversation):
                 return command  # Standard Resume drains saved input; answers cannot resume it.
-            if not standard_run and stopped(meta) and command["kind"] not in ("brain_stop", "brain_resume", "standard_play", "standard_pause", "standard_resume"):
+            if not standard_run and stopped(meta) and command["kind"] not in ("brain_stop", "brain_resume", "brain_checkpoint_continue", "standard_play", "standard_pause", "standard_resume"):
                 # No attempt claimed: an explicit Resume brain drains the inbox.
                 return command
             decision = None
@@ -122,6 +128,8 @@ class BrainNotifier:
             f"Dashboard control notification {notification['wakeId']}; kind {command['kind']}. "
             + (f"Workspace {ledger.workspace_id}. Use scripts/run.py --platform {json.dumps(str(ledger.platform_root))} --workspace {ledger.workspace_id} inbox; never the default portfolio. "
                if getattr(ledger, "workspace_id", None) else "")
+            + (f"Continue only the already received stop {command['payload']['stopCommandId']}; this one-shot checkpoint wake does not Resume the brain or reopen dispatch. "
+               if command["kind"] == "brain_checkpoint_continue" else "")
             + (f"Decision version {decision['decisionHash']} has a recorded response. " if decision else "") +
             "Read the installed codex-orchestrator skill and your configured portfolio's compact inbox. "
             "Check brainControl first. A stop takes priority: no new work; finish the current bounded operation, "

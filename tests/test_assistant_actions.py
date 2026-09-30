@@ -121,6 +121,22 @@ class AssistantActionsTest(unittest.TestCase):
         self.assertTrue(self.ledger.snapshot()["meta"]["paused"])
         self.assertFalse(self.actions()[1]["brain_resume"]["available"])
 
+    def test_checkpoint_continuation_requires_owned_host_and_exact_review(self):
+        stop, _ = self.confirm(self.proposal("brain_stop"))
+        self.ledger.process(self.token)
+        state = self.ledger.snapshot()
+        unavailable = catalog(state, {})["brain_checkpoint_continue"]
+        self.assertFalse(unavailable["available"])
+        state["brainNotification"] = {"transport": "owned_app_server"}
+        action = resolve_action({"key": "brain_checkpoint_continue"}, catalog(state, {}), "Continue checkpoint")
+        proposal = self.proposals.prepare(action, state, self.session)
+        self.assertEqual(self.ledger.snapshot()["meta"]["brainControl"]["phase"], "checkpointing")
+        command, first = self.confirm(proposal)
+        self.assertTrue(first)
+        self.assertEqual(command["payload"], {"stopCommandId": stop["id"]})
+        self.assertEqual(command["actor"], "assistant_owner_confirmed")
+        self.assertTrue(self.ledger.snapshot()["meta"]["paused"])
+
     def test_inference_only_returns_proposal_never_submits(self):
         r = response("Review the safe checkpoint stop below; it has not been executed.")
         msg = json.loads(r["choices"][0]["message"]["content"]); msg["action"] = {"key":"brain_stop"}

@@ -23,7 +23,7 @@ def request(ledger, db, command, meta):
         from .workspace_pause import active
         require(not active(meta) or previous["phase"] == "parked", "Workspace Pause is still reaching a safe checkpoint; resume is available after parking")
     for older in ledger.all(db, "commands"):
-        supersede = older["kind"] in ("brain_stop", "brain_resume") or (stopping and older["kind"] == "resume")
+        supersede = older["kind"] in ("brain_stop", "brain_resume", "brain_checkpoint_continue") or (stopping and older["kind"] == "resume")
         if supersede and older["status"] in ("queued", "processing"):
             older.update(status="rejected", result="Superseded by a newer brain control request")
             ledger.put(db, "commands", older["id"], older)
@@ -131,6 +131,12 @@ def park(ledger, token, command_id, checkpoint):
             seen.add(wid)
         require(seen == set(required), "Reconcile and checkpoint every active worker first")
         require(not any(c["status"] == "processing" and c["kind"] in ("checkpoint", "archive") for c in ledger.all(db, "commands")), "Reconcile in-flight worker controls before parking")
+        for pending in ledger.all(db, "commands"):
+            if (pending["kind"] == "brain_checkpoint_continue" and pending["status"] == "queued" and
+                    pending["payload"]["stopCommandId"] == command_id):
+                pending.update(status="rejected", result="Checkpoint saved before continuation delivery; no wake is needed.")
+                ledger.put(db, "commands", pending["id"], pending)
+                ledger.event(db, "brain_checkpoint_continue_superseded", {"id": pending["id"], "stopCommandId": command_id})
         document = {"schemaVersion": 1, "kind": "brain_checkpoint", "commandId": command_id,
                     "at": now, "heartbeat": hb, "workers": workers,
                     "queue": ledger.all(db, "queue"),

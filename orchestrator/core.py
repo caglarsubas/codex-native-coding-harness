@@ -22,7 +22,7 @@ VERSION = 1
 LEDGER_VERSIONS = (1, 2, 3, 4)  # v2 declarations; v3 strict runs; v4 explicit cooperative runs.
 AXES = ("source", "ci", "merge", "artifact", "deployment", "runtime", "assurance", "tenant")
 ACTIVE = ("reserved", "starting", "running", "awaiting_acceptance", "accepting", "verifying", "blocked")
-COMMANDS = {"approve", "hold", "prioritize", "pause", "resume", "reconcile", "checkpoint", "archive", "decision_response", "listening", "brain_stop", "brain_resume"}
+COMMANDS = {"approve", "hold", "prioritize", "pause", "resume", "reconcile", "checkpoint", "archive", "decision_response", "listening", "brain_stop", "brain_resume", "brain_checkpoint_continue"}
 PREFLIGHT_CHECKS = {"packetCurrent", "baseCurrent", "predecessorsVerified", "locksVerified", "noActiveDuplicate",
     "setupSafe", "policyReviewed", "runnerAvailable", "scopeApproved"}
 SHA = re.compile(r"^[a-f0-9]{64}$")
@@ -323,7 +323,8 @@ class Ledger:
                 "prioritize": {"queueId", "priority"}, "checkpoint": {"workerId"},
                 "archive": {"workerId"}, "pause": set(), "resume": set(), "reconcile": set(),
                 "listening": {"enabled"}, "decision_response": {"decisionId", "decisionHash", "optionId", "note", "confirmed"},
-                "brain_stop": set(), "brain_resume": set()}
+                "brain_stop": set(), "brain_resume": set(),
+                "brain_checkpoint_continue": {"stopCommandId"}}
             if conversation:
                 from .conversation import FIELDS
                 fields["reconcile"] = FIELDS
@@ -347,6 +348,14 @@ class Ledger:
                 require(not stopped(meta), "Resume the brain before enabling worker dispatch")
             if kind in ("brain_stop", "brain_resume"):
                 brain_request(self, db, record, meta)
+            elif kind == "brain_checkpoint_continue":
+                control = meta.get("brainControl") or {}
+                require(control.get("desired") == "stopped" and control.get("phase") == "checkpointing"
+                        and control.get("commandId") == p["stopCommandId"],
+                        "Only the exact unfinished brain checkpoint may be continued")
+                require(not any(c["kind"] == kind and c["status"] in ("queued", "processing")
+                                for c in self.all(db, "commands")),
+                        "A checkpoint continuation is already pending")
             elif kind == "decision_response":
                 from .decisions import answer
                 answer(self, db, command)
@@ -418,6 +427,14 @@ class Ledger:
             actions = []
             from .brain_control import stopped, receive_stop
             if stopped(meta):
+                control = meta.get("brainControl") or {}
+                if control.get("phase") == "checkpointing":
+                    for cmd in self.all(db, "commands"):
+                        if cmd["kind"] == "brain_checkpoint_continue" and cmd["status"] == "queued" and cmd["payload"]["stopCommandId"] == control.get("commandId"):
+                            cmd.update(status="completed", receivedAt=time.time(),
+                                       result="Checkpoint continuation received; the existing stop remains dominant.")
+                            self.put(db, "commands", cmd["id"], cmd)
+                            self.event(db, "brain_checkpoint_continue_received", {"id": cmd["id"], "stopCommandId": control["commandId"]})
                 return receive_stop(self, db, token)
             for cmd in self.all(db, "commands"):
                 if cmd.get("needsBrainReceipt"):
@@ -483,7 +500,7 @@ class Ledger:
             cmd = self.get(db, "commands", command_id)
             from .conversation import is_message
             require(not is_message(cmd), "Use brain-message-reply to retain a conversation response")
-            require(cmd["kind"] not in ("decision_response", "brain_stop", "brain_resume"), "Use the dedicated decision or brain checkpoint lifecycle")
+            require(cmd["kind"] not in ("decision_response", "brain_stop", "brain_resume", "brain_checkpoint_continue"), "Use the dedicated decision or brain checkpoint lifecycle")
             require(cmd["status"] == "processing", "Command is not in flight")
             if cmd["kind"] == "archive":
                 require("dispatchAdmission" not in self.get(db, "workers", cmd["payload"]["workerId"]),

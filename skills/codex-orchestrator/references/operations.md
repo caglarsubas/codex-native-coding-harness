@@ -109,6 +109,11 @@ the compact inbox cooperatively between bounded steps to notice a stop sooner.
 1. Acquire the designated brain controller normally. `process` receives the exact
    current stop and returns `brain_stop`, setting `checkpointing`, not completion.
    If already parked, release any newly acquired controller and end without work.
+   An exact owner-reviewed `brain_checkpoint_continue` may wake a brain that
+   remains `checkpointing` on this same stop after its prior turn ended. Receive
+   the continuation and keep following the original `brain_stop`; it does not
+   Resume, permit dispatch, drain ordinary messages, or justify complete
+   inventory without fresh native evidence. Never replay an earlier wake.
 2. Finish the currently executing bounded step without new dispatch, acceptance,
    retries, merges or scope expansion. Observe runner process exit and required
    cleanup before release. Reconcile uncertain native creation, never retry it.

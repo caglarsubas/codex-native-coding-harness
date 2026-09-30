@@ -89,6 +89,35 @@ class BrainControlTest(unittest.TestCase):
         self.assertEqual(self.ledger.process(self.token)[0]["commandId"],stop["id"])
         self.assertEqual(next(x for x in self.ledger.snapshot()["commands"] if x["id"]==c["id"])["status"],"queued")
 
+    def test_explicit_checkpoint_continuation_preserves_the_same_stop(self):
+        stop=self.stop()
+        continuation=self.command("brain_checkpoint_continue", {"stopCommandId":stop["id"]})
+        self.assertEqual(self.ledger.process(self.token), [{"kind":"brain_stop", "commandId":stop["id"], "phase":"checkpointing"}])
+        state=self.ledger.snapshot()
+        self.assertEqual(state["meta"]["brainControl"]["commandId"],stop["id"])
+        self.assertEqual(state["meta"]["brainControl"]["desired"],"stopped")
+        self.assertTrue(state["meta"]["paused"])
+        self.assertEqual(next(x for x in state["commands"] if x["id"]==continuation["id"])["status"],"completed")
+        with self.assertRaises(Refusal):
+            self.command("brain_checkpoint_continue", {"stopCommandId":"wrong-stop"})
+        park(self.ledger,self.token,stop["id"],self.checkpoint(stop))
+        with self.assertRaises(Refusal):
+            self.command("brain_checkpoint_continue", {"stopCommandId":stop["id"]})
+
+    def test_checkpoint_completion_supersedes_unsent_continuation(self):
+        stop=self.stop()
+        continuation=self.command("brain_checkpoint_continue", {"stopCommandId":stop["id"]})
+        saved=park(self.ledger,self.token,stop["id"],self.checkpoint(stop))
+        self.assertEqual(self.ledger.snapshot()["meta"]["brainControl"]["phase"],"parked")
+        self.assertEqual(next(c for c in self.ledger.snapshot()["commands"] if c["id"]==continuation["id"])["status"],"rejected")
+        self.assertNotIn(continuation["id"],self.ledger.document(saved["documentHash"])["pendingCommands"])
+
+    def test_brain_resume_supersedes_unsent_continuation(self):
+        stop=self.stop()
+        continuation=self.command("brain_checkpoint_continue", {"stopCommandId":stop["id"]})
+        self.command("brain_resume")
+        self.assertEqual(next(c for c in self.ledger.snapshot()["commands"] if c["id"]==continuation["id"])["status"],"rejected")
+
     def test_resume_supersedes_stop_and_late_checkpoint_is_refused(self):
         c=self.stop();cp=self.checkpoint(c)
         self.command("brain_resume")
