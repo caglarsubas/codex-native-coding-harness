@@ -198,6 +198,15 @@ inventory, the one-page graph and guided Help show the operator evidence gap and
 link to the saved blockers. They do not offer another preparation confirmation,
 Play, or duplicate wake as a way to clear it. This is guidance only: it neither
 asserts complete coverage nor changes the retained stop, ownership or live host.
+The current owned-host transport reports that complete checkpoint inventory is
+not qualified. The assistant action catalog therefore withholds its checkpoint-
+wake preview while tree coverage is missing or incomplete, even before the
+first attempted wake. If a future host qualifies that capability, the catalog
+still withholds a repeat preview for the same stop after an accepted or
+uncertain native send with the gap unresolved. A proven pre-send unavailable
+attempt does not count as a native wake. This is a UI/assistant guard, not a
+substitute for host qualification or a change to the explicit typed recovery
+protocol.
 
 ## Explicit native project assignment qualification
 

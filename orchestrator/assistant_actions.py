@@ -40,13 +40,33 @@ def catalog(state, links):
                                 "Brain resume is already requested." if control.get("phase") == "resume_requested" else None),
         details={"recordedBrainPhase": control.get("phase"), "checkpointAt": (control.get("checkpoint") or {}).get("at")})
     if control.get("phase") == "checkpointing" and control.get("commandId"):
+        stop_id = control["commandId"]
+        pause = state.get("workspacePause") or {}
+        missing_tree = (control.get("protocol") == "workspace_pause_v1" and
+                        pause.get("status") == "pausing" and
+                        any(item.get("code") in ("inventory_missing", "inventory_incomplete")
+                            for item in pause.get("blockers", []) if isinstance(item, dict)))
+        # An accepted or uncertain native send is already the one-shot attempt.
+        # A second signed assistant preview cannot manufacture the missing host
+        # inventory. Keep the underlying typed control available for separately
+        # qualified operator recovery, without suggesting another routine wake.
+        attempted_continuation = any(
+            c.get("kind") == "brain_checkpoint_continue" and
+            (c.get("payload") or {}).get("stopCommandId") == stop_id and
+            (c.get("notification") or {}).get("status") in ("sending", "accepted", "uncertain")
+            for c in state["commands"])
+        notification = state.get("brainNotification") or {}
         add("brain_checkpoint_continue", "Continue the safe checkpoint", "brain_checkpoint_continue",
-            {"stopCommandId": control["commandId"]},
+            {"stopCommandId": stop_id},
             "Wake the designated brain once to finish this exact stop. Dispatch stays paused; this is not Resume, Play, or permission for new work.",
             reason=("A reviewed owned Codex host is required." if
-                    (state.get("brainNotification") or {}).get("transport") != "owned_app_server" else
-                    "Use the standard phase controls for this active run." if state.get("standard", {}).get("run") else None),
-            details={"stopCommandId": control["commandId"]})
+                    notification.get("transport") != "owned_app_server" else
+                    "Use the standard phase controls for this active run." if state.get("standard", {}).get("run") else
+                    "This owned host has no qualified complete native task and descendant inventory. Keep the stop in place; another confirmation cannot close it."
+                    if missing_tree and notification.get("checkpointInventoryQualified") is not True else
+                    "The same stop already had a native checkpoint wake, but complete task and descendant evidence is still missing. Qualify the observer before another attempt."
+                    if missing_tree and attempted_continuation else None),
+            details={"stopCommandId": stop_id})
     add("dispatch_pause", "Pause worker dispatch", "pause", {},
         "Prevent new worker launches. Existing work continues; the brain is not stopped.",
         reason="Worker dispatch is already paused." if meta["paused"] else None)
