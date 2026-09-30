@@ -34,6 +34,8 @@ COMMAND_FIELDS = {"threadId", "turnId", "itemId", "reason", "command", "cwd",
                   "availableDecisions", "additionalPermissions", "kind", "startedAtMs",
                   "environmentId", "approvalId", "proposedNetworkPolicyAmendments"}
 FILE_FIELDS = {"threadId", "turnId", "itemId", "reason", "grantRoot", "startedAtMs"}
+THREAD_EVENT_LIMIT = 128
+THREAD_STREAM_GAP = "owned_stream_not_exhaustive"
 
 
 class WakeProxy(ReadProxy):
@@ -74,6 +76,15 @@ class WakeProxy(ReadProxy):
 
     def _line(self):
         row = super()._line()
+        if isinstance(row, dict) and row.get("method") == "thread/started":
+            callback = getattr(self, "_on_thread_started", None)
+            if callback is not None:
+                try:
+                    callback(row)
+                except Exception:
+                    # The native turn must not be retried because an observer
+                    # could not persist an event. Keep an explicit coverage gap.
+                    self._thread_event_error = True
         # A short turn can finish before turn/start returns its response. Keep
         # only the lifecycle fact while the parent RPC drops notifications.
         if getattr(self, "_awaiting_start", False) and isinstance(row, dict) and row.get("method") == "turn/completed":
@@ -563,6 +574,87 @@ class AppServerWake:
                 "Native brain, project or checkout identity differs from owner binding")
         return cwd
 
+    def _begin_thread_observation(self, command_id, brain_id):
+        """Durably mark partial coverage before the native effect boundary."""
+        require(self.ledger is not None, "Owned thread observation requires a ledger")
+        with self.ledger.tx() as db:
+            command = self.ledger.get(db, "commands", command_id)
+            notification = command.get("notification") or {}
+            require(notification.get("brainId") == brain_id and notification.get("status") == "sending" and
+                    "nativeThreadObservation" not in notification,
+                    "Owned thread observation does not match the one-shot claim")
+            notification["nativeThreadObservation"] = {
+                "version": 1, "rootThreadId": brain_id, "streamStatus": "open",
+                "monitoringStartedAt": time.time(), "complete": False,
+                "gaps": [THREAD_STREAM_GAP], "events": []}
+            command["notification"] = notification
+            self.ledger.put(db, "commands", command_id, command)
+
+    def _record_thread_started(self, command_id, brain_id, row):
+        """Retain only IDs with a witnessed chain to this brain, never content."""
+        params = row.get("params")
+        thread = params.get("thread") if isinstance(params, dict) else None
+        if not isinstance(thread, dict):
+            return
+        thread_id = thread.get("id")
+        parent_id = thread.get("parentThreadId")
+        fork_id = thread.get("forkedFromId")
+        if thread_id == brain_id or not isinstance(thread_id, str) or not UUID.fullmatch(thread_id):
+            return
+        # A foreign notification on the same app-server is never placed in
+        # this workspace. A fork is retained only if its exact source is owned.
+        relation = parent_id if isinstance(parent_id, str) and UUID.fullmatch(parent_id) else fork_id
+        if not isinstance(relation, str) or not UUID.fullmatch(relation):
+            return
+        with self.ledger.tx() as db:
+            command = self.ledger.get(db, "commands", command_id)
+            notification = command.get("notification") or {}
+            observation = notification.get("nativeThreadObservation")
+            require(notification.get("brainId") == brain_id and
+                    notification.get("status") in ("sending", "accepted") and
+                    isinstance(observation, dict) and observation.get("rootThreadId") == brain_id and
+                    observation.get("streamStatus") == "open", "Owned thread observation changed")
+            events = observation["events"]
+            if relation != brain_id and relation not in {item["threadId"] for item in events}:
+                return
+            event = {"threadId": thread_id, "parentThreadId": relation,
+                     "relation": "parent" if relation == parent_id else "fork",
+                     "ephemeral": thread.get("ephemeral") if type(thread.get("ephemeral")) is bool else None,
+                     "observedAt": time.time()}
+            prior = next((item for item in events if item["threadId"] == thread_id), None)
+            if prior is not None:
+                if any(prior[key] != event[key] for key in ("parentThreadId", "relation", "ephemeral")):
+                    if "conflicting_thread_event" not in observation["gaps"]:
+                        observation["gaps"].append("conflicting_thread_event")
+                else:
+                    return
+            elif len(events) >= THREAD_EVENT_LIMIT:
+                if "thread_event_limit" not in observation["gaps"]:
+                    observation["gaps"].append("thread_event_limit")
+            else:
+                events.append(event)
+            command["notification"] = notification
+            self.ledger.put(db, "commands", command_id, command)
+
+    def _finish_thread_observation(self, command_id, brain_id, turn_id, status, *, event_error=False):
+        """Close the local stream fact; never promote it to complete inventory."""
+        with self.ledger.tx() as db:
+            command = self.ledger.get(db, "commands", command_id)
+            notification = command.get("notification") or {}
+            observation = notification.get("nativeThreadObservation")
+            if (notification.get("brainId") != brain_id or not isinstance(observation, dict) or
+                    observation.get("rootThreadId") != brain_id or observation.get("streamStatus") != "open"):
+                return
+            observation["streamStatus"] = "closed" if status in ("completed", "failed", "interrupted") else "unconfirmed"
+            observation["nativeTurnId"] = turn_id
+            observation["monitoringEndedAt"] = time.time()
+            if observation["streamStatus"] == "unconfirmed":
+                observation["gaps"].append("stream_ended_without_confirmed_turn")
+            if event_error:
+                observation["gaps"].append("thread_event_persist_failed")
+            command["notification"] = notification
+            self.ledger.put(db, "commands", command_id, command)
+
     def send(self, brain_id, message, command_id):
         """Return a sanitized one-shot result; no retries after an effect boundary."""
         with self._lock:
@@ -598,6 +690,8 @@ class AppServerWake:
             self._identity(resumed.get("thread") if isinstance(resumed, dict) else None, brain_id)
             # Immediately before this boundary a concurrent native turn may start.
             # A rejection or lost response is uncertain, never permission to retry.
+            self._begin_thread_observation(command_id, brain_id)
+            proxy._on_thread_started = lambda row: self._record_thread_started(command_id, brain_id, row)
             effect_started = True
             started = proxy._rpc("turn/start", {"threadId": brain_id,
                 "input": [{"type": "text", "text": message}], "cwd": cwd})
@@ -622,6 +716,12 @@ class AppServerWake:
                                if effect_started else "Bound Codex app-server inspection failed before a turn was sent.")}
         finally:
             if not retained:
+                if effect_started:
+                    try:
+                        self._finish_thread_observation(command_id, brain_id, None, "unconfirmed",
+                            event_error=bool(getattr(proxy, "_thread_event_error", False)))
+                    except (OSError, Refusal):
+                        pass
                 proxy.__exit__(None, None, None)
 
     def _observe_turn(self, proxy, command_id, brain_id, turn_id):
@@ -683,6 +783,8 @@ class AppServerWake:
                         notification["nativeObservedAt"] = time.time()
                         command["notification"] = notification
                         self.ledger.put(db, "commands", command_id, command)
+                self._finish_thread_observation(command_id, brain_id, turn_id, status,
+                    event_error=bool(getattr(proxy, "_thread_event_error", False)))
             except (OSError, Refusal):
                 # Shutdown or an unavailable ledger cannot turn a native fact
                 # into permission to retry the one-shot control.

@@ -208,6 +208,21 @@ attempt does not count as a native wake. This is a UI/assistant guard, not a
 substitute for host qualification or a change to the explicit typed recovery
 protocol.
 
+Future one-shot owned turns now retain a private `nativeThreadObservation` on
+their notification claim. The marker is written before `turn/start`, so an
+interrupted process leaves an `open` stream instead of an apparent empty tree.
+On the bound socket, `thread/started` notifications with an exact witnessed
+parent/fork chain to the designated brain retain only thread ID, relation,
+ephemeral flag (or unknown) and observation time. Foreign events and text are
+discarded; duplicates are idempotent, conflicts and the 128-event cap leave
+explicit gaps. Closing the stream retains the native turn status separately.
+Every such observation has `complete: false` and the
+`owned_stream_not_exhaustive` gap: the documented subscription is not a
+guarantee of complete descendant history, and the socket ends with this turn.
+These events cannot satisfy `brain-stop-observe`, park a brain, release a worker,
+or change `checkpointInventoryQualified`. This source addition does not replay
+or repair the already stopped pilot, which began before such coverage existed.
+
 ## Explicit native project assignment qualification
 
 The installed app-server v2 schema exposes `project/read` and
