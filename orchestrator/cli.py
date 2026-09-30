@@ -71,6 +71,8 @@ def main():
     p.add_argument("request", type=Path)
     p = sub.add_parser("brain-handoff-native-observation", help="Import bounded Codex list_threads membership for the exact candidate")
     p.add_argument("result", type=Path); p.add_argument("--observed-at", type=float, required=True)
+    p = sub.add_parser("brain-handoff-native-exact-read", help="Read the exact replacement task on the reviewed owned app-server")
+    p.add_argument("binding", type=Path, help="Existing private owned app-server brain binding")
     p = sub.add_parser("brain-handoff-receipt", help="Record a replacement final-answer package acknowledgment before owner rebinding")
     p.add_argument("request", type=Path)
     p = sub.add_parser("brain-handoff-recover", help="Owner repair of an interrupted, ledger-committed registry rebind only")
@@ -403,6 +405,11 @@ def main():
             path = args.result.absolute()
             observed = json.loads(read_regular(path, path.parent, 1_000_000))
             out = brain_handoff.native_observation(ledger, token or private_token(ledger), observed, args.observed_at)
+        elif action == "brain-handoff-native-exact-read":
+            from .app_server_wake import load_binding
+            from .standard import private_token
+            out = brain_handoff.native_exact_observation(registry, ledger, token or private_token(ledger),
+                                                         load_binding(args.binding))
         else:
             from .observations import read_regular
             path = args.request.absolute()

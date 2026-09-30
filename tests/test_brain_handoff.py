@@ -55,7 +55,7 @@ class BrainHandoffTest(unittest.TestCase):
         self.ledger.release(token, 'Candidate recorded')
         self.assertIn('final native reply', ' '.join(brain_handoff.status(self.ledger, self.registry)['readiness']['blockers']))
         brain_handoff.receipt(self.ledger, self._write_native_log(prepared))
-        self.assertIn('native task-list', ' '.join(brain_handoff.status(self.ledger, self.registry)['readiness']['blockers']))
+        self.assertIn('native task project membership', ' '.join(brain_handoff.status(self.ledger, self.registry)['readiness']['blockers']))
         token = self.ledger.acquire(old + ':membership')
         brain_handoff.native_observation(self.ledger, token, self._native_result(status='active'), time.time())
         self.ledger.release(token, 'Replacement still active')
@@ -91,6 +91,121 @@ class BrainHandoffTest(unittest.TestCase):
                'hostId': 'local', 'status': 'idle', 'title': 'Replacement task', **changes}
         return {'schemaVersion': 4, 'threads': [row], 'pinnedThreads': [],
                 'unavailableHosts': [], 'unavailableSources': []}
+
+    def _exact_read(self, token, *, scope_changes=None, on_read=None, **changes):
+        """Exercise the owned read using an exact candidate, not a global listing."""
+        old = self.ledger.snapshot()['meta']['brainId']
+        scope = {'brainId': old, 'catalogProjectId': 'native-a',
+                 'projectId': '22222222-2222-4222-8222-222222222222',
+                 'hostId': 'local', 'cwd': str(self.fixture.repo), 'root': self.ledger.root,
+                 'endpointHash': 'e' * 64, 'bindingHash': 'b' * 64}
+        scope.update(scope_changes or {})
+        binding = {'endpoint': {'fixture': 'pinned'}, 'brains': {}}
+        thread = {'id': self.new_id, 'projectId': scope['projectId'],
+                  'cwd': str(self.fixture.repo), 'ephemeral': False,
+                  'forkedFromId': None, 'status': {'type': 'idle'}, **changes}
+
+        class Proxy:
+            calls = []
+
+            def __init__(self, endpoint):
+                self.endpoint = endpoint
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                pass
+
+            def _rpc(self, method, params):
+                self.calls.append((method, params))
+                if on_read:
+                    on_read()
+                return {'thread': thread}
+
+        with patch('orchestrator.native_project_assignment._scope', return_value=scope) as scope_read, \
+             patch('orchestrator.native_project_assignment._native_identity', return_value=({}, [str(self.fixture.repo)])), \
+             patch('orchestrator.native_read_client.ReadProxy', Proxy):
+            result = brain_handoff.native_exact_observation(self.registry, self.ledger, token, binding)
+        self.assertEqual(Proxy.calls, [('thread/read', {'threadId': self.new_id, 'includeTurns': False})])
+        self.assertEqual(scope_read.call_count, 2)
+        return result
+
+    def test_exact_owned_read_can_replace_truncated_global_membership(self):
+        prepared = self.prepare()
+        old = self.ledger.snapshot()['meta']['brainId']
+        token = self.ledger.acquire(old + ':handoff')
+        brain_handoff.candidate(self.ledger, token, {'handoffId': prepared['id'], 'taskId': self.new_id,
+            'projectId': 'native-a', 'hostId': 'local', 'observation': 'Exact owned native task selected'})
+        self.ledger.release(token, 'Candidate recorded')
+        brain_handoff.receipt(self.ledger, self._write_native_log(prepared))
+        token = self.ledger.acquire(old + ':exact-read')
+        observed = self._exact_read(token, status={'type': 'active'})
+        self.assertEqual(observed['nativeMembership']['status'], 'active')
+        self.ledger.release(token, 'Active candidate observed')
+        with self.assertRaises(Refusal):
+            self.controls.finalize_preview(self.registry, self.ledger, 'owner-session')
+        token = self.ledger.acquire(old + ':exact-idle')
+        observed = self._exact_read(token, status={'type': 'notLoaded'})
+        self.ledger.release(token, 'Inactive candidate observed')
+        self.assertEqual(observed['nativeMembership']['source'], 'owned_app_server.thread_read')
+        self.assertEqual(observed['nativeMembership']['nativeProjectId'],
+                         '22222222-2222-4222-8222-222222222222')
+        self.assertTrue(self.controls.finalize_preview(self.registry, self.ledger, 'owner-session')['preview'])
+
+    def test_exact_owned_read_rejects_foreign_or_unsafe_candidate(self):
+        prepared = self.prepare()
+        old = self.ledger.snapshot()['meta']['brainId']
+        token = self.ledger.acquire(old + ':handoff')
+        brain_handoff.candidate(self.ledger, token, {'handoffId': prepared['id'], 'taskId': self.new_id,
+            'projectId': 'native-a', 'hostId': 'local', 'observation': 'Exact owned native task selected'})
+        for changes in ({'id': str(uuid.uuid4())}, {'projectId': 'foreign'},
+                        {'cwd': str(self.fixture.root)}, {'ephemeral': True},
+                        {'forkedFromId': str(uuid.uuid4())}, {'status': {'type': 'systemError'}}):
+            with self.subTest(changes=changes), self.assertRaises(Refusal):
+                self._exact_read(token, **changes)
+            self.assertIsNone(self.ledger.snapshot()['meta']['brainHandoff'].get('nativeMembership'))
+        self.ledger.release(token, 'Unsafe observations refused')
+
+    def test_exact_owned_read_refuses_changed_binding_and_checkpoint_race(self):
+        prepared = self.prepare()
+        old = self.ledger.snapshot()['meta']['brainId']
+        token = self.ledger.acquire(old + ':handoff')
+        brain_handoff.candidate(self.ledger, token, {'handoffId': prepared['id'], 'taskId': self.new_id,
+            'projectId': 'native-a', 'hostId': 'local', 'observation': 'Exact owned native task selected'})
+        with self.assertRaises(Refusal):
+            self._exact_read(token, scope_changes={'catalogProjectId': 'foreign'})
+        with self.assertRaises(Refusal):
+            self._exact_read(token, scope_changes={'root': self.fixture.root})
+
+        def advance_run():
+            with self.ledger.tx() as db:
+                meta = self.ledger.get(db, 'meta', 1)
+                meta['standardRun']['revision'] += 1
+                self.ledger.put(db, 'meta', 1, meta)
+
+        with self.assertRaises(Refusal):
+            self._exact_read(token, on_read=advance_run)
+        self.assertIsNone(self.ledger.snapshot()['meta']['brainHandoff'].get('nativeMembership'))
+        self.ledger.release(token, 'Stale native observation refused')
+
+    def test_cli_exact_read_routes_only_to_bound_candidate_reader(self):
+        from orchestrator.cli import main
+        binding = {'endpoint': {'fixture': 'pinned'}, 'brains': {}}
+        argv = ['orchestrator', '--platform', str(self.registry.root), '--workspace', 'alpha',
+                'brain-handoff-native-exact-read', str(self.fixture.root / 'private-binding.json')]
+        with patch.object(sys, 'argv', argv), \
+             patch.dict(os.environ, {'ORCHESTRATOR_CONTROLLER_TOKEN': 'fixture-controller'}), \
+             patch('orchestrator.app_server_wake.load_binding', return_value=binding) as load, \
+             patch.object(brain_handoff, 'native_exact_observation', return_value={'status': 'read-only'}) as observe, \
+             contextlib.redirect_stdout(io.StringIO()) as output:
+            main()
+        load.assert_called_once_with(Path(argv[-1]))
+        self.assertEqual(observe.call_args.args[0].root, self.registry.root)
+        self.assertEqual(observe.call_args.args[1].root, self.ledger.root)
+        self.assertEqual(observe.call_args.args[2], 'fixture-controller')
+        self.assertIs(observe.call_args.args[3], binding)
+        self.assertEqual(json.loads(output.getvalue()), {'status': 'read-only'})
 
     def test_owner_confirmed_handoff_retains_usage_and_binding(self):
         prepared = self.prepare()
