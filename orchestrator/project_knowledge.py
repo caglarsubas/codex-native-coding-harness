@@ -393,7 +393,13 @@ def search(ledger, repository, query):
         raw = _git(repo, "show", row["blob"], maximum=MAX_FILE + 1)
         require(hashlib.sha256(raw).hexdigest() == row["sha256"], "Indexed source blob changed")
         path_words = re.findall(r"[a-z0-9]+", row["path"].casefold())
-        path_hits = sum(any(word.startswith(term) or term.startswith(word) for word in path_words) for term in terms)
+        # File names are useful retrieval hints, but a literal prefix misses
+        # common forms such as "observed" versus "observations". A six-character
+        # shared stem is only a ranking hint; every returned citation still
+        # comes from an exact, version-checked Git blob and matching source line.
+        path_hits = sum(any(word.startswith(term) or term.startswith(word) or
+                            (len(word) >= 6 and len(term) >= 6 and word[:6] == term[:6])
+                            for word in path_words) for term in terms)
         best = None
         for lineno, line in enumerate(raw.decode("utf-8").splitlines(), 1):
             lowered = line.casefold()

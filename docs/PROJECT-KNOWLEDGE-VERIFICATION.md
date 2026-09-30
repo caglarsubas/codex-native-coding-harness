@@ -10,7 +10,7 @@ or strict Harness execution authority.
 | KNW-02 | Private allowlisted Git index, optional Graphify 0.9.66 executable/version/hash adapter, content manifest and retained record links | Mocked safety tests plus actual 0.9.66 code-only/no-cluster extraction in a disposable Git project; cross-file relationship resolved; real PEM marker refused while source-code literal is accepted | Owner-reviewed installation and live-project configuration; complete dependency attestation is not claimed |
 | KNW-03 | Knowledge status/refresh/search/source/related/records API and CLI, dashboard view, direct HEAD fallback, bounded worker references and advisory metadata-only context | HTTP project/auth/CSRF test, Knowledge UI test, rendered isolated fixture search/source/real Graphify relationship review and fixed 20-question retrieval evaluation | Fresh-index quality on a selected live project |
 | KNW-04 | Immutable package, two signed owner previews, read-only checkpoint/evidence readiness, one-shot native candidate, bounded task-list membership and idle-state import, final-reply-bound package receipt, exact registry rebinding and fail-closed interrupted-commit repair | Disposable local Git/project fixture, missing/foreign/duplicated/active task membership, wrong project/host, missing/stale/non-final/wrong-summary native reply, stale review, unsettled work, replay and recovery tests | Real disposable native Codex task receipt and owner-reviewed browser handoff; tool-reported membership is not cryptographic host attestation |
-| KNW-05 | Fixed evaluation suite and this separate evidence ledger | 19/20 expected owner modules in top ten, two missing-evidence questions with no citation; local suites reported separately below | Merge, optional provider installation and explicit selected standard-project activation |
+| KNW-05 | Fixed evaluation suite and this separate evidence ledger | 20/20 expected owner modules in top ten after a bounded filename-stem ranking improvement; two missing-evidence questions with no citation; local suites reported separately below | Merge, optional provider installation and explicit selected standard-project activation |
 
 The final reply receipt and a fresh exact-idle `list_threads` membership are
 separate observations. A bounded list that omits an older candidate leaves
@@ -22,8 +22,8 @@ The 20 questions and expected sources are fixed in
 `tests/test_knowledge_eval.py`. They are implementation-location questions,
 not an acceptance test for semantic correctness of arbitrary answers. The
 search result is a versioned hint; every returned citation is opened against
-its recorded Git blob in the test. The one missed expected module remains a
-quality gap, not a reason to invent a citation. No question or excerpt goes to
+its recorded Git blob in the test. The ranking improvement does not produce
+citations without matching source text. No question or excerpt goes to
 the inference tenancy: the assistant sees only index metadata and a Knowledge
 navigation destination.
 
