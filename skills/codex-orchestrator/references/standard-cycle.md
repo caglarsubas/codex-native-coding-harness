@@ -12,15 +12,31 @@ not expose them. Keep requested settings distinct from observed settings.
 
 When an existing replacement candidate and final package receipt are recorded,
 preserve that one-shot candidate. A native final reply proves the receipt, not
-project membership. A bounded current `list_threads` result may omit an older
-candidate; omission proves neither absence nor membership. Do not create, retry,
-fork, message or Resume another candidate, or pin/unpin to fill the gap. Refresh
-does not collect membership. Final owner review requires a separate fresh result
-with exactly one matching task in the reviewed project and host, idle after the
-reply. Missing, omitted, active, unknown or stale membership blocks rebinding.
-Owner rebinding changes only the designated brain binding; selected-project Play
-and activation remain separate owner controls. See `docs/PROJECT-KNOWLEDGE.md`
-in the tooling checkout for the exact handoff and receipt procedure.
+project membership. The old brain must acquire its controller and retain a
+separate, fresh, exact native membership observation after that reply. Use one
+of the two native-evidence paths in `docs/PROJECT-KNOWLEDGE.md`:
+
+- Import a bounded current `list_threads` result with exactly one matching
+  candidate task in the reviewed Codex project and host. An older task may be
+  omitted from that bounded list; omission proves neither absence nor
+  membership.
+- If the project already has a reviewed owned app-server binding with both
+  native project IDs pinned separately, use `brain-handoff-native-exact-read`
+  with that private binding. It verifies the project and old brain on the
+  bound host, then reads the candidate's exact `thread/read` metadata and
+  checks its project, local repository and native activity. These host calls
+  are read-only; the command retains the bounded observation in the ledger.
+  It is not an exhaustive task/descendant inventory or host attestation.
+
+Release the controller before the owner's final review. The separate
+observation must still be fresh and show the candidate idle after its final
+reply (`notLoaded` is also valid only on the bound exact-read path). Missing,
+omitted, active, unknown or stale membership blocks rebinding. Do not create,
+retry, fork, message or Resume another candidate, or pin/unpin to fill the gap;
+Refresh does not collect membership. Owner rebinding changes only the
+designated brain binding; selected-project Play and activation remain separate
+owner controls. See `docs/PROJECT-KNOWLEDGE.md` for the exact commands, receipt
+and review procedure.
 
 ## Source and state
 
