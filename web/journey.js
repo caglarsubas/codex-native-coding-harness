@@ -17,6 +17,34 @@ function journeyDisclosure(key,title,build){
   details.addEventListener('toggle',()=>{if(!details.isConnected)return;if(details.open)journeyDetailsOpen.add(identity);else journeyDetailsOpen.delete(identity);});
   return details;
 }
+function journeyPendingConversation(snapshot){
+  return [...(snapshot.commands||[])].reverse().find(c=>c.kind==='reconcile'&&c.payload?.message&&!c.conversationReply);
+}
+function journeyConversationProgress(command){
+  const n=command.notification;
+  const ended=['completed','failed','interrupted'].includes(n?.nativeTurnStatus);
+  if(n?.nativeTurnStatus==='native_attention_required')return {
+    title:'Check the native permission or input request',
+    detail:'Codex reported a permission or input request. Inspect it in brain chat; only a current prompt can be answered. No permission is granted automatically.'};
+  if(command.conversationReceivedAt)return ended?{
+    title:'The brain turn ended without a saved reply',
+    detail:'The brain received this request, but its reply is missing. Inspect the existing turn and host before reconciling it; do not send another request.'}:{
+    title:'Waiting for the brain’s saved reply',
+    detail:'The brain received your request. Its reply has not been saved yet. Follow this request in brain chat; do not send a duplicate.'};
+  if(['uncertain','sending'].includes(n?.status))return {
+    title:'Request delivery needs reconciliation',
+    detail:'Your request is saved, but its native delivery is unconfirmed. Inspect this attempt before any new wake; do not resend it.'};
+  if(n?.status==='unavailable')return {
+    title:'The saved request could not reach Codex',
+    detail:'Inspect its delivery record and the configured host. A new message will not repair the connection; no retry has been sent.'};
+  if(n?.status==='accepted')return ended?{
+    title:'Codex ended the turn without a brain receipt',
+    detail:'Native delivery and the brain’s ledger receipt are separate. Inspect the existing turn and host; do not repeat this request.'}:{
+    title:'Waiting for the brain’s receipt',
+    detail:'Codex accepted the saved request. Follow its separate brain receipt and reply in brain chat before sending another request.'};
+  return {title:'A saved request is waiting for delivery',
+    detail:'This request has no recorded native delivery. Inspect the saved request and brain controls before preparing more work.'};
+}
 function roadmapJourneyState(snapshot,isConnected=true,now=Date.now()/1000){
   const s=snapshot.standard,run=s?.run,m=snapshot.mission,spec=m?.document?.spec;
   const result=(stage,title,detail,label,action,extra={})=>({stage,title,detail,label,action,...extra});
@@ -40,6 +68,14 @@ function roadmapJourneyState(snapshot,isConnected=true,now=Date.now()/1000){
   if(pending)return result(2,'Waiting for the brain’s receipt','Your '+pending.kind.replace('standard_','')+' request is saved. Inspect its delivery status before sending another request.','Inspect request delivery','request',{request:pending,canPause:run.status==='running'});
   const blockers=[...(s?.blockers||[])];
   if(run&&['running','paused'].includes(run.status)&&run.expiresAt<=now&&!blockers.some(x=>/expir/i.test(x)))blockers.push('The phase time limit has expired.');
+  const conversation=journeyPendingConversation(snapshot);
+  // A phase draft or absent run is not proof that an earlier conversation is
+  // finished. Paused recovery keeps its separately signed preparation path.
+  if(conversation&&run?.status!=='paused'&&!(run?.status==='running'&&blockers.length&&!snapshot.recovery)){
+    const progress=journeyConversationProgress(conversation);
+    return result(run?.status==='running'?2:0,progress.title,progress.detail,
+      'Inspect saved request','conversation',{request:conversation,canPause:run?.status==='running'});
+  }
   if(run?.status==='running'){
     if(snapshot.recovery&&!snapshot.meta?.controller){
       if(snapshot.meta?.brainControl?.desired==='stopped')return result(2,'Brain is stopped; recovery is still needed',
@@ -96,6 +132,9 @@ function roadmapJourneyState(snapshot,isConnected=true,now=Date.now()/1000){
 }
 function prepareRoadmapPhase(){
   if(busy||!connected){showNotice('Wait for the current request or reconnect before preparing a phase message.',true);return;}
+  if(journeyPendingConversation(state)){
+    navigateView('conversation');showNotice('Your saved request is still awaiting a reply. Inspect it before preparing another request.');return;
+  }
   if(state?.recovery?.phaseStatus==='blocked'){
     focusAssistantConversation();assistantRequestStep('phase_prepare');return;
   }
@@ -125,12 +164,30 @@ function journeyAction(action){
   if(action==='request'){journeyDetailsOpen.add((workspaceId||'legacy')+':control-requests');navigateView('operations');document.getElementById('control-request-history')?.scrollIntoView({block:'start'});return;}
   if(['play','resume','pause'].includes(action))return reviewStandardControl(state.standard,action,state.standard?.run);
   if(action==='handoff'){navigateView('operations');const target=document.getElementById('brain-handoff-section');if(target){target.open=true;target.scrollIntoView({block:'start'});target.querySelector('summary')?.focus();}return;}
+  if(action==='conversation'){
+    const request=journeyPendingConversation(state),key=workspaceId||'legacy';
+    if(request){
+      // Match the durable conversation's createdAt/ID order, not whichever
+      // history page or scroll position the owner happened to inspect last.
+      const messages=(state.commands||[]).filter(c=>c.kind==='reconcile'&&c.payload?.message)
+        .sort((a,b)=>{
+          const time=(b.createdAt||0)-(a.createdAt||0);if(time)return time;
+          const left=Array.from(b.id||''),right=Array.from(a.id||'');
+          for(let i=0;i<Math.min(left.length,right.length);i++){
+            const point=left[i].codePointAt(0)-right[i].codePointAt(0);if(point)return point;
+          }
+          return left.length-right.length;
+        });
+      if(typeof brainPages!=='undefined')brainPages.set(key,Math.floor(messages.findIndex(c=>c.id===request.id)/30));
+      if(typeof brainRequestFocus!=='undefined')brainRequestFocus.set(key,request.id);
+    }
+  }
   navigateView(action);
 }
 function roadmapJourney(root){
   const snapshot=state,s=snapshot.standard,run=s?.run,m=snapshot.mission,spec=m?.document?.spec;
   let model=roadmapJourneyState(snapshot,connected);
-  if(connected&&!model.strict&&model.action!=='handoff'&&!['running','stopping','paused'].includes(run?.status)&&missionDrafts.has(workspaceId))model={stage:0,title:'Your phase draft is open',detail:'Continue editing the unsaved phase plan, then review it before Play. Previous phase results remain available below.',label:'Continue phase draft',action:'mission'};
+  if(connected&&!model.strict&&!model.request&&model.action!=='handoff'&&!['running','stopping','paused'].includes(run?.status)&&missionDrafts.has(workspaceId))model={stage:0,title:'Your phase draft is open',detail:'Continue editing the unsaved phase plan, then review it before Play. Previous phase results remain available below.',label:'Continue phase draft',action:'mission'};
   const panel=el('section',null,'roadmap-journey');panel.setAttribute('aria-label','Roadmap development cycle');
   const steps=el('ol',null,'journey-steps');
   [['Plan','mission'],['Review & Play','roadmap'],['Develop','overview'],['Checkpoint','workers']].forEach(([name,target],index)=>{

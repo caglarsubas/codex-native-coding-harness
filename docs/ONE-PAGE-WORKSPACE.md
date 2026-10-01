@@ -19,6 +19,17 @@ all active or attention-needing registered tasks visible. Older history is
 paginated, and the searchable list gives the same selections without requiring
 graph gestures.
 
+In standard projects, an unresolved saved conversation takes priority over a new
+phase proposal, even when no phase run exists or the previous phase has ended.
+**Inspect saved request**
+opens the same brain inspector without sending anything. The header distinguishes
+delivery uncertainty, a missing brain receipt, a received request without a saved
+reply, and an ended native turn without that reply. A reported native permission
+request is not proof that its prompt is still current. Phase drafts do not hide
+an unfinished request; only its retained reply clears that conversation state.
+Safety Pause and the separately reviewed paused-phase recovery path retain priority.
+This guidance does not repair a host, replay a wake or grant Review, Resume or Play.
+
 Roadmap review, decisions, knowledge, budgets, history and advanced controls
 are contextual inspector sections. Each begins with the outcome, what needs
 attention and the next step. Full narratives, receipts and source records sit
