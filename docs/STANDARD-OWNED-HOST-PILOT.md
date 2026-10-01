@@ -18,6 +18,28 @@ This guide and collector are source delivery, not completed native pilot evidenc
 No Play, worker, native approval, host migration, credential change, installation
 or notification follows from loading this document or reading dashboard state.
 
+## Readiness failures are not another owner step
+
+A successful owned `turn/start` can still lack the native task creation/message
+tool schemas needed by the standard model/effort catalog. Delivery, a completed
+turn and a retained `catalog_error` prove that the check was processed, not that
+the host can dispatch tasks. Neither a different host's schemas, collaboration
+agent overrides nor a model list may substitute for destination task capabilities.
+
+Preserve the structured error code and retryability with the original request,
+diagnostic and completion time. A missing schema (`native_task_schema_unavailable`
+or `schema_unavailable`) requires operator tool-setup repair, even if the brain
+labels it retryable after that repair. The graph should offer **Inspect Codex
+readiness**, not another immediate retry or a long message to the brain. Keep
+the exact diagnostic under **Details**. A separately chosen **Check again after
+host repair** creates a new bounded check through the existing owner control;
+inspection and polling never send it. Non-retryable failures do not offer it.
+
+The existing phase review remains valid if its bindings are unchanged. Do not
+revise the mission, fabricate a catalog, relax Play, silently switch hosts or
+reconfigure a reviewed host merely to clear this prerequisite. Native tool setup
+and any changed host identity/access require their applicable separate review.
+
 ## Finite native acceptance
 
 Record each observed result separately. Local fixtures do not check these boxes.
@@ -141,3 +163,21 @@ These are source and fixture results only. The disposable preview used no real
 Codex host, inference service, live ledger or native notification. Its server and
 tab were closed after inspection. All native acceptance boxes above remain open;
 this verification neither installs the helper nor clears the old legacy stop.
+
+### Readiness-failure guidance verification (2026-10-02)
+
+- Full local Python suite: 1,947 tests, no failures and one existing skip.
+- All 30 JavaScript suites and 31 web-script syntax checks passed, together with
+  focused Python compilation and diff checks. No GitHub Actions are configured.
+- Regression checks retain structured diagnostics without read-side writes,
+  reject Play with missing capabilities, prevent inspection/polling from sending
+  a failed request, fence stale project/request/context or changed retryability,
+  and keep an explicit recheck separate from a Play preview/confirmation.
+- Synthetic desktop and 320px previews verified concise setup guidance,
+  keyboard-operated Details, inspection focus and non-retryable errors without
+  a recheck button. Document width remained 320px; no native check was sent.
+  The temporary fixture server/tab were closed and viewport override reset.
+
+This corrects source guidance, not the underlying native task integration.
+It installs no host capability or live dashboard update, changes no mission,
+and qualifies none of the remaining native phase/approval acceptance steps.
