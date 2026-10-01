@@ -252,6 +252,11 @@ class ReadProxy:
                     params["modelProviders"] == [] and params["useStateDbOnly"] is True, "Exact scoped read-only list required")
         elif method == "thread/backgroundTerminals/list":
             exact(params, {"threadId", "cursor", "limit"}); identifier(params["threadId"])
+        elif method == "thread/turns/list":
+            exact(params, {"threadId", "cursor", "limit", "sortDirection", "itemsView"})
+            identifier(params["threadId"])
+            require(params["sortDirection"] == "desc" and params["itemsView"] == "notLoaded",
+                    "Only bounded turn metadata without items may be read")
         else: raise Refusal("Native mutation or unsupported RPC refused")
         if "cursor" in params:
             require(params["cursor"] is None or isinstance(params["cursor"], str) and 0 < len(params["cursor"]) <= 256,

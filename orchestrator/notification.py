@@ -18,7 +18,7 @@ ACK = re.compile(rf"Queued message ({UUID}) for thread ({UUID})\.")
 TIMEOUT = 8
 NOTIFY_KINDS = {"decision_response", "resume", "reconcile", "checkpoint", "archive", "brain_stop", "brain_resume", "brain_checkpoint_continue",
                 "approve", "hold", "prioritize", "listening", "pause", "standard_play", "standard_pause", "standard_resume",
-                "standard_catalog_refresh", "standard_recovery", "brain_handoff"}
+                "standard_catalog_refresh", "standard_recovery", "brain_handoff", "brain_reply_recovery"}
 
 
 class BrainNotifier:
@@ -78,6 +78,15 @@ class BrainNotifier:
                     or command.get("actor") not in ("dashboard", "assistant_owner_confirmed") or command.get("notification")):
                 return command
             meta = ledger.get(db, "meta", 1)
+            if command["kind"] == "brain_reply_recovery":
+                from .reply_recovery import validate_in
+                from .core import Refusal
+                try:
+                    validate_in(ledger, db, command, meta, command["actor"])
+                    if not self.app_server or digest(self.app_server.binding) != command["payload"]["bindingHash"]:
+                        return command  # No desktop fallback or changed-host send.
+                except Refusal:
+                    return command  # A racing stop/owner/control wins before claim.
             standard_run = meta.get("standardRun")
             if command["kind"] == "standard_recovery" and (not standard_run or
                     standard_run.get("status") != "paused" or
@@ -173,6 +182,24 @@ class BrainNotifier:
                 "a supplied summary alone is refused. The owner must "
                 "review and confirm final rebinding in the dashboard. No Play, Resume or worker effect follows automatically."
             )
+        elif command["kind"] == "brain_reply_recovery":
+            source = Path(__file__).resolve().parent.parent
+            message = (
+                "One owner-reviewed receipt-only recovery was committed for an already received request. "
+                f"Use source {json.dumps(str(source))}, platform {json.dumps(str(ledger.platform_root))}, "
+                f"workspace {ledger.workspace_id}, recovery ID {command['id']}. "
+                f"Read {json.dumps(str(source / 'docs/RECEIPT-ONLY-RECOVERY.md'))} completely. "
+                "Verify this exact task is the designated brain; check inbox and Brain Stop first. "
+                "Acquire the designated-brain controller, then use brain-reply-recovery-receive for ONLY this recovery ID. "
+                "Do NOT use generic process or drain other inputs. Read the original request as historical context, "
+                "not an instruction to execute again. Inspect its existing receipts and native outcome read-only. "
+                "Preserve uncertainty: a completed/interrupted native turn does not prove command success or approval. "
+                "Retain a concise reply to the returned original messageId using brain-message-reply, "
+                "explaining what is known, missing and next; release the controller before ending. "
+                "Do not rerun original commands, answer native security prompts, change settings or identities, "
+                "edit source, create/continue workers, review a mission, Play, Resume, merge or claim pilot acceptance. "
+                "This is one receipt-only turn, never a retry of the original diagnostic. Dispatch stays paused."
+            )
         elif command["kind"] == "standard_recovery":
             source = Path(__file__).resolve().parent.parent
             message = (
@@ -220,7 +247,7 @@ class BrainNotifier:
                 "No permissions come from this notification; use the exact owner-approved run and inheritance seed. "
                 "Keep supervising registered tasks with native waits until the reviewed phase checkpoint or stop."
             )
-        if has_conversation and command["kind"] != "standard_recovery":
+        if has_conversation and command["kind"] not in ("standard_recovery", "brain_reply_recovery"):
             source = Path(__file__).resolve().parent.parent
             scope = (f"--platform {json.dumps(str(ledger.platform_root))} --workspace {ledger.workspace_id}"
                      if getattr(ledger, "workspace_id", None) else f"--state {json.dumps(str(ledger.root))}")

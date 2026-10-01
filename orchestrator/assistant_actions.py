@@ -113,6 +113,8 @@ def catalog(state, links):
             "Save only the exact text you review below as design/input for this version. No option is inferred. This does not approve a packet, grant execution or wake a stopped brain.",
             "decisions/" + d["id"], target=d["spec"]["title"], details={"scope": d["spec"]["scope"], "decisionHash": d["decisionHash"]})
     from .assistant_journey import catalog as journey_catalog
+    from .reply_recovery import catalog as reply_catalog
+    result.update(reply_catalog(state))
     workflow_actions = journey_catalog(state)
     result.update(workflow_actions)
     if workflow_actions:

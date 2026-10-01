@@ -160,6 +160,29 @@ class JourneyProposals(ActionProposals):
 
     def prepare(self, action, state, session):
         kind = action["kind"]
+        if kind == "brain_reply_recovery":
+            from . import reply_recovery as recovery
+            from .native_read_client import ReadProxy
+            host = self.runtime.notifier.app_server
+            require(host is not None, "A reviewed owned Codex host is required; no queue fallback")
+            original = recovery.eligible(state)
+            recovery.check_binding(state, host.binding)
+            with ReadProxy(host.binding["endpoint"]) as proxy:
+                observation = recovery.observe(proxy, host.binding, original)
+            require(self.runtime.ledger.snapshot()["meta"]["revision"] == state["meta"]["revision"],
+                    "Project changed during native inspection; check again")
+            request = {**action, "payload": {"messageId": original["id"],
+                "messageFingerprint": original["fingerprint"], "brainId": state["meta"]["brainId"],
+                "bindingHash": digest(host.binding), "observation": observation},
+                "details": {"messageId": original["id"], "turn": observation,
+                    "summary": ["The original message was received, but its reply is missing.",
+                        "One recovery turn may retain that reply without rerunning the original request.",
+                        "Dispatch remains paused; diagnostic success is not implied."]}}
+            proposal = super().prepare(request, state, session)
+            proposal["document"]["ledger"] = digest(str(self.runtime.ledger.db))
+            proposal["document"]["workspaceId"] = state["workspace"]["id"]
+            proposal["signature"] = self.sign(proposal["document"])
+            return proposal
         if kind not in KINDS:
             return super().prepare(action, state, session)
         require(kind in catalog(state) and catalog(state)[kind]["available"], "Refresh the project before preparing this action")
@@ -236,6 +259,33 @@ class JourneyProposals(ActionProposals):
                 isinstance(body["proposal"].get("document"), dict), "Invalid action preview")
         doc = body["proposal"]["document"]
         if "workflow" not in doc:
+            if doc.get("command", {}).get("kind") == "brain_reply_recovery":
+                # Validate before any connection; historical replay is receipt-only.
+                p = body["proposal"]
+                require(set(body) == {"proposal", "confirmed"} and body["confirmed"] is True and
+                        set(p) == {"document", "signature"} and isinstance(p["signature"], str) and
+                        hmac.compare_digest(self.sign(doc), p["signature"]) and doc["session"] == digest(session) and
+                        doc["ledger"] == digest(str(ledger.db)) and doc["workspaceId"] == ledger.workspace_id,
+                        "Exact same-project signed owner confirmation required")
+                command = doc["command"]
+                with contextlib.closing(ledger.connect()) as db:
+                    prior = db.execute("SELECT data FROM commands WHERE id=?", (command["id"],)).fetchone()
+                if not prior:
+                    require(time.time() <= doc["expiresAt"], "Preview expired; check again")
+                    state = self.runtime.snapshot()
+                    require(state["meta"]["revision"] == command["expectedRevision"], "Project changed; check again")
+                    from . import reply_recovery as recovery
+                    from .native_read_client import ReadProxy
+                    original = recovery.eligible(state)
+                    host = self.runtime.notifier.app_server
+                    require(host is not None and digest(host.binding) == command["payload"]["bindingHash"],
+                            "Reviewed host changed; no turn was sent")
+                    recovery.check_binding(state, host.binding)
+                    with ReadProxy(host.binding["endpoint"]) as proxy:
+                        observed = recovery.observe(proxy, host.binding, original)
+                    require(all(observed[k] == command["payload"]["observation"][k] for k in
+                                ("turnId", "status", "completedAt", "brainId", "projectId", "bindingHash")),
+                            "Original native turn changed; check again")
             return super().confirm(ledger, body, session)
         require(set(body) == {"proposal", "confirmed"} and body["confirmed"] is True, "Confirm the displayed action first")
         p = body["proposal"]

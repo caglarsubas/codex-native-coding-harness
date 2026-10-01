@@ -22,7 +22,7 @@ VERSION = 1
 LEDGER_VERSIONS = (1, 2, 3, 4)  # v2 declarations; v3 strict runs; v4 explicit cooperative runs.
 AXES = ("source", "ci", "merge", "artifact", "deployment", "runtime", "assurance", "tenant")
 ACTIVE = ("reserved", "starting", "running", "awaiting_acceptance", "accepting", "verifying", "blocked")
-COMMANDS = {"approve", "hold", "prioritize", "pause", "resume", "reconcile", "checkpoint", "archive", "decision_response", "listening", "brain_stop", "brain_resume", "brain_checkpoint_continue"}
+COMMANDS = {"approve", "hold", "prioritize", "pause", "resume", "reconcile", "checkpoint", "archive", "decision_response", "listening", "brain_stop", "brain_resume", "brain_checkpoint_continue", "brain_reply_recovery"}
 PREFLIGHT_CHECKS = {"packetCurrent", "baseCurrent", "predecessorsVerified", "locksVerified", "noActiveDuplicate",
     "setupSafe", "policyReviewed", "runnerAvailable", "scopeApproved"}
 SHA = re.compile(r"^[a-f0-9]{64}$")
@@ -325,6 +325,8 @@ class Ledger:
                 "listening": {"enabled"}, "decision_response": {"decisionId", "decisionHash", "optionId", "note", "confirmed"},
                 "brain_stop": set(), "brain_resume": set(),
                 "brain_checkpoint_continue": {"stopCommandId"}}
+            from .reply_recovery import FIELDS as recovery_fields
+            fields["brain_reply_recovery"] = recovery_fields
             if conversation:
                 from .conversation import FIELDS
                 fields["reconcile"] = FIELDS
@@ -336,6 +338,9 @@ class Ledger:
             from .brain_control import request as brain_request, stopped
             if conversation:
                 validate_message(self, db, command, meta, actor)
+            elif kind == "brain_reply_recovery":
+                from .reply_recovery import validate_in
+                validate_in(self, db, record, meta, actor)
             elif kind in ("resume", "reconcile"):
                 require(not any(c["kind"] == kind and not is_message(c) and c["status"] in ("queued", "processing") for c in self.all(db, "commands")), "Equivalent request already pending")
                 if kind == "reconcile":
@@ -343,6 +348,8 @@ class Ledger:
                     require(not any(pending_message(c) for c in self.all(db, "commands")),
                             "A brain message is awaiting its reply; follow the existing request")
             if kind == "resume":
+                from .reply_recovery import fence_development
+                fence_development(self, db)
                 from .enrollment import require_legacy_unfenced
                 require_legacy_unfenced(self, meta)
                 require(not stopped(meta), "Resume the brain before enabling worker dispatch")
@@ -446,6 +453,9 @@ class Ledger:
                     continue
                 if cmd["status"] != "queued":
                     continue
+                if cmd["kind"] == "brain_reply_recovery":
+                    # Dedicated receipt-only receive must not drain/replay inputs.
+                    continue
                 from .conversation import is_message, receive_in
                 if is_message(cmd):
                     from .decisions import authorize_brain
@@ -500,7 +510,7 @@ class Ledger:
             cmd = self.get(db, "commands", command_id)
             from .conversation import is_message
             require(not is_message(cmd), "Use brain-message-reply to retain a conversation response")
-            require(cmd["kind"] not in ("decision_response", "brain_stop", "brain_resume", "brain_checkpoint_continue"), "Use the dedicated decision or brain checkpoint lifecycle")
+            require(cmd["kind"] not in ("decision_response", "brain_stop", "brain_resume", "brain_checkpoint_continue", "brain_reply_recovery"), "Use the dedicated decision or brain checkpoint lifecycle")
             require(cmd["status"] == "processing", "Command is not in flight")
             if cmd["kind"] == "archive":
                 require("dispatchAdmission" not in self.get(db, "workers", cmd["payload"]["workerId"]),

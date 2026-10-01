@@ -364,6 +364,9 @@ class Controls:
             meta = ledger.get(db, "meta", 1)
             run = meta.get("standardRun")
             op = doc["operation"]
+            if op != "pause":
+                from .reply_recovery import fence_development
+                fence_development(ledger, db)
             if op == "pause":
                 require(run and run["id"] == doc["runId"], "Pause belongs to another run")
             else:

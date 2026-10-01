@@ -69,6 +69,29 @@ async function render(){const root=new Element('root');box.conversationView(root
   assert.equal(vm.runInContext("brainRequestFocus.has('alpha')",box),false,'The focus request is consumed once');
   assert.equal(vm.runInContext("brainRequestFocus.get('beta')",box),'other-request','Other project focus remains isolated');
   messages=[];
+  // Receipt recovery is a separate, exact preview/confirmation, never a read wake.
+  box.state.replyRecovery={messageId:'original'};
+  const recoveryCalls=[],recoveryProposal={document:{expiresAt:9999999999,command:{id:'recovery-1',payload:{messageId:'original'}},
+    preview:{impact:'Receipt only; no original retry.',details:{summary:['Original reply missing'],turn:{status:'interrupted',effectOutcome:'not_reconciled'}}}},signature:'signed'};
+  box.api=async(path,options)=>{recoveryCalls.push([path,JSON.parse(options.body)]);return path.endsWith('preview')?recoveryProposal:{};};
+  root=new Element('root');root.isConnected=false;box.receiptRecoveryPanel(root,{id:'original'});
+  assert(all(root).some(n=>n.text==='Check missing brain reply'),'Initial controls render before inspector attachment');
+  root.isConnected=true;
+  assert.equal(recoveryCalls.length,0);
+  await all(root).find(n=>n.text==='Check missing brain reply').click();
+  assert.equal(recoveryCalls.length,1);assert.equal(recoveryCalls[0][0],'/api/assistant/preview');
+  nodes=all(root);
+  const recoverCheck=nodes.find(n=>n.type==='checkbox'),recoverConfirm=nodes.find(n=>n.text==='Confirm receipt-only recovery');
+  assert.equal(recoverCheck.checked,undefined);assert.equal(recoverConfirm.disabled,true);
+  assert.equal(nodes.find(n=>n.tag==='details').open,undefined,'Technical details stay collapsed');
+  recoverCheck.checked=true;recoverCheck.onchange();await recoverConfirm.click();
+  assert.equal(recoveryCalls[1][0],'/api/assistant/confirm');assert.equal(recoveryCalls[1][1].confirmed,true);
+  assert.deepEqual(recoveryCalls[1][1].proposal,recoveryProposal);
+  root=new Element('root');box.receiptRecoveryPanel(root,{id:'original',receiptRecovery:{status:'queued',notification:{status:'uncertain'}}});
+  assert(all(root).some(n=>n.text?.includes('Do not send another wake')));
+  assert(!all(root).some(n=>n.tag==='button'));
+  assert.equal(recoveryCalls.length,2);
+  box.state.replyRecovery=null;
   let nativePending=true;const nativeCalls=[];
   const native={status:'pending',pending:{commandId:'cmd-1',brainId:'brain-a',turnId:'turn-1',itemId:'item-1',requestId:4,
     method:'item/commandExecution/requestApproval',requestHash:'a'.repeat(64),observedAt:1,expiresAt:9999999999,

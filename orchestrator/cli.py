@@ -93,6 +93,7 @@ def main():
             p.add_argument("index_hash"); p.add_argument("path")
     sub.add_parser("brain-messages", help="Read durable workspace conversation without waking the brain")
     p = sub.add_parser("brain-message-receive"); p.add_argument("id")
+    p = sub.add_parser("brain-reply-recovery-receive"); p.add_argument("id")
     p = sub.add_parser("brain-message-reply"); p.add_argument("id"); p.add_argument("reply", type=Path)
     p = sub.add_parser("standard-acquire", help="Persist a private brain controller token across bounded shell calls")
     p.add_argument("owner")
@@ -356,6 +357,9 @@ def main():
         out = messages(ledger)
     elif action == "brain-message-receive":
         from .conversation import receive
+        out = receive(ledger, token, args.id)
+    elif action == "brain-reply-recovery-receive":
+        from .reply_recovery import receive
         out = receive(ledger, token, args.id)
     elif action == "brain-message-reply":
         from .conversation import reply, read_reply

@@ -94,6 +94,17 @@ a fixed pointer, never message text as argv. Only the designated brain may retai
 its reply. Conversation grants no packet/phase approval, target access or bypass
 of stop, budget or policy controls. Native security prompts remain native.
 
+For an otherwise empty, paused pre-phase standard project, a separately signed
+`brain_reply_recovery` may authorize one receipt-only owned-host wake for an
+already received request. Require exact matching metadata-only ended-turn reads,
+the original fingerprint, current bound identities and one durable recovery
+attempt. Only `brain-reply-recovery-receive` receives it; do not use generic
+`process`, replay the original instruction, answer native approvals or start
+development. Retain the original reply through the designated brain's existing
+reply operation. Brain Stop, maintenance, strict Harness, active standard runs
+and other pending ownership remain fenced. Source delivery does not install,
+send, rebind or qualify the pilot. See docs/RECEIPT-ONLY-RECOVERY.md.
+
 ## Owner-approved standard-project contract (2026-09-21)
 
 `standard_cooperative_v1` is a separate opt-in run protocol. The owner explicitly

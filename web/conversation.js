@@ -3,6 +3,57 @@ Object.assign(titles,{conversation:['Brain conversation','Talk to this project�
 const brainDrafts=new Map(),brainPages=new Map();
 const brainRequestFocus=new Map();
 const nativePermissionPreviews=new Map();
+const receiptRecoveryPreviews=new Map();
+function receiptRecoveryPanel(article,message){
+  const key=workspaceId||'legacy',generation=typeof workspaceGeneration==='undefined'?0:workspaceGeneration;
+  const same=()=>article.isConnected&&key===(workspaceId||'legacy')&&generation===(typeof workspaceGeneration==='undefined'?0:workspaceGeneration);
+  const recovery=message.receiptRecovery;
+  if(recovery&&!message.reply){
+    const n=recovery.notification||{},detail=recovery.receivedAt?'Receipt-only recovery received; waiting for the saved reply.':
+      n.status==='accepted'?'Recovery turn started; waiting for its separate receipt and reply.':
+      ['sending','uncertain'].includes(n.status)?'Recovery delivery is unconfirmed. Do not send another wake.':
+      'Recovery saved but not delivered. Inspect its host and current controls; no automatic retry.';
+    article.append(el('p',detail,'checkpoint'));
+    return;
+  }
+  if(message.reply||state.replyRecovery?.messageId!==message.id)return;
+  const panel=el('section',null,'receipt-recovery');article.append(panel);
+  const post=(path,body)=>api(path,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify(body)});
+  function paint(initial=false){
+    if(!initial&&!same())return;panel.replaceChildren();
+    if(receiptRecoveryPreviews.get(key)?.proposal.document.command.payload.messageId!==message.id)receiptRecoveryPreviews.delete(key);
+    const cached=receiptRecoveryPreviews.get(key),proposal=cached?.proposal,doc=proposal?.document;
+    panel.append(el('h4','Recover the missing reply'),el('p','Check the original turn, then review one receipt-only wake. The original instruction will not be rerun.','muted'));
+    if(!proposal){
+      const check=button('Check missing brain reply',async()=>{
+        check.disabled=true;
+        try{const p=await post('/api/assistant/preview',{key:'reply_recovery'});if(!same())return;
+          receiptRecoveryPreviews.set(key,{proposal:p,uncertain:false});paint();
+        }catch(error){if(same())panel.append(el('p','Recovery check unavailable: '+error.message+' Nothing was sent.','checkpoint'));}
+        finally{check.disabled=false;}
+      });panel.append(check);return;
+    }
+    const list=el('ul');for(const text of doc.preview.details.summary||[])list.append(el('li',text));panel.append(list);
+    const details=el('details');details.append(el('summary','Details · scope, native observation & expiry'),
+      el('p',doc.preview.impact),el('p','Expires '+when(doc.expiresAt)),el('pre',JSON.stringify(doc.preview.details.turn,null,2)));panel.append(details);
+    const label=el('label',null,'decision-confirm'),check=el('input');check.type='checkbox';
+    label.append(check,el('span','Confirm one receipt-only wake for this original request. No original command retry or Play.'));panel.append(label);
+    const confirm=button(cached.uncertain?'Recover same confirmation receipt':'Confirm receipt-only recovery',async()=>{
+      if(!check.checked)return;confirm.disabled=true;
+      try{await post('/api/assistant/confirm',{proposal,confirmed:true});if(!same())return;
+        receiptRecoveryPreviews.delete(key);showNotice('Receipt-only recovery saved. Follow its delivery, receipt and reply.');await refresh();
+      }catch(error){if(!same())return;cached.uncertain=![400,401,403,409].includes(error.status);
+        if(!cached.uncertain){receiptRecoveryPreviews.delete(key);paint();}
+        panel.append(el('p',error.message+(cached.uncertain?' Recover only this same confirmation receipt; do not submit another wake.':' Nothing new was sent; check current state.'),'checkpoint'));
+        confirm.textContent=cached.uncertain?'Recover same confirmation receipt':'Confirm receipt-only recovery';
+      }finally{confirm.disabled=!check.checked;}
+    },'primary');confirm.disabled=true;check.onchange=()=>{confirm.disabled=!check.checked;};panel.append(confirm);
+    if(!cached.uncertain)panel.append(button('Dismiss preview',()=>{receiptRecoveryPreviews.delete(key);paint();}));
+  }
+  // Build the initial controls before this article is attached to the inspector.
+  // Asynchronous updates still require the exact connected workspace generation.
+  paint(true);
+}
 function nativePermissionPanel(root){
   const panel=el('section',null,'brain-exchange native-permission');root.append(panel);
   const key=workspaceId||'legacy',generation=typeof workspaceGeneration==='undefined'?0:workspaceGeneration;
@@ -195,6 +246,7 @@ function conversationView(root){
         article.setAttribute('tabindex','-1');article.setAttribute('data-focus','saved-request:'+message.id);requestTarget=article;
       }
       article.append(el('h3','You'),el('p',when(message.createdAt),'muted'),narrative(message.message,'Your message'),badge(delivery.label),el('p',delivery.detail,'muted'));
+      receiptRecoveryPanel(article,message);
       if(message.reply){article.append(el('h3','Project brain'),el('p',when(message.reply.at),'muted'),narrative(message.reply.message,'Brain reply'));
         const links=el('div',null,'inline-actions');
         for(const id of message.reply.artifactIds){const item=state.observations?.artifacts?.find(a=>a.id===id);links.append(button(item?'Read '+item.name+' · v'+item.version:'Open retained artifact',()=>navigateView('artifacts',id)));}

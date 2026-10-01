@@ -70,6 +70,12 @@ Existing checkpoints, activity, decisions, artifacts and workers remain visible.
 History is paginated, oldest first within each page, with newest page by default.
 Reading/polling never wakes a model or refreshes evidence timestamps.
 
+For an already received, ended owned-host request in an otherwise empty,
+paused pre-phase standard workspace, **Check missing brain reply** prepares
+a separately signed [receipt-only recovery](RECEIPT-ONLY-RECOVERY.md).
+It does not resend the instruction or permit a diagnostic retry.
+Activated phases retain their separate checkpoint recovery controls.
+
 ## Local rollout
 
 Serve the registry containing the actual project ledger, not a disposable-pilot
