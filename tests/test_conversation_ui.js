@@ -6,14 +6,16 @@ class Element{
   replaceChildren(...children){this.children=children;}
   setAttribute(name,value){this[name]=value;}
   addEventListener(name,fn){this[name]=fn;}
+  scrollIntoView(options){this.scrolled=options;}
+  focus(options){this.focused=options;}
 }
-let fail=false,pending=0,navigation=null;const sent=[];
+let fail=false,pending=0,navigation=null,messages=[];const sent=[];
 const box={Map,titles:{},workspaceId:'alpha',busy:false,connected:true,csrf:'fixture',crypto:{randomUUID:()=>String(sent.length)},
   state:{meta:{brainId:'brain-a',revision:1},workspace:{name:'Alpha'},repositories:[]},
   el:(tag,text)=>new Element(tag,text),button:(text,callback)=>Object.assign(new Element('button',text),{click:callback}),
   section:text=>new Element('h2',text),empty:(a,b)=>new Element('p',a+b),callout:(a,b)=>new Element('p',a+b),badge:text=>new Element('span',text),when:String,
   render(){},navigateView(view){navigation=view;},missionDocument(root,hash,label){root.append(new Element('details',label));},refresh:async()=>{assert.equal(box.busy,false);},showNotice(){},updateWorkspaceSelector(){},
-  api:async(path,options)=>{if(!options)return {pending,total:0,messages:[],hasOlder:false};sent.push(JSON.parse(options.body));if(fail)throw Error('Uncertain network result');return {};}};
+  api:async(path,options)=>{if(!options)return {pending,total:messages.length,messages,hasOlder:false};sent.push(JSON.parse(options.body));if(fail)throw Error('Uncertain network result');return {};}};
 vm.createContext(box);vm.runInContext(fs.readFileSync('web/summaries.js','utf8'),box);vm.runInContext(fs.readFileSync('web/conversation.js','utf8'),box);
 const all=root=>[root,...root.children.flatMap(x=>x instanceof Element?all(x):[])];
 async function render(){const root=new Element('root');box.conversationView(root);await Promise.resolve();return all(root);}
@@ -40,6 +42,13 @@ async function render(){const root=new Element('root');box.conversationView(root
   assert.equal(box.brainMessageState({notification:{status:'accepted',nativeDelivery:'owned_turn_start',nativeTurnStatus:'completed'}}).label,'Native turn ended · receipt missing');
   assert.equal(box.brainMessageState({notification:{status:'uncertain'}}).label,'Delivery unconfirmed');
   assert.equal(box.brainMessageState({receivedAt:1}).label,'Received · reply pending');
+  for(const nativeTurnStatus of ['completed','failed','interrupted']){
+    const delivery=box.brainMessageState({receivedAt:1,notification:{status:'accepted',nativeTurnStatus}});
+    assert.equal(delivery.label,'Native turn ended · reply missing');
+    assert.match(delivery.detail,/do not send a duplicate/);
+  }
+  assert.equal(box.brainMessageState({receivedAt:1,notification:{nativeTurnStatus:'native_attention_required'}}).label,'Received · native attention reported');
+  assert.equal(box.brainMessageState({receivedAt:1,notification:{nativeTurnStatus:'interrupted'},reply:{message:'Done'}}).label,'Replied','A retained reply remains distinct from native turn completion');
   assert.equal(box.brainMessageState({reply:{message:'Done'}}).label,'Replied');
   let nodes=await render(),input=nodes.find(n=>n.tag==='textarea'),check=nodes.find(n=>n.type==='checkbox'),send=nodes.find(n=>n.type==='submit');
   assert.equal(send.disabled,true);assert.equal(check.checked,false);
@@ -51,6 +60,15 @@ async function render(){const root=new Element('root');box.conversationView(root
   fail=false;await nodes.find(n=>n.tag==='form').onsubmit({preventDefault(){}});assert.equal(JSON.stringify(sent[1]),first);
   assert.equal(sent[1].payload.brainId,'brain-a');assert.equal(sent[1].kind,'reconcile');
   pending=1;nodes=await render();assert.equal(nodes.find(n=>n.type==='submit').disabled,true);
+  messages=[{id:'exact-request',message:'Existing bounded instruction',createdAt:1,receivedAt:2}];
+  vm.runInContext("brainRequestFocus.set('alpha','exact-request');brainRequestFocus.set('beta','other-request')",box);
+  const beforeFocus=sent.length;nodes=await render();
+  const target=nodes.find(n=>n['data-focus']==='saved-request:exact-request');
+  assert.equal(target.tabindex,'-1');assert.equal(target.scrolled.block,'nearest');assert.equal(target.focused.preventScroll,true);
+  assert.equal(sent.length,beforeFocus,'Inspecting a request never posts or notifies');
+  assert.equal(vm.runInContext("brainRequestFocus.has('alpha')",box),false,'The focus request is consumed once');
+  assert.equal(vm.runInContext("brainRequestFocus.get('beta')",box),'other-request','Other project focus remains isolated');
+  messages=[];
   let nativePending=true;const nativeCalls=[];
   const native={status:'pending',pending:{commandId:'cmd-1',brainId:'brain-a',turnId:'turn-1',itemId:'item-1',requestId:4,
     method:'item/commandExecution/requestApproval',requestHash:'a'.repeat(64),observedAt:1,expiresAt:9999999999,

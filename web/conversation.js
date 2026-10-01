@@ -1,6 +1,7 @@
 "use strict";
 Object.assign(titles,{conversation:['Brain conversation','Talk to this project’s existing Codex brain. Messages and replies stay in this project.']});
 const brainDrafts=new Map(),brainPages=new Map();
+const brainRequestFocus=new Map();
 const nativePermissionPreviews=new Map();
 function nativePermissionPanel(root){
   const panel=el('section',null,'brain-exchange native-permission');root.append(panel);
@@ -125,8 +126,12 @@ function sessionTaskOutcomeSummary(root,node){
 }
 function brainMessageState(message){
   if(message.reply)return {label:'Replied',detail:'The project brain retained this reply.'};
-  if(message.receivedAt)return {label:'Received · reply pending',detail:'The brain received your message. Its reply has not been retained yet.'};
   const n=message.notification;
+  if(message.receivedAt){
+    if(n?.nativeTurnStatus==='native_attention_required')return {label:'Received · native attention reported',detail:'Codex reported a native permission or input request. Inspect the current prompt; its report is not an approval or a saved reply.'};
+    if(['completed','failed','interrupted'].includes(n?.nativeTurnStatus))return {label:'Native turn ended · reply missing',detail:'The brain received your message, but this turn ended without a retained reply. Inspect the existing turn and host before reconciliation; do not send a duplicate.'};
+    return {label:'Received · reply pending',detail:'The brain received your message. Its reply has not been retained yet.'};
+  }
   if(n?.status==='accepted'){
     if(n.nativeTurnStatus==='native_attention_required')return {label:'Native attention required',detail:'The owned Codex host requested native approval or input; no permission was granted here.'};
     if(['completed','failed','interrupted'].includes(n.nativeTurnStatus))return {label:'Native turn ended · receipt missing',detail:'Codex ended this turn, but the project brain recorded neither a ledger receipt nor a reply. Inspect the existing turn and host binding; do not send a duplicate.'};
@@ -183,8 +188,12 @@ function conversationView(root){
     if(awaiting)status.textContent='A message is awaiting the brain’s reply. You can still use decisions, Pause and Resume; do not submit duplicate work.';
     history.append(section('Conversation',data.total+' saved '+(data.total===1?'message':'messages')+' · original timestamps'));
     if(!data.messages.length)history.append(empty('Start here','Ask what is happening or describe your next scoped request. The answer will appear here when the brain retains it.'));
+    let requestTarget=null;
     for(const message of data.messages){
       const article=el('article',null,'brain-exchange'),delivery=brainMessageState(message);
+      if(brainRequestFocus.get(key)===message.id){
+        article.setAttribute('tabindex','-1');article.setAttribute('data-focus','saved-request:'+message.id);requestTarget=article;
+      }
       article.append(el('h3','You'),el('p',when(message.createdAt),'muted'),narrative(message.message,'Your message'),badge(delivery.label),el('p',delivery.detail,'muted'));
       if(message.reply){article.append(el('h3','Project brain'),el('p',when(message.reply.at),'muted'),narrative(message.reply.message,'Brain reply'));
         const links=el('div',null,'inline-actions');
@@ -194,5 +203,6 @@ function conversationView(root){
       }history.append(article);
     }
     const pagination=el('div',null,'pagination'),older=button('Older messages',()=>{brainPages.set(key,page+1);render();}),newer=button('Newer messages',()=>{brainPages.set(key,page-1);render();});older.disabled=!data.hasOlder;newer.disabled=page===0;pagination.append(older,el('span','Page '+(page+1)),newer);history.append(pagination);
+    if(requestTarget){brainRequestFocus.delete(key);requestTarget.scrollIntoView?.({block:'nearest'});requestTarget.focus?.({preventScroll:true});}
   }).catch(error=>{if(!error.workspaceChanged&&history.isConnected)history.replaceChildren(el('p',error.message));});
 }

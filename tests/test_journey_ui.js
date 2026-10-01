@@ -10,7 +10,7 @@ class Element{
   get lastChild(){return this.children.at(-1);}
 }
 const calls=[],notices=[],drafts=new Map();
-const box={workspaceId:'alpha',busy:false,connected:true,missionDrafts:new Map(),brainDrafts:drafts,standardPreviews:new Map(),standardCatalogInFlight:new Set(),
+const box={workspaceId:'alpha',busy:false,connected:true,missionDrafts:new Map(),brainDrafts:drafts,brainPages:new Map(),brainRequestFocus:new Map(),standardPreviews:new Map(),standardCatalogInFlight:new Set(),
   document:{getElementById:()=>null},el:(...args)=>new Element(...args),button:(text,click)=>Object.assign(new Element('button',text),{click}),
   num:String,when:String,navigateView:view=>calls.push(['navigate',view]),showNotice:text=>notices.push(text),
   reviewStandardControl:(s,op)=>calls.push(['review',op]),requestCatalogForPlay:()=>calls.push(['catalog']),refresh:()=>calls.push(['refresh']),
@@ -127,6 +127,72 @@ const disclosure=box.journeyDisclosure('fixture','Details',()=>{});disclosure.op
 assert.equal(box.journeyDisclosure('fixture','Details',()=>{}).open,true);box.workspaceId='alpha';assert.equal(box.journeyDisclosure('fixture','Details',()=>{}).open,false);
 disclosure.isConnected=false;disclosure.open=false;disclosure.events.toggle();box.workspaceId='beta';assert.equal(box.journeyDisclosure('fixture','Details',()=>{}).open,true,'Detached toggle cannot erase a remembered choice');
 console.log('Roadmap journey: state guidance, no implied approval, retained drafts, unknown usage and disclosure isolation passed');
+
+// A no-run pilot and completed phases must follow their unfinished request,
+// rather than offering another preparation prompt. A receipt is not a reply.
+box.busy=false;box.connected=true;box.workspaceId='alpha';box.state=base();box.state.mission=null;
+const pendingMessage={id:'saved-pilot',kind:'reconcile',status:'processing',createdAt:1,
+  payload:{message:'Existing bounded instruction'},conversationReceivedAt:900,notification:{status:'accepted'}};
+box.state.commands=[pendingMessage];
+assert.equal(model(box.state).title,'Waiting for the brain’s saved reply');
+assert.equal(model(box.state).action,'conversation');
+assert.equal(model(box.state).request.id,'saved-pilot');
+assert.equal(model(box.state).canPause,false);
+box.missionDrafts.set('alpha',{});root=render();
+assert.match(text(root),/Waiting for the brain’s saved reply/);
+assert(!all(root).some(n=>n.tag==='button'&&['Prepare next phase','Continue phase draft','Review Play'].includes(n.text)));
+const requestCalls=calls.length;all(root).find(n=>n.text==='Inspect saved request').click();
+assert.deepEqual(calls.slice(requestCalls),[['navigate','conversation']],'Following a pending reply only opens the inspector');
+drafts.clear();box.prepareRoadmapPhase();
+assert.equal(drafts.size,0,'Even direct preparation preserves the existing request without creating a duplicate draft');
+assert.match(notices.at(-1),/saved request is still awaiting a reply/);
+box.missionDrafts.clear();
+for(const status of ['completed','failed','interrupted']){
+  pendingMessage.notification.nativeTurnStatus=status;
+  assert.match(model(box.state).title,/turn ended without a saved reply/);
+}
+pendingMessage.notification.nativeTurnStatus='native_attention_required';
+assert.match(model(box.state).detail,/only a current prompt can be answered/);
+delete pendingMessage.conversationReceivedAt;delete pendingMessage.notification.nativeTurnStatus;
+for(const status of ['sending','uncertain']){
+  pendingMessage.notification.status=status;
+  assert.match(model(box.state).title,/delivery needs reconciliation/);
+  assert.match(model(box.state).detail,/do not resend/);
+}
+pendingMessage.notification.status='unavailable';
+assert.match(model(box.state).title,/could not reach Codex/);
+assert.match(model(box.state).detail,/new message will not repair the connection/);
+pendingMessage.notification={status:'accepted',nativeTurnStatus:'interrupted'};
+assert.match(model(box.state).title,/without a brain receipt/);
+pendingMessage.notification={status:'accepted'};
+assert.match(model(box.state).title,/Waiting for the brain’s receipt/);
+delete pendingMessage.notification;assert.match(model(box.state).title,/waiting for delivery/);
+box.state.standard.run=run('completed');assert.equal(model(box.state).action,'conversation');
+box.state.standard.run=run('running');assert.equal(model(box.state).canPause,true,'Safe Pause remains available while a reply is pending');
+box.state.standard.blockers=['Missing usage'];
+assert.equal(model(box.state).action,'pause','A safety checkpoint takes priority over an ordinary pending reply');
+box.state.standard.blockers=[];
+box.state.standard.run=run('stopping');assert.equal(model(box.state).title,'Pause requested','Pause priority is unchanged');
+box.state.standard.run=run('paused');box.state.standard.blockers=['Missing usage'];
+assert.equal(model(box.state).action,'recover','A held message retains the separately signed recovery path');
+box.state.standard.run=null;pendingMessage.conversationReply={at:950,message:'Retained reply'};
+assert.equal(model(box.state).action,'prepare','Only a retained reply clears conversation guidance');
+delete pendingMessage.conversationReply;
+box.state.commands.push({...pendingMessage,id:'newer',conversationReceivedAt:999});
+assert.equal(model(box.state).request.id,'newer','The newest unresolved request is followed');
+assert.equal(model({...box.state,commands:[]}).action,'prepare','Project snapshots do not share pending request state');
+box.state.commands=[pendingMessage,...Array.from({length:64},(_,index)=>({
+  ...pendingMessage,id:'history-'+index,createdAt:2+index,conversationReply:{at:950+index,message:'Retained historical reply'}}))];
+assert.equal(model(box.state).request.id,'saved-pilot','Paginated conversation history cannot hide an older unfinished request');
+box.journeyAction('conversation');
+assert.equal(box.brainPages.get('alpha'),2,'Inspection opens the page containing the exact request');
+assert.equal(box.brainRequestFocus.get('alpha'),'saved-pilot');
+assert.equal(box.brainPages.has('beta'),false,'Request navigation remains project-scoped');
+box.state.commands=[{...pendingMessage,id:'Z-request'},...Array.from({length:29},(_,i)=>({
+  ...pendingMessage,id:'a-history-'+i,conversationReply:{message:'Retained'}})),
+  {...pendingMessage,id:'_-history',conversationReply:{message:'Retained'}}];
+box.journeyAction('conversation');
+assert.equal(box.brainPages.get('alpha'),1,'Equal-time IDs use server code-point order, not locale collation');
 
 box.busy=false;box.connected=true;box.state=base();box.state.meta={controller:null};box.state.standard.run=run('running');
 box.state.recovery={title:'Recovery required before continuing',explanation:'Two conditions.',reconciliationRequired:true,
