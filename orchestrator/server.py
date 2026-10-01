@@ -124,6 +124,9 @@ class WorkspaceRuntime:
                 "name": display_name(self.registry, self.workspace_id, next(w["name"] for w in self.registry.list() if w["id"] == self.workspace_id)),
                 "projectProfile": self.registry.profile(self.workspace_id)}
         state["taskActivity"] = self.task_activity.snapshot(state)
+        from .reply_recovery import catalog as reply_catalog
+        recovery = reply_catalog(state).get("reply_recovery")
+        state["replyRecovery"] = {"messageId": recovery["details"]["messageId"]} if recovery else None
         return state
 
     def submit_control(self, body, actor="dashboard"):

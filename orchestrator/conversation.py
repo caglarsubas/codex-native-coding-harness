@@ -82,6 +82,8 @@ def reply(ledger, token, command_id, result):
         ledger.put(db, "commands", command_id, command)
         from .checkpoint_recovery import replied as recovery_replied
         recovery_replied(ledger, db, meta, command)
+        from .reply_recovery import replied as receipt_replied
+        receipt_replied(ledger, db, command)
         ledger.event(db, "brain_message_replied", {"id": command_id, "replyHash": digest(result)})
         return command
 
@@ -92,7 +94,9 @@ def read(ledger, page=0):
     with contextlib.closing(ledger.connect()) as db:
         db.execute("BEGIN")
         meta = ledger.get(db, "meta", 1)
-        messages = sorted((c for c in ledger.all(db, "commands") if is_message(c)),
+        commands = ledger.all(db, "commands")
+        recoveries = {c["payload"]["messageId"]: c for c in commands if c["kind"] == "brain_reply_recovery"}
+        messages = sorted((c for c in commands if is_message(c)),
                           key=lambda c: (c["createdAt"], c["id"]), reverse=True)
         selected = messages[page * 30:(page + 1) * 30]
         return {"brainId": meta["brainId"], "page": page, "hasOlder": len(messages) > (page + 1) * 30,
@@ -101,6 +105,9 @@ def read(ledger, page=0):
                 "messages": [{"id": c["id"], "brainId": c["payload"]["brainId"],
                     "message": c["payload"]["message"], "createdAt": c["createdAt"],
                     "receivedAt": c.get("conversationReceivedAt"), "notification": c.get("notification"),
+                    "receiptRecovery": ({"id": recoveries[c["id"]]["id"], "status": recoveries[c["id"]]["status"],
+                        "receivedAt": recoveries[c["id"]].get("receivedAt"),
+                        "notification": recoveries[c["id"]].get("notification")} if c["id"] in recoveries else None),
                     "reply": c.get("conversationReply")} for c in reversed(selected)]}
 
 

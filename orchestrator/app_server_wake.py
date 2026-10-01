@@ -682,12 +682,21 @@ class AppServerWake:
                 # subscription for active turns is qualified, refuse the effect.
                 return {"status": "unavailable", "detail":
                         "The bound brain already has an active turn; native approval coverage for queued turns is unavailable. No message was sent."}
+            with self.ledger.tx() as db:
+                recovery = self.ledger.get(db, "commands", command_id).get("kind") == "brain_reply_recovery"
+            if recovery:
+                from .reply_recovery import send_check
+                send_check(self.ledger, self.binding, command_id, proxy)
             policy = self.binding["brains"][brain_id]["nativePolicy"]
             resumed = proxy._rpc("thread/resume", {"threadId": brain_id,
                                                     "config": {"features": {"code_mode": {"enabled": policy["codeMode"]}}},
                                                     "sandbox": policy["sandbox"],
                                                     "approvalPolicy": policy["approvalPolicy"]})
             self._identity(resumed.get("thread") if isinstance(resumed, dict) else None, brain_id)
+            if recovery:
+                # Resume changes native loading, not dispatch authority. Recheck
+                # a racing Stop and exact original immediately before turn/start.
+                send_check(self.ledger, self.binding, command_id, proxy)
             # Immediately before this boundary a concurrent native turn may start.
             # A rejection or lost response is uncertain, never permission to retry.
             self._begin_thread_observation(command_id, brain_id)
