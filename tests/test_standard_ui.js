@@ -4,6 +4,7 @@ class Element{
   constructor(tag,text=''){this.tag=tag;this.text=text;this.children=[];this.disabled=false;}
   append(...children){this.children.push(...children);}
   setAttribute(name,value){this[name]=value;}
+  addEventListener(name,callback){this['on'+name]=callback;}
 }
 const messages=[],sent=[],routes=[];
 const box={Map,Set,JSON,Math,String,crypto:{randomUUID:()=>`request-${sent.length}`},setTimeout:()=>1,workspaceId:'alpha',busy:false,connected:true,csrf:'fixture',selected:null,
@@ -14,7 +15,7 @@ const box={Map,Set,JSON,Math,String,crypto:{randomUUID:()=>`request-${sent.lengt
   callout:(a,b)=>new Element('p',a+' '+b),num:String,when:String,textCell:(a,b)=>a+' '+b,
   missionDocument(){},render(){},updateWorkspaceSelector(){},refresh:async()=>{},showNotice:(message)=>messages.push(message),navigateView:(route)=>routes.push(route),
   api:async(path,opts)=>{sent.push({path,body:JSON.parse(opts.body)});if(path.endsWith('preview'))return {preview:{operation:'play',contextHash:'h',brainAllowance:1,durationHours:8,expiresAt:Date.now()/1000+300},signature:'signed'};return {result:'Recorded'};}};
-vm.createContext(box);vm.runInContext(fs.readFileSync('web/summaries.js','utf8'),box);vm.runInContext(fs.readFileSync('web/standard.js','utf8'),box);
+vm.createContext(box);vm.runInContext(fs.readFileSync('web/journey.js','utf8'),box);vm.runInContext(fs.readFileSync('web/summaries.js','utf8'),box);vm.runInContext(fs.readFileSync('web/standard.js','utf8'),box);
 const render=(mode)=>{const root=new Element('root');box.standardPanel(root,mode);return root;};
 function all(root){return [root,...root.children.flatMap(x=>x instanceof Element?all(x):[])];}
 (async()=>{
@@ -51,6 +52,21 @@ function all(root){return [root,...root.children.flatMap(x=>x instanceof Element
   assert.ok(!usageOnly.some(n=>n.text==='Review Resume'||n.text==='Review brain handoff'));
   assert.ok(!tasksOnly.some(n=>n.tag==='table'&&n.text.includes('Measured remaining')));
   assert.ok(!tasksOnly.some(n=>n.text==='Review Resume'||n.text==='Review brain handoff'));
+  box.state.standard.nativeObservation={reportHash:'h',observedAt:1,issues:[],samples:[
+    {taskId:'pending',nativeStatus:'unknown',trackedTerminals:'unknown',trackedTerminalCount:null,issues:['native_identity_unconfirmed']}]};
+  const nativeNodes=all(render('tasks'));
+  assert.ok(nativeNodes.some(n=>n.tag==='summary'&&n.text==='Details · Registered native task check'));
+  assert.ok(nativeNodes.some(n=>String(n.text).includes('historical')&&String(n.text).includes('evidence gaps remain')));
+  assert.ok(nativeNodes.some(n=>n.tag==='table'&&n.text.includes('Unknown')),'Missing terminal measurements are not zero');
+  assert.ok(nativeNodes.some(n=>String(n.text).includes('not complete descendant coverage')));
+  assert.ok(!nativeNodes.some(n=>n.tag==='button'&&String(n.text).includes('native task check')),'Rendering never collects native evidence');
+  const nativeDetails=nativeNodes.find(n=>n.tag==='details'&&n.children.some(c=>c.text==='Details · Registered native task check'));
+  assert.equal(nativeDetails.open,false,'Native details start collapsed');
+  nativeDetails.isConnected=true;nativeDetails.open=true;nativeDetails.ontoggle();
+  assert.equal(all(render('tasks')).find(n=>n.tag==='details'&&n.children.some(c=>c.text==='Details · Registered native task check')).open,true,'Details remain open across refresh');
+  box.workspaceId='another-project';
+  assert.equal(all(render('tasks')).find(n=>n.tag==='details'&&n.children.some(c=>c.text==='Details · Registered native task check')).open,false,'Disclosure state is project isolated');
+  box.workspaceId='alpha';
   box.state.brainHandoff={handoff:null,readiness:{canPrepare:true,canFinalize:false,blockers:[]}};
   const priorApi=box.api;
   box.api=async(path,opts)=>{
