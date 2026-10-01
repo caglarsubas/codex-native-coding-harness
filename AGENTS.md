@@ -106,6 +106,19 @@ fence may enter this protocol. All strict-mode requirements below remain intact.
 The fixed notification bridge may also notify committed standard Play/Pause/
 Resume controls; source upgrades do not install or activate live workspaces.
 
+The explicit `standard-native-plan` / `standard-native-collect` source helpers
+observe only confirmed registered standard tasks and their tracked terminals
+on the exact reviewed owned host. Only the designated brain may retain a report.
+No native resume, turn, discovery, cleanup, token measurement or ownership release
+is permitted. Unloaded/unsupported or changing reads stay unknown; no pending
+client ID may become a read target. Preserve receipts, observation times and
+Pause races. These observations cannot satisfy legacy `workspace_pause_v1`
+tree coverage or managed/Harness settlement. Do not make complete legacy tree
+qualification a prerequisite for a separate cooperative standard-phase pilot;
+do not convert or clear the existing unresolved legacy stop. See
+docs/STANDARD-OWNED-HOST-PILOT.md. Source delivery does not install this path,
+change a live binding, review a mission or activate Play.
+
 This is private development tooling, not a Harness product repository. Do not
 edit Harness product checkouts from this workspace. Product workers must follow
 their own approved packet, allowedPaths, AGENTS.md and trusted execution rules.

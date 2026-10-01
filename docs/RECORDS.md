@@ -156,3 +156,31 @@ no queue, auto-merge or asynchronous fallback is allowed.
 One run consumes one immutable PR/request slot. Issued/uncertain journals retain
 ownership without another argv or automatic retry. See [STANDARD-MERGE.md](STANDARD-MERGE.md)
 for fields, evidence bounds, absence handling and launcher rollout prerequisites.
+
+## Cooperative registered-native-task observation
+
+`standard_native_observation_v1` is an immutable, content-addressed snapshot for
+one exact registered standard run and reviewed owned-host binding. Its request
+has exactly `id`, `runId`, `expectedRevision`, `contextHash`, `bindingHash`; a
+`standard_native_observation_v1_request` snapshot retains the request hash,
+report hash, run ID and original retention time. Identical replay reads only that
+historical receipt; it never reconnects to the host or refreshes evidence clocks.
+
+Reports retain workspace/brain/run identity, binding/context hashes, collection
+times, bounded registered-task samples, redacted source hashes and explicit gaps.
+A pending native identity, unavailable status or incomplete terminal pagination
+has unknown activity/terminals and a null count, never zero. Confirmed task status
+is sampled around the complete bounded terminal listing and repeated; disagreement
+invalidates the sample. Local authority and catalog/binding context are rechecked
+after native I/O before one atomic retention transaction.
+
+The run/task pointers `nativeObservationHash` bind saved task observations to that
+report. A later caller-supplied observation clears the task pointer rather than
+inheriting measured provenance. Finish validates a referenced report's exact task,
+run, brain, workspace and original observation time in addition to its existing
+result and inactivity checks. Projection reads expose saved metadata only.
+
+This collector observes registered standard tasks and tracked terminals, not a
+complete native descendant inventory or process cleanup. It measures no tokens,
+releases no ownership and authorizes no execution. It cannot satisfy a legacy
+Brain Stop or strict Harness gate. See [the pilot and collector guide](STANDARD-OWNED-HOST-PILOT.md).

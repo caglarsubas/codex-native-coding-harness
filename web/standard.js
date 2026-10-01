@@ -117,6 +117,21 @@ function standardPanel(root,mode='all'){
     }
     if(['all','operations'].includes(mode)&&s.blockers?.length)panel.append(callout('Checkpoint required',s.blockers.join(' ')));
     if(['all','tasks'].includes(mode)){
+    if(s.nativeObservation){
+      const native=s.nativeObservation;
+      const at=native.observedAt?when(native.observedAt):'unavailable';
+      const stale=!native.observedAt||Date.now()/1000-native.observedAt>=300;
+      const gaps=(native.issues?.length||0)+(native.samples||[]).filter(t=>t.issues?.length).length;
+      panel.append(el('p',`Native task check · ${stale?'historical':'recorded'} · ${at}${gaps?' · evidence gaps remain':''}`,'subline'));
+      const details=journeyDisclosure('native-task-check:'+run.id,'Details · Registered native task check',body=>{
+        body.append(el('p','Registered tasks and tracked terminals only. This is not complete descendant coverage, process cleanup, token measurement or permission to continue.','muted'),
+        table(['Registered task','Observed activity','Tracked terminals','Evidence'],(native.samples||[]).map(t=>[
+          t.taskId,t.nativeStatus,t.trackedTerminalCount===null?'Unknown':`${t.trackedTerminals} (${num(t.trackedTerminalCount)})`,
+          (t.issues||[]).join(', ')||'Retained metadata; result review remains separate'])),
+        el('p',(native.issues||[]).join(', '),'muted'));
+        missionDocument(body,native.reportHash,'Exact retained native observation');
+      });panel.append(details);
+    }
     panel.append(el('p',run.limits.mergeMode==='brain_exact_pr_v1'?'Merge capability: one exact PR; requires independent checks by the designated brain.':'Merge capability: manual (default).'));
     if(run.merges?.length){
       panel.append(section('Exact PR merge history','Prepared, issued, uncertain, merged and not-merged are merge states only. They do not establish semantic correctness, CI, deployment, runtime, archival or phase acceptance. Unknown delivery is reconciled, never resent.'));

@@ -153,6 +153,20 @@ def projection(ledger, db):
         result["blocker"] = str(error)
     if run:
         result["blockers"] = current_blockers(ledger, db, run)
+        result["nativeObservation"] = None
+        if run.get("nativeObservationHash"):
+            from .standard_native_observation import report_in
+            try:
+                native = report_in(db, run["nativeObservationHash"])
+                require(native["runId"] == run["id"] and native["brainId"] == run["brainId"] and
+                        native["workspaceId"] == missions.workspace(ledger), "Foreign native task observation")
+                result["nativeObservation"] = {"reportHash": run["nativeObservationHash"],
+                    "observedAt": native["observedAt"], "issues": native["issues"],
+                    "samples": native["samples"], "boundary": native["boundary"]}
+            except (Refusal, ValueError, KeyError, TypeError):
+                result["nativeObservation"] = {"reportHash": run["nativeObservationHash"],
+                    "observedAt": None, "issues": ["retained_native_observation_unavailable"],
+                    "samples": [], "boundary": {"executionAuthorized": False}}
         active = [t for t in run["tasks"] if t["status"] not in TERMINAL]
         permitted = run["limits"]["maxParallelTasks"]
         if worktrees.repository_mode(run) != worktrees.MODE:
@@ -664,6 +678,9 @@ def brain(registry, ledger, token, request):
             require(request["trackedTerminals"] in ("running", "none", "unknown"), "Tracked terminal state required")
             task.update(nativeStatus=request["nativeStatus"], trackedTerminals=request["trackedTerminals"], observedAt=request["observedAt"],
                         observationSource=missions.text(request["source"], "Observation source", 1000))
+            # Supplied observations remain supported, but must not inherit a
+            # measured owned-host proof from a previous observation.
+            task.pop("nativeObservationHash", None)
             if charged(run)+run["limits"]["checkpointReserveTokens"] >= run["limits"]["tokenBudget"]:
                 run["status"] = "stopping"
         elif operation == "preserve":
@@ -709,7 +726,17 @@ def brain(registry, ledger, token, request):
             require(task["status"] not in TERMINAL, "Task already terminal")
             require(request["outcome"] in ("completed", "failed"), "Invalid terminal result")
             require(task.get("nativeStatus") in ("idle", "completed", "failed") and task.get("trackedTerminals") == "none"
-                    and time.time()-task.get("observedAt", 0) < 300, "Fresh finished-task and tracked-terminal observation required; not whole-tree proof")
+                    and 0 <= time.time()-task.get("observedAt", 0) < 300, "Fresh finished-task and tracked-terminal observation required; not whole-tree proof")
+            if task.get("nativeObservationHash"):
+                from .standard_native_observation import report_in
+                observed = report_in(db, task["nativeObservationHash"])
+                sample = next((s for s in observed["samples"] if s["taskId"] == task["id"]), None)
+                require(observed["runId"] == run["id"] and observed["brainId"] == run["brainId"] and
+                        observed["workspaceId"] == missions.workspace(ledger) and sample and
+                        sample["threadId"] == task["threadId"] and not sample["issues"] and
+                        sample["nativeStatus"] == task["nativeStatus"] and
+                        sample["trackedTerminals"] == task["trackedTerminals"] and
+                        observed["observedAt"] == task["observedAt"], "Native task observation proof changed")
             evidence = request["evidence"]
             require(isinstance(evidence, dict), "Result evidence must be an object")
             required = {"source", "tests", "artifacts", "preservation", "summary"}

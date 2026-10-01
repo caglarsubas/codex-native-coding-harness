@@ -153,6 +153,17 @@ never request a second native send or infer a missing task did not exist.
    Failed tasks stop the phase; no hidden retry/escalation loop. Retain native
    tasks and local worktrees. Archive requires a separate owner action. Merge stays
    manual unless the exact future phase uses the explicit opt-in below.
+   When the operator supplies an already reviewed owned-host binding, the source
+   helpers `standard-native-plan` / `standard-native-collect` can retain repeated,
+   exact registered-task activity and tracked-terminal metadata reads. The plan
+   makes no native call; collection does not wake, resume, clean up or finish a
+   task. Pending IDs and unloaded/unsupported observations remain unknown.
+   Preserve the report's original time and source, then use normal `finish` only
+   after fresh task/terminal and independent result checks. See
+   `docs/STANDARD-OWNED-HOST-PILOT.md` for exact fields and boundaries. These are
+   cooperative phase observations, never complete-tree legacy Stop evidence.
+   Use standard phase Pause/checkpoint for this protocol; do not substitute
+   generic `brain_stop`/`brain-park` or weaken an already retained legacy stop.
 8. Continue eligible tasks within the same reviewed phase without asking for a
    new “continue”. At the phase endpoint, budget boundary, unresolved failure or
    material plan change, record `checkpoint` and stop. At Pause, wait for all

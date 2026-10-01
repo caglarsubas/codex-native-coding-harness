@@ -177,13 +177,16 @@ controller was recovered with dispatch paused and no workers or runner. An
 incomplete or paused prompt must not advertise `accept` even when Codex includes
 it in the raw choices. The native approval **request path** is qualified on this
 host; the signed owner response path remains unqualified in a running phase.
-Complete descendant coverage and a parked checkpoint are still missing.
+Complete descendant coverage and a parked **legacy workspace-stop** checkpoint
+are still missing. That old stop must remain unresolved; it is not a requirement
+to replace the approved cooperative standard phase contract with whole-tree proof.
 Neither a receipt nor this prompt observation qualifies live migration or Play.
 Do not migrate the live project or enable Play on this basis.
 
-The next checkpoint attempt must pass an evidence-capability gate **before**
-requesting another owner confirmation. The installed `codex-cli 0.158.0-alpha.2.1`
-schema exposes `thread/list` descendant filters and `thread/loaded/list`, but
+Another **legacy workspace-stop** checkpoint attempt must pass an
+evidence-capability gate **before** requesting another owner confirmation.
+The observed `codex-cli 0.158.0-alpha.2.1` and subsequent `codex-cli 0.159.2`
+contracts expose `thread/list` descendant filters and `thread/loaded/list`, but
 [the documented contract](https://learn.chatgpt.com/docs/app-server) describes
 stored-thread pages and threads currently loaded in memory, not an exhaustive
 historical-and-ephemeral task inventory. The current collector correctly keeps
@@ -192,6 +195,18 @@ coverage from the first native effect, retain gaps across disconnect/restart,
 and reconcile every owned task without equating an empty page with no work.
 This is a new protocol/host qualification, not a replay of the stopped pilot.
 The signed approval **response** remains a separate running-phase pilot gate.
+
+For a separately owner-activated `standard_cooperative_v1` disposable phase,
+standard Pause instead fences new effects and checkpoints its registered tasks
+and tracked terminals. It does not claim whole-process cleanup, complete native
+descendants or parked `workspace_pause_v1` state. A complete-tree collector is
+therefore **not** a prerequisite for that standard transport qualification.
+Use the [finite standard owned-host pilot guide](STANDARD-OWNED-HOST-PILOT.md),
+including the explicit read-only registered-task observer where that host can
+provide current loaded-thread metadata. Preserve the old legacy stop, its gap
+and its receipts; do not convert, reset, resume or replay it to run this separate
+standard qualification. Existing strict/Harness and managed admission contracts
+retain their complete-evidence gates.
 
 While an existing workspace Pause is checkpointing with missing/incomplete
 inventory, the one-page graph and guided Help show the operator evidence gap and

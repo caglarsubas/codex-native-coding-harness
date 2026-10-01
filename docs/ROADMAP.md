@@ -11,11 +11,14 @@ acceptance authority. Items change through reviewed repository edits.
 - [x] Make legacy desktop-queue acknowledgment honest: it may not start an unloaded brain
 - [x] Pin distinct Codex app catalog and owned app-server project IDs explicitly when the installed host reports both for the same verified repository (source and local fixtures; no native write)
 - [x] Retain bounded, private owned-socket `thread/started` observations from future one-shot turns, with a durable open-stream marker and explicit incomplete coverage (source/fixtures only; not checkpoint evidence)
-- [ ] Qualify a complete native task/descendant observation contract before another owned-host checkpoint pilot; persisted and loaded thread listings alone are not completeness evidence
+- [x] Add an explicit owned-host registered-task/terminal observer for cooperative standard phases, with historical receipts, unknown coverage and Pause-race checks (source and local fixtures; no native wake)
+- [ ] Qualify the disposable owned-host **standard phase** journey against registered tasks and tracked terminals; do not substitute generic Brain Stop for standard Pause
+- [ ] Separately qualify complete native task/descendant coverage for legacy `workspace_pause_v1` checkpoints; persisted and loaded listings cannot close the existing stopped legacy pilot
 - [ ] Independently qualify native approval handling and a disposable end-to-end owned-host pilot
 - [ ] Review and activate a live migration at a safe checkpoint; verify real ledger receipts before considering Play
 
-See [owned brain wake](OWNED-BRAIN-WAKE.md). The current live dashboard remains
+See [owned brain wake](OWNED-BRAIN-WAKE.md) and the finite
+[standard owned-host pilot](STANDARD-OWNED-HOST-PILOT.md). The current live dashboard remains
 on its existing transport until a separate owner-reviewed migration.
 
 ## Assistant-led phase loop — source implementation
