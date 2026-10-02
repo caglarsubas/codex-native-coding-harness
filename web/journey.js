@@ -2,6 +2,48 @@
 // A navigation projection of existing records. Only the existing signed controls
 // can authorize Play, Resume or Pause; this module never submits them directly.
 const journeyDetailsOpen=new Set();
+function catalogReadinessIssue(refresh){
+  if(refresh?.status!=='failed')return null;
+  const error=refresh.catalogError;
+  // Retryability may mean "after setup changes", not "send the same check
+  // again now". Use structured retained codes, never diagnose from prose.
+  if(error?.code==='native_task_schema_unavailable')return {
+    title:'Codex task tools are unavailable',
+    detail:'The brain received the check, but this host does not expose the native task tools needed to verify models and efforts. Repair the host’s tool setup before another check. Your phase review is unchanged; Play has not started.',
+    requiresSetupChange:true};
+  if(error?.code==='schema_unavailable')return {
+    title:'Codex task capabilities are unverified',
+    detail:'The brain could not observe the native task schemas needed to verify models and efforts. Inspect the host’s tool setup before another check. Your phase review is unchanged; Play has not started.',
+    requiresSetupChange:true};
+  if(error?.retryable===false)return {
+    title:'Codex readiness needs operator attention',
+    detail:'The brain recorded a readiness error that cannot be retried. Inspect the saved diagnostic and resolve its prerequisite before another check. Play has not started.',
+    requiresSetupChange:true};
+  return null;
+}
+function catalogReadinessDetails(root,refresh){
+  if(refresh?.status!=='failed')return;
+  const key=workspaceId,requestId=refresh.id,contextHash=state.standard?.contextHash;
+  const details=journeyDisclosure('catalog-error:'+refresh.id,'Details · Codex readiness diagnostic',body=>{
+    body.append(el('p',refresh.result||'No diagnostic text was retained.'),
+      el('p','Request: '+refresh.id+' · recorded '+when(refresh.completedAt),'subline'));
+    if(refresh.catalogError)body.append(el('p','Error: '+refresh.catalogError.code+' · retryable after prerequisites are resolved: '+(refresh.catalogError.retryable?'yes':'no'),'subline'));
+    if(catalogReadinessIssue(refresh)){
+      body.append(el('p','A new check is not a host repair. It sends a new bounded request to the same brain; it does not reconfigure the host, grant authority or start Play.','muted'));
+      if(refresh.catalogError?.retryable!==false){
+        const recheck=button('Check again after host repair',()=>{
+          const current=state.standard?.catalogRefresh;
+          if(workspaceId!==key||current?.id!==requestId||current.status!=='failed'||!catalogReadinessIssue(current)||
+            current.catalogError?.retryable===false||state.standard?.contextHash!==contextHash||busy||!connected)return;
+          return requestCatalogForPlay(state.standard);
+        });
+        recheck.disabled=busy||!connected||standardCatalogInFlight.has(workspaceId);
+        body.append(recheck);
+      }
+    }
+  });
+  details.id='catalog-readiness-diagnostic';root.append(details);
+}
 function projectPhaseStatus(snapshot){
   const run=snapshot.standard.run,m=snapshot.mission;
   const next=['completed','blocked'].includes(run.status)&&m?.document?.spec.phase.id!==run.phaseId&&m?.document;
@@ -125,6 +167,8 @@ function roadmapJourneyState(snapshot,isConnected=true,now=Date.now()/1000){
     const request=s.catalogRefresh;
     if(request?.status==='queued')return result(1,request.notification?.status==='unavailable'?'Codex check needs delivery':'Waiting for Codex readiness',
       'A request to check available models and efforts is saved. Inspect delivery below before sending another request. Play still needs your confirmation.','Inspect request delivery','request',{catalog:true});
+    const issue=catalogReadinessIssue(request);
+    if(issue)return result(1,issue.title,issue.detail,'Inspect Codex readiness','request',{catalog:true,requiresSetupChange:true});
     return result(1,'Check Codex before Play','The brain needs to refresh the available models and efforts for this phase. When it responds, return here to review Play.',request?.status==='failed'?'Retry Codex readiness':'Check Codex readiness','catalog',{catalog:true});
   }
   if(!s?.available)return result(1,'A prerequisite needs attention',s?.blocker||'Inspect project readiness to find the missing setup for this phase.','Inspect readiness','runReadiness');
@@ -161,7 +205,13 @@ function journeyAction(action){
   if(action==='refresh')return refresh();
   if(action==='prepare')return prepareRoadmapPhase();
   if(action==='catalog')return requestCatalogForPlay(state.standard);
-  if(action==='request'){journeyDetailsOpen.add((workspaceId||'legacy')+':control-requests');navigateView('operations');document.getElementById('control-request-history')?.scrollIntoView({block:'start'});return;}
+  if(action==='request'){
+    const issue=catalogReadinessIssue(state.standard?.catalogRefresh);
+    journeyDetailsOpen.add((workspaceId||'legacy')+':'+(issue?'catalog-error:'+state.standard.catalogRefresh.id:'control-requests'));
+    navigateView('operations');
+    const record=document.getElementById(issue?'catalog-readiness-diagnostic':'control-request-history');
+    record?.scrollIntoView({block:'start'});record?.querySelector('summary')?.focus();return;
+  }
   if(['play','resume','pause'].includes(action))return reviewStandardControl(state.standard,action,state.standard?.run);
   if(action==='handoff'){navigateView('operations');const target=document.getElementById('brain-handoff-section');if(target){target.open=true;target.scrollIntoView({block:'start'});target.querySelector('summary')?.focus();}return;}
   if(action==='conversation'){
@@ -203,6 +253,7 @@ function roadmapJourney(root){
   actions.append(primary);
   if(model.canPause){const pause=button('Pause at safe checkpoint',()=>journeyAction('pause'));pause.disabled=busy;actions.append(pause);}
   else if(model.stage===3&&model.action==='prepare')actions.append(button('Review phase results',()=>navigateView('workers')));
+  else if(model.requiresSetupChange)actions.append(button('View reviewed phase plan',()=>navigateView('mission')));
   else if(model.action!=='conversation')actions.append(button('Talk to project brain',()=>navigateView('conversation')));
   lead.append(copy,actions);panel.append(lead);
   if(snapshot.recovery)recoverySummary(panel,snapshot.recovery,model.title!==snapshot.recovery.title);
@@ -212,7 +263,7 @@ function roadmapJourney(root){
   if(usageWarning)panel.append(el('p',usageWarning,'journey-receipt'));
   if(model.reasons?.length){const reasons=el('ul',null,'journey-reasons');model.reasons.forEach(reason=>reasons.append(el('li',reason)));panel.append(reasons);}
   if(model.request){const delivery=commandPresentation(model.request);panel.append(el('p',delivery.label+'. '+delivery.detail,'journey-receipt'));}
-  if(model.catalog){const status=catalogStatus(s.catalogRefresh);panel.append(el('p',status.title+'. '+status.detail,'journey-receipt'));scheduleCatalogFollowup(s);}
+  if(model.catalog){const status=catalogStatus(s.catalogRefresh);if(!model.requiresSetupChange)panel.append(el('p',status.title+'. '+status.detail,'journey-receipt'));catalogReadinessDetails(panel,s.catalogRefresh);scheduleCatalogFollowup(s);}
   if(model.checkpoint)panel.append(phaseNarrative(model.checkpoint,run?.tasks||[]));
   if(!model.strict&&(spec||run)){
     const samePhase=!run||spec?.phase.id===run.phaseId,active=run&&['running','paused','stopping'].includes(run.status);

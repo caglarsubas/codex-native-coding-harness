@@ -23,6 +23,13 @@ assert.match(present(ended).detail,/do not send a duplicate/);
 assert.equal(present({...ended,nativeTurnStatus:'failed'}).label,'Native turn ended · receipt missing');
 assert.equal(context.commandPresentation({...command,status:'processing',notification:{status:'uncertain'}}).label,'Received by brain');
 assert.equal(context.commandPresentation({...command,status:'completed',result:'Retained outcome'}).detail,'Retained outcome');
+vm.runInContext(fs.readFileSync('web/journey.js','utf8'),context);
+vm.runInContext(fs.readFileSync('web/standard.js','utf8'),context);
+const capabilityFailure=context.commandPresentation({kind:'standard_catalog_refresh',status:'failed',
+  result:'Long private fixture diagnostic',catalogError:{code:'native_task_schema_unavailable',retryable:true}});
+assert.equal(capabilityFailure.label,'Codex task tools are unavailable');
+assert.match(capabilityFailure.detail,/phase review is unchanged/);
+assert.ok(!capabilityFailure.detail.includes('Long private fixture diagnostic'),'Durable notices summarize instead of dumping the diagnostic');
 assert.equal(context.commandPresentation({kind:'approve',status:'completed',needsBrainReceipt:true}).label,'Approval saved');
 assert.equal(context.commandPresentation({kind:'listening',status:'completed',needsBrainReceipt:true,notification:{status:'accepted',finishedAt:99}},null,100).label,'Sent to Codex');
 for(const kind of ['resume','reconcile','checkpoint','archive','brain_stop','brain_resume']) {

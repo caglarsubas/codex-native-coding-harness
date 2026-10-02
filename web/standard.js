@@ -5,10 +5,12 @@ function catalogMissing(s){return (!s.run||['completed','blocked'].includes(s.ru
 function catalogStatus(refresh){
   if(!refresh)return {title:'Codex readiness has not been checked',detail:'Choose Check Codex readiness to ask the designated brain for available models and efforts. This does not start development.'};
   if(refresh.status==='completed')return {title:'Native capabilities recorded',detail:refresh.result};
-  if(refresh.status==='failed')return {title:'Capability refresh failed',detail:refresh.result||'The brain retained an observation error. Review the details before retrying.'};
+  if(refresh.status==='failed')return catalogReadinessIssue(refresh)||{title:'Codex readiness check failed',detail:'The brain recorded a capability error. Inspect the saved diagnostic before requesting another check. Play has not started.'};
   const notification=refresh.notification||{};
   if(notification.status==='accepted')return Date.now()/1000-refresh.createdAt>90
-    ?{title:'Brain receipt overdue',detail:'Native delivery was acknowledged, but the catalog receipt is overdue. A legacy desktop queue may not start an unloaded brain; inspect the bound host and retained request before further action.'}
+    ?{title:'Brain receipt overdue',detail:notification.nativeDelivery==='owned_turn_start'
+      ?'The bound Codex host started this turn, but the brain has not recorded the catalog receipt. Inspect that exact turn and any native permission prompt; do not resend this request.'
+      :'Native delivery was acknowledged, but the catalog receipt is overdue. A legacy desktop queue may not start an unloaded brain; inspect the bound host and retained request before further action.'}
     :{title:'Capability request sent',detail:notification.nativeDelivery==='owned_turn_start'
       ?'The bound Codex host started a turn. Waiting for the designated brain’s separate ledger receipt.'
       :'Native delivery was acknowledged, not received by the brain. Waiting for the designated brain’s separate ledger receipt; a legacy desktop queue may not start an unloaded task.'};
@@ -81,7 +83,7 @@ function standardPanel(root,mode='all'){
     if(state.meta?.brainId){const a=el('a','Open brain in Codex','button');a.href='codex://threads/'+encodeURIComponent(state.meta.brainId);panel.append(a);}
   }
   const needsCatalog=catalogMissing(s);
-  if(mode==='all'&&needsCatalog){const status=catalogStatus(s.catalogRefresh);panel.append(callout(status.title,status.detail));scheduleCatalogFollowup(s);}
+  if(['all','operations'].includes(mode)&&needsCatalog){const status=catalogStatus(s.catalogRefresh);panel.append(callout(status.title,status.detail));catalogReadinessDetails(panel,s.catalogRefresh);scheduleCatalogFollowup(s);}
   else if(mode==='all'&&s.blocker)panel.append(el('p',s.blocker,'checkpoint'));
   if(run){
     panel.append(el('p',`Phase ${run.phaseId} · ${run.tasks.length} / ${run.limits.maxTasks} tasks · expires ${when(run.expiresAt)}`));
@@ -165,12 +167,13 @@ function standardPanel(root,mode='all'){
   const operation=!run||['completed','blocked'].includes(run.status)?'play':run.status==='paused'?'resume':'pause';
   const label={play:'Review Play',resume:'Review Resume',pause:'Pause at safe checkpoint'}[operation];
   const requestButton=button(label,async()=>{
+    if(needsCatalog&&catalogReadinessIssue(s.catalogRefresh)){journeyAction('request');return;}
     if(needsCatalog){await requestCatalogForPlay(s);return;}
     await reviewStandardControl(s,operation,run);
   },'primary');
   requestButton.disabled=busy||!connected||(operation==='play'&&!s.available&&!needsCatalog)||run?.status==='stopping';panel.append(requestButton);
   if(needsCatalog&&s.catalogRefresh?.status==='queued'){requestButton.textContent='Waiting for native capabilities';requestButton.disabled=true;}
-  if(needsCatalog&&s.catalogRefresh?.status==='failed')requestButton.textContent='Retry capability refresh';
+  if(needsCatalog&&s.catalogRefresh?.status==='failed')requestButton.textContent=catalogReadinessIssue(s.catalogRefresh)?'Inspect Codex readiness':'Retry capability refresh';
   standardConfirmation(panel,s,run);
   root.append(panel);
 }

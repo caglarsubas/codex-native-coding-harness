@@ -139,6 +139,8 @@ def projection(ledger, db):
         "id": latest_refresh["id"], "status": latest_refresh["status"],
         "createdAt": latest_refresh["createdAt"], "completedAt": latest_refresh.get("completedAt"),
         "result": latest_refresh.get("result"), "notification": latest_refresh.get("notification"),
+        "catalogError": latest_refresh.get("catalogError"),
+        "catalogReceipt": latest_refresh.get("catalogReceipt"),
         "deliveryAttempts": len(latest_refresh.get("notificationHistory", [])) +
             (1 if latest_refresh.get("notification") else 0),
         "maxDeliveryAttempts": CATALOG_REFRESH_MAX_DELIVERY_ATTEMPTS,

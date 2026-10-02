@@ -18,7 +18,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from orchestrator.core import Ledger
 from orchestrator.server import Dashboard, WorkspaceRuntime
-from orchestrator.standard import brain, read
+from orchestrator.standard import brain, read, request_catalog_refresh
 from test_standard import StandardTest
 from test_assistant import CONFIG
 from orchestrator.missions import change
@@ -77,7 +77,8 @@ if __name__ == '__main__':
                         '-c', 'user.email=fixture@example.invalid', 'commit', '--allow-empty',
                         '-qm', 'Disposable preview'], check=True)
         (fixture.root / 'empty-codex-logs').mkdir()
-        for identity in ['alpha', 'draft', 'running', 'paused', 'recovering', 'completed', 'blocked', 'needs-catalog']:
+        for identity in ['alpha', 'draft', 'running', 'paused', 'recovering', 'completed', 'blocked', 'needs-catalog',
+                         'native-tools-missing', 'catalog-not-retryable']:
             ledger, token = (fixture.ledger, fixture.token) if identity == 'alpha' else fixture.workspace(identity)
             (ledger.root / 'observations.json').write_text(json.dumps({'codexHome': str(fixture.root / 'empty-codex-logs')}))
             if identity == 'draft':
@@ -133,11 +134,18 @@ if __name__ == '__main__':
                                     'reasoning_output_tokens': 0},
                                 'gaps': ['invalid_token_record'], 'coverage': 'gapped'}
                             ledger.put(db, 'meta', 1, meta)
-            if identity == 'needs-catalog':
+            if identity in ('needs-catalog', 'native-tools-missing', 'catalog-not-retryable'):
                 with ledger.tx() as db:
                     meta = ledger.get(db, 'meta', 1)
                     meta.pop('standardCatalog', None)
                     ledger.put(db, 'meta', 1, meta)
+                if identity != 'needs-catalog':
+                    command = request_catalog_refresh(ledger, {'id': 'fixture-'+identity, 'contextHash': read(ledger)['contextHash']})
+                    brain(fixture.registry, ledger, token, {'operation': 'catalog_error', 'requestId': command['id'],
+                          'code': 'native_task_schema_unavailable' if identity == 'native-tools-missing' else 'unsupported_destination',
+                          'retryable': identity == 'native-tools-missing',
+                          'detail': 'Synthetic capability failure: the destination exposes no native task creation or message schema. '
+                                    'This is a browser fixture, not an observation of a real Codex host.'})
             ledger.release(token, 'Synthetic fixture setup complete. No native effects.')
         ledger = Ledger(fixture.root / 'needs-plan')
         ledger.initialize({'schemaVersion': 1, 'brainId': 'fixture-brain', 'repositories': [

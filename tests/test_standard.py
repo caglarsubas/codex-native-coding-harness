@@ -127,6 +127,8 @@ class StandardTest(unittest.TestCase):
         self.assertTrue(refreshed['available'])
         self.assertEqual(refreshed['catalogRefresh']['status'], 'completed')
         self.assertEqual(refreshed['catalogRefresh']['deliveryAttempts'], 1)
+        self.assertEqual(refreshed['catalogRefresh']['catalogReceipt']['observedAt'], refreshed['catalog']['observedAt'])
+        self.assertIsNone(refreshed['catalogRefresh']['catalogError'])
 
     def test_catalog_refresh_retries_only_confirmed_non_delivery(self):
         from orchestrator.notification import BrainNotifier
@@ -172,8 +174,36 @@ class StandardTest(unittest.TestCase):
         failed = read(self.ledger)
         self.assertEqual(failed['catalogRefresh']['status'], 'failed')
         self.assertIn('could not be observed', failed['catalogRefresh']['result'])
+        self.assertEqual(failed['catalogRefresh']['catalogError'], {'code': 'schema_unavailable', 'retryable': True})
+        self.assertIsNone(failed['catalogRefresh']['catalogReceipt'])
         replacement = request_catalog_refresh(self.ledger, {'id': str(uuid.uuid4()), 'contextHash': failed['contextHash']})
         self.assertEqual(replacement['status'], 'queued')
+
+    def test_catalog_error_projection_preserves_diagnostic_and_never_enables_play(self):
+        self.remove_catalog()
+        state = read(self.ledger)
+        command = request_catalog_refresh(self.ledger, {'id': str(uuid.uuid4()), 'contextHash': state['contextHash']})
+        brain(self.registry, self.ledger, self.token,
+              {'operation': 'catalog_error', 'requestId': command['id'], 'code': 'native_task_schema_unavailable',
+               'detail': 'The owned host exposes no native task schema.', 'retryable': True})
+        before = self.ledger.snapshot()
+        before.pop('serverTime')
+        for _ in range(2):
+            projected = read(self.ledger)
+            self.assertEqual(projected['catalogRefresh']['catalogError'],
+                             {'code': 'native_task_schema_unavailable', 'retryable': True})
+            self.assertIsNone(projected['catalog'])
+            self.assertTrue(projected['catalogRequired'])
+            self.assertFalse(projected['available'])
+            self.assertIsNone(projected['run'])
+        after = self.ledger.snapshot()
+        after.pop('serverTime')
+        self.assertEqual(after, before, 'Readiness inspection cannot rewrite evidence or retry a send')
+        preview = self.controls.preview(self.ledger, {'operation': 'play', 'contextHash': projected['contextHash'],
+                                                     'brainAllowance': 10000, 'durationHours': 8}, 'session')
+        with self.assertRaisesRegex(Refusal, 'Standard Play prerequisites are missing'):
+            self.controls.confirm(self.registry, self.ledger, {**preview, 'confirmed': True}, 'session')
+        self.assertIsNone(read(self.ledger)['run'])
 
     def test_workspace_conversation_receive_and_pause_boundary(self):
         from test_conversation import envelope

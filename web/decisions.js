@@ -5,6 +5,9 @@ const decisionDetailsOpen = new Set();
 const decisionLabels = {open:"Needs your decision", answered:"Answer recorded", received:"Received by brain", applied:"Applied to design", blocked:"Needs follow-up", superseded:"Superseded"};
 
 function commandPresentation(c, activity=state?.brainActivity, now=Date.now()/1000) {
+  if(c.kind==='standard_catalog_refresh'&&c.status==='failed'&&typeof catalogStatus==='function'){
+    const status=catalogStatus(c);return {label:status.title,detail:status.detail};
+  }
   if(c.kind==='standard_recovery'&&c.status==='completed')return {label:'Recovery reply retained',detail:'The preparation result is saved. The prior phase remains paused; review the next exact decision.'};
   if(c.kind==='reconcile'&&c.payload?.message&&!c.notification&&!c.conversationReceivedAt&&state?.standard?.run?.status==='paused')
     return {label:'Held at checkpoint',detail:'This saved message was not notified while the phase is paused. A separate reviewed recovery-only wake can deliver it once without resuming workers.'};
