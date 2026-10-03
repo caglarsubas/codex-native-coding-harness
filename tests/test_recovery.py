@@ -1,6 +1,6 @@
 import unittest
 
-from orchestrator.recovery import CHECKPOINT_REASONS, describe
+from orchestrator.recovery import CHECKPOINT_REASONS, GAP_LABELS, describe
 
 
 def state(status="blocked", gaps=None, total=954236):
@@ -17,6 +17,15 @@ def state(status="blocked", gaps=None, total=954236):
 
 
 class RecoveryTest(unittest.TestCase):
+    def test_response_counter_gaps_have_fixed_plain_language_labels(self):
+        codes = ['invalid_response_usage_record', 'conflicting_token_response',
+                 'response_usage_discontinuity', 'unreconciled_compaction_usage',
+                 'unmatched_legacy_token_record']
+        result = describe(state(gaps=codes))
+        self.assertEqual(set(result['gapLabels']), {GAP_LABELS[code] for code in codes})
+        self.assertIsNone(result['remainingMeasured'])
+        self.assertTrue(result['budgetBoundaryReached'])
+
     def test_open_phase_with_pending_creation_is_recovery_not_completion(self):
         import copy
         for status in ("running", "stopping", "paused", "blocked"):

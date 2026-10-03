@@ -25,13 +25,15 @@ def scope(run):
 
 def session_usage(paths, identity, start, end, brain=False):
     events, gaps, session_starts, invalid_totals = {}, [], [], []
+    native, legacy, compactions = [], [], []
     for path in paths:
         with open_regular(path) as stream:
             header_line = stream.readline(MAX_LINE + 1)
             require(len(header_line) <= MAX_LINE, "Log header exceeds telemetry bound")
             header = json.loads(header_line)
-            require(header.get("type") == "session_meta" and
-                    header.get("payload", {}).get("id") == identity, "Log identity mismatch")
+            require(isinstance(header, dict) and header.get("type") == "session_meta" and
+                    isinstance(header.get("payload"), dict) and
+                    header["payload"].get("id") == identity, "Log identity mismatch")
             require(not header["payload"].get("forked_from_id"), "Fork usage requires explicit attribution")
             observed_start = stamp(header.get("timestamp"))
             if observed_start is not None:
@@ -48,32 +50,43 @@ def session_usage(paths, identity, start, end, brain=False):
                 except ValueError:
                     gaps.append("incomplete_or_malformed_record")
                     continue
+                if not isinstance(row, dict):
+                    gaps.append("incomplete_or_malformed_record")
+                    continue
                 payload = row.get("payload", {})
-                if row.get("type") != "event_msg" or payload.get("type") != "token_count":
-                    continue
-                info = payload.get("info") or {}
-                if not info:
-                    continue
                 at = stamp(row.get("timestamp"))
-                if at is None:
-                    gaps.append("invalid_token_record")
-                    continue
-                if at > end:
+                if at is not None and at > end:
                     continue  # Later turns cannot invalidate a historical interval.
-                total, last = token_vector(info.get("total_token_usage")), token_vector(info.get("last_token_usage"))
-                if total is None:
-                    invalid_totals.append(at)
-                    # An invalid cumulative record cannot establish a baseline.
-                    # Inside the interval it also leaves an explicit coverage gap.
-                    if not brain or at >= start:
-                        gaps.append("invalid_token_record")
+                if row.get("type") == "token_usage_record":
+                    native.append((at, payload))
                     continue
-                if last is None and (not brain or at >= start):
-                    gaps.append("invalid_token_record")
-                # A validated cumulative baseline does not depend on the previous
-                # call's breakdown. Keep valid totals even when that breakdown is
-                # invalid; never lose known consumption in the measured interval.
-                events[(at, canonical(total))] = (at, total, last)
+                if row.get("type") == "compacted" and isinstance(payload, dict):
+                    compactions.append((at, payload.get("compaction_response_id"), payload.get("latest_token_usage_record")))
+                    continue
+                if row.get("type") != "event_msg" or not isinstance(payload, dict) or payload.get("type") != "token_count":
+                    continue
+                info = payload.get("info")
+                if info is None or info == {}:
+                    continue
+                legacy.append((at, info if isinstance(info, dict) else {}))
+    if native or any(response is not None or value is not None for _, response, value in compactions):
+        from .token_records import session_usage as native_usage
+        return native_usage(native, legacy, compactions, identity, start, brain, session_starts, gaps)
+    for at, info in legacy:
+        if at is None:
+            gaps.append("invalid_token_record")
+            continue
+        total, last = token_vector(info.get("total_token_usage")), token_vector(info.get("last_token_usage"))
+        if total is None:
+            invalid_totals.append(at)
+            # An invalid cumulative record cannot establish a baseline.
+            if not brain or at >= start:
+                gaps.append("invalid_token_record")
+            continue
+        if last is None and (not brain or at >= start):
+            gaps.append("invalid_token_record")
+        # Keep validated totals even when the previous call breakdown is bad.
+        events[(at, canonical(total))] = (at, total, last)
     ordered = sorted(events.values(), key=lambda e: (e[0], e[1]["total_tokens"]))
     require(ordered, "No token samples for registered task")
     zero = dict.fromkeys(TOKENS, 0)

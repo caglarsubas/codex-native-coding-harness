@@ -84,6 +84,12 @@ are not silently enrolled. Terminal closeout samples are retained separately
 from phase totals. Reservations, account limits and provider billing remain
 distinct. The graph cannot enforce a provider billing cap.
 
+Recent native response journals also include compaction consumption. The
+[compaction-aware collector](COMPACTION-USAGE.md) charges those exact-session
+records once and reconciles the older context-display stream without counting
+its context estimate as a model call. Missing or conflicting response records
+remain gaps; source delivery never rewrites saved usage or Resumes a phase.
+
 Brain handoff is a two-review, owner-confirmed operation. The old task may
 prepare one native replacement only after a saved paused/completed/blocked
 checkpoint and controller release. A candidate task and its package receipt are then checked before

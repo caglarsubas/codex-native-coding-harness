@@ -7,6 +7,11 @@ import time
 
 GAP_LABELS = {
     "invalid_token_record": "A Codex token record could not be validated.",
+    "invalid_response_usage_record": "A native response counter or its session identity could not be validated.",
+    "conflicting_token_response": "The same native response has conflicting token records.",
+    "response_usage_discontinuity": "Native cumulative usage does not match the recorded responses; a sample may be missing.",
+    "unreconciled_compaction_usage": "Compaction usage lacks an exact matching native response record.",
+    "unmatched_legacy_token_record": "A context-display token sample has no matching native response counter.",
     "incomplete_or_malformed_record": "A local token record was incomplete or malformed.",
     "counter_reset_or_regression": "A token counter reset or moved backwards.",
     "configured_log_discovery_unavailable": "The configured local token logs were unavailable.",
