@@ -52,6 +52,12 @@ cooperative one-turn planning limit, not a hard provider or billing cap. Old
 phase usage and unknown coverage are not reset or subtracted; any later usage
 refresh preserves the same cumulative high-water accounting.
 
+When this reply leaves an expired empty phase paused, use the separate signed
+[owner closeout](EXPIRED-PHASE-CLOSEOUT.md) after the exact recovery turn ends.
+It records blocked/unqualified, preserves the previous checkpoint and sends no
+wake. Help then prepares a successor draft with its own Review and Play. An
+unresolved task/effect or a missing recovery receipt cannot use that transition.
+
 ## Rollout and qualification
 
 Source delivery, merge, private-state backup, quiesced installation and live

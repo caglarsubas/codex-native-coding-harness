@@ -21,6 +21,10 @@ run('a.receipt={message:"Saved",result:{id:"p",kind:"reconcile",status:"complete
 run('a.receipt=null; a.uncertain=true');assert.equal(run('assistantWorkflowState(a).locked'),false,'Same receipt can be recovered after expiry');
 run('a.uncertain=false; a.proposal.document.expiresAt=Date.now()/1000+300; assistantActions.set("q",{...a});');box.assistantTypedConfirmation('confirm review');assert.equal(run('sent'),1,'Ambiguous confirmation must not choose a target');
 assert(!fs.readFileSync('web/assistant-workflow.js','utf8').includes('innerHTML'));
+assert.match(fs.readFileSync('web/one-page.css','utf8'),/\.assistant-body:has\(\.chat-action\) \.assistant-composer\{position:static\}/,'Control reviews must not be obscured by the composer');
+const inspector={scrollTop:40,getBoundingClientRect:()=>({top:100})};
+box.assistantRevealControl({closest:()=>inspector,getBoundingClientRect:()=>({top:300}),scrollIntoView:()=>assert.fail('Do not pan the workspace')});
+assert.equal(inspector.scrollTop,224,'Reveal the control within its inspector, keeping the graph position');
 assert.match(box.assistantUsageSummary({records:[],tokens:{total_tokens:0,cached_input_tokens:0},gaps:['missing'],collectedAt:1}),/No usage samples.*unknown/);
 assert.match(box.assistantUsageSummary({records:[{}],tokens:{total_tokens:12,cached_input_tokens:3},gaps:['partial'],collectedAt:1}),/At least 12 observed tokens/);
 box.state.workspace={id:'alpha'};box.state.standard={run:{status:'blocked'},blockers:[]};box.state.recovery={
@@ -80,3 +84,23 @@ assert(rendered(reviewed.element).find(e=>e.text==='Next: Review Play').disabled
 box.assistantPending=false;box.roadmapJourneyState=()=>({title:'Evidence is missing',action:'usage',label:'Refresh usage'});
 box.assistantWorkflowReceipt(reviewed,true);
 assert(!rendered(reviewed.element).some(e=>e.text==='Next: Review Play'),'A changed gate removes the old next step');
+
+// Closeout is its own exact owner action, not a recovery replay or Play.
+run(`var closeSent=0; var closeAction={workspace:'alpha',submit:()=>closeSent++,proposal:{document:{workflow:'phase_close',id:'close-1',brainId:'brain',expiresAt:Date.now()/1000+300,request:{expectedRevision:state.meta.revision}}}}; assistantActions.set('close-1',closeAction);`);
+assert.equal(box.assistantTypedConfirmation('confirm close stopped phase'),true);
+assert.equal(run('closeSent'),1);
+assert.equal(box.assistantTypedConfirmation('close it'),false,'No inferred closeout confirmation');
+box.state.standard.run={status:'blocked',ownerCloseout:{requestId:'close-1'}};
+box.state.commands=[];
+let helpStarted=0;box.developmentHelpStart=()=>helpStarted++;
+const closed={receipt:{result:{kind:'standard_closeout'}},element:new Element('section'),proposal:{document:{workflow:'phase_close',id:'close-1'}}};
+box.assistantWorkflowReceipt(closed,closed.receipt.result);
+const nextHelp=rendered(closed.element).find(e=>e.text==='Next: Help me continue development');
+assert(nextHelp);nextHelp.onclick();assert.equal(helpStarted,1);assert.equal(run('closeSent'),1);
+assert(rendered(closed.element).some(e=>e.text==='Details · reviewed closeout'),'Saved closeout details stay collapsed');
+box.state.commands=[{status:'queued'}];box.assistantWorkflowReceipt(closed,true);
+assert(!rendered(closed.localNext).some(e=>e.text==='Next: Help me continue development'),'A pending preparation replaces the old next button');
+assert(rendered(closed.localNext).some(e=>/Follow the preparation progress/.test(e.text)));
+box.state.commands=[];
+box.state.standard.run={status:'paused'};box.assistantWorkflowReceipt(closed,true);
+assert(!rendered(closed.element).some(e=>e.text==='Next: Help me continue development'),'Stale closeout cannot guide another run');

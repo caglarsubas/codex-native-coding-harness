@@ -802,6 +802,7 @@ def brain(registry, ledger, token, request):
             require(not task["effectIssued"], "Uncertain creation cannot be cancelled or retried")
             task["status"] = "not_created"
         elif operation == "checkpoint":
+            require(not run.get("ownerCloseout"), "Owner-closed phase cannot be reopened or relabelled; prepare a successor")
             required = {"operation", "runId", "outcome", "summary", "brainObservedTokens"}
             require(set(request) in (required, required | {"reasonCodes"}), "Unexpected checkpoint fields")
             require(request["outcome"] in ("paused", "completed", "blocked"), "Checkpoint outcome required")

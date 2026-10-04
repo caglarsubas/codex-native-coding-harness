@@ -127,6 +127,8 @@ class WorkspaceRuntime:
         from .reply_recovery import catalog as reply_catalog
         recovery = reply_catalog(state).get("reply_recovery")
         state["replyRecovery"] = {"messageId": recovery["details"]["messageId"]} if recovery else None
+        from .phase_closeout import availability as closeout_availability
+        state["phaseCloseout"] = closeout_availability(state)
         return state
 
     def submit_control(self, body, actor="dashboard"):

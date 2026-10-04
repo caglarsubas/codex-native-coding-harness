@@ -34,6 +34,14 @@ then shows native delivery, brain receipt and reply separately. See
 [checkpoint recovery wake](CHECKPOINT-RECOVERY-WAKE.md) and
 [guided control recovery](CONTROL-RECOVERY.md).
 
+If recovery ends but an expired empty phase is still paused, the inspector offers
+**Review stopped-phase closeout**. It checks the exact ended native turn and
+records an owner-confirmed **blocked · unqualified** outcome without waking the
+brain or changing usage. The saved receipt then offers Help to prepare the
+successor proposal in place. Review and Play remain separate. Workers or
+uncertain run effects cannot use this closeout. See
+[expired-phase closeout](EXPIRED-PHASE-CLOSEOUT.md).
+
 The assistant can also send an explicitly requested, verbatim instruction to the
 project brain, such as a requested phase revision. It never invents the owner's
 answer. A short confirmation phrase is handled directly by the browser, without

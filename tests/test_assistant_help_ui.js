@@ -61,8 +61,13 @@ const elements=n=>[n,...n.children.flatMap(elements)];
   box.developmentHelpUpdate();await flush();assert.equal(submits.length,1);
   elements(root).find(e=>e.text==='Review next step').onclick();assert.equal(steps.at(-1)[0],'phase_review');
   assert.equal(submits.length,1,'Review never auto-confirms or triggers Play');
+  run('developmentHelpViews.clear()');box.state.meta.revision=4;
+  response={mode:'decision',key:'phase_close',title:'Recovery finished; close the expired phase',detail:'Blocked and unqualified'};
+  box.developmentHelpUpdate();await flush();
+  const closeout=elements(root).find(e=>e.text==='Review stopped-phase closeout');assert(closeout);
+  closeout.onclick();assert.equal(steps.at(-1)[0],'phase_close');assert.equal(submits.length,1,'Closeout only prepares its own preview');
   // A response arriving after project selection changes cannot cross projects.
-  let resolve;box.api=()=>new Promise(r=>resolve=r);box.state.meta.revision=4;box.developmentHelpUpdate();
+  let resolve;box.api=()=>new Promise(r=>resolve=r);box.state.meta.revision=5;box.developmentHelpUpdate();
   box.workspaceId='beta';box.state={...base(),workspace:{id:'beta'}};
   resolve({mode:'blocked',title:'FOREIGN RESULT'});await flush();assert(!elements(root).some(e=>e.text==='FOREIGN RESULT'));
   box.state.repositories=[{policyProfile:'harness'}];assert.equal(box.developmentHelpUpdate(),false);

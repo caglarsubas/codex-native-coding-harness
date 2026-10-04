@@ -37,7 +37,11 @@ const run=code=>vm.runInContext(code,box),all=root=>[root,...root.children.flatM
   assert.deepEqual(JSON.parse(remember.options.body),{rememberDays:30});assert.equal(reloads,1);
   locked=true;const before=requests.length;await run("changeBrowserAccess('/api/logout',{})");assert.equal(requests.length,before);
   const revealed=[];box.revealPane=name=>revealed.push(name);
+  let parked=false;box.sessionParkGuide=()=>{parked=true;};
+  const content=box.$('content'),replace=content.replaceChildren.bind(content);
+  content.replaceChildren=(...children)=>{assert(parked,'Park the graph-embedded guide before discarding the workspace on sign-out');replace(...children);};
   run('browserSignedOut()');assert.equal(box.state,null);assert.equal(box.connected,false);
+  assert(parked,'The guide must remain connected for private-content clearing and reauthentication');
   assert.deepEqual(revealed,['workspace'],'Sign-in remains visible in an assistant-only saved layout');
   assert.equal(nodes.get('browser-access').hidden,true);assert.equal(nodes.get('pause').disabled,true);
   run("authMode='account';browserSignedOut()");
