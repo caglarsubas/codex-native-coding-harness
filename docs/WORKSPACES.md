@@ -38,6 +38,47 @@ retain the current bytes, inspect the backup and obtain explicit recovery approv
 Replacing a database or brain identity requires recovery; the registry will not
 silently adopt the replacement. No automatic restore or destructive cleanup exists.
 
+### Device-number drift after a local reboot
+
+macOS may assign a mounted volume a different device number after reboot. The
+normal registry identity check still refuses this change. For an **unchanged
+ledger inode and brain only**, the trusted local operator can prepare
+`workspace-identity-preview <private-retained-ledger-backup>`, using explicit
+`--platform` and `--workspace`. The reference must be a separately retained,
+private SQLite backup whose **entire schema and logical contents** match the
+current ledger. Registration-time backups may be too old; never overwrite a
+reference or create a new current-state copy to pretend it is earlier evidence.
+
+The preview binds the selected workspace/root, current registry contents,
+old/new filesystem identities, ledger revision and checksums, reference identity
+and checksums, and any existing exact project mapping. It makes no state changes
+and has no short timer: changed pins, schema or contents invalidate it.
+
+After independently stopping all older writers and reviewing the exact private
+preview, the owner may use `workspace-identity-recover <private-preview-json>
+--confirm-hash <displayed-documentHash> --confirm --writers-stopped`. The operator
+must obtain exact recovery approval; vague assent, a normal read, or permission
+to build source is not confirmation. This command locks registry then ledger,
+refuses a running dashboard, verifies fresh private backups of both databases,
+and atomically journals only the registry's new device pin plus the corresponding
+pin in an **unchanged** existing project mapping. It never restores/replaces the
+ledger, updates its contents, refreshes catalog/evidence times, changes either
+native project identity, rebinds a host, starts a turn, resumes or renews a run,
+or resets tokens, gaps, attempts or receipts. An identical retry returns only
+the historical receipt; it cannot repair a later identity change.
+
+Running/unresolved controls, tasks, merge intents, controller/runner ownership,
+strict Harness and enrollment/managed ownership remain refused. A changed inode,
+brain, missing/changed reference, or reassigned project needs its separate
+recovery procedure. The reference is operator-supplied evidence, not independent
+native attestation. Stopped-writer acknowledgment is a cooperative local setup
+requirement, not proof that every process has ended. Any partial backup is kept
+after failure; no identity is applied until both backups and the final checks
+pass. Existing host-binding, repository and observation pins remain unchanged
+and may need their own exact reviews. Expired phases still cannot Resume.
+
+This source command does not authorize installation or live identity repair.
+
 ## Project introduction
 
 Use `workspace-profile-set <private-json> --version <current-version>` to save

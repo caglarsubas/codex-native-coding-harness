@@ -62,6 +62,11 @@ def main():
     p = sub.add_parser("workspace-register"); p.add_argument("id"); p.add_argument("name"); p.add_argument("state_root", type=Path)
     p.add_argument("--apply", action="store_true", help="Register in place after a verified SQLite backup; default is preview")
     p = sub.add_parser("workspace-profile-set"); p.add_argument("profile", type=Path); p.add_argument("--version", type=int, required=True)
+    p = sub.add_parser("workspace-identity-preview", help="Read-only device-number recovery review against a private retained backup")
+    p.add_argument("reference", type=Path)
+    p = sub.add_parser("workspace-identity-recover", help="Exact-owner registry device-pin repair; never replace a ledger or start work")
+    p.add_argument("preview", type=Path); p.add_argument("--confirm-hash", required=True)
+    p.add_argument("--confirm", action="store_true"); p.add_argument("--writers-stopped", action="store_true")
     sub.add_parser("mission-state", help="Read workspace mission configuration; not execution authority")
     sub.add_parser("standard-state", help="Read cooperative run, task journal and usage gaps")
     p = sub.add_parser("standard-usage-refresh", help="Collect local counters for the exact registered standard run")
@@ -320,6 +325,13 @@ def main():
         elif not args.workspace: raise Refusal("Select an exact --workspace")
         elif args.action == "workspace-verify-backup": out = registry.verify_backup(args.workspace)
         elif args.action == "workspace-profile": out = registry.profile(args.workspace)
+        elif args.action in ("workspace-identity-preview", "workspace-identity-recover"):
+            from . import workspace_identity_recovery as recovery
+            if args.action == "workspace-identity-preview":
+                out = recovery.preview(registry, args.workspace, args.reference)
+            else:
+                out = recovery.confirm(registry, args.workspace, recovery.read_preview(args.preview), args.confirm_hash,
+                                       confirmed=args.confirm, writers_stopped=args.writers_stopped)
         else: out = registry.save_profile(args.workspace, json.loads(args.profile.read_text()), args.version)
         print(json.dumps(out, ensure_ascii=False, indent=2)); return
     if args.action == "brain-handoff-recover":
