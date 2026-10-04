@@ -9,7 +9,7 @@ from .assistant_actions import ActionProposals, TTL
 from .core import digest, require
 from .recovery import describe
 
-KINDS = {"phase_help", "phase_prepare", "phase_reconcile", "phase_recovery", "phase_review", "phase_play", "phase_pause", "phase_resume", "usage_check", "codex_check", "brain_message"}
+KINDS = {"phase_help", "phase_prepare", "phase_reconcile", "phase_recovery", "phase_close", "phase_review", "phase_play", "phase_pause", "phase_resume", "usage_check", "codex_check", "brain_message"}
 PREPARE_MESSAGE = (
     "Review this project's configured roadmap sources and latest retained results. "
     "Prepare the next unfinished, bounded phase as a mission draft. Include goal, success criteria, "
@@ -131,6 +131,9 @@ def catalog(state):
     add("phase_recovery", "Prepare safely from this checkpoint",
         "Authorize one bounded brain preparation turn. It may save evidence, a checkpoint, a draft and a reply; "
         "the phase stays paused, with no workers, merge, Play or Resume.", recovery_reason)
+    from .phase_closeout import availability as closeout_availability, BOUNDARY as CLOSEOUT_BOUNDARY
+    closeout = closeout_availability(state)
+    add("phase_close", "Close stopped phase", CLOSEOUT_BOUNDARY, closeout["reason"])
     add("phase_review", "Review this phase plan", "Record your review of the exact scope and limits. Play is a separate confirmation.",
         "Finish the current phase or handoff first." if active or blocked_handoff else
         "A current, unchanged mission draft is required." if m.get("effectiveStatus") != "draft" or m.get("bindingIssues") else None)
@@ -235,6 +238,27 @@ class JourneyProposals(ActionProposals):
                                      "allowanceTokens": SUGGESTED_TOKENS, "usage": usage,
                                      "reusesMessage": bool(existing), "messageId": request["messageId"],
                                      "expiresAt": run["expiresAt"]}, message=message)
+        elif kind == "phase_close":
+            from . import phase_closeout, reply_recovery
+            from .native_read_client import ReadProxy
+            host = self.runtime.notifier.app_server
+            require(host is not None, "The reviewed owned host is required for an ended-turn check")
+            command = phase_closeout.eligible(state)
+            reply_recovery.check_binding(state, host.binding)
+            with ReadProxy(host.binding["endpoint"]) as proxy:
+                observation = phase_closeout.observe(proxy, host.binding, command)
+            require(self.runtime.ledger.snapshot()["meta"]["revision"] == state["meta"]["revision"],
+                    "Project changed during inspection; check again")
+            run = standard["run"]
+            reply = next(c for c in state["commands"] if c["id"] == run["recovery"]["messageId"])["conversationReply"]
+            request = {"id": ident, "expectedRevision": state["meta"]["revision"], "runId": run["id"],
+                "runHash": digest(run), "brainId": state["meta"]["brainId"],
+                "recoveryId": command["id"], "replyHash": reply["hash"], "observation": observation}
+            preview["closeout"] = {"runId": run["id"], "phaseId": run["phaseId"], "expiresAt": run["expiresAt"],
+                "outcome": "blocked", "qualification": "unqualified", "observation": observation}
+            preview["summary"] = ["Close the expired phase without claiming success or pilot qualification.",
+                "Keep all consumed usage, coverage gaps, previous checkpoint and recovery receipts.",
+                "Next, Help prepares the successor proposal. No brain wake, Review or Play is included in this closeout."]
         else:
             from .development_help import message as help_message, SUMMARY
             message = (help_message(state) if kind == "phase_help" else
@@ -323,6 +347,22 @@ class JourneyProposals(ActionProposals):
             current_status = self.runtime.notifier.status(doc["brainId"])
             result = confirm_recovery(self.runtime.registry, ledger, request, current_status)
             return self.result(doc, result), True
+        if kind == "phase_close":
+            from . import phase_closeout, reply_recovery
+            from .native_read_client import ReadProxy
+            state = self.runtime.snapshot()
+            require(state["meta"]["revision"] == request["expectedRevision"], "Project changed; review again")
+            command = phase_closeout.eligible(state)
+            host = self.runtime.notifier.app_server
+            require(host is not None and digest(host.binding) == request["observation"]["bindingHash"],
+                    "Reviewed host changed; phase stays paused")
+            reply_recovery.check_binding(state, host.binding)
+            with ReadProxy(host.binding["endpoint"]) as proxy:
+                observation = phase_closeout.observe(proxy, host.binding, command)
+            require(all(observation[k] == request["observation"][k] for k in
+                        ("turnId", "status", "completedAt", "brainId", "projectId", "bindingHash")),
+                    "Reviewed native turn changed; check again")
+            return self.result(doc, phase_closeout.confirm(self.runtime.registry, ledger, request)), False
         if kind in ("phase_play", "phase_pause", "phase_resume"):
             result = self.runtime.standard_controls.confirm(self.runtime.registry, ledger, {**request, "confirmed": True}, session)
         elif kind == "codex_check":
@@ -335,7 +375,8 @@ class JourneyProposals(ActionProposals):
     @staticmethod
     def result(doc, result):
         return {"workflow": doc["workflow"], "id": doc["id"], "result": result,
-                "message": "Recovery-only preparation saved. The phase remains paused; follow native delivery and the brain's separate receipt." if doc["workflow"] == "phase_recovery" else
+                "message": result["result"] if doc["workflow"] == "phase_close" else
+                           "Recovery-only preparation saved. The phase remains paused; follow native delivery and the brain's separate receipt." if doc["workflow"] == "phase_recovery" else
                            "Phase plan reviewed. You can now review Play here." if doc["workflow"] == "phase_review" else
                            "Usage refreshed. Remaining measured budget is unknown." if doc["workflow"] == "usage_check" and result.get("gaps") else
                            "Usage refreshed. Existing budget and checkpoint gates still apply." if doc["workflow"] == "usage_check" else

@@ -137,6 +137,9 @@ function roadmapJourneyState(snapshot,isConnected=true,now=Date.now()/1000){
   }
   if(run?.status==='paused'){
     const recovery=run.recovery;
+    if(snapshot.phaseCloseout?.available)return result(3,'Recovery finished; close the expired phase',
+      'Close this empty phase as blocked and unqualified. Its usage and evidence stay intact. Then Help prepares the next proposal; no prompt writing or Resume.',
+      'Review stopped-phase closeout','close',{reasons:blockers});
     if(recovery&&recovery.status!=='replied')return result(3,'Recovery preparation is underway',
       'One owner-reviewed preparation wake is saved. Follow native delivery, brain receipt and reply here; no second request is sent.',
       'Follow recovery progress','recover_follow',{reasons:blockers});
@@ -191,6 +194,7 @@ function prepareRoadmapPhase(){
   document.getElementById('brain-message')?.focus();
 }
 function journeyAction(action){
+  if(action==='close'){focusAssistantConversation();return assistantRequestStep('phase_close');}
   if(action==='recover'||action==='recover_follow'){
     focusAssistantConversation();
     if(typeof developmentHelpUpdate==='function')developmentHelpUpdate();

@@ -102,6 +102,14 @@ def plan(state):
                     "Follow its recorded blockers. Help cannot replace the checkpoint, repeat Pause or resume development.")
     authorized = run.get("recovery") or {}
     recovery_replied = authorized.get("status") == "replied"
+    if run.get("status") == "paused" and recovery_replied:
+        from .phase_closeout import availability
+        closeout = availability(state)
+        if closeout["available"]:
+            result["requestId"] = authorized["id"]
+            return step("decision", "Recovery finished; close the expired phase",
+                        "No workers belong to this phase. Close it as blocked and unqualified, keeping all usage and evidence. "
+                        "Then Help can prepare the successor proposal; Review and Play remain separate.", "phase_close")
     if run.get("status") == "paused" and (s.get("blockers") or
             (state.get("recovery") and not recovery_replied) or
             (authorized and not recovery_replied)):

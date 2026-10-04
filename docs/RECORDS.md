@@ -184,3 +184,20 @@ This collector observes registered standard tasks and tracked terminals, not a
 complete native descendant inventory or process cleanup. It measures no tokens,
 releases no ownership and authorizes no execution. It cannot satisfy a legacy
 Brain Stop or strict Harness gate. See [the pilot and collector guide](STANDARD-OWNED-HOST-PILOT.md).
+
+## Owner closeout of an expired empty standard phase
+
+The signed `phase_close` adapter retains a completed local `standard_closeout`
+command with its exact request hash and run ID. `standardRun.ownerCloseout`
+contains the request ID, owner closeout time, blocked/unqualified outcome,
+verbatim previous checkpoint, recovery/reply bindings and bounded ended-turn
+metadata. The new checkpoint records expiry without replacing historical
+usage, gaps, native-effect records or the prior checkpoint's observation time.
+Run and audit revisions advance normally; no counter epoch is reset.
+
+Only an expired, empty paused standard run with the exact recovery receipt,
+reply and stable ended native turn is eligible. This command has no native
+notification, settlement, permission-relay or pilot-acceptance meaning. Exact
+receipt replay never repeats collection or changes a newer run. Help then uses
+the existing separately confirmed conversation request to prepare a successor;
+Review and Play remain separate. See [expired-phase closeout](EXPIRED-PHASE-CLOSEOUT.md).

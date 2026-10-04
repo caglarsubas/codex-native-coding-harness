@@ -59,6 +59,8 @@
 .session-detail-content .assistant-heading{padding-top:0}
 .session-detail-content .assistant-log{overflow:visible;min-height:0}
 .session-detail-content .assistant-composer{position:sticky;bottom:-24px;padding:12px 0 18px;z-index:1}
+/* A control preview/receipt must not sit behind the docked question composer. */
+.session-detail-content .assistant-body:has(.chat-action) .assistant-composer{position:static}
 .session-guide-boundary{font-size:11px;color:var(--muted);line-height:1.5}
 .session-section-lead{border:1px solid var(--rule);border-radius:6px;background:var(--soft);padding:12px 14px}
 .session-section-lead ul,.session-executive-list{margin:4px 0 0;padding-left:20px;font-size:12px;line-height:1.55}

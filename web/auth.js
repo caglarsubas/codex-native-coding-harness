@@ -2,6 +2,9 @@
 let browserSession=null, dashboardPoll=null, authBusy=false, authMode=null;
 
 function browserSignedOut(message='Open the current private dashboard link to sign in.'){
+  // The guide lives inside the graph inspector. Move it back before replacing
+  // that inspector, so sign-out can clear its private content and reuse its DOM.
+  if(typeof sessionParkGuide==='function')sessionParkGuide();
   // A saved assistant-only layout must not hide the sign-in form.
   if(typeof revealPane==='function')revealPane('workspace');
   clearInterval(dashboardPoll);dashboardPoll=null;

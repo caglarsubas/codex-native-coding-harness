@@ -1,5 +1,5 @@
 "use strict";
-const workflowPhrases={phase_help:'confirm help',phase_prepare:'confirm prepare',phase_reconcile:'confirm reconcile',phase_recovery:'confirm recovery',phase_review:'confirm review',phase_play:'confirm play',phase_pause:'confirm pause',phase_resume:'confirm resume',usage_check:'confirm usage',codex_check:'confirm readiness',brain_message:'confirm send'};
+const workflowPhrases={phase_help:'confirm help',phase_prepare:'confirm prepare',phase_reconcile:'confirm reconcile',phase_recovery:'confirm recovery',phase_close:'confirm close stopped phase',phase_review:'confirm review',phase_play:'confirm play',phase_pause:'confirm pause',phase_resume:'confirm resume',usage_check:'confirm usage',codex_check:'confirm readiness',brain_message:'confirm send'};
 function assistantLocalWorkflow(question,current=state){
   // Exact product starters, not an inferred intent or approval. The normal
   // server catalog still validates and prepares a separate signed preview.
@@ -14,7 +14,7 @@ function assistantLocalWorkflow(question,current=state){
   const pending=(current.commands||[]).some(c=>(c.status==='queued'||c.status==='processing'||c.needsBrainReceipt));
   if(pending){assistantNextStep();assistantStatus('A saved request is still awaiting its receipt. Inspect its status above; no duplicate was sent.');return true;}
   const journey=roadmapJourneyState(current,true);
-  const key={prepare:'phase_prepare',reconcile:'phase_reconcile',recover:'phase_recovery',mission:'phase_review',catalog:'codex_check',play:'phase_play',resume:'phase_resume'}[journey.action];
+  const key={prepare:'phase_prepare',reconcile:'phase_reconcile',recover:'phase_recovery',close:'phase_close',mission:'phase_review',catalog:'codex_check',play:'phase_play',resume:'phase_resume'}[journey.action];
   if(key)assistantRequestStep(key);
   else{assistantNextStep();assistantStatus(journey.detail||journey.title);}
   return true;
@@ -35,6 +35,13 @@ function assistantWorkflowState(action,current=state,now=Date.now()/1000){
     ['codex_check','usage_check'].includes(doc.workflow)?current?.standard?.contextHash!==request.contextHash:current?.meta?.revision!==request.expectedRevision;
   if(stale||current?.meta?.brainId!==doc.brainId)return {locked:true,label:'Project changed',detail:'Ask again to review its current state.'};
   return {locked:false,label:'Ready for your confirmation',detail:action.guided?'Click Help to run this bounded preparation. Review and Play stay separate.':'Type “'+workflowPhrases[doc.workflow]+'” or use the button below.'};
+}
+function assistantRevealControl(element){
+  // Scroll the inspector, not the graph or the whole workspace. Sticky panel
+  // geometry makes ancestor-wide scrollIntoView obscure an in-place outcome.
+  const panel=element?.closest?.('.session-inspector');
+  if(panel)panel.scrollTop+=element.getBoundingClientRect().top-panel.getBoundingClientRect().top-16;
+  else element?.scrollIntoView?.({block:'start'});
 }
 function assistantWorkflowPreview(item,proposal,guided=false){
   const doc=proposal.document,p=doc.preview,section=el('section',null,'chat-action');
@@ -67,6 +74,12 @@ function assistantWorkflowPreview(item,proposal,guided=false){
     section.append(el('p',`Paused phase ${r.phaseId} · one preparation turn · ${num(r.allowanceTokens)} additional cooperative tokens. ${r.reusesMessage?'Reuses the saved message; no duplicate.':'Creates one bounded preparation message.'}`),
       el('p',`Recorded usage lower bound: ${u.knownLowerBound==null?'unknown':num(u.knownLowerBound)} · coverage ${u.coverage||'unknown'} · ${gaps}. Old phase budget and expiry stay unchanged. This is not a hard provider cap.`,'muted'));
   }
+  if(p.closeout){
+    section.append(el('p',`Expired phase: ${p.closeout.phaseId}. Outcome: blocked · unqualified.`, 'chat-phase-title'));
+    const details=el('details');details.append(el('summary','Details · ended-turn check'),
+      el('p','The exact recovery turn was observed ended on the reviewed host. This does not verify its commands, permission handling or pilot acceptance.'),
+      el('pre',JSON.stringify(p.closeout.observation,null,2)));section.append(details);
+  }
   if(p.message){
     if(guided){const details=el('details'),list=el('ul');for(const text of p.summary||[])list.append(el('li',text));details.append(el('summary','Details · checks and prepared instruction'),list,el('p',p.impact),el('p',p.message));section.append(details);}
     else section.append(narrative(p.message,'Exact instruction to the project brain'));
@@ -88,7 +101,12 @@ function assistantWorkflowPreview(item,proposal,guided=false){
       action.receipt=await api('/api/assistant/confirm',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({proposal,confirmed:true})});
       assistantStatus(action.receipt.message,false,action.receipt.result?.kind?action.receipt.result.id:null);await refresh();
     }catch(error){if(error.workspaceChanged)return;if([400,401,403,409].includes(error.status))action.rejected=error.message;else action.uncertain=true;assistantStatus(error.message,true);}
-    finally{action.sending=false;assistantConnectionChanged();if(action.guided)$('assistant-log').scrollTop=0;else assistantScroll();}
+    finally{
+      action.sending=false;assistantConnectionChanged();
+      if(action.proposal.document.workflow==='phase_close'&&action.receipt){
+        action.closeoutHeading?.focus({preventScroll:true});assistantRevealControl(action.element);
+      }else if(action.guided)$('assistant-log').scrollTop=0;else assistantScroll();
+    }
   };
   confirm.onclick=action.submit;item.append(section);refreshAssistantActions();
   return action;
@@ -138,6 +156,34 @@ function assistantNextStep(){
   if(latest)root.append(narrative(latest.conversationReply.message,'Project brain reply'));
 }
 function assistantWorkflowReceipt(action,recorded){
+  if(action.receipt&&action.proposal.document.workflow==='phase_close'){
+    // Keep the outcome and next action visible. The already-confirmed scope is
+    // still readable, but no longer competes with preparation progress.
+    if(!action.closeoutCollapsed){
+      const details=el('details');details.append(el('summary','Details · reviewed closeout'));
+      details.append(...[...action.element.children].filter(child=>child!==action.status));
+      action.closeoutHeading=el('h3','Stopped phase closed · unqualified');action.closeoutHeading.setAttribute('tabindex','-1');
+      action.element.replaceChildren(action.closeoutHeading,details,...(action.status?[action.status]:[]));
+      // Put this local outcome before the asynchronously prepared Help card;
+      // that card's arrival must not push the focused receipt out of view.
+      const article=action.element.closest?.('.chat-turn'),log=$('assistant-log');
+      if(article&&log)log.prepend(article);
+      action.closeoutCollapsed=true;
+    }
+    if(!action.localNext){action.localNext=el('div',null,'assistant-actions');action.element.append(action.localNext);}
+    const current=state.standard?.run?.ownerCloseout?.requestId===action.proposal.document.id&&state.standard.run.status==='blocked';
+    const waiting=(state.commands||[]).some(c=>c.status==='queued'||c.status==='processing'||c.needsBrainReceipt||
+      (c.kind==='reconcile'&&c.payload?.message&&!c.conversationReply&&c.status==='completed'));
+    const signature=JSON.stringify([current,waiting,connected,assistantPending,state.meta?.revision]);
+    if(action.localNextKey!==signature){action.localNextKey=signature;action.localNext.replaceChildren();
+      if(current&&!waiting){
+        action.localNext.append(el('p','Help uses Codex tokens for bounded preparation only; Review and Play remain separate.','muted'));
+        const b=button('Next: Help me continue development',()=>{
+          developmentHelpStart();assistantRevealControl($('assistant-next-step'));
+        });b.disabled=!connected||assistantPending;action.localNext.append(b);
+      }else if(current)action.localNext.append(el('p','Follow the preparation progress. No duplicate request is needed.','muted'));
+    }
+  }
   // Keep the next owner decision beside the just-saved local control. Do not
   // make the owner scroll back to the top after confirming Review or Usage.
   if(action.receipt&&['phase_review','usage_check'].includes(action.proposal.document.workflow)){

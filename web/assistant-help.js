@@ -84,7 +84,7 @@ function developmentHelpRender(root,entry){
     if(Date.now()/1000>data.proposal.document.expiresAt)panel.append(button('Refresh help preview',()=>developmentHelpUpdate(true)));
   }else{
     const next=el('div',null,'development-next');next.append(el('h3',data.title),el('p',data.detail,'muted'));
-    if(data.mode==='decision'&&data.key){const b=button('Review next step',()=>assistantRequestStep(data.key),'primary');b.disabled=assistantPending;entry.buttons=[b];next.append(b);panel.prepend(next);}
+    if(data.mode==='decision'&&data.key){const b=button(data.key==='phase_close'?'Review stopped-phase closeout':'Review next step',()=>assistantRequestStep(data.key),'primary');b.disabled=assistantPending;entry.buttons=[b];next.append(b);panel.prepend(next);}
     else if(data.mode!=='follow')panel.append(next);
     else if(!command)panel.append(el('p','Your request is recorded. Refreshing its saved progress…','muted'));
     if(data.mode==='needs_input'){

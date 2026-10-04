@@ -36,6 +36,17 @@ separate from the ledger receipt and reply. A successor mission still needs
 its own review and Play. Source delivery does not activate this path on live
 state or reconfigure a host binding. See docs/CHECKPOINT-RECOVERY-WAKE.md.
 
+After recovery replies, the signed `phase_close` owner adapter may close only an
+expired, empty paused standard run as blocked and unqualified. Require the exact
+recovery receipt/reply, released controller, no workers/packets/run effects or
+pending controls, and repeated metadata-only reads showing that exact recovery
+is the latest completed turn on the reviewed bound host. Preserve the old
+checkpoint, all usage/gaps and every receipt. This is not effect reconciliation,
+settlement, pilot acceptance or permission to reopen the run. Closeout sends no
+notification. Subsequent Help, mission Review and Play remain separate controls;
+polling never collects native evidence or confirms them. Source delivery changes
+no live state or host. See docs/EXPIRED-PHASE-CLOSEOUT.md.
+
 ## Owned app-server wake source (2026-09-26)
 
 The owner approved implementing an opt-in, documented Codex app-server wake
