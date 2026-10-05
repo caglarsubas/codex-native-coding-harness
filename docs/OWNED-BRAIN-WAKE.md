@@ -7,6 +7,10 @@ on a separately owned, already running local host. It is for registered
 all-standard projects only. The dashboard remains a ledger and notification
 client; the designated brain is still the only scheduler.
 
+Binding configuration is not host health. Separate handshake checks, in-place
+review renewal and an opt-in operator supervisor are documented in
+[host lifetime and review recovery](HOST-LIFETIME-AND-REVIEW-RECOVERY.md).
+
 Received pre-phase messages whose native turns ended without a retained reply
 have a separate [receipt-only recovery](RECEIPT-ONLY-RECOVERY.md) control.
 It uses this same bound bridge and one-shot claim, not a diagnostic replay,

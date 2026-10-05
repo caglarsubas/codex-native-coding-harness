@@ -58,6 +58,39 @@ class WorkspaceServerTest(unittest.TestCase):
         _, _, raw = self.request("/api/workspaces", headers=auth)
         self.assertEqual(len(json.loads(raw)["workspaces"]), 2)
 
+    def test_host_connection_is_explicit_authenticated_scoped_and_read_only(self):
+        from unittest.mock import Mock
+        from orchestrator.core import canonical
+        host = Mock()
+        host.configured.return_value = True
+        host.connection_status.return_value = {"status": "unchecked", "checkedAt": None}
+        host.check_connection.return_value = {"status": "disconnected", "checkedAt": 1, "detail": "Host offline"}
+        self.server.runtime_for("a").notifier.app_server = host
+        with self.ledgers["a"].tx() as db:
+            self.ledgers["a"].put(db, "repos", "app", {"id": "app", "path": "/fixture/app", "projectId": "project-a",
+                                                       "ref": "main", "mergePolicy": "manual", "policyProfile": "standard"})
+        route = "/api/workspaces/a/host-connection/check"
+        self.assertEqual(self.request(route, {})[0], 403)
+        auth_a = self.auth("a"); auth_b = self.auth("b", auth_a)
+        self.assertEqual(self.request(route, {}, auth_b)[0], 403)
+        self.assertEqual(self.request(route + "?target=other", {}, auth_a)[0], 409)
+        self.assertEqual(self.request(route, {"target": "foreign"}, auth_a)[0], 409)
+        def retained_state():
+            snapshot = self.ledgers["a"].snapshot()
+            snapshot.pop("serverTime")
+            return canonical(snapshot)
+        before = retained_state()
+        self.request("/api/workspaces/a/state", headers=auth_a)
+        host.check_connection.assert_not_called()
+        self.assertEqual(self.request(route, {}, auth_a)[0], 200)
+        host.check_connection.assert_called_once_with("brain-a")
+        self.assertEqual(retained_state(), before)
+        with self.ledgers["a"].tx() as db:
+            repo = self.ledgers["a"].get(db, "repos", "app"); repo["policyProfile"] = "harness"
+            self.ledgers["a"].put(db, "repos", "app", repo)
+        self.assertEqual(self.request(route, {}, auth_a)[0], 409)
+        self.assertEqual(host.check_connection.call_count, 1)
+
     def test_conversation_auth_csrf_scope_and_recipient(self):
         import uuid
         from orchestrator.conversation import receive, reply

@@ -189,7 +189,7 @@ class JourneyProposals(ActionProposals):
         if kind not in KINDS:
             return super().prepare(action, state, session)
         require(kind in catalog(state) and catalog(state)[kind]["available"], "Refresh the project before preparing this action")
-        ident, now = str(uuid.uuid4()), time.time()
+        ident = str(uuid.uuid4())
         mission, standard = state.get("mission") or {}, state["standard"]
         preview = {k: action[k] for k in ("title", "target", "impact", "href", "details")}
         request = {}
@@ -272,10 +272,15 @@ class JourneyProposals(ActionProposals):
         if kind in ("phase_review", "phase_play", "phase_resume"):
             preview["mission"] = {"version": mission["version"], "documentHash": mission["documentHash"],
                                   "spec": mission["document"]["spec"]}
+        # Give the owner the full review window *after* bounded native reads.
+        # An embedded standard-control preview may expire sooner and remains
+        # authoritative; never extend it through this outer chat envelope.
+        now = time.time()
+        expires = min(now + TTL, request.get("preview", {}).get("expiresAt", now + TTL))
         doc = {"workflow": kind, "id": ident, "request": request, "preview": preview,
                "workspaceId": state["workspace"]["id"], "ledger": digest(str(self.runtime.ledger.db)),
                "session": digest(session), "brainId": state["meta"]["brainId"],
-               "createdAt": now, "expiresAt": now + TTL}
+               "createdAt": now, "expiresAt": expires}
         return {"document": doc, "signature": self.sign(doc)}
 
     def confirm(self, ledger, body, session):

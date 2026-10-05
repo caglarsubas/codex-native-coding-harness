@@ -531,6 +531,16 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(200, self.server.registry.save_profile(workspace_id, body["profile"], body["expectedVersion"]))
             if path == "/api/commands":
                 return self.respond(200, runtime.submit_control(body))
+            if path == "/api/host-connection/check" and workspace_id:
+                if urlsplit(self.path).query or body != {}:
+                    raise Refusal("Host connection check accepts no targets, settings or commands")
+                snapshot = runtime.ledger.snapshot()
+                if not snapshot["repositories"] or any(r.get("policyProfile") != "standard" for r in snapshot["repositories"]):
+                    raise Refusal("Owned connection check is for registered standard projects only")
+                host = runtime.notifier.app_server
+                if host is None:
+                    raise Refusal("No reviewed owned host is configured; no host was started")
+                return self.respond(200, host.check_connection(snapshot["meta"]["brainId"]))
             if path in ("/api/native-permission/preview", "/api/native-permission/confirm") and workspace_id:
                 if urlsplit(self.path).query:
                     raise Refusal("Native permission controls accept no query parameters")

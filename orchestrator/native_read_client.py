@@ -154,7 +154,7 @@ class ReadProxy:
             self._ready(self.process.stdout, selectors.EVENT_READ)
             try: chunk = os.read(self.process.stdout.fileno(), 65536)
             except BlockingIOError: continue
-            require(chunk, "Native proxy output closed")
+            require(chunk, "Native proxy output closed. The reviewed host connection is unavailable; check host connection after repair. No request was retried.")
             self.total += len(chunk); self.buffer += chunk
             require(self.total <= self.total_limit and len(self.buffer) <= self.response_limit + 4096,
                     "Native response exceeds its bound")
