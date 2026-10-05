@@ -1,0 +1,152 @@
+"""Opt-in operator host supervision, not a dispatcher or automatic restart.
+
+Runs one exact, privately reviewed guarded launcher in a detached session. The
+launcher must validate the native execution context and restricted host profile.
+This module never discovers sockets, rebinds a ledger or invokes native task RPCs.
+"""
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import stat
+import subprocess
+import sys
+import time
+
+from .core import Refusal, canonical, digest, require
+
+# Retain ownership of detached children while this operator process is alive;
+# never turn a Popen destructor/foreground request lifetime into host teardown.
+_supervisors = []
+
+
+def private_file(path):
+    path = Path(path)
+    require(path.is_absolute() and path.resolve(strict=True) == path, "Use a canonical private path without symlinks")
+    for parent in path.parents:
+        info = parent.stat()
+        require(info.st_uid in (0, os.getuid()) and
+                (not info.st_mode & 0o022 or info.st_uid == 0 and info.st_mode & stat.S_ISVTX),
+                "Unsafe runtime ancestor")
+    info = path.lstat()
+    require(stat.S_ISREG(info.st_mode) and info.st_uid == os.getuid() and not info.st_mode & 0o077 and
+            info.st_size <= 65536, "Small owner-only runtime file required")
+    return path
+
+
+def specification(manifest):
+    value = json.loads(private_file(manifest).read_text())
+    return validate_spec(value)
+
+
+def validate_spec(value):
+    require(isinstance(value, dict) and set(value) == {"schemaVersion", "profile", "launcher", "launcherSha256", "cwd"} and
+            type(value["schemaVersion"]) is int and value["schemaVersion"] == 1 and value["profile"] == "standard_owned_host_v1", "Exact standard owned-host launch manifest required")
+    launcher = private_file(value["launcher"])
+    require(hashlib.sha256(launcher.read_bytes()).hexdigest() == value["launcherSha256"], "Reviewed launcher changed")
+    cwd = Path(value["cwd"])
+    require(cwd.is_absolute() and cwd.resolve(strict=True) == cwd and cwd.is_dir(), "Exact existing checkout required")
+    return value
+
+
+def write_record(path, value):
+    # Private runtime metadata only, no environment, native output or transcript.
+    temp = path.with_name(path.name + ".next")
+    fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w") as output:
+        output.write(canonical(value))
+    os.replace(temp, path)
+
+
+def launch(manifest, attempt, confirm_hash):
+    spec = specification(manifest)
+    require(confirm_hash == digest(spec), "Review the exact launch manifest hash first")
+    # This is only a presence fence. A pipe is NOT native connectivity proof;
+    # the reviewed guarded launcher must validate it in its app-owned context.
+    require(bool(os.environ.get("CODEX_APP_TOOLS_PIPE_PATH")), "Launch from the current Codex execution context; do not copy native environment values")
+    attempt = Path(attempt)
+    require(attempt.is_absolute() and attempt.parent.resolve(strict=True) == attempt.parent and
+            attempt.parent.stat().st_uid == os.getuid() and not attempt.parent.stat().st_mode & 0o077,
+            "Use a new attempt directory under a canonical owner-only runtime directory")
+    try:
+        attempt.mkdir(mode=0o700)
+    except FileExistsError:
+        raise Refusal("Attempt already exists; inspect its lifecycle record, never replay its launch") from None
+    write_record(attempt / "launch.json", {"spec": spec, "manifestHash": digest(spec), "createdAt": time.time()})
+    # The exclusive intent precedes process creation. Even a lost Popen result
+    # never permits this attempt to start a second host.
+    write_record(attempt / "status.json", {"status": "launch_intent", "observedAt": time.time()})
+    try:
+        supervisor = subprocess.Popen([sys.executable, "-m", "orchestrator.host_lifecycle", "_monitor", str(attempt)],
+                         cwd=str(Path(__file__).resolve().parent.parent), stdin=subprocess.DEVNULL,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                         close_fds=True, start_new_session=True)
+        _supervisors[:] = [p for p in _supervisors if p.poll() is None]
+        _supervisors.append(supervisor)
+    except OSError:
+        write_record(attempt / "status.json", {"status": "launch_failed", "observedAt": time.time()})
+        raise Refusal("Supervisor could not start; launch intent remains retained") from None
+    return {"status": "launch_requested", "attempt": str(attempt), "hostReady": False}
+
+
+def monitor(attempt):
+    attempt = Path(attempt)
+    record = json.loads(private_file(attempt / "launch.json").read_text())
+    # A replayed monitor cannot create another native process either.
+    try:
+        claim = os.open(attempt / "monitor.claim", os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError:
+        raise Refusal("Supervisor attempt already claimed") from None
+    os.close(claim)
+    spec = validate_spec(record["spec"])
+    require(digest(spec) == record["manifestHash"], "Launch manifest changed")
+    launcher = private_file(spec["launcher"])
+    require(hashlib.sha256(launcher.read_bytes()).hexdigest() == spec["launcherSha256"], "Reviewed launcher changed before launch")
+    child = None
+    try:
+        child = subprocess.Popen(["/bin/zsh", str(launcher)], cwd=spec["cwd"],
+                                 stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                 close_fds=True)
+        write_record(attempt / "status.json", {"status": "process_running", "supervisorPid": os.getpid(),
+                     "pid": child.pid, "observedAt": time.time(), "hostReady": False})
+        # No timeout, polling dispatcher, native task call or automatic restart.
+        code = child.wait()
+        write_record(attempt / "status.json", {"status": "process_exited", "pid": child.pid,
+                     "exitCode": code if code >= 0 else None, "signal": -code if code < 0 else None,
+                     "observedAt": time.time(), "hostReady": False, "restarted": False})
+    except OSError:
+        # Losing monitoring/record I/O after Popen is not proof of non-creation.
+        # Preserve the PID and uncertainty; neither state permits a restart.
+        write_record(attempt / "status.json", {"status": "process_outcome_unknown" if child else "launch_failed",
+                     "pid": child.pid if child else None, "observedAt": time.time(), "hostReady": False, "restarted": False})
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    sub = parser.add_subparsers(dest="operation", required=True)
+    preview = sub.add_parser("preview"); preview.add_argument("manifest", type=Path)
+    start = sub.add_parser("start"); start.add_argument("manifest", type=Path); start.add_argument("attempt", type=Path)
+    start.add_argument("--confirm-hash", required=True)
+    status = sub.add_parser("status"); status.add_argument("attempt", type=Path)
+    internal = sub.add_parser("_monitor", help=argparse.SUPPRESS); internal.add_argument("attempt", type=Path)
+    args = parser.parse_args()
+    try:
+        if args.operation == "preview":
+            spec = specification(args.manifest)
+            result = {"spec": spec, "manifestHash": digest(spec), "startsHost": False}
+        elif args.operation == "start":
+            result = launch(args.manifest, args.attempt, args.confirm_hash)
+        elif args.operation == "status":
+            result = json.loads(private_file(args.attempt / "status.json").read_text())
+            # An old running record is historical, never a current liveness claim.
+            result["historical"] = True
+        else:
+            monitor(args.attempt); return
+        print(canonical(result))
+    except (Refusal, OSError, ValueError) as error:
+        parser.exit(1, "Host lifecycle refused: " + (str(error) if isinstance(error, Refusal) else "private runtime unavailable") + "\n")
+
+
+if __name__ == "__main__":
+    main()

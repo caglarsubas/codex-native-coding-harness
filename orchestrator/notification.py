@@ -51,11 +51,12 @@ class BrainNotifier:
             if not self.app_server.configured(brain_id):
                 return {"status": "unavailable", "detail": "The reviewed local Codex app-server binding is unavailable. No native send is attempted."}
             return {"status": "configured", "transport": "owned_app_server",
+                    "connection": self.app_server.connection_status(brain_id),
                     # The wake socket can deliver and observe a turn, but its
                     # persisted/loaded thread reads do not qualify a complete
                     # historical-and-ephemeral descendant inventory.
                     "checkpointInventoryQualified": False,
-                    "detail": "The bound Codex host can start an idle or unloaded brain turn. An active turn cannot be queued through this owned connection; reconcile before a later explicit wake. A send is not a ledger receipt."}
+                    "detail": "Owned host binding is configured, not proof of a running connection. Check host connection separately. An active turn cannot be queued; a send is not a ledger receipt."}
         if self.cli is None:
             return {"status": "disabled", "detail": "Immediate notification is off. Start the dashboard with --notify-brain and the installed Codex CLI path."}
         if not isinstance(brain_id, str) or not re.fullmatch(UUID, brain_id):

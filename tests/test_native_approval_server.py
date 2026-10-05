@@ -29,6 +29,9 @@ class Wake:
     def configured(self, brain_id):
         return brain_id == BRAIN
 
+    def connection_status(self, brain_id):
+        return {"status": "unchecked", "checkedAt": None, "detail": "Synthetic host, not checked."}
+
     def pending_approval(self, brain_id):
         return self.pending if brain_id == BRAIN else None
 

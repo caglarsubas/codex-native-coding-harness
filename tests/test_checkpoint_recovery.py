@@ -24,6 +24,9 @@ class OwnedWake:
     def configured(self, brain_id):
         return True
 
+    def connection_status(self, brain_id):
+        return {"status": "unchecked", "checkedAt": None, "detail": "Synthetic host, not checked."}
+
     def send(self, brain_id, message, command_id):
         self.sent.append((brain_id, message, command_id))
         return {"status": "accepted", "nativeDelivery": "owned_turn_start",

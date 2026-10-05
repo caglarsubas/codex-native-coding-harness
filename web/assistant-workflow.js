@@ -26,15 +26,38 @@ function assistantWorkflowState(action,current=state,now=Date.now()/1000){
   if(action.receipt)return {locked:true,label:doc.workflow==='usage_check'?'Usage refreshed':'Review saved',detail:action.receipt.message,recorded:action.receipt};
   if(action.cancelled)return {locked:true,label:'Dismissed',detail:'Nothing was submitted.'};
   if(action.sending)return {locked:true,label:'Saving…',detail:'Waiting for the receipt.'};
-  if(action.rejected)return {locked:true,label:'Review again',detail:action.rejected};
+  if(action.refreshing)return {locked:true,label:'Refreshing review',detail:'Checking current scope and prerequisites. Nothing is being confirmed.'};
+  if(action.rejected)return {locked:true,label:'Review again',detail:action.rejected,refreshable:true};
   if(action.uncertain)return {locked:false,label:'Receipt unconfirmed',detail:'Retry this same confirmation to recover its receipt.'};
-  if(now>doc.expiresAt)return {locked:true,label:'Preview expired',detail:'Ask again for a current preview.'};
+  if(now>doc.expiresAt)return {locked:true,label:'Review needs refreshing',detail:'Refresh this review here. Nothing was submitted; your phase and its limits are unchanged.',refreshable:true};
   const request=doc.request;
   const stale=doc.workflow==='phase_review'?(current?.mission?.revision!==request.expectedRevision||current?.mission?.documentHash!==request.documentHash):
     request.preview?(request.preview.operation!=='pause'&&current?.standard?.contextHash!==request.preview.contextHash):
     ['codex_check','usage_check'].includes(doc.workflow)?current?.standard?.contextHash!==request.contextHash:current?.meta?.revision!==request.expectedRevision;
-  if(stale||current?.meta?.brainId!==doc.brainId)return {locked:true,label:'Project changed',detail:'Ask again to review its current state.'};
+  if(stale||current?.meta?.brainId!==doc.brainId)return {locked:true,label:'Project changed',detail:'Refresh this review to see the current scope before confirming.',refreshable:true};
   return {locked:false,label:'Ready for your confirmation',detail:action.guided?'Click Help to run this bounded preparation. Review and Play stay separate.':'Type “'+workflowPhrases[doc.workflow]+'” or use the button below.'};
+}
+async function assistantRefreshWorkflow(action,item){
+  if(!connected||assistantPending||!assistantWorkflowState(action).refreshable)return;
+  const project=workspaceId,doc=action.proposal.document;
+  let refreshed=null;
+  action.refreshing=true;assistantPending=true;assistantConnectionChanged();
+  try{
+    const body=doc.workflow==='brain_message'?{key:doc.workflow,text:doc.preview.message}:{key:doc.workflow};
+    const proposal=await api('/api/assistant/preview',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify(body)});
+    if(project!==workspaceId)return;
+    const holder=el('div'),next=assistantWorkflowPreview(holder,proposal,action.guided);
+    action.element.replaceWith(next.element);assistantActions.delete(doc.id);
+    refreshed=next;
+    assistantStatus('Review refreshed. Check the current scope below; nothing has been confirmed.');
+  }catch(error){if(!error.workspaceChanged&&project===workspaceId){action.refreshError=error.message;assistantStatus(error.message,true);}}
+  finally{action.refreshing=false;assistantPending=false;assistantConnectionChanged();if(refreshed&&project===workspaceId){refreshed.confirm.focus?.({preventScroll:true});assistantRevealControl(refreshed.element);}}
+}
+async function checkHostConnection(control){
+  control.disabled=true;
+  try{const result=await api('/api/host-connection/check',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:'{}'});showNotice(result.detail,result.status!=='connected');await refresh();}
+  catch(error){if(!error.workspaceChanged)showNotice(error.message,true);}
+  finally{control.disabled=!connected;}
 }
 function assistantRevealControl(element){
   // Scroll the inspector, not the graph or the whole workspace. Sticky panel
@@ -86,14 +109,16 @@ function assistantWorkflowPreview(item,proposal,guided=false){
   }
   const exact=el('details');exact.append(el('summary','Receipt binding & expiry'),el('p','Expires '+when(doc.expiresAt)),el('pre',JSON.stringify({project:doc.workspaceId,mission:p.mission?.documentHash,requestId:doc.id},null,2)));section.append(exact);
   const status=el('p',null,'chat-action-status');status.setAttribute('role','status');
-  const controls=el('div',null,'assistant-actions'),confirm=el('button','Confirm','primary'),dismiss=el('button','Dismiss');confirm.type=dismiss.type='button';controls.append(dismiss,confirm);section.append(status,controls);
+  const controls=el('div',null,'assistant-actions'),confirm=el('button','Confirm','primary'),dismiss=el('button','Dismiss'),renew=el('button','Refresh review');confirm.type=dismiss.type=renew.type='button';renew.hidden=true;controls.append(dismiss,renew,confirm);section.append(status,controls);
+  const expiry=el('p',null,'muted');section.append(expiry);
   if(guided)section.insertBefore(controls,section.children[2]);
-  const action={proposal,workspace:workspaceId,element:section,status,confirm,dismiss,sending:false,receipt:null,guided};
+  const action={proposal,workspace:workspaceId,element:section,status,confirm,dismiss,renew,expiry,sending:false,receipt:null,guided};
   // A newly requested preview replaces only unsubmitted, certain previews.
   if(!guided)for(const old of assistantActions.values())if(old.proposal.document.workflow&&!old.receipt&&!old.sending&&!old.uncertain&&!old.guided)old.cancelled=true;
   if(guided)dismiss.hidden=true;
   assistantActions.set(doc.id,action);
   dismiss.onclick=()=>{action.cancelled=true;refreshAssistantActions();};
+  renew.onclick=()=>assistantRefreshWorkflow(action,item);
   action.submit=async()=>{
     if(!connected||assistantWorkflowState(action).locked)return;
     action.sending=true;action.uncertain=false;assistantConnectionChanged();

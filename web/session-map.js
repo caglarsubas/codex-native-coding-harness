@@ -311,7 +311,7 @@ function sessionMap(root){
 function sessionPulse(root,model){
   const journey=roadmapJourneyState(state,connected),open=state.workflow?.openDecisions??(state.decisions||[]).filter(d=>d.status==='open').length;
   const eligibility=state.standard?.parallelEligibility;
-  const signature=JSON.stringify([journey,state.standard?.run?.status,state.meta.revision,state.brainActivity?.observedAt,model.groups,open,eligibility,connected,busy]);
+  const signature=JSON.stringify([journey,state.standard?.run?.status,state.meta.revision,state.brainActivity?.observedAt,model.groups,open,eligibility,state.brainNotification?.connection,connected,busy]);
   if(root.dataset.signature===signature)return;root.dataset.signature=signature;root.replaceChildren();
   const story=el('div',null,'session-story');
   story.append(el('span',state.workspace?.name||'Current project','eyebrow'),el('h2',journey.title),el('p',journey.detail,'muted'));
@@ -324,6 +324,13 @@ function sessionPulse(root,model){
     if(eligibility.integrationReady)signals.append(el('span','Integration task ready for brain review; no producer is implied active.'));
   }
   story.append(signals);
+  if(state.brainNotification?.transport==='owned_app_server'){
+    const health=state.brainNotification.connection||{status:'unchecked',detail:'Host connection has not been checked.'};
+    const line=el('div',null,'inline-actions');
+    line.append(el('span',`Host: ${health.status}${health.checkedAt?' · checked '+when(health.checkedAt):''}`,'muted'));
+    const check=button('Check host connection',()=>checkHostConnection(check));check.disabled=!connected||busy;line.append(check);story.append(line);
+    if(health.status!=='connected')story.append(el('p',health.detail,'muted'));
+  }
   const next=el('div',null,'session-next-action');next.append(el('span','NEXT ACTION','eyebrow'));
   const action=button(journey.label,()=>journeyAction(journey.action),'primary');action.disabled=busy||!connected;next.append(action);
   const strip=el('ol',null,'session-phase-strip');strip.setAttribute('aria-label','Roadmap phase');

@@ -164,6 +164,43 @@ class AppServerWake:
         self._subscriptions = set()
         self._pending_approvals = {}
         self._closed = False
+        self._connection_lock = threading.Lock()
+        self._connection = {}
+
+    def connection_status(self, brain_id):
+        """Cached handshake fact only. State polling never opens a connection."""
+        with self._lock:
+            observed = copy.deepcopy(self._connection.get(brain_id))
+        if observed is None:
+            return {"status": "unchecked", "checkedAt": None,
+                    "detail": "Host connection has not been checked. A socket file is not a running host."}
+        if time.time() - observed["checkedAt"] > 30:
+            observed["status"] = "stale"
+            observed["detail"] = "Last connection check is out of date. Check again; no request will be replayed."
+        return observed
+
+    def check_connection(self, brain_id):
+        """Explicit, bounded initialize-only diagnostic. No task RPC or ledger write."""
+        require(self._connection_lock.acquire(blocking=False), "Host connection check is already in progress")
+        try:
+            status, detail = "unavailable", "Reviewed host binding is unavailable or changed. No replacement was selected."
+            if not self._closed and self.configured(brain_id):
+                try:
+                    with ReadProxy(self.binding["endpoint"], timeout=5):
+                        pass  # Only upgrade, initialize and initialized; never resume/read a task.
+                    validate_endpoint(self.binding["endpoint"])
+                    require(self.configured(brain_id), "Reviewed endpoint changed")
+                    with self._lock:
+                        require(not self._closed, "Owned connection was closed during its check")
+                    status, detail = "connected", "Reviewed host answered its identity handshake. This does not prove brain activity, tools or phase readiness."
+                except (Refusal, OSError, ValueError):
+                    status, detail = "disconnected", "Cannot connect to the reviewed host. The dashboard is still available; repair the host, then check again. No request was replayed."
+            observed = {"status": status, "checkedAt": time.time(), "detail": detail}
+            with self._lock:
+                self._connection[brain_id] = observed
+            return copy.deepcopy(observed)
+        finally:
+            self._connection_lock.release()
 
     def close(self):
         """Dashboard shutdown drops owned subscriptions, never retries turns."""

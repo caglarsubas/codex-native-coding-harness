@@ -20,6 +20,12 @@ messages stayed held, and the owner had no usable transition.
    never sends it. Help is preparation only; the new mission needs its own Review
    and Play. A successor must have a genuinely new phase ID.
 
+An expired preview now offers **Refresh review** in the same inspector, with a
+visible confirmation window. It prepares only a new preview, never closes the
+phase or retries a submitted request. **Check host connection** in the graph
+header diagnoses connectivity separately. See
+[host lifetime and review recovery](HOST-LIFETIME-AND-REVIEW-RECOVERY.md).
+
 ## Boundaries
 
 This is an owner outcome, not a designated-brain terminal settlement or a

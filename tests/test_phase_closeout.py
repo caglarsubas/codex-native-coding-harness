@@ -89,6 +89,20 @@ class PhaseCloseoutTest(unittest.TestCase):
         with contextlib.closing(self.ledger.connect()) as db: self.assertEqual(before, list(db.iterdump()))
         self.assertEqual(len(self.f.native.sent), 1, "Only fixture's original recovery wake exists")
 
+    def test_review_window_starts_after_slow_native_inspection(self):
+        from orchestrator.assistant_actions import TTL
+        now = time.time()
+        original = phase_closeout.observe
+        def slow(*args):
+            result = original(*args)
+            clock.return_value = now + 240
+            return result
+        with patch("orchestrator.assistant_journey.time.time", return_value=now) as clock, patch.object(phase_closeout, "observe", side_effect=slow):
+            p = self.preview()
+        self.assertEqual(p["document"]["createdAt"], now + 240)
+        self.assertEqual(p["document"]["expiresAt"], now + 240 + TTL)
+        self.assertEqual(self.f.snapshot()["standard"]["run"]["status"], "paused")
+
     def test_closeout_preserves_usage_gap_and_old_checkpoint_without_wake(self):
         self.mutate(lambda m: m["standardRun"].update(usageReport={"gaps": ["invalid_token_record"],
             "coverage": "gapped", "collectedAt": 1, "through": 1, "tokens": {"total_tokens": 90000}},
