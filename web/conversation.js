@@ -178,6 +178,8 @@ function sessionTaskOutcomeSummary(root,node){
 function brainMessageState(message){
   if(message.reply)return {label:'Replied',detail:'The project brain retained this reply.'};
   const n=message.notification;
+  if(n?.nativeTurnStatus==='connection_lost')return {label:'Connection lost · request unresolved',detail:'The owned Codex connection was lost. Your message and any existing receipt are preserved. Repair the host and reconcile this request; do not send another message.'};
+  if(n?.nativeTurnStatus==='unconfirmed')return {label:'Native connection ended · outcome unknown',detail:'The observer ended without a confirmed turn result. Inspect this existing request and host before any new wake.'};
   if(message.receivedAt){
     if(n?.nativeTurnStatus==='native_attention_required')return {label:'Received · native attention reported',detail:'Codex reported a native permission or input request. Inspect the current prompt; its report is not an approval or a saved reply.'};
     if(['completed','failed','interrupted'].includes(n?.nativeTurnStatus))return {label:'Native turn ended · reply missing',detail:'The brain received your message, but this turn ended without a retained reply. Inspect the existing turn and host before reconciliation; do not send a duplicate.'};

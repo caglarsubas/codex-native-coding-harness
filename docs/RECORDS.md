@@ -201,3 +201,19 @@ notification, settlement, permission-relay or pilot-acceptance meaning. Exact
 receipt replay never repeats collection or changes a newer run. Help then uses
 the existing separately confirmed conversation request to prepare a successor;
 Review and Play remain separate. See [expired-phase closeout](EXPIRED-PHASE-CLOSEOUT.md).
+
+## Owned native connection loss
+
+A saved notification may retain `nativeTurnStatus: connection_lost` and
+`nativeConnectionLoss` with exactly `reason`, `observedAt`, `outcome: unknown`,
+and `replayed: false`. Reasons are bounded transport categories:
+`endpoint_changed`, `heartbeat_missing`, `proxy_unavailable` or
+`websocket_closed`. No native error text, socket path or transcript is retained.
+The original notification acknowledgment and command receipt are independent;
+loss neither fabricates a brain receipt nor erases an existing receipt.
+
+The thread observation finishes `unconfirmed` with incomplete coverage. Its
+original events/times remain; an ended observer does not prove the native turn
+or effects ended, release ownership, restore usage coverage or authorize replay.
+State reads expose this retained record without reconnecting or renewing it.
+See [disconnect lifecycle](HOST-DISCONNECT-ROOT-CAUSE.md).

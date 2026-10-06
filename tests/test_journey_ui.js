@@ -94,6 +94,14 @@ s.brainHandoff={handoff:{status:'complete'}};assert.equal(model(s).action,'play'
 for(const kind of ['standard_play','standard_pause','standard_resume']){s.commands=[{kind,status:'queued',payload:{runId:'run'}}];assert.equal(model(s).action,'request');}
 s.commands=[{kind:'standard_play',status:'queued',payload:{runId:'old-run'}}];assert.equal(model(s).action,'play','Old phase requests cannot hide the current next step');
 s.standard.run=run('running');s.commands=[{kind:'standard_play',status:'queued',payload:{runId:'run'}}];assert.equal(model(s).canPause,true,'Pause stays available before brain receipt');s.standard.run=run('completed');
+for(const status of ['queued','completed']){
+  const lost=base();lost.standard.run=run('running');lost.commands=[{kind:'standard_play',status,payload:{runId:'run'},notification:{status:'accepted',nativeTurnStatus:'connection_lost'}}];
+  assert.match(model(lost).title,/Connection lost/);
+  assert.equal(model(lost).action,'request');assert.equal(model(lost).canPause,true);
+  assert.match(model(lost).detail,/do not repeat Play/);
+  assert.match(box.projectPhaseStatus(lost),/CONNECTION UNRESOLVED.*recorded running/);
+  lost.standard.run.status='stopping';assert.equal(model(lost).title,'Pause requested','Pause priority is unchanged');
+}
 s.commands=[{kind:'standard_play',status:'completed'}];assert.equal(model(s).action,'play');
 box.state=base();let root=render();assert.equal(all(root).filter(n=>n['aria-current']==='step').length,1);
 all(root).find(n=>n.text==='Review Play').click();assert.deepEqual(calls.at(-1),['review','play']);

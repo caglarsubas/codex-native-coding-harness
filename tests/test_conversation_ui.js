@@ -50,6 +50,11 @@ async function render(){const root=new Element('root');box.conversationView(root
   assert.equal(box.brainMessageState({receivedAt:1,notification:{nativeTurnStatus:'native_attention_required'}}).label,'Received · native attention reported');
   assert.equal(box.brainMessageState({receivedAt:1,notification:{nativeTurnStatus:'interrupted'},reply:{message:'Done'}}).label,'Replied','A retained reply remains distinct from native turn completion');
   assert.equal(box.brainMessageState({reply:{message:'Done'}}).label,'Replied');
+  for(const receivedAt of [null,1]){
+    const lost=box.brainMessageState({receivedAt,notification:{status:'accepted',nativeTurnStatus:'connection_lost'}});
+    assert.equal(lost.label,'Connection lost · request unresolved');assert.match(lost.detail,/do not send another/);
+  }
+  assert.equal(box.brainMessageState({reply:{message:'Saved'},notification:{nativeTurnStatus:'connection_lost'}}).label,'Replied');
   let nodes=await render(),input=nodes.find(n=>n.tag==='textarea'),check=nodes.find(n=>n.type==='checkbox'),send=nodes.find(n=>n.type==='submit');
   assert.equal(send.disabled,true);assert.equal(check.checked,false);
   input.value='Keep this alpha draft <script>';input.oninput();check.checked=true;check.onchange();assert.equal(send.disabled,false);
