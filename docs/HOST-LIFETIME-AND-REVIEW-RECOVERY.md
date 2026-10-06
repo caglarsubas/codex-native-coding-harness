@@ -30,15 +30,29 @@ timestamps. Success proves a host handshake, not native tools, approvals,
 descendant coverage, usage or phase readiness. Dashboard `/healthz` means only
 the dashboard is available.
 
-## Separate opt-in operator supervision
+## Separate opt-in operator host lifetime
 
 `python3 -m orchestrator.host_lifecycle` runs one existing, privately reviewed
-guarded host launcher. **Foreground `run` is the ancestry-preserving option for
-a persistent Codex-owned terminal.** The supervisor remains in that terminal's
-process ancestry until the guarded host exits; it does not detach or return while
-the host is running. Keep the terminal and Codex app open. Running it from a
-temporary command request does not turn that request into a persistent terminal.
-Actual destination native tools must still be observed separately.
+guarded host launcher. **Foreground `exec` replaces the operator process instead
+of retaining a Python supervisor in the native peer's ancestor chain.** Use a
+qualified, persistent app-owned foreground context and keep Codex open. This is
+not a boot service or a promise that a temporary tool request survives. The
+guarded launcher must itself finally exec the reviewed signed host; spawning it
+under another unsigned wrapper would reintroduce the problem. Independently
+observe the actual process chain and destination tools after the launch.
+
+Foreground `run` remains available for explicit process-only supervision. It
+keeps the caller alive until the child exits, without detaching, but that is
+**not native trust qualification**. On the October 6 disposable host, read-only
+process sampling showed an OpenAI-signed Node peer under the signed host, with
+an ad-hoc-signed Python supervisor as its grandparent. macOS signing metadata
+showed that Python had no developer team identity. Inspection of the installed
+native peer-authorizer showed identity checks at peer, parent and grandparent
+depth; correlated rejection metadata reported `missing-code-signing-identity`.
+The log did not provide a peer PID. These observations locate a concrete wrapper
+defect without changing vendor code, substituting connection values, calling a
+private app API or bypassing native security. Removing the wrapper still needs
+fresh destination qualification; no fixture or launch record supplies that proof.
 
 Legacy detached `start` is process supervision only, independent of the command's
 foreground lifetime. It must not be presented as a native connectivity repair:
@@ -53,10 +67,14 @@ Process metadata separately showed the detached supervisor parented by the OS,
 not retained under the app. Preserving the caller is a necessary design correction,
 not proof that a particular foreground host will pass native trust or tool discovery.
 
-Neither mode has a process timeout or automatic restart. Private intent,
-PID, observed exit code/signal and timestamp records contain no environment or
-transcript. Running records are historical, not current health. It creates no
-brain, binding, authority, schedule or registry entry; it is not a dispatcher.
+None of these modes has a process timeout or automatic restart. Private intent,
+PID and timestamp records contain no environment or transcript. Supervised modes
+also retain observed exit code/signal. Exec has no in-process exit monitor: its
+`exec_boundary_issued` status records only the consumed boundary and original PID
+and parent, not a running host, finished exec, exit, health or native capability.
+The managed terminal/process observations remain separate facts. All status
+records are historical. It creates no brain, binding, authority, schedule or
+registry entry; it is not a dispatcher.
 
 The owner-only manifest contains exactly `schemaVersion: 1`,
 `profile: standard_owned_host_v1`, the canonical private `launcher` path, its
@@ -67,25 +85,33 @@ on-request approvals and Code Mode disabled. The manifest label does not verify
 script semantics or native tools. Never use a generic script, copy pipe values
 from another context, modify the signed vendor or assume a socket proves health.
 
-Prepare a **mode-bound** foreground review, then separately confirm its exact
-`reviewHash` in the persistent, qualified Codex-owned terminal:
+Prepare a **mode-bound** exec review, then separately confirm its exact
+`reviewHash` in the qualified app-owned foreground context. Use shell `exec`
+when invoking the helper so the calling shell does not remain as an ancestor:
 
 ```text
-python3 -m orchestrator.host_lifecycle preview PRIVATE_MANIFEST --mode foreground
-python3 -m orchestrator.host_lifecycle run PRIVATE_MANIFEST NEW_PRIVATE_ATTEMPT_DIR --confirm-hash EXACT_FOREGROUND_REVIEW_HASH
+python3 -m orchestrator.host_lifecycle preview PRIVATE_MANIFEST --mode exec
+exec python3 -m orchestrator.host_lifecycle exec PRIVATE_MANIFEST NEW_PRIVATE_ATTEMPT_DIR --confirm-hash EXACT_EXEC_REVIEW_HASH
 python3 -m orchestrator.host_lifecycle status PRIVATE_ATTEMPT_DIR
 ```
 
-The foreground review binds both the original manifest hash and the supervision
-mode. An old detached approval cannot authorize foreground `run`, or vice versa.
-Legacy `preview --mode detached` / `start` remain available for explicit
-process-only supervision and historical receipts; their manifest hash is not
-native tool qualification. A foreground intent cannot be consumed by the
-detached internal monitor. The same attempt is permanently one-shot across modes.
+Each foreground review binds both the original manifest hash and its mode. All
+three mode reviews are distinct: no old foreground/detached approval authorizes
+exec, and no exec approval authorizes supervised launch. Legacy `preview --mode
+foreground` / `run` and `preview --mode detached` / `start` remain process-only
+options and historical receipts; their hashes are not native tool qualification.
+Exec/foreground intents cannot be consumed by the detached internal monitor.
+The same attempt is permanently one-shot across modes.
 
-Preview/status start nothing. Exclusive intent precedes supervisor launch;
-intent/monitor claim permanently fences the same attempt, even on failure or
-unknown outcome. The current environment is inherited, not persisted; pipe
+Preview/status start nothing. Exclusive intent precedes any launch boundary;
+intent plus monitor/exec claim permanently fence the same attempt, even on failure
+or unknown outcome. Journal writes and their parent directory are flushed before
+the exec boundary. Exec replaces the operator with the exact `/bin/zsh` launcher
+in the pinned checkout, preserving its PID, original parent and inherited
+environment without a child, detach, timeout, restart or fallback. It suppresses
+native output and never returns a successful host-ready response. An exec error
+or interruption retains the consumed intent, not retry permission.
+The current environment is inherited, not persisted; pipe
 presence is merely a refusal guard, not authentication/qualification. The guarded
 launcher must refuse unavailable context. Native process output is discarded.
 Supervisor death/reboot may leave historical status; never infer permission to
@@ -100,11 +126,14 @@ state before installation. A newly started listener may change canonical socket
 identity and requires the existing exact binding review; never silently repin or
 reuse old approvals. Never replay wakes or automatically Resume, Review or Play.
 
-Disposable tests cover one-shot intent across both modes, mode-bound reviews,
+Disposable tests cover one-shot intent across all modes, mode-bound reviews,
 foreground caller lifetime, interrupted monitoring, legacy intent compatibility,
-detached exit records, identity drift,
+detached exit records, persistence failure, same-PID/parent exec handoff and
+no fork/environment substitution/fallback, identity drift,
 HTTP auth/isolation, cached health, refresh and original receipt recovery.
 Rendered checks use synthetic native responses. They do not qualify a real host
 across turns/reboot, prove native tool connectivity, or accept/repair the pilot.
-The foreground alternative is source-delivered only: it has not been installed
-or launched on the pilot, and no changed binding or phase control is authorized.
+The exec alternative is source-delivered only: it has not been installed or
+launched on the pilot. Earlier foreground approval remains consumed; it cannot
+authorize this mode or retirement of a different host. No changed binding or
+phase control is authorized by this source delivery.

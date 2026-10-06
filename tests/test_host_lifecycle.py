@@ -2,6 +2,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shlex
 import subprocess
 import tempfile
 import time
@@ -10,7 +11,7 @@ import sys
 from unittest.mock import patch
 
 from orchestrator.core import Refusal, digest
-from orchestrator.host_lifecycle import launch, monitor, review_hash, run_foreground, specification
+from orchestrator.host_lifecycle import exec_foreground, launch, monitor, review_hash, run_foreground, specification
 
 
 class HostLifecycleTest(unittest.TestCase):
@@ -212,6 +213,162 @@ class HostLifecycleTest(unittest.TestCase):
         self.assertFalse(result["startsHost"])
         self.assertFalse(result["nativeToolsQualified"])
         self.assertFalse(self.attempt.exists())
+
+    @patch.dict(os.environ, {"CODEX_APP_TOOLS_PIPE_PATH": "inherited-not-persisted"})
+    def test_exec_replaces_operator_without_fork_environment_change_or_ready_claim(self):
+        class Replaced(BaseException):
+            pass
+
+        def inspect_boundary(*args):
+            record = json.loads((self.attempt / "status.json").read_text())
+            self.assertEqual(record["status"], "exec_boundary_issued")
+            self.assertEqual(record["pid"], os.getpid())
+            self.assertEqual(record["parentPid"], os.getppid())
+            self.assertFalse(record["hostReady"])
+            self.assertFalse(record["nativeToolsQualified"])
+            self.assertTrue((self.attempt / "exec.claim").is_file())
+            self.assertEqual((self.attempt / "exec.claim").stat().st_mode & 0o777, 0o600)
+            self.assertNotIn("inherited-not-persisted", (self.attempt / "launch.json").read_text())
+            self.assertEqual(os.environ["CODEX_APP_TOOLS_PIPE_PATH"], "inherited-not-persisted")
+            raise Replaced()
+
+        with patch("orchestrator.host_lifecycle.os.execv", side_effect=inspect_boundary) as execute, \
+                patch("orchestrator.host_lifecycle.os.chdir") as chdir, \
+                patch("orchestrator.host_lifecycle.os.dup2") as duplicate, \
+                patch("orchestrator.host_lifecycle.subprocess.Popen") as popen:
+            with self.assertRaises(Replaced):
+                exec_foreground(self.manifest, self.attempt, review_hash(self.spec, "exec"))
+            execute.assert_called_once_with("/bin/zsh", ["/bin/zsh", str(self.launcher)])
+            chdir.assert_called_once_with(str(self.root))
+            self.assertEqual([call.args[1] for call in duplicate.call_args_list], [0, 1, 2])
+            popen.assert_not_called()
+            with self.assertRaises(Refusal):
+                exec_foreground(self.manifest, self.attempt, review_hash(self.spec, "exec"))
+            with self.assertRaises(Refusal):
+                run_foreground(self.manifest, self.attempt, review_hash(self.spec, "foreground"))
+            with self.assertRaises(Refusal):
+                monitor(self.attempt)
+            execute.assert_called_once()
+
+    @patch.dict(os.environ, {"CODEX_APP_TOOLS_PIPE_PATH": "fixture-only"})
+    def test_exec_failure_and_interrupt_retain_consumed_intent_without_fallback(self):
+        for error, expected in ((OSError("PRIVATE"), "exec_failed"), (KeyboardInterrupt(), "exec_outcome_unknown")):
+            with self.subTest(status=expected):
+                attempt = self.root / expected
+                with patch("orchestrator.host_lifecycle.os.execv", side_effect=error) as execute, \
+                        patch("orchestrator.host_lifecycle.os.chdir"), patch("orchestrator.host_lifecycle.os.dup2"), \
+                        patch("orchestrator.host_lifecycle.subprocess.Popen") as popen:
+                    with self.assertRaises(KeyboardInterrupt if isinstance(error, KeyboardInterrupt) else Refusal):
+                        exec_foreground(self.manifest, attempt, review_hash(self.spec, "exec"))
+                    record = json.loads((attempt / "status.json").read_text())
+                    self.assertEqual(record["status"], expected)
+                    self.assertFalse(record["hostReady"])
+                    self.assertFalse(record["nativeToolsQualified"])
+                    self.assertFalse(record["restarted"])
+                    self.assertNotIn("PRIVATE", str(record))
+                    with self.assertRaises(Refusal):
+                        exec_foreground(self.manifest, attempt, review_hash(self.spec, "exec"))
+                    execute.assert_called_once()
+                    popen.assert_not_called()
+
+    @patch.dict(os.environ, {"CODEX_APP_TOOLS_PIPE_PATH": "fixture-only"})
+    def test_exec_requires_its_own_mode_bound_review_before_intent(self):
+        hashes = {mode: review_hash(self.spec, mode) for mode in ("exec", "foreground", "detached")}
+        self.assertEqual(len(set(hashes.values())), 3)
+        with patch("orchestrator.host_lifecycle.os.execv") as execute:
+            for mode in ("foreground", "detached"):
+                with self.assertRaisesRegex(Refusal, "mode and manifest"):
+                    exec_foreground(self.manifest, self.attempt, hashes[mode])
+            for start, mode in ((launch, "detached"), (run_foreground, "foreground")):
+                with self.assertRaisesRegex(Refusal, "mode and manifest"):
+                    start(self.manifest, self.attempt, hashes["exec"])
+            execute.assert_not_called()
+        self.assertFalse(self.attempt.exists())
+
+    def test_exec_context_and_launcher_fences_precede_intent(self):
+        with patch("orchestrator.host_lifecycle.os.execv") as execute:
+            with patch.dict(os.environ, {}, clear=True), self.assertRaises(Refusal):
+                exec_foreground(self.manifest, self.attempt, review_hash(self.spec, "exec"))
+            self.launcher.write_text("changed")
+            with self.assertRaises(Refusal):
+                exec_foreground(self.manifest, self.attempt, review_hash(self.spec, "exec"))
+            execute.assert_not_called()
+        self.assertFalse(self.attempt.exists())
+
+    @patch.dict(os.environ, {"CODEX_APP_TOOLS_PIPE_PATH": "fixture-only"})
+    def test_exec_persistence_failure_never_crosses_process_boundary(self):
+        with patch("orchestrator.host_lifecycle.os.fsync", side_effect=OSError("PRIVATE")), \
+                patch("orchestrator.host_lifecycle.os.execv") as execute:
+            with self.assertRaises(OSError):
+                exec_foreground(self.manifest, self.attempt, review_hash(self.spec, "exec"))
+            execute.assert_not_called()
+        self.assertTrue(self.attempt.exists())
+        with self.assertRaisesRegex(Refusal, "already exists"):
+            exec_foreground(self.manifest, self.attempt, review_hash(self.spec, "exec"))
+
+    @patch.dict(os.environ, {"CODEX_APP_TOOLS_PIPE_PATH": "fixture-only"})
+    def test_exec_rechecks_launcher_after_claim_and_never_falls_back_on_drift(self):
+        from orchestrator.host_lifecycle import validate_spec
+        calls = []
+
+        def validate(value):
+            calls.append(value)
+            if len(calls) == 2:
+                self.assertTrue((self.attempt / "exec.claim").exists())
+                self.launcher.write_text("changed after intent")
+            return validate_spec(value)
+
+        with patch("orchestrator.host_lifecycle.validate_spec", side_effect=validate), \
+                patch("orchestrator.host_lifecycle.os.execv") as execute, \
+                patch("orchestrator.host_lifecycle.subprocess.Popen") as popen:
+            with self.assertRaisesRegex(Refusal, "launcher changed"):
+                exec_foreground(self.manifest, self.attempt, review_hash(self.spec, "exec"))
+            execute.assert_not_called()
+            popen.assert_not_called()
+        self.assertTrue(self.attempt.exists())
+
+    def test_exec_preview_is_read_only_with_separate_review(self):
+        preview = subprocess.run([sys.executable, "-m", "orchestrator.host_lifecycle", "preview", str(self.manifest),
+                                  "--mode", "exec"], capture_output=True, text=True, check=True, timeout=5)
+        result = json.loads(preview.stdout)
+        self.assertEqual(result["reviewHash"], review_hash(self.spec, "exec"))
+        self.assertEqual(result["mode"], "exec")
+        self.assertIn("no exit monitoring", result["boundary"])
+        self.assertFalse(result["startsHost"])
+        self.assertFalse(result["nativeToolsQualified"])
+        self.assertFalse(self.attempt.exists())
+
+    @patch.dict(os.environ, {"CODEX_APP_TOOLS_PIPE_PATH": "fixture-only-no-native-host"})
+    def test_real_exec_fixture_preserves_pid_and_original_parent_not_python_wrapper(self):
+        identity = self.root / "fixture-identity.json"
+        code = ("import json,os,time; from pathlib import Path; "
+                f"Path({str(identity)!r}).write_text(json.dumps({{'pid':os.getpid(),'parent':os.getppid(),'cwd':os.getcwd()}})); "
+                "time.sleep(0.05); raise SystemExit(7)")
+        self.launcher.write_text(f"exec {shlex.quote(sys.executable)} -c {shlex.quote(code)}\n")
+        self.spec["launcherSha256"] = hashlib.sha256(self.launcher.read_bytes()).hexdigest()
+        self.manifest.write_text(json.dumps(self.spec))
+        child = subprocess.Popen([sys.executable, "-m", "orchestrator.host_lifecycle", "exec", str(self.manifest),
+                                  str(self.attempt), "--confirm-hash", review_hash(self.spec, "exec")],
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = child.communicate(timeout=5)
+        self.assertEqual(child.returncode, 7)
+        self.assertEqual((stdout, stderr), (b"", b""))
+        observed = json.loads(identity.read_text())
+        self.assertEqual(observed, {"pid": child.pid, "parent": os.getpid(), "cwd": str(self.root)})
+        record = json.loads((self.attempt / "status.json").read_text())
+        self.assertEqual(record["status"], "exec_boundary_issued", "No supervisor claims a later exit or readiness")
+        self.assertEqual(record["pid"], child.pid)
+        self.assertEqual(record["parentPid"], os.getpid())
+        self.assertFalse(record["hostReady"])
+        self.assertFalse(record["nativeToolsQualified"])
+        historical = subprocess.run([sys.executable, "-m", "orchestrator.host_lifecycle", "status", str(self.attempt)],
+                                    capture_output=True, text=True, check=True, timeout=5)
+        self.assertTrue(json.loads(historical.stdout)["historical"])
+        retry = subprocess.run([sys.executable, "-m", "orchestrator.host_lifecycle", "exec", str(self.manifest),
+                                str(self.attempt), "--confirm-hash", review_hash(self.spec, "exec")],
+                               capture_output=True, text=True, timeout=5)
+        self.assertNotEqual(retry.returncode, 0)
+        self.assertIn("never replay", retry.stderr)
 
     @patch.dict(os.environ, {"CODEX_APP_TOOLS_PIPE_PATH": "fixture-only-no-native-host"})
     def test_real_detached_supervisor_records_fixture_exit_after_starter_returns(self):

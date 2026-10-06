@@ -1,8 +1,8 @@
 """Opt-in operator host supervision, not a dispatcher or automatic restart.
 
-Runs one exact, privately reviewed guarded launcher. Foreground supervision keeps
-the caller alive; detached supervision proves process lifetime only, not native
-app-tools trust. The launcher must validate its execution context and policy.
+Runs one exact, privately reviewed guarded launcher. Exec handoff replaces the
+operator; foreground/detached supervision retains a Python ancestor that native
+app-tools trust may reject. The launcher must validate its context and policy.
 This module never discovers sockets, rebinds a ledger or invokes native task RPCs.
 """
 import argparse
@@ -51,17 +51,28 @@ def validate_spec(value):
     return value
 
 
+def sync_directory(path):
+    directory = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(directory)
+    finally:
+        os.close(directory)
+
+
 def write_record(path, value):
     # Private runtime metadata only, no environment, native output or transcript.
     temp = path.with_name(path.name + ".next")
     fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(fd, "w") as output:
         output.write(canonical(value))
+        output.flush()
+        os.fsync(output.fileno())
     os.replace(temp, path)
+    sync_directory(path.parent)
 
 
 def review_hash(spec, mode):
-    require(mode in ("foreground", "detached"), "Unsupported supervision mode")
+    require(mode in ("exec", "foreground", "detached"), "Unsupported supervision mode")
     # Preserve historical detached reviews. They cannot authorize foreground
     # execution: the new mode requires its own exact, mode-bound owner review.
     return digest(spec) if mode == "detached" else digest({"manifestHash": digest(spec), "mode": mode})
@@ -81,6 +92,9 @@ def prepare_attempt(manifest, attempt, confirm_hash, mode):
         attempt.mkdir(mode=0o700)
     except FileExistsError:
         raise Refusal("Attempt already exists; inspect its lifecycle record, never replay its launch") from None
+    # Persist the exclusive attempt directory entry too, not just files inside
+    # it. A failed flush cannot permit the later native execution boundary.
+    sync_directory(attempt.parent)
     write_record(attempt / "launch.json", {"spec": spec, "manifestHash": digest(spec), "mode": mode,
                                           "reviewHash": confirm_hash, "createdAt": time.time()})
     # The exclusive intent precedes process creation. Even a lost Popen result
@@ -113,6 +127,53 @@ def run_foreground(manifest, attempt, confirm_hash):
     # No detached Python supervisor or daemon fallback. This call stays in the
     # current app-owned process ancestry until the guarded launcher exits.
     return monitor(attempt, foreground=True)
+
+
+def exec_foreground(manifest, attempt, confirm_hash):
+    """Consume one mode-bound intent, then replace this process without a fork.
+
+    No Python supervisor remains between the host and its original app-owned
+    parent. This does not certify that parent or the guarded launcher's final
+    exec, and successful exec never returns a host-ready result. Status remains
+    a historical effect-boundary record until separately observed.
+    """
+    attempt = prepare_attempt(manifest, attempt, confirm_hash, "exec")
+    record = json.loads(private_file(attempt / "launch.json").read_text())
+    require(record["mode"] == "exec" and record["reviewHash"] == review_hash(record["spec"], "exec"),
+            "Reviewed exec intent changed")
+    try:
+        claim = os.open(attempt / "exec.claim", os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError:
+        raise Refusal("Exec attempt already claimed") from None
+    with os.fdopen(claim, "w") as stream:
+        stream.flush()
+        os.fsync(stream.fileno())
+    spec = validate_spec(record["spec"])
+    require(digest(spec) == record["manifestHash"], "Launch manifest changed")
+    launcher = private_file(spec["launcher"])
+    require(hashlib.sha256(launcher.read_bytes()).hexdigest() == spec["launcherSha256"],
+            "Reviewed launcher changed before exec")
+    write_record(attempt / "status.json", {"status": "exec_boundary_issued", "mode": "exec",
+                 "pid": os.getpid(), "parentPid": os.getppid(), "observedAt": time.time(),
+                 "hostReady": False, "nativeToolsQualified": False, "restarted": False})
+    try:
+        os.chdir(spec["cwd"])
+        # Same PID, original parent and inherited environment. Do not use a
+        # spawned/detached child, replacement environment or fallback launcher.
+        # Suppress native process output, including any private error bodies.
+        with open(os.devnull, "rb") as quiet_input, open(os.devnull, "wb") as quiet_output:
+            os.dup2(quiet_input.fileno(), 0)
+            os.dup2(quiet_output.fileno(), 1)
+            os.dup2(quiet_output.fileno(), 2)
+        os.execv("/bin/zsh", ["/bin/zsh", str(launcher)])
+        raise OSError("Exec returned unexpectedly")
+    except (OSError, KeyboardInterrupt) as error:
+        write_record(attempt / "status.json", {"status": "exec_outcome_unknown" if isinstance(error, KeyboardInterrupt) else "exec_failed",
+                     "mode": "exec", "pid": os.getpid(), "observedAt": time.time(),
+                     "hostReady": False, "nativeToolsQualified": False, "restarted": False})
+        if isinstance(error, KeyboardInterrupt):
+            raise
+        raise Refusal("Exec failed; intent remains consumed, inspect rather than relaunch") from None
 
 
 def monitor(attempt, *, foreground=False):
@@ -161,12 +222,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="operation", required=True)
     preview = sub.add_parser("preview"); preview.add_argument("manifest", type=Path)
-    preview.add_argument("--mode", choices=("foreground", "detached"), default="detached")
+    preview.add_argument("--mode", choices=("exec", "foreground", "detached"), default="detached")
     start = sub.add_parser("start"); start.add_argument("manifest", type=Path); start.add_argument("attempt", type=Path)
     start.add_argument("--confirm-hash", required=True)
     run = sub.add_parser("run", help="Keep the supervisor in the current app-owned foreground context")
     run.add_argument("manifest", type=Path); run.add_argument("attempt", type=Path)
     run.add_argument("--confirm-hash", required=True)
+    execute = sub.add_parser("exec", help="Replace this operator process with the exact guarded launcher; no Python supervisor")
+    execute.add_argument("manifest", type=Path); execute.add_argument("attempt", type=Path)
+    execute.add_argument("--confirm-hash", required=True)
     status = sub.add_parser("status"); status.add_argument("attempt", type=Path)
     internal = sub.add_parser("_monitor", help=argparse.SUPPRESS); internal.add_argument("attempt", type=Path)
     args = parser.parse_args()
@@ -176,13 +240,16 @@ def main():
             result = {"spec": spec, "manifestHash": digest(spec), "mode": args.mode,
                       "reviewHash": review_hash(spec, args.mode), "startsHost": False,
                       "nativeToolsQualified": False,
-                      "boundary": ("Keep the current app-owned terminal open; native tools need separate observation."
-                                   if args.mode == "foreground" else
-                                   "Process supervision only; detached ancestry may be rejected by Codex native app tools.")}
+                      "boundary": {"exec": "Replace the operator in a qualified app-owned foreground context; no exit monitoring or native qualification is implied.",
+                                   "foreground": "Process supervision only; the retained Python ancestor may be rejected by Codex native app tools.",
+                                   "detached": "Process supervision only; detached ancestry may be rejected by Codex native app tools."}[args.mode]}
         elif args.operation == "start":
             result = launch(args.manifest, args.attempt, args.confirm_hash)
         elif args.operation == "run":
             result = run_foreground(args.manifest, args.attempt, args.confirm_hash)
+        elif args.operation == "exec":
+            exec_foreground(args.manifest, args.attempt, args.confirm_hash)
+            return  # Successful process replacement never returns.
         elif args.operation == "status":
             result = json.loads(private_file(args.attempt / "status.json").read_text())
             # An old running record is historical, never a current liveness claim.
