@@ -132,6 +132,17 @@ state before installation. A newly started listener may change canonical socket
 identity and requires the existing exact binding review; never silently repin or
 reuse old approvals. Never replay wakes or automatically Resume, Review or Play.
 
+Check the registered ledger before requesting another host-launch review. A
+filesystem device-number change can block the registry even while its inode,
+brain and complete saved contents are unchanged. Requiring an original Play's
+receipt before device-pin repair then prevents the brain from obtaining the
+access needed to record that receipt. The separate, operator-only
+[pending-Play device review](WORKSPACES.md#preserve-an-unreceipted-play-during-device-recovery)
+can preserve that one unknown request while reviewing only the unchanged ledger's
+device pin. It neither settles the request nor qualifies another host. If its
+strict reference/empty-run/unknown-turn conditions fail, keep the refusal rather
+than requesting approval for a launch that cannot unblock the workflow.
+
 Disposable tests cover one-shot intent across all modes, mode-bound reviews,
 foreground caller lifetime, interrupted monitoring, legacy intent compatibility,
 detached exit records, persistence failure, same-PID/parent exec handoff and

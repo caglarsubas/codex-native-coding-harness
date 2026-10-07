@@ -84,6 +84,19 @@ qualification. A proposed exec-policy amendment is display-only unless a
 separate authority explicitly supports it; this relay emits only one-command
 accept, decline or cancel, never persistent or session-wide approval.
 
+## Device identity recovery (2026-10-07)
+
+The operator-only device-number recovery exception in docs/WORKSPACES.md may
+prepare a separate `--preserve-pending-play` review for one exact unreceipted,
+unknown owned Play in an empty standard run. It never resolves or retries the
+request. Require the separately retained identical full ledger backup, unchanged
+inode/brain/project, stopped writers, no recorded task/packet/merge/approval or
+controller ownership, retained incomplete native outcome and unknown measured
+usage. Confirmation needs the exact new review hash; normal reads, old approvals
+and source delivery cannot apply it. Preserve all ledger bytes, usage/gaps, expiry,
+claims and receipts. Host repair, native evidence and pilot acceptance remain
+separate; no live recovery or native action is authorized by this source change.
+
 ## Codex project catalog (2026-09-22)
 
 User-facing projects correspond to native Codex projects. Internal workspace

@@ -64,6 +64,8 @@ def main():
     p = sub.add_parser("workspace-profile-set"); p.add_argument("profile", type=Path); p.add_argument("--version", type=int, required=True)
     p = sub.add_parser("workspace-identity-preview", help="Read-only device-number recovery review against a private retained backup")
     p.add_argument("reference", type=Path)
+    p.add_argument("--preserve-pending-play", action="store_true",
+                   help="Separate review preserving one unreceipted, unknown owned Play in an empty standard run; never replay or reconcile it")
     p = sub.add_parser("workspace-identity-recover", help="Exact-owner registry device-pin repair; never replace a ledger or start work")
     p.add_argument("preview", type=Path); p.add_argument("--confirm-hash", required=True)
     p.add_argument("--confirm", action="store_true"); p.add_argument("--writers-stopped", action="store_true")
@@ -328,7 +330,8 @@ def main():
         elif args.action in ("workspace-identity-preview", "workspace-identity-recover"):
             from . import workspace_identity_recovery as recovery
             if args.action == "workspace-identity-preview":
-                out = recovery.preview(registry, args.workspace, args.reference)
+                out = recovery.preview(registry, args.workspace, args.reference,
+                                       preserve_pending_play=args.preserve_pending_play)
             else:
                 out = recovery.confirm(registry, args.workspace, recovery.read_preview(args.preview), args.confirm_hash,
                                        confirmed=args.confirm, writers_stopped=args.writers_stopped)
