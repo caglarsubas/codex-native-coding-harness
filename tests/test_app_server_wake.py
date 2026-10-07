@@ -155,6 +155,7 @@ class WakeTest(unittest.TestCase):
                          ["thread/read", "thread/resume", "turn/start"])
         self.assertEqual(FakeProxy.instances[0].calls[1][1],
                          {"threadId": BRAIN,
+                          "excludeTurns": True,
                           "config": {"features": {"code_mode": {"enabled": False}}},
                           "sandbox": "workspace-write", "approvalPolicy": "on-request"})
         self.assertEqual(FakeProxy.instances[0].calls[-1][1],
@@ -287,6 +288,69 @@ class WakeTest(unittest.TestCase):
         self.assertEqual(result["nativeFailure"]["stage"], "thread_resume")
         self.assertFalse(result["nativeFailure"]["turnStartAttempted"])
         self.assertEqual([m for m, _ in FakeProxy.instances[-1].calls], ["thread/read", "thread/resume"])
+
+    @patch("orchestrator.app_server_wake.threading.Thread", FakeThread)
+    def test_paginated_and_legacy_resume_request_only_metadata(self):
+        for history_mode in ("paginated", "legacy"):
+            with self.subTest(historyMode=history_mode):
+                class MetadataOnlyProxy(FakeProxy):
+                    def _rpc(self, method, params):
+                        if method == "thread/resume" and params.get("excludeTurns") is not True:
+                            self.calls.append((method, params))
+                            raise NativeReadFailure("rpc_error", "Native read unavailable", -32600)
+                        result = super()._rpc(method, params)
+                        if method in ("thread/read", "thread/resume"):
+                            result["thread"].update({"historyMode": history_mode, "turns": []})
+                        return result
+                with patch("orchestrator.app_server_wake.WakeProxy", MetadataOnlyProxy):
+                    result = self.wake.send(BRAIN, "fixed pointer", "control")
+                self.assertEqual(result["status"], "accepted")
+                calls = FakeProxy.instances[-1].calls
+                resume = next(params for method, params in calls if method == "thread/resume")
+                self.assertIs(resume["excludeTurns"], True)
+                self.assertEqual(set(resume), {"threadId", "excludeTurns", "config", "sandbox", "approvalPolicy"})
+                self.assertEqual(resume["sandbox"], NATIVE_APPROVAL_POLICY["sandbox"])
+                self.assertEqual(resume["approvalPolicy"], "on-request")
+                self.assertEqual(resume["config"], {"features": {"code_mode": {"enabled": False}}})
+                self.assertEqual(sum(method == "thread/resume" for method, _ in calls), 1)
+                self.assertEqual(sum(method == "turn/start" for method, _ in calls), 1)
+                self.wake.ledger.command["notification"].pop("nativeThreadObservation", None)
+
+    def test_unsupported_metadata_resume_has_no_full_history_fallback(self):
+        class UnsupportedMetadataProxy(FakeProxy):
+            def _rpc(self, method, params):
+                if method == "thread/resume":
+                    self.calls.append((method, params))
+                    if params.get("excludeTurns") is True:
+                        raise NativeReadFailure("rpc_error", "Native read unavailable", -32600)
+                    raise AssertionError("Full-history fallback must never be attempted")
+                return super()._rpc(method, params)
+        with patch("orchestrator.app_server_wake.WakeProxy", UnsupportedMetadataProxy):
+            result = self.wake.send(BRAIN, "fixed pointer", "control")
+        self.assertEqual(result["status"], "unavailable")
+        self.assertEqual(result["nativeFailure"]["stage"], "thread_resume")
+        self.assertEqual(result["nativeFailure"]["rpcCode"], -32600)
+        self.assertFalse(result["nativeFailure"]["turnStartAttempted"])
+        self.assertEqual([m for m, _ in FakeProxy.instances[-1].calls], ["thread/read", "thread/resume"])
+        self.assertNotIn("nativeThreadObservation", self.wake.ledger.command["notification"])
+
+    def test_resume_must_not_return_full_history_before_starting_a_turn(self):
+        for turns in ([{"privateTranscript": "PRIVATE HISTORY"}], "PRIVATE HISTORY", None):
+            with self.subTest(turnsType=type(turns).__name__):
+                class FullHistoryProxy(FakeProxy):
+                    def _rpc(self, method, params):
+                        result = super()._rpc(method, params)
+                        if method == "thread/resume":
+                            result["thread"]["turns"] = turns
+                        return result
+                with patch("orchestrator.app_server_wake.WakeProxy", FullHistoryProxy):
+                    result = self.wake.send(BRAIN, "fixed pointer", "control")
+                self.assertEqual(result["status"], "unavailable")
+                self.assertEqual(result["nativeFailure"]["stage"], "resumed_identity")
+                self.assertFalse(result["nativeFailure"]["turnStartAttempted"])
+                self.assertEqual([m for m, _ in FakeProxy.instances[-1].calls], ["thread/read", "thread/resume"])
+                self.assertNotIn("PRIVATE", str(result))
+                self.assertNotIn("nativeThreadObservation", self.wake.ledger.command["notification"])
 
     def test_connection_constructor_failure_is_sanitized_without_send(self):
         with patch("orchestrator.app_server_wake.WakeProxy", side_effect=OSError("PRIVATE PATH TOKEN")):

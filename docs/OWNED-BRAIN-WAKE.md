@@ -46,10 +46,16 @@ generic reconciliation wake, or substitute for activated-phase recovery.
   canonical socket itself: the CLI's `--listen unix://PATH` may leave `PATH` as
   a symlink to a private daemon socket, and the symlink is deliberately refused.
 - `thread/read` must match brain ID, project ID and cwd. `idle`/`notLoaded`
-  use `thread/resume`, then one `turn/start` with the fixed ledger pointer and
-  bound cwd. An already `active` brain is refused before delivery: queuing
+  use `thread/resume` with `excludeTurns: true`, then one `turn/start` with the
+  fixed ledger pointer and bound cwd. An already `active` brain is refused before delivery: queuing
   behind its turn would lose this client's approval subscription. A competing
   native turn or lost response is uncertain, not a reason to resend.
+  Resume needs metadata and live loading state, not conversation history. The
+  installed public schema supports this flag for paginated history as well as
+  legacy threads. Missing `turns` or an empty array is permitted in the resume
+  response; nonempty or malformed `turns` refuses before `turn/start`. A host
+  rejecting the flag fails closed without a full-history fallback or second
+  resume. This does not alter the pinned native policy or one-shot claim.
 - The app-server subscription is retained through the owned turn. A bounded
   command/file-change approval prompt can appear in the brain inspector, with
   the exact request and one-time accept/decline/cancel choices. The dashboard
