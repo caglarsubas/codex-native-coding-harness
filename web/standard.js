@@ -77,7 +77,9 @@ async function reviewStandardControl(s,operation,run){
 function standardPanel(root,mode='all'){
   const s=state.standard;if(!s)return;
   const panel=el('section',null,'mission-status'),run=s.run;
-  panel.append(el('p','STANDARD PROJECT','eyebrow'),el('h2',run?`Phase ${run.phaseId} · ${run.status}`:'No phase has started'));
+  const latestControl=[...(state.commands||[])].reverse().find(c=>run&&c.payload?.runId===run.id&&['standard_play','standard_pause','standard_resume'].includes(c.kind));
+  const unresolved=['connection_lost','unconfirmed'].includes(latestControl?.notification?.nativeTurnStatus);
+  panel.append(el('p','STANDARD PROJECT','eyebrow'),el('h2',run?`Phase ${run.phaseId} · ${unresolved?'recorded '+run.status+' · connection unresolved':run.status}`:'No phase has started'));
   if(mode==='all'){
     panel.append(el('p',s.boundary,'muted'),button('Review mission & next phase',()=>navigateView('mission')));
     if(state.meta?.brainId){const a=el('a','Open brain in Codex','button');a.href='codex://threads/'+encodeURIComponent(state.meta.brainId);panel.append(a);}
@@ -163,6 +165,7 @@ function standardPanel(root,mode='all'){
     }
     }
   }
+  if(['all','operations'].includes(mode))controlRequestHistory(panel);
   if(mode!=='all'){root.append(panel);return;}
   const operation=!run||['completed','blocked'].includes(run.status)?'play':run.status==='paused'?'resume':'pause';
   const label={play:'Review Play',resume:'Review Resume',pause:'Pause at safe checkpoint'}[operation];

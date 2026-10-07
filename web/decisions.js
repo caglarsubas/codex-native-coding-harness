@@ -13,6 +13,10 @@ function commandPresentation(c, activity=state?.brainActivity, now=Date.now()/10
   if(c.kind==='reconcile'&&c.payload?.message&&!c.notification&&!c.conversationReceivedAt&&state?.standard?.run?.status==='paused')
     return {label:'Held at checkpoint',detail:'This saved message was not notified while the phase is paused. A separate reviewed recovery-only wake can deliver it once without resuming workers.'};
   if(c.conversationReply)return {label:'Brain replied',detail:'The reply is saved in this project. See the result and next step below.'};
+  if(c.notification?.nativeTurnStatus==='connection_lost'&&['processing','completed'].includes(c.status))return {
+    label:'Receipt recorded · connection lost',detail:'The brain receipt is preserved; native turn and effect outcomes remain unresolved. '+(c.result||'')+' Repair the host and reconcile this existing request. Do not repeat Review, Play or the message.'};
+  if(c.notification?.nativeTurnStatus==='unconfirmed'&&['processing','completed'].includes(c.status))return {
+    label:'Receipt recorded · native outcome unknown',detail:'The receipt is saved, but the observer ended without a confirmed native turn result. Inspect the existing request; no retry is implied.'};
   if(c.kind==='reconcile'&&c.payload?.message&&c.status==='completed')return {label:'Received · reply missing',detail:'The request was marked received, but no reply is saved yet. Inspect this existing request; do not send a duplicate.'};
   if(c.status!=="queued"&&!c.needsBrainReceipt)return {label:c.status==='processing'?(c.kind==='brain_stop'?"Preparing safe checkpoint":"Received by brain"):c.status,detail:c.result||"The brain has received this request."};
   if(state?.meta?.brainControl?.desired==='stopped'&&!['brain_stop','brain_resume'].includes(c.kind))
@@ -24,6 +28,8 @@ function commandPresentation(c, activity=state?.brainActivity, now=Date.now()/10
     ?{label:"Notifying brain",detail:subject+" saved. Waiting for Codex to acknowledge the notification."}
     :{label:"Delivery unconfirmed",detail:"The send was interrupted or its result is missing. Check the brain; your answer is saved and will not be resent automatically."};
   if(n.status==='accepted') {
+    if(n.nativeTurnStatus==='connection_lost')return {label:'Connection lost · request unresolved',detail:'The owned Codex connection stopped responding. The existing request may have taken effect; repair the host and reconcile this request. Do not repeat Review, Play or the message.'};
+    if(n.nativeTurnStatus==='unconfirmed')return {label:'Native connection ended · outcome unknown',detail:'The turn observer ended without a confirmed result. Inspect the existing request and host; no receipt or safe retry is implied.'};
     if(n.nativeTurnStatus==='native_attention_required')return {label:'Native attention required',detail:'The owned Codex host asked for native approval or input. No permission was granted by the dashboard. Inspect the native host before further action.'};
     if(['completed','failed','interrupted'].includes(n.nativeTurnStatus))return {label:'Native turn ended · receipt missing',detail:'Codex ended the existing turn, but this request has no ledger receipt. Its outcome is unverified. Inspect that turn and the host binding; do not send a duplicate.'};
     if(n.nativeDelivery==='owned_turn_start')return now-n.finishedAt>90

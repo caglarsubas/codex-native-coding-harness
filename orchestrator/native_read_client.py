@@ -88,6 +88,7 @@ class ReadProxy:
     request_limit = 4096
     response_limit = MAX_RESPONSE
     total_limit = MAX_TOTAL
+    control_frame_limit = 16
 
     def __init__(self, endpoint, *, timeout=15):
         self.endpoint = endpoint
@@ -202,8 +203,16 @@ class ReadProxy:
     def _write(self, value):
         self._send_frame(1, canonical(value).encode("utf-8"))
 
+    def _control_frame(self, opcode, payload):
+        if opcode in (9, 10):
+            require(len(payload) <= 125, "Invalid native WebSocket control frame")
+            if opcode == 9:
+                self._send_frame(10, payload)
+            return True
+        return False
+
     def _line(self):
-        for _ in range(16):
+        for _ in range(self.control_frame_limit):
             first, second = self._read_bytes(2)
             require(not first & 0x70 and not second & 0x80 and first & 0x80,
                     "Invalid native WebSocket frame")
@@ -215,9 +224,7 @@ class ReadProxy:
             require(length <= self.response_limit, "Native response exceeds its bound")
             payload = self._read_bytes(length)
             opcode = first & 0x0f
-            if opcode == 9:
-                require(length <= 125, "Invalid native WebSocket ping")
-                self._send_frame(10, payload)
+            if self._control_frame(opcode, payload):
                 continue
             require(opcode == 1, "Unsupported native WebSocket frame")
             return decode(payload)

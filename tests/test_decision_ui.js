@@ -21,6 +21,13 @@ const ended={status:'accepted',nativeDelivery:'owned_turn_start',nativeTurnStatu
 assert.equal(present(ended).label,'Native turn ended · receipt missing');
 assert.match(present(ended).detail,/do not send a duplicate/);
 assert.equal(present({...ended,nativeTurnStatus:'failed'}).label,'Native turn ended · receipt missing');
+const lost=present({...ended,nativeTurnStatus:'connection_lost'});
+assert.equal(lost.label,'Connection lost · request unresolved');assert.match(lost.detail,/Do not repeat Review, Play/);
+assert.equal(present({...ended,nativeTurnStatus:'unconfirmed'}).label,'Native connection ended · outcome unknown');
+for(const status of ['processing','completed']){
+  const received=context.commandPresentation({...command,status,result:'Original receipt',notification:{...ended,nativeTurnStatus:'connection_lost'}});
+  assert.equal(received.label,'Receipt recorded · connection lost');assert.match(received.detail,/Original receipt/);
+}
 assert.equal(context.commandPresentation({...command,status:'processing',notification:{status:'uncertain'}}).label,'Received by brain');
 assert.equal(context.commandPresentation({...command,status:'completed',result:'Retained outcome'}).detail,'Retained outcome');
 vm.runInContext(fs.readFileSync('web/journey.js','utf8'),context);

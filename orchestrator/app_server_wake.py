@@ -38,17 +38,90 @@ THREAD_EVENT_LIMIT = 128
 THREAD_STREAM_GAP = "owned_stream_not_exhaustive"
 
 
+class NativeConnectionLost(Refusal):
+    """A transport failure, never proof that a turn/effect did not happen."""
+    def __init__(self, reason):
+        self.reason = reason
+        super().__init__("Reviewed native connection lost; reconcile the existing request, never replay it")
+
+
 class WakeProxy(ReadProxy):
     """Fixed-purpose write client with bounded event streaming for a full turn."""
     request_limit = 16_384
     total_limit = 128_000_000
+    # A six-hour quiet subscription can exchange 1,440 health pongs before
+    # another JSON event. Keep a finite flood bound without a four-minute TTL.
+    control_frame_limit = 4096
+    heartbeat_interval = 15
+    heartbeat_timeout = 10
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._frame_lock = threading.Lock()
         self._write_deadline = threading.local()
+        self._watching = False
+
+    def __enter__(self):
+        epoch = self._epoch()
+        super().__enter__()
+        try:
+            if epoch != self._epoch():
+                raise NativeConnectionLost("endpoint_changed")
+            self._endpoint_epoch = epoch
+            return self
+        except BaseException:
+            self.__exit__(None, None, None)
+            raise
+
+    def watch_connection(self):
+        # The already owned connection only: no discovery, reconnect or RPC.
+        # A healthy quiet turn is not subject to an idle timeout. It must answer
+        # WebSocket control pings even while model/tool/owner work is pending.
+        epoch = self._epoch()
+        if getattr(self, "_endpoint_epoch", epoch) != epoch:
+            raise NativeConnectionLost("endpoint_changed")
+        self._endpoint_epoch = epoch
+        self._next_ping = time.monotonic() + self.heartbeat_interval
+        self._pending_ping = None
+        self._watching = True
+
+    def _epoch(self):
+        try:
+            _, binary = secure_path(self.endpoint["executable"])
+            _, sock = secure_path(self.endpoint["socket"], socket_file=True)
+            require(socket_identity(sock) == self.endpoint["socketIdentity"], "Endpoint changed")
+            return file_identity(binary), socket_identity(sock)
+        except (OSError, Refusal, KeyError):
+            raise NativeConnectionLost("endpoint_changed") from None
+
+    def _watch_tick(self):
+        now = time.monotonic()
+        if self._pending_ping is not None:
+            if now >= self._pending_ping[1]:
+                raise NativeConnectionLost("heartbeat_missing")
+            return self._pending_ping[1]
+        if now >= self._next_ping:
+            if self._epoch() != self._endpoint_epoch:
+                raise NativeConnectionLost("endpoint_changed")
+            payload = secrets.token_bytes(8)
+            self._pending_ping = (payload, now + self.heartbeat_timeout)
+            try:
+                self._send_frame(9, payload)
+            except (OSError, Refusal, ValueError):
+                raise NativeConnectionLost("proxy_unavailable") from None
+            return self._pending_ping[1]
+        return self._next_ping
 
     def _ready(self, stream, event):
+        if event == selectors.EVENT_READ and self._watching:
+            while True:
+                probe_at = self._watch_tick()
+                remaining = self.deadline - time.monotonic()
+                require(remaining > 0, "Native read deadline exceeded")
+                with selectors.DefaultSelector() as selector:
+                    selector.register(stream, event)
+                    if selector.select(max(0, min(remaining, probe_at - time.monotonic()))):
+                        return
         if event != selectors.EVENT_WRITE or not hasattr(self._write_deadline, "value"):
             return super()._ready(stream, event)
         remaining = self._write_deadline.value - time.monotonic()
@@ -67,6 +140,28 @@ class WakeProxy(ReadProxy):
             finally:
                 del self._write_deadline.value
 
+    def _control_frame(self, opcode, payload):
+        if opcode == 8 and self._watching:
+            raise NativeConnectionLost("websocket_closed")
+        if opcode == 10 and self._watching:
+            require(len(payload) <= 125, "Invalid native WebSocket pong")
+            if self._pending_ping is not None and payload == self._pending_ping[0]:
+                self._pending_ping = None
+                self._next_ping = time.monotonic() + self.heartbeat_interval
+            return True
+        return super()._control_frame(opcode, payload)
+
+    def _read_bytes(self, count):
+        try:
+            return super()._read_bytes(count)
+        except NativeConnectionLost:
+            raise
+        except (OSError, Refusal) as error:
+            if self._watching and (isinstance(error, OSError) or
+                    str(error).startswith("Native proxy output closed")):
+                raise NativeConnectionLost("proxy_unavailable") from None
+            raise
+
     def _rpc(self, method, params):
         self._awaiting_start = method == "turn/start"
         try:
@@ -75,6 +170,8 @@ class WakeProxy(ReadProxy):
             self._awaiting_start = False
 
     def _line(self):
+        if self._watching:
+            self._watch_tick()
         row = super()._line()
         if isinstance(row, dict) and row.get("method") == "thread/started":
             callback = getattr(self, "_on_thread_started", None)
@@ -429,7 +526,7 @@ class AppServerWake:
         projection["requestHash"] = digest({"nonce": secrets.token_hex(16), "projection": projection})
         request_hash = projection["requestHash"]
         pending = {"projection": projection, "decision": None, "cancelled": False,
-                   "event": threading.Event(), "rows": [], "readerError": False}
+                   "event": threading.Event(), "rows": [], "readerError": False, "connectionLoss": None}
         with self._lock:
             require(not self._closed and brain_id not in self._pending_approvals,
                     "Another native approval is unresolved")
@@ -452,9 +549,11 @@ class AppServerWake:
                         (next_row.get("method") in ("serverRequest/resolved", "turn/completed") or
                          "id" in next_row and isinstance(next_row.get("method"), str))):
                         break
-            except Exception:
+            except Exception as error:
                 with self._lock:
                     pending["readerError"] = True
+                    if isinstance(error, NativeConnectionLost):
+                        pending["connectionLoss"] = error.reason
                     pending["event"].set()
 
         reader = threading.Thread(target=read_while_pending, daemon=True,
@@ -473,6 +572,8 @@ class AppServerWake:
                 if error:
                     if decision is not None:
                         self._record_approval_status(command_id, brain_id, turn_id, request_hash, "uncertain")
+                    if pending["connectionLoss"]:
+                        raise NativeConnectionLost(pending["connectionLoss"])
                     return "native_approval_response_uncertain" if response_sent else "native_attention_required"
                 # Native resolution takes precedence over a concurrent owner
                 # click; a resolved or finished request can never be approved.
@@ -773,12 +874,15 @@ class AppServerWake:
     def _observe_turn(self, proxy, command_id, brain_id, turn_id):
         """Keep the owned subscription alive; store only bounded lifecycle facts."""
         status = "unconfirmed"
+        connection_loss = None
         items = {}
         try:
             proxy.deadline = time.monotonic() + 6 * 3600
             early = getattr(proxy, "_early_completion", None)
             if isinstance(early, tuple) and len(early) == 3 and early[:2] == (brain_id, turn_id):
                 status = early[2] if early[2] in ("completed", "failed", "interrupted") else "unconfirmed"
+            elif callable(getattr(proxy, "watch_connection", None)):
+                proxy.watch_connection()
             early_requests = list(getattr(proxy, "_early_requests", ()))
             for _ in range(0 if early and early[:2] == (brain_id, turn_id) else 100_000):
                 row = early_requests.pop(0) if early_requests else proxy._line()
@@ -814,12 +918,18 @@ class AppServerWake:
                         continue
                     status = outcome
                     break
+        except NativeConnectionLost as error:
+            status = "connection_lost"
+            connection_loss = error.reason
         except (OSError, Refusal, ValueError):
             pass
         finally:
             proxy.__exit__(None, None, None)
             with self._lock:
                 self._subscriptions.discard(proxy)
+                if connection_loss:
+                    self._connection[brain_id] = {"status": "disconnected", "checkedAt": time.time(),
+                        "detail": "The owned turn connection was lost. Its outcome is unresolved; repair the host and reconcile this request, not another Play."}
             try:
                 with self.ledger.tx() as db:
                     command = self.ledger.get(db, "commands", command_id)
@@ -827,6 +937,10 @@ class AppServerWake:
                     if notification.get("nativeTurnId") in (None, turn_id) and notification.get("brainId") == brain_id:
                         notification["nativeTurnStatus"] = status
                         notification["nativeObservedAt"] = time.time()
+                        if connection_loss:
+                            notification["nativeConnectionLoss"] = {"reason": connection_loss,
+                                "observedAt": notification["nativeObservedAt"],
+                                "outcome": "unknown", "replayed": False}
                         command["notification"] = notification
                         self.ledger.put(db, "commands", command_id, command)
                 self._finish_thread_observation(command_id, brain_id, turn_id, status,

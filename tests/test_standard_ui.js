@@ -16,6 +16,7 @@ const box={Map,Set,JSON,Math,String,crypto:{randomUUID:()=>`request-${sent.lengt
   missionDocument(){},render(){},updateWorkspaceSelector(){},refresh:async()=>{},showNotice:(message)=>messages.push(message),navigateView:(route)=>routes.push(route),
   api:async(path,opts)=>{sent.push({path,body:JSON.parse(opts.body)});if(path.endsWith('preview'))return {preview:{operation:'play',contextHash:'h',brainAllowance:1,durationHours:8,expiresAt:Date.now()/1000+300},signature:'signed'};return {result:'Recorded'};}};
 vm.createContext(box);vm.runInContext(fs.readFileSync('web/journey.js','utf8'),box);vm.runInContext(fs.readFileSync('web/summaries.js','utf8'),box);vm.runInContext(fs.readFileSync('web/standard.js','utf8'),box);
+box.commandPresentation=()=>({label:'Connection lost · request unresolved',detail:'Do not repeat Play.'});
 const render=(mode)=>{const root=new Element('root');box.standardPanel(root,mode);return root;};
 function all(root){return [root,...root.children.flatMap(x=>x instanceof Element?all(x):[])];}
 (async()=>{
@@ -31,6 +32,18 @@ function all(root){return [root,...root.children.flatMap(x=>x instanceof Element
   box.connected=true;box.state.standard.contextHash='changed';assert.ok(all(render()).some(n=>n.text==='Review needs refreshing'));await confirm.click();assert.equal(sent.filter(s=>s.path.endsWith('confirm')).length,0);box.state.standard.contextHash='h';
   box.workspaceId='alpha';await confirm.click();assert.equal(sent.filter(s=>s.path.endsWith('confirm')).length,1);
   box.state.standard.run={id:'run',status:'running',phaseId:'p',tasks:[],limits:{maxTasks:2,checkpointReserveTokens:10},brainUsageCoverage:'not_observed'};
+  box.state.commands=[{id:'original-play',kind:'standard_play',createdAt:1,status:'queued',payload:{runId:'run'},notification:{nativeTurnStatus:'connection_lost'}}];
+  const beforeLossInspection=sent.length;
+  box.journeyAction('request');nodes=all(render('operations'));
+  assert.ok(nodes.some(n=>n.id==='control-request-history'&&n.open),'Inspection opens the actual saved request history');
+  assert.ok(nodes.some(n=>String(n.text).includes('original-play'))&&nodes.some(n=>n.text==='Connection lost · request unresolved'),'The original request ID and loss state are visible');
+  assert.ok(nodes.some(n=>n.tag==='h2'&&n.text.includes('recorded running · connection unresolved')));
+  assert.equal(sent.length,beforeLossInspection,'Inspection neither reconnects nor submits anything');
+  box.workspaceId='other';assert.equal(all(render('operations')).find(n=>n.id==='control-request-history').open,false,'History disclosure is project isolated');box.workspaceId='alpha';
+  box.state.commands=[];
+  const activeRun=box.state.standard.run;box.state.standard.run=null;
+  assert.ok(all(render('operations')).some(n=>n.id==='control-request-history'),'Pre-phase requests also have a real inspection target');
+  box.state.standard.run=activeRun;
   box.state.standard.observedTokens=null;nodes=all(render());assert.ok(nodes.some(n=>String(n.text).includes('Not observed')));
   assert.ok(nodes.some(n=>n.text==='Pause at safe checkpoint'));
   assert.ok(nodes.some(n=>String(n.text).includes('manual (default)')));

@@ -4,6 +4,12 @@ Preview expiry, native read deadlines and phase duration are different clocks.
 None is a host-process TTL. Recovery cannot reset usage, extend phase authority
 or retry an uncertain native send.
 
+The [disconnect root-cause record](HOST-DISCONNECT-ROOT-CAUSE.md) separates the
+observed desktop-update/session loss from the bridge's former silent six-hour
+wait. Owned turn subscriptions now check transport responsiveness on the same
+connection and retain loss as an unknown outcome, never a retry permission.
+This does not turn a desktop-owned foreground host into a persistent service.
+
 ## One-page recovery
 
 An expired/refused workflow keeps its scope visible with **Refresh review** and

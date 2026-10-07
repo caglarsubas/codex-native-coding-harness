@@ -330,6 +330,7 @@ function sessionPulse(root,model){
     line.append(el('span',`Host: ${health.status}${health.checkedAt?' · checked '+when(health.checkedAt):''}`,'muted'));
     const check=button('Check host connection',()=>checkHostConnection(check));check.disabled=!connected||busy;line.append(check);story.append(line);
     if(health.status!=='connected')story.append(el('p',health.detail,'muted'));
+    const lifetime=el('details');lifetime.append(el('summary','Details · Host lifetime'),el('p','This host depends on its reviewed Codex app session. Closing, updating or restarting Codex can end that connection even while the dashboard remains available. Connection checks do not restart the host or resend work. Repair and reconcile any existing request before another Play.','muted'));story.append(lifetime);
   }
   const next=el('div',null,'session-next-action');next.append(el('span','NEXT ACTION','eyebrow'));
   const action=button(journey.label,()=>journeyAction(journey.action),'primary');action.disabled=busy||!connected;next.append(action);

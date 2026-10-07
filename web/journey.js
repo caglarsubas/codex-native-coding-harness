@@ -48,7 +48,9 @@ function projectPhaseStatus(snapshot){
   const run=snapshot.standard.run,m=snapshot.mission;
   const next=['completed','blocked'].includes(run.status)&&m?.document?.spec.phase.id!==run.phaseId&&m?.document;
   const attention=snapshot.recovery&&(snapshot.recovery.reconciliationRequired||['running','stopping'].includes(run.status));
-  const status=next?`Plan v${m.document.version} ${m.effectiveStatus==='reviewed'?'reviewed · Play not started':'awaits review'} · Previous phase ${run.status}`:attention?'RECOVERY REQUIRED':run.status.toUpperCase();
+  const latestControl=[...(snapshot.commands||[])].reverse().find(c=>c.payload?.runId===run.id&&['standard_play','standard_pause','standard_resume'].includes(c.kind));
+  const lost=['connection_lost','unconfirmed'].includes(latestControl?.notification?.nativeTurnStatus);
+  const status=next?`Plan v${m.document.version} ${m.effectiveStatus==='reviewed'?'reviewed · Play not started':'awaits review'} · Previous phase ${run.status}`:lost?`CONNECTION UNRESOLVED · phase recorded ${run.status}`:attention?'RECOVERY REQUIRED':run.status.toUpperCase();
   const unsettled=run.tasks.filter(t=>!['completed','failed','not_created'].includes(t.status)).length;
   return 'STANDARD · '+status+' · '+unsettled+' registered '+(unsettled===1?'task':'tasks')+' unsettled';
 }
@@ -59,11 +61,33 @@ function journeyDisclosure(key,title,build){
   details.addEventListener('toggle',()=>{if(!details.isConnected)return;if(details.open)journeyDetailsOpen.add(identity);else journeyDetailsOpen.delete(identity);});
   return details;
 }
+function controlRequestHistory(root){
+  const commands=[...(state.commands||[])].reverse();
+  const details=journeyDisclosure('control-requests','Details · Control request history',body=>{
+    body.append(el('p','Saved request, native delivery and brain receipt are separate. Inspect the existing request before sending more work. This history submits nothing.','muted'));
+    if(!commands.length){body.append(el('p','No saved control requests.'));return;}
+    for(const command of commands){
+      const info=commandPresentation(command);
+      const record=el('article',null,'brain-exchange');
+      record.append(el('h3',command.kind.replaceAll('_',' ')),el('p',info.label),el('p',info.detail,'muted'),
+        el('p','Request: '+command.id+' · saved '+when(command.createdAt),'brain-message-text subline'),
+        el('p','Recorded result: '+(command.result||'No result retained'),'muted'));
+      body.append(record);
+    }
+  });
+  details.id='control-request-history';root.append(details);
+}
 function journeyPendingConversation(snapshot){
   return [...(snapshot.commands||[])].reverse().find(c=>c.kind==='reconcile'&&c.payload?.message&&!c.conversationReply);
 }
 function journeyConversationProgress(command){
   const n=command.notification;
+  if(n?.nativeTurnStatus==='connection_lost')return {
+    title:'Connection lost; this request is unresolved',
+    detail:'The owned Codex connection stopped responding. Your request is preserved, but its result is unknown. Repair the host and reconcile this existing request; do not send another message or repeat Play.'};
+  if(n?.nativeTurnStatus==='unconfirmed')return {
+    title:'The native connection ended without a confirmed result',
+    detail:'Inspect this existing request and host. An ended observer is not a brain receipt, finished turn or permission to retry.'};
   const ended=['completed','failed','interrupted'].includes(n?.nativeTurnStatus);
   if(n?.nativeTurnStatus==='native_attention_required')return {
     title:'Check the native permission or input request',
@@ -107,7 +131,18 @@ function roadmapJourneyState(snapshot,isConnected=true,now=Date.now()/1000){
     'Review handoff progress','handoff',{canPause:run?.status==='running'});
   const pending=[...(snapshot.commands||[])].reverse().find(c=>run&&c.payload?.runId===run.id&&['standard_play','standard_pause','standard_resume'].includes(c.kind)&&['queued','processing'].includes(c.status));
   if(run?.status==='stopping')return result(2,'Pause requested','New work is fenced. The brain still needs to settle registered tasks and save a safe checkpoint.',pending?'Inspect request delivery':'Follow sessions',pending?'request':'overview',{request:pending});
-  if(pending)return result(2,'Waiting for the brain’s receipt','Your '+pending.kind.replace('standard_','')+' request is saved. Inspect its delivery status before sending another request.','Inspect request delivery','request',{request:pending,canPause:run.status==='running'});
+  const latestControl=[...(snapshot.commands||[])].reverse().find(c=>run&&c.payload?.runId===run.id&&['standard_play','standard_pause','standard_resume'].includes(c.kind));
+  if(run?.status==='running'&&['connection_lost','unconfirmed'].includes(latestControl?.notification?.nativeTurnStatus))return result(2,latestControl.notification.nativeTurnStatus==='connection_lost'?'Connection lost; this request is unresolved':'Native outcome is unconfirmed; inspect this request',
+    'The phase is recorded as running, not verified active. Repair the host, then reconcile this existing request and any effects. Its receipt, usage and ownership are preserved; do not repeat Play.',
+    'Inspect saved request','request',{request:latestControl,canPause:true});
+  if(pending){
+    const status=pending.notification?.nativeTurnStatus;
+    const lost=['connection_lost','unconfirmed'].includes(status);
+    const ended=['completed','failed','interrupted'].includes(status);
+    return result(2,lost?'Connection lost; this request is unresolved':ended?'Brain turn ended; receipt is missing':'Waiting for the brain’s receipt',
+      lost?'Repair the host connection, then reconcile this saved request. Its effect is unknown; do not repeat Review or Play.':ended?'The native turn ended without recording this control’s receipt. Inspect the existing request and host; do not repeat Play.':'Your '+pending.kind.replace('standard_','')+' request is saved. Inspect its delivery status before sending another request.',
+      'Inspect saved request','request',{request:pending,canPause:run.status==='running'});
+  }
   const blockers=[...(s?.blockers||[])];
   if(run&&['running','paused'].includes(run.status)&&run.expiresAt<=now&&!blockers.some(x=>/expir/i.test(x)))blockers.push('The phase time limit has expired.');
   const conversation=journeyPendingConversation(snapshot);
