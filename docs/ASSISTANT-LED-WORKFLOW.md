@@ -34,6 +34,13 @@ then shows native delivery, brain receipt and reply separately. See
 [checkpoint recovery wake](CHECKPOINT-RECOVERY-WAKE.md) and
 [guided control recovery](CONTROL-RECOVERY.md).
 
+If an empty run is **stopping** because its saved Pause provably failed before
+starting a turn, **Recover saved Pause** prepares a separate checkpoint-only
+preview. Confirmation may wake the reviewed host once to receipt that exact
+Pause and retain a paused checkpoint, without resending its failed notification
+or resuming development. Unknown delivery/ownership cannot use this exception.
+See [failed-Pause recovery](FAILED-PAUSE-RECOVERY.md).
+
 If recovery ends but an expired empty phase is still paused, the inspector offers
 **Review stopped-phase closeout**. It checks the exact ended native turn and
 records an owner-confirmed **blocked · unqualified** outcome without waking the

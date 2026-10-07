@@ -5,6 +5,8 @@ const decisionDetailsOpen = new Set();
 const decisionLabels = {open:"Needs your decision", answered:"Answer recorded", received:"Received by brain", applied:"Applied to design", blocked:"Needs follow-up", superseded:"Superseded"};
 
 function commandPresentation(c, activity=state?.brainActivity, now=Date.now()/1000) {
+  if(c.kind==='standard_pause_recovery'&&c.status==='completed')return {label:'Paused checkpoint retained',detail:'The saved Pause reached its checkpoint. Development stays paused; this is not phase success or pilot acceptance.'};
+  if(c.kind==='standard_pause_recovery'&&c.status==='processing')return {label:'Pause received · checkpoint pending',detail:'The brain received the existing Pause through its separate recovery. A safe paused checkpoint is still required.'};
   if(c.kind==='standard_closeout'&&c.status==='completed')return {label:'Stopped phase closed · unqualified',detail:c.result.replace(/^Stopped phase closed as blocked and unqualified\. /,'')};
   if(c.kind==='standard_catalog_refresh'&&c.status==='failed'&&typeof catalogStatus==='function'){
     const status=catalogStatus(c);return {label:status.title,detail:status.detail};

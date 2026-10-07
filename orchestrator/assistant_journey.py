@@ -9,7 +9,7 @@ from .assistant_actions import ActionProposals, TTL
 from .core import digest, require
 from .recovery import describe
 
-KINDS = {"phase_help", "phase_prepare", "phase_reconcile", "phase_recovery", "phase_close", "phase_review", "phase_play", "phase_pause", "phase_resume", "usage_check", "codex_check", "brain_message"}
+KINDS = {"phase_help", "phase_prepare", "phase_reconcile", "phase_recovery", "phase_pause_recovery", "phase_close", "phase_review", "phase_play", "phase_pause", "phase_resume", "usage_check", "codex_check", "brain_message"}
 PREPARE_MESSAGE = (
     "Review this project's configured roadmap sources and latest retained results. "
     "Prepare the next unfinished, bounded phase as a mission draft. Include goal, success criteria, "
@@ -143,6 +143,11 @@ def catalog(state):
         None if s.get("available") else s.get("blocker") or "Review the phase and its prerequisites first.")
     add("phase_pause", "Pause this phase", "Stop new work and settle registered tasks at a safe checkpoint.",
         None if run.get("status") == "running" else "There is no running phase to pause.")
+    from .pause_recovery import availability, BOUNDARY as PAUSE_BOUNDARY
+    pause_recovery = availability(state)
+    add("phase_pause_recovery", "Recover saved Pause", PAUSE_BOUNDARY,
+        pause_recovery["reason"] or ("A reviewed owned Codex host is required." if
+            state.get("brainNotification", {}).get("transport") != "owned_app_server" else None))
     add("phase_resume", "Resume this phase", "Continue the saved phase with its existing limits and consumed usage.",
         "Finish the existing brain handoff first." if blocked_handoff else
         None if run.get("status") == "paused" and not s.get("blockers") else "A paused phase with resolved prerequisites is required.")
@@ -218,6 +223,30 @@ class JourneyProposals(ActionProposals):
             request = {"id": ident, "contextHash": standard["contextHash"]}
         elif kind == "usage_check":
             request = {"id": ident, "runId": standard["run"]["id"], "contextHash": standard["contextHash"]}
+        elif kind == "phase_pause_recovery":
+            from . import pause_recovery, reply_recovery
+            from .native_read_client import ReadProxy
+            host = self.runtime.notifier.app_server
+            require(host is not None, "The reviewed owned host is required; no queue fallback")
+            original = pause_recovery.eligible(state)
+            reply_recovery.check_binding(state, host.binding)
+            require(not host.pending_approval(state["meta"]["brainId"]), "Native approval needs its own reconciliation")
+            with ReadProxy(host.binding["endpoint"]) as proxy:
+                observation = pause_recovery.observe(proxy, host.binding, original)
+            require(self.runtime.ledger.snapshot()["meta"]["revision"] == state["meta"]["revision"],
+                    "Project changed during inspection; check again")
+            run = standard["run"]
+            request = {"id": ident, "expectedRevision": state["meta"]["revision"], "runHash": digest(run),
+                "payload": {"runId": run["id"], "phaseId": run["phaseId"], "pauseId": original["id"],
+                    "pauseFingerprint": pause_recovery.fingerprint(original), "notificationHash": digest(original["notification"]),
+                    "brainId": state["meta"]["brainId"], "bindingHash": digest(host.binding),
+                    "observation": observation, "scopeHash": pause_recovery.scope_hash(run)}}
+            preview["summary"] = ["The saved Pause failed before starting a brain turn.",
+                "One separate checkpoint-only turn may receive that Pause and save an empty paused checkpoint.",
+                "Development stays stopped. Usage, expiry and the original failed delivery record are preserved."]
+            preview["details"] = {"pauseId": original["id"], "runId": run["id"], "observation": observation,
+                "allowanceTokens": pause_recovery.ALLOWANCE,
+                "allowanceBoundary": "Cooperative one-turn guidance; not a phase-budget increase or provider billing cap."}
         elif kind == "phase_recovery":
             from .checkpoint_recovery import SUGGESTED_TOKENS, instruction, pending_message
             run = standard["run"]
@@ -347,6 +376,22 @@ class JourneyProposals(ActionProposals):
             from .brain_memory import refresh
             require(standard.read(ledger)["contextHash"] == request["contextHash"], "Run changed; review a fresh usage request")
             return self.result(doc, refresh(ledger, request["runId"], doc["id"])), False
+        if kind == "phase_pause_recovery":
+            from . import pause_recovery, reply_recovery
+            from .native_read_client import ReadProxy
+            state = self.runtime.snapshot()
+            require(state["meta"]["revision"] == request["expectedRevision"], "Project changed; review again")
+            original = pause_recovery.eligible(state)
+            host = self.runtime.notifier.app_server
+            require(host is not None and digest(host.binding) == request["payload"]["bindingHash"],
+                    "Reviewed host changed; nothing was sent")
+            reply_recovery.check_binding(state, host.binding)
+            require(not host.pending_approval(doc["brainId"]), "Native approval needs its own reconciliation")
+            with ReadProxy(host.binding["endpoint"]) as proxy:
+                observation = pause_recovery.observe(proxy, host.binding, original)
+            require(pause_recovery.same_turn(observation, request["payload"]["observation"]),
+                    "Reviewed native turn changed; check again")
+            return self.result(doc, pause_recovery.confirm(self.runtime.registry, ledger, request)), True
         if kind == "phase_recovery":
             from .checkpoint_recovery import confirm as confirm_recovery
             current_status = self.runtime.notifier.status(doc["brainId"])
@@ -381,6 +426,7 @@ class JourneyProposals(ActionProposals):
     def result(doc, result):
         return {"workflow": doc["workflow"], "id": doc["id"], "result": result,
                 "message": result["result"] if doc["workflow"] == "phase_close" else
+                           "Pause recovery saved. Follow delivery, the Pause receipt and its paused checkpoint separately." if doc["workflow"] == "phase_pause_recovery" else
                            "Recovery-only preparation saved. The phase remains paused; follow native delivery and the brain's separate receipt." if doc["workflow"] == "phase_recovery" else
                            "Phase plan reviewed. You can now review Play here." if doc["workflow"] == "phase_review" else
                            "Usage refreshed. Remaining measured budget is unknown." if doc["workflow"] == "usage_check" and result.get("gaps") else

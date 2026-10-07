@@ -40,6 +40,15 @@ For a pending standard brain replacement, follow the separate handoff guidance
 in that reference; a replacement's final reply is not native project membership
 or owner rebinding, and rebinding does not activate a selected project.
 
+For an owner-confirmed `standard_pause_recovery`, read source
+`docs/FAILED-PAUSE-RECOVERY.md` completely. This empty-run checkpoint exception
+receives only the exact proved pre-turn failed Pause using
+`standard-brain pause_recovery_receive`, retains a `paused` checkpoint, releases
+the controller and ends the turn. Never use generic receive/process, drain other
+messages, retry a native effect, respond to approvals, Resume or start Play. The
+original failed claim and usage/expiry stay intact. Delivery, Pause receipt and
+checkpoint are separate; none qualifies a pilot. Source upgrades do not activate it.
+
 For schema v3/run-authority workspaces, immutable task contracts or admission-managed
 workers, read `references/managed-cycle.md` before the cycle. It composes the
 coordinator, model policy, one-shot handoffs, result review and event-bound waits.

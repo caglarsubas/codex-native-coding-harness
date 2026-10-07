@@ -130,6 +130,16 @@ def plan(state):
         return step("blocked", "Checkpoint recovery needs attention",
                     actions["phase_recovery"]["unavailableReason"])
 
+    if run.get("status") == "stopping" and actions["phase_pause_recovery"]["available"]:
+        result["requestId"] = s.get("pauseRecovery", {}).get("pauseId")
+        return step("decision", "Recover the saved Pause",
+                    "Its delivery failed before starting a turn. Review one checkpoint-only recovery; development stays stopped.",
+                    "phase_pause_recovery")
+    pause_recovery = run.get("pauseRecovery") or {}
+    if run.get("status") == "stopping" and pause_recovery.get("status") in ("queued", "processing"):
+        result["requestId"] = pause_recovery["id"]
+        return step("follow", "Following Pause recovery",
+                    "Native delivery, the saved Pause receipt and the paused checkpoint are separate. No second wake will be sent.")
     pending = next((c for c in commands if c.get("status") in ("queued", "processing") or c.get("needsBrainReceipt") or
                     (c.get("kind") == "reconcile" and c.get("payload", {}).get("message") and not c.get("conversationReply"))), None)
     if pending:

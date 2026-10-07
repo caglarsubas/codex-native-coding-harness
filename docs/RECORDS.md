@@ -217,3 +217,20 @@ original events/times remain; an ended observer does not prove the native turn
 or effects ended, release ownership, restore usage coverage or authorize replay.
 State reads expose this retained record without reconnecting or renewing it.
 See [disconnect lifecycle](HOST-DISCONNECT-ROOT-CAUSE.md).
+
+## Separate recovery of a pre-turn failed standard Pause
+
+The signed `standard_pause_recovery` command and `standardRun.pauseRecovery`
+journal retain one checkpoint-only attempt for an exact empty stopping phase.
+The original Pause payload, failed notification and its original observation
+times remain unchanged. Its separate receipt may become completed; native
+delivery, recovery receipt and paused checkpoint remain distinct records.
+`scopeHash` pins run limits, usage, expiry and task/effect scope, while
+`notificationHash` pins the original failed claim. Metadata-only latest-turn
+checks remain explicitly not effect reconciliation.
+
+No retry, Resume, phase completion, usage-gap clearance or pilot acceptance is
+inferred. Failed/uncertain recovery remains owned and never arms a second wake.
+Reads do not connect or renew evidence. See [failed-Pause recovery](FAILED-PAUSE-RECOVERY.md)
+for exact eligibility, owner review, designated-brain procedure and source-only
+rollout boundaries.
