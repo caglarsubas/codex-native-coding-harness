@@ -66,9 +66,13 @@ async function render(){const root=new Element('root');box.conversationView(root
   assert.equal(sent[1].payload.brainId,'brain-a');assert.equal(sent[1].kind,'reconcile');
   pending=1;nodes=await render();assert.equal(nodes.find(n=>n.type==='submit').disabled,true);
   messages=[{id:'exact-request',message:'Existing bounded instruction',createdAt:1,receivedAt:2}];
+  messages[0].notification={status:'unavailable',nativeFailure:{version:1,stage:'observation_record',
+    reason:'validation_failed',resumeAttempted:true,turnStartAttempted:false}};
   vm.runInContext("brainRequestFocus.set('alpha','exact-request');brainRequestFocus.set('beta','other-request')",box);
   const beforeFocus=sent.length;nodes=await render();
   const target=nodes.find(n=>n['data-focus']==='saved-request:exact-request');
+  assert(nodes.some(n=>n.text==='Details · Failed delivery step'));
+  assert(nodes.some(n=>n.text==='Step: Save observation marker'));
   assert.equal(target.tabindex,'-1');assert.equal(target.scrolled.block,'nearest');assert.equal(target.focused.preventScroll,true);
   assert.equal(sent.length,beforeFocus,'Inspecting a request never posts or notifies');
   assert.equal(vm.runInContext("brainRequestFocus.has('alpha')",box),false,'The focus request is consumed once');

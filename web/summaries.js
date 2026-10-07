@@ -1,6 +1,38 @@
 "use strict";
 // Presentation only: never rewrite retained evidence or infer a successful outcome.
 const narrativeDisclosures=new Map();
+const wakeFailureDisclosures=new Map();
+function wakeFailureDetails(root,notification,requestId=''){
+  const failure=notification?.nativeFailure;
+  const stages={connect:'Open reviewed host connection',thread_read:'Read bound brain',
+    thread_identity:'Verify brain, project and checkout',request_check:'Check saved request',
+    receipt_check:'Check recovery receipt',thread_resume:'Load brain with reviewed settings',
+    resumed_identity:'Verify loaded brain identity',observation_record:'Save observation marker',
+    turn_start:'Start brain turn',subscription:'Retain turn observer'};
+  const reasons={rpc_error:'Codex returned an error',unexpected_response:'Unexpected native response',
+    notification_limit:'Native event count exceeded the bounded read',deadline_exceeded:'Native request timed out',
+    proxy_closed:'Native proxy connection closed',connection_lost:'Reviewed connection changed or stopped responding',
+    io_unavailable:'Local connection or storage unavailable',validation_failed:'Required validation failed'};
+  if(failure?.version!==1||!Object.hasOwn(stages,failure.stage)||!Object.hasOwn(reasons,failure.reason)||
+    typeof failure.resumeAttempted!=='boolean'||typeof failure.turnStartAttempted!=='boolean')return;
+  const project=typeof workspaceId==='undefined'?'legacy':workspaceId||'legacy';
+  const rpcCode=Number.isInteger(failure.rpcCode)&&failure.rpcCode>=-32768&&failure.rpcCode<=-32000?failure.rpcCode:null;
+  const key=JSON.stringify([project,requestId,notification.attemptedAt??null,failure.stage,failure.reason,
+    failure.resumeAttempted,failure.turnStartAttempted,rpcCode]);
+  const details=el('details',null,'wake-failure-details');details.open=wakeFailureDisclosures.has(key);
+  details.addEventListener('toggle',()=>{
+    if(!details.isConnected)return;
+    if(details.open){wakeFailureDisclosures.set(key,true);if(wakeFailureDisclosures.size>100)wakeFailureDisclosures.delete(wakeFailureDisclosures.keys().next().value);}
+    else wakeFailureDisclosures.delete(key);
+  });
+  details.append(el('summary','Details · Failed delivery step'));
+  const facts=el('ul');facts.append(el('li','Step: '+stages[failure.stage]),el('li','Reason: '+reasons[failure.reason]));
+  if(rpcCode!==null)facts.append(el('li','Native JSON-RPC code: '+rpcCode));
+  facts.append(el('li',failure.resumeAttempted?'Brain loading was requested; this does not prove a turn started.':'Brain loading was not requested.'),
+    el('li',failure.turnStartAttempted?'Brain turn start was attempted; its outcome remains unconfirmed.':'Brain turn start was not attempted.'));
+  details.append(facts,el('p','This is the saved delivery failure, not current host health. Checking the connection does not resend the request or record a brain receipt.','muted'));
+  root.append(details);
+}
 function recoverySummary(root,recovery,showTitle=true){
   if(!recovery)return;
   const card=el('section',null,'recovery-summary');card.setAttribute('role','status');

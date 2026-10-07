@@ -80,6 +80,30 @@ generic reconciliation wake, or substitute for activated-phase recovery.
 
 ## Separate activation review
 
+### Delivery diagnostics are not recovery authority
+
+New failed owned-host notifications retain a closed `nativeFailure` record:
+the failed step, a bounded reason, whether `thread/resume` and `turn/start`
+were attempted, and a reserved JSON-RPC error code when supplied. Native error
+messages, error data, paths, prompts and environment values are not retained.
+The dashboard shows these facts under **Details · Failed delivery step** in
+control history, brain messages and answered decisions. A returned turn ID
+survives a later observer-start failure, but its outcome remains unconfirmed.
+
+A pre-`turn/start` failure is not necessarily pre-resume: the brain may have
+been loaded or its restricted settings reapplied. An `unavailable` result does
+not authorize a second send, queue fallback or a new control. The durable
+notification claim stays consumed. `uncertain` still means a turn may have
+started; neither a current successful handshake nor read-only thread metadata
+reconstructs a missing receipt or checkpoint.
+
+Older generic failures have no step record. Do not infer their stage from a
+new health check or backfill a guessed cause. This source change does not
+repair historical native effects, install a host, replay a saved Pause, change
+usage coverage or qualify the pilot.
+
+### Installation boundary
+
 Source delivery leaves the current dashboard and brain unchanged. A later
 owner-reviewed migration must first quiesce the old dashboard writer and
 notification route, then verify a private owned app-server is running, its
