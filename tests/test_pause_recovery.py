@@ -286,6 +286,8 @@ class PauseRecoveryTest(unittest.TestCase):
                 if method == "thread/read": return self.call(method, params)
                 self.calls.append((method, params))
                 if method == "thread/resume":
+                    fixture.assertIs(params.get("excludeTurns"), True)
+                    self.thread["historyMode"] = "paginated"
                     self.thread["status"] = {"type": "idle"}
                     if self.stop:
                         with fixture.ledger.tx() as db:

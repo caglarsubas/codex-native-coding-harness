@@ -163,6 +163,13 @@ signed, expiring owner preview and again at confirmation.
 
 ## Evidence and current qualification
 
+Owned brain loading now requests metadata only with the public app-server
+`excludeTurns: true` parameter, avoiding unnecessary full-history hydration for
+paginated threads. It preserves the exact restricted native policy and refuses
+unsupported or history-bearing responses without fallback. Local regressions
+qualify the request shape and refusal paths, not successful live resume or pilot
+completion. Consumed failed delivery/recovery claims remain consumed.
+
 A saved standard Pause with a closed pre-turn failure may have a separately
 signed **Recover saved Pause** control in the same graph-centered workspace.
 It prepares the exact checkpoint-only preview without prompt writing. Durable

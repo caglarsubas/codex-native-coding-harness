@@ -234,3 +234,13 @@ inferred. Failed/uncertain recovery remains owned and never arms a second wake.
 Reads do not connect or renew evidence. See [failed-Pause recovery](FAILED-PAUSE-RECOVERY.md)
 for exact eligibility, owner review, designated-brain procedure and source-only
 rollout boundaries.
+
+## Metadata-only owned resume
+
+Owned wake requests use the installed public `thread/resume` parameter
+`excludeTurns: true`. The response must omit `turns` or contain an empty array;
+private history is neither needed nor retained. An unsupported flag or malformed
+response preserves the failed one-shot notification and its closed stage record,
+without another resume, full-history fallback or turn start. This protocol fix
+does not repair historical claims, create another recovery permit, change the
+host binding or clear usage gaps. Source tests are not live qualification.

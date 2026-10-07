@@ -854,11 +854,18 @@ class AppServerWake:
             stage = "thread_resume"
             resume_attempted = True
             resumed = proxy._rpc("thread/resume", {"threadId": brain_id,
+                                                    # The public protocol supports paginated threads
+                                                    # without hydrating private conversation history.
+                                                    "excludeTurns": True,
                                                     "config": {"features": {"code_mode": {"enabled": policy["codeMode"]}}},
                                                     "sandbox": policy["sandbox"],
                                                     "approvalPolicy": policy["approvalPolicy"]})
             stage = "resumed_identity"
-            self._identity(resumed.get("thread") if isinstance(resumed, dict) else None, brain_id)
+            resumed_thread = resumed.get("thread") if isinstance(resumed, dict) else None
+            self._identity(resumed_thread, brain_id)
+            turns = resumed_thread.get("turns", [])
+            require(isinstance(turns, list) and not turns,
+                    "Native resume did not return metadata only")
             if recovery:
                 # Resume changes native loading, not dispatch authority. Recheck
                 # a racing Stop and exact original immediately before turn/start.

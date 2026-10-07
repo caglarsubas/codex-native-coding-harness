@@ -60,6 +60,11 @@ approval. Before resume and immediately before turn/start, the existing bridge
 rechecks current ledger gates and matching metadata on the **same connection**.
 The final check-to-call interval is cooperative, not atomic native cancellation.
 There is no desktop-queue fallback, second dispatcher or automatic reconnect.
+The bridge requests `thread/resume` with `excludeTurns: true`: loading this
+checkpoint turn does not require hydrating private or paginated history. A
+rejected metadata-only resume remains one consumed recovery attempt, with its
+failed step retained. There is no fallback to full history and installing a
+compatible bridge does not re-arm that attempt.
 
 ## Designated brain procedure
 
