@@ -79,6 +79,40 @@ and may need their own exact reviews. Expired phases still cannot Resume.
 
 This source command does not authorize installation or live identity repair.
 
+#### Preserve an unreceipted Play during device recovery
+
+If device drift prevents the brain from reading its original Play, requiring that
+Play's receipt before repairing the device pin creates a recovery deadlock.
+`workspace-identity-preview <retained-backup> --preserve-pending-play` prepares a
+**different exact review**, not a bypass of the default recovery refusal. It is
+limited to one owner-confirmed, queued `standard_play` in an empty, uncheckpointed
+standard run. Its owned turn was acknowledged, but the retained monitor ended
+with an unconfirmed/lost outcome and incomplete coverage. There must be no
+registered tasks, packets, legacy workers, merges, recovery, native permission
+responses, witnessed descendants, controller or runner. Measured-usage guards
+must remain enabled with brain usage `not_observed`; missing usage is not zero.
+
+The separate preview includes the original run, command and native turn IDs,
+immutable command/run hashes and an explicit **unresolved** outcome. The same
+`workspace-identity-recover` command requires its exact new hash, owner confirmation
+and stopped-writer acknowledgment. All reference, schema/content, private-path,
+unchanged inode/brain/project, backup and locking checks still apply. A normal
+preview or old confirmation cannot opt into this mode. Any pending-record or
+scope change invalidates the review. Default recovery still refuses pending work.
+
+This transaction repairs only the registry device pin and unchanged project pin.
+The ledger remains byte-logically identical: Play is still queued with its original
+notification claim, unknown native outcome, consumed usage, gaps and expiry.
+Nothing calls a native transport, repairs an endpoint, receives/completes the
+request, resets an attempt, certifies inactivity or starts/continues development.
+An empty recorded inventory is **not** proof of absent native effects. Historical
+replay returns only the original recovery receipt and never repins a later volume.
+After separately authorized installation/recovery, inspect the original request;
+host replacement and actual effect reconciliation retain their own reviews and
+one-shot boundaries. Do not repeat Play or treat identity recovery as pilot acceptance.
+
+Source delivery applies no private recovery and launches no host.
+
 ## Project introduction
 
 Use `workspace-profile-set <private-json> --version <current-version>` to save
