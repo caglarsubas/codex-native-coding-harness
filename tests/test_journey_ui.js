@@ -256,3 +256,17 @@ assert.deepEqual(calls.slice(beforeClose),[['focus','assistant'],['preview','pha
 assert(!calls.slice(beforeClose).some(c=>c[0]==='review'),'Opening closeout does not Resume or Play');
 box.state.phaseCloseout={available:false};assert.equal(model(box.state).action,'recover_follow');
 box.state.standard.run.status='blocked';assert.equal(model(box.state).action,'prepare');
+
+box.state=base();box.state.standard.run=run('stopping');box.state.standard.pauseRecovery={available:true,pauseId:'pause'};
+assert.notEqual(model(box.state).action,'pause-recover','Saved eligibility without a bound owned host is not a usable recovery');
+box.state.brainNotification={transport:'owned_app_server'};
+assert.equal(model(box.state).action,'pause-recover');
+const beforeRecovery=calls.length;box.journeyAction('pause-recover');
+assert.deepEqual(calls.slice(beforeRecovery),[['focus','assistant'],['preview','phase_pause_recovery']],'Recovery click prepares its exact separate preview, never confirms');
+box.state.standard.pauseRecovery.available=false;
+box.state.standard.run.pauseRecovery={id:'recovery',status:'queued'};
+box.state.commands=[{id:'recovery',kind:'standard_pause_recovery',status:'queued',payload:{runId:'run'}}];
+assert.equal(model(box.state).request.id,'recovery','Follow recovery rather than original failed Pause');
+assert.equal(model(box.state).action,'request');
+assert.match(model(box.state).title,/Following Pause recovery/);
+assert.equal(model(box.state,false).action,'refresh','Disconnected cached eligibility never offers a wake');

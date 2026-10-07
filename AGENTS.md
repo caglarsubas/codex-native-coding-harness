@@ -49,6 +49,19 @@ no live state or host. See docs/EXPIRED-PHASE-CLOSEOUT.md.
 
 ## Owned app-server wake source (2026-09-26)
 
+For an empty stopping standard run with one proved pre-turn failed Pause, the
+separately signed `phase_pause_recovery` control may authorize one checkpoint-only
+owned-host wake. Preserve the original failed notification; never reset or resend
+its claim. Pin run/phase/usage/expiry, original request and notification hashes,
+host and exact latest completed native turn. Polling never collects this evidence
+or sends a wake. Shared enrollment and private sidecars, Brain Stop, other pending
+requests, tasks, packets, runners, native approvals and uncertain delivery remain
+fenced. Only `standard-brain pause_recovery_receive` may receipt the saved Pause;
+then retain an empty `paused` checkpoint and release. No ordinary draining, new
+effects, Resume, Play, approval response, phase success or pilot acceptance. A
+saved attempt permanently prevents another for that Pause. Source delivery does
+not install, rebind or change live state. Read docs/FAILED-PAUSE-RECOVERY.md fully.
+
 The owner approved implementing an opt-in, documented Codex app-server wake
 bridge for registered standard projects. This supersedes the queue-only
 restriction below only for that separately reviewed host binding. Source

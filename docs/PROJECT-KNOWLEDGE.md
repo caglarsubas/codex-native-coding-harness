@@ -163,6 +163,15 @@ signed, expiring owner preview and again at confirmation.
 
 ## Evidence and current qualification
 
+A saved standard Pause with a closed pre-turn failure may have a separately
+signed **Recover saved Pause** control in the same graph-centered workspace.
+It prepares the exact checkpoint-only preview without prompt writing. Durable
+progress follows that new recovery, not the old failed delivery. Only an empty,
+stopping standard run with stable bound-host completed-turn metadata is eligible;
+uncertain effects, task ownership and strict Harness remain fenced. A paused
+checkpoint is not pilot acceptance or permission for Play. Source, installation
+and live qualification remain separate. See [failed-Pause recovery](FAILED-PAUSE-RECOVERY.md).
+
 The fixed 20-question evaluation in `tests/test_knowledge_eval.py` checks
 top-ten retrieval against manually reviewed owner modules and two deliberately
 missing-evidence identifiers. Local tests provide source qualification only.

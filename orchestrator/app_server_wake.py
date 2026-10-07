@@ -840,9 +840,14 @@ class AppServerWake:
                         "The bound brain already has an active turn; native approval coverage for queued turns is unavailable. No message was sent."}
             stage = "request_check"
             with self.ledger.tx() as db:
-                recovery = self.ledger.get(db, "commands", command_id).get("kind") == "brain_reply_recovery"
+                recovery_kind = self.ledger.get(db, "commands", command_id).get("kind")
+                recovery = recovery_kind in ("brain_reply_recovery", "standard_pause_recovery")
             if recovery:
-                from .reply_recovery import send_check
+                if recovery_kind == "standard_pause_recovery":
+                    from .pause_recovery import send_check
+                    require(not self.pending_approval(brain_id), "Native approval needs reconciliation")
+                else:
+                    from .reply_recovery import send_check
                 stage = "receipt_check"
                 send_check(self.ledger, self.binding, command_id, proxy)
             policy = self.binding["brains"][brain_id]["nativePolicy"]
@@ -858,6 +863,8 @@ class AppServerWake:
                 # Resume changes native loading, not dispatch authority. Recheck
                 # a racing Stop and exact original immediately before turn/start.
                 stage = "receipt_check"
+                if recovery_kind == "standard_pause_recovery":
+                    require(not self.pending_approval(brain_id), "Native approval needs reconciliation")
                 send_check(self.ledger, self.binding, command_id, proxy)
             # Immediately before this boundary a concurrent native turn may start.
             # A rejection or lost response is uncertain, never permission to retry.

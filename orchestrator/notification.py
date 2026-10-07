@@ -18,7 +18,7 @@ ACK = re.compile(rf"Queued message ({UUID}) for thread ({UUID})\.")
 TIMEOUT = 8
 NOTIFY_KINDS = {"decision_response", "resume", "reconcile", "checkpoint", "archive", "brain_stop", "brain_resume", "brain_checkpoint_continue",
                 "approve", "hold", "prioritize", "listening", "pause", "standard_play", "standard_pause", "standard_resume",
-                "standard_catalog_refresh", "standard_recovery", "brain_handoff", "brain_reply_recovery"}
+                "standard_catalog_refresh", "standard_recovery", "standard_pause_recovery", "brain_handoff", "brain_reply_recovery"}
 
 
 class BrainNotifier:
@@ -79,6 +79,16 @@ class BrainNotifier:
                     or command.get("actor") not in ("dashboard", "assistant_owner_confirmed") or command.get("notification")):
                 return command
             meta = ledger.get(db, "meta", 1)
+            if command["kind"] == "standard_pause_recovery":
+                from .pause_recovery import validate_in
+                from .core import Refusal
+                try:
+                    validate_in(ledger, db, command, meta)
+                    if (not self.app_server or digest(self.app_server.binding) != command["payload"]["bindingHash"] or
+                            self.app_server.pending_approval(meta["brainId"])):
+                        return command
+                except Refusal:
+                    return command
             if command["kind"] == "brain_reply_recovery":
                 from .reply_recovery import validate_in
                 from .core import Refusal
@@ -162,7 +172,23 @@ class BrainNotifier:
             "Reconcile superseded or completed requests without replay. This notification itself grants no packet approval, "
             "target access, workers, acceptance runs, model/effort changes or merges."
         )
-        if command["kind"] == "brain_handoff":
+        if command["kind"] == "standard_pause_recovery":
+            from .pause_recovery import BOUNDARY, ALLOWANCE
+            source = Path(__file__).resolve().parent.parent
+            message = (
+                f"Owner-confirmed checkpoint-only Pause recovery {command_id}. "
+                f"Use source {json.dumps(str(source))}, platform {json.dumps(str(ledger.platform_root))}, "
+                f"workspace {ledger.workspace_id}. Read the source orchestrator skill and docs/FAILED-PAUSE-RECOVERY.md. "
+                "Inspect the latest inbox and standard-state. Verify this task is the designated brain; acquire its controller. "
+                f"Use only standard-brain pause_recovery_receive for run {command['payload']['runId']} "
+                f"and requestId {command_id}; do not use generic receive or process. "
+                f"{BOUNDARY} The cooperative one-turn allowance is {ALLOWANCE} tokens, not a provider cap. "
+                "Retain the original failed notification unchanged. Receive this exact saved Pause, then retain a concise "
+                "standard-brain checkpoint with outcome paused, explaining known facts, unknown usage and next safe step. "
+                "Missing usage is null, never zero. Release the controller and end this turn. "
+                "Do not drain ordinary messages or claim pilot success. Brain Stop and newer controls take priority."
+            )
+        elif command["kind"] == "brain_handoff":
             source = Path(__file__).resolve().parent.parent
             message = (
                 "An owner-reviewed standard brain handoff package is prepared. "

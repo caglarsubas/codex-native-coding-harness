@@ -1,5 +1,5 @@
 "use strict";
-const workflowPhrases={phase_help:'confirm help',phase_prepare:'confirm prepare',phase_reconcile:'confirm reconcile',phase_recovery:'confirm recovery',phase_close:'confirm close stopped phase',phase_review:'confirm review',phase_play:'confirm play',phase_pause:'confirm pause',phase_resume:'confirm resume',usage_check:'confirm usage',codex_check:'confirm readiness',brain_message:'confirm send'};
+const workflowPhrases={phase_help:'confirm help',phase_prepare:'confirm prepare',phase_reconcile:'confirm reconcile',phase_recovery:'confirm recovery',phase_pause_recovery:'confirm pause recovery',phase_close:'confirm close stopped phase',phase_review:'confirm review',phase_play:'confirm play',phase_pause:'confirm pause',phase_resume:'confirm resume',usage_check:'confirm usage',codex_check:'confirm readiness',brain_message:'confirm send'};
 function assistantLocalWorkflow(question,current=state){
   // Exact product starters, not an inferred intent or approval. The normal
   // server catalog still validates and prepares a separate signed preview.
@@ -72,6 +72,10 @@ function assistantWorkflowPreview(item,proposal,guided=false){
   if(guided){section.append(el('h3',doc.workflow==='phase_recovery'?'Prepare safely from this checkpoint':'Check blockers and prepare what’s next'),el('p','Uses Codex tokens. No Play, policy changes or task retries.','muted'));}
   else section.append(el('p','REVIEW TOGETHER','eyebrow'),el('h3',p.title),el('p',p.impact));
   if(p.summary&&!guided){const list=el('ul');for(const text of p.summary)list.append(el('li',text));section.append(list);}
+  if(doc.workflow==='phase_pause_recovery'){
+    section.append(el('p','Uses up to '+num(p.details.allowanceTokens)+' tokens as cooperative one-turn guidance, not a provider cap or phase-budget increase.','muted'));
+    const details=el('details');details.append(el('summary','Details · saved Pause and latest-ended turn check'),el('pre',JSON.stringify(p.details,null,2)));section.append(details);
+  }
   if(p.mission){
     const {spec,version}=p.mission,a=spec.authority;
     section.append(el('p',spec.phase.title+' · plan v'+version,'chat-phase-title'),narrative(spec.goal,'Proposed outcome'),narrative(spec.phase.objective,'Phase objective'));
@@ -167,7 +171,7 @@ function assistantNextStep(){
   root.append(el('p',latest?'BRAIN REPLIED · '+when(latest.conversationReply.at):'CURRENT PROJECT','eyebrow'),el('h3',journey.title));
   const plan=state.mission;
   if(journey.action==='mission'&&plan?.document)root.append(el('p',`Plan v${plan.document.version} · ${plan.document.spec.phase.title}`));
-  const key=map[journey.action]||({recover:'phase_recovery'})[journey.action];
+  const key=map[journey.action]||({recover:'phase_recovery','pause-recover':'phase_pause_recovery'})[journey.action];
   const reviewable=journey.action!=='mission'||(state.mission?.effectiveStatus==='draft'&&!state.mission?.bindingIssues?.length);
   const prepareBlocked=key==='phase_prepare'&&['paused','stopping'].includes(state.standard?.run?.status);
   if(key&&reviewable&&!prepareBlocked){const b=button(journey.label,()=>assistantRequestStep(key));b.disabled=assistantPending;root.append(b);}

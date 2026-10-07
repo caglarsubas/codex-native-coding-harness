@@ -287,5 +287,6 @@ class ReadProxy:
         if "cursor" in params:
             require(params["cursor"] is None or isinstance(params["cursor"], str) and 0 < len(params["cursor"]) <= 256,
                     "Invalid native cursor")
-            require(type(params["limit"]) is int and params["limit"] == 64, "Fixed native page bound required")
+            require(type(params["limit"]) is int and (params["limit"] == 64 or
+                    method == "thread/turns/list" and params["limit"] == 1), "Fixed native page bound required")
         return self._rpc(method, params)

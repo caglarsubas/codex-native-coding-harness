@@ -154,6 +154,8 @@ def projection(ledger, db):
     except (Refusal, ValueError) as error:
         result["blocker"] = str(error)
     if run:
+        from .pause_recovery import availability, state_in
+        result["pauseRecovery"] = availability(state_in(ledger, db, meta))
         result["blockers"] = current_blockers(ledger, db, run)
         result["nativeObservation"] = None
         if run.get("nativeObservationHash"):
@@ -418,11 +420,16 @@ def brain(registry, ledger, token, request):
     require(isinstance(request, dict) and len(canonical(request).encode()) <= 65536, "Bounded JSON request required")
     operation = request.get("operation")
     if isinstance(operation, str) and operation.startswith("merge_"):
+        from .pause_recovery import guard
+        with contextlib.closing(ledger.connect()) as db:
+            guard(ledger.get(db, "meta", 1).get("standardRun") or {}, operation)
         from .standard_merge import brain as merge_brain
         return merge_brain(registry, ledger, token, request)
     with registry.tx() as registry_db, ledger.tx() as db:
         meta = authorize_brain(ledger, db, token)
         require(record_in(registry_db) is None, "Strict platform enrollment blocks cooperative effects")
+        from .pause_recovery import guard
+        guard(meta.get("standardRun") or {}, operation)
         if operation == "catalog":
             require(set(request) in ({"operation", "models", "source"},
                                      {"operation", "models", "source", "requestId"}),
@@ -474,7 +481,12 @@ def brain(registry, ledger, token, request):
             return command
         run = meta.get("standardRun")
         require(run and request.get("runId") == run["id"], "Exact cooperative run required")
-        if operation == "recovery_receive":
+        if operation == "pause_recovery_receive":
+            exact(request, "operation runId requestId")
+            from .pause_recovery import receive
+            receive(ledger, db, meta, run, request["requestId"])
+            meta["revision"] = ledger.get(db, "meta", 1)["revision"]
+        elif operation == "recovery_receive":
             exact(request, "operation runId requestId")
             from .checkpoint_recovery import receive as receive_recovery
             receive_recovery(ledger, db, meta, run, request["requestId"])
@@ -488,7 +500,7 @@ def brain(registry, ledger, token, request):
             meta["inboxCheckedAt"] = time.time()
             from .conversation import pending, receive_in
             for command in ledger.all(db, "commands"):
-                if command["kind"].startswith("standard_") and command["kind"] != "standard_recovery" and command["status"] == "queued":
+                if command["kind"].startswith("standard_") and command["kind"] not in ("standard_recovery", "standard_pause_recovery") and command["status"] == "queued":
                     command.update(status="completed", result="Received by designated brain; latest run state governs", completedAt=time.time())
                     ledger.put(db, "commands", command["id"], command)
                 elif command["kind"] == "decision_response" and command["status"] == "queued" and run["status"] not in ("stopping", "paused"):
@@ -802,6 +814,9 @@ def brain(registry, ledger, token, request):
             require(not task["effectIssued"], "Uncertain creation cannot be cancelled or retried")
             task["status"] = "not_created"
         elif operation == "checkpoint":
+            if (run.get("pauseRecovery") or {}).get("status") in ("queued", "processing"):
+                from .pause_recovery import validate_in
+                validate_in(ledger, db, ledger.get(db, "commands", run["pauseRecovery"]["id"]), meta, controller=True)
             require(not run.get("ownerCloseout"), "Owner-closed phase cannot be reopened or relabelled; prepare a successor")
             required = {"operation", "runId", "outcome", "summary", "brainObservedTokens"}
             require(set(request) in (required, required | {"reasonCodes"}), "Unexpected checkpoint fields")
@@ -824,6 +839,8 @@ def brain(registry, ledger, token, request):
                 run.update(brainObservedTokens=observed, brainUsageCoverage="observed_partial", brainAllowance=max(observed, run["brainAllowance"]))
             run.update(status=request["outcome"], checkpoint={"summary": missions.text(request["summary"], "Checkpoint", 8000),
                 "reasonCodes": reasons, "at": time.time()})
+            from .pause_recovery import checkpointed
+            checkpointed(ledger, db, run, request)
             from .brain_memory import capsule
             capsule(ledger, db, run, request["summary"])
         else:

@@ -104,3 +104,9 @@ assert(rendered(closed.localNext).some(e=>/Follow the preparation progress/.test
 box.state.commands=[];
 box.state.standard.run={status:'paused'};box.assistantWorkflowReceipt(closed,true);
 assert(!rendered(closed.element).some(e=>e.text==='Next: Help me continue development'),'Stale closeout cannot guide another run');
+
+run(`assistantActions.clear(); state.meta.revision=2; var pauseRecovery={workspace:'alpha',submit:()=>sent++,proposal:{document:{workflow:'phase_pause_recovery',id:'pause-recovery',brainId:'brain',expiresAt:Date.now()/1000+300,request:{expectedRevision:2}}}}; assistantActions.set('pause-recovery',pauseRecovery);`);
+const countBeforePause=run('sent');assert.equal(box.assistantTypedConfirmation('confirm pause recovery'),true);
+assert.equal(run('sent'),countBeforePause+1,'Exact recovery phrase selects its own signed preview');
+run('pauseRecovery.receipt={result:{id:"pause-recovery",kind:"standard_pause_recovery",status:"queued"},message:"Saved"}');
+box.assistantTypedConfirmation('confirm pause recovery');assert.equal(run('sent'),countBeforePause+1,'Saved receipt cannot send again');
