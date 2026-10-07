@@ -72,6 +72,7 @@ function controlRequestHistory(root){
       record.append(el('h3',command.kind.replaceAll('_',' ')),el('p',info.label),el('p',info.detail,'muted'),
         el('p','Request: '+command.id+' · saved '+when(command.createdAt),'brain-message-text subline'),
         el('p','Recorded result: '+(command.result||'No result retained'),'muted'));
+      if(typeof wakeFailureDetails==='function')wakeFailureDetails(record,command.notification,command.id);
       body.append(record);
     }
   });

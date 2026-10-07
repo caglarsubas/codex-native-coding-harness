@@ -248,6 +248,7 @@ function conversationView(root){
         article.setAttribute('tabindex','-1');article.setAttribute('data-focus','saved-request:'+message.id);requestTarget=article;
       }
       article.append(el('h3','You'),el('p',when(message.createdAt),'muted'),narrative(message.message,'Your message'),badge(delivery.label),el('p',delivery.detail,'muted'));
+      if(typeof wakeFailureDetails==='function')wakeFailureDetails(article,message.notification,message.id);
       receiptRecoveryPanel(article,message);
       if(message.reply){article.append(el('h3','Project brain'),el('p',when(message.reply.at),'muted'),narrative(message.reply.message,'Brain reply'));
         const links=el('div',null,'inline-actions');

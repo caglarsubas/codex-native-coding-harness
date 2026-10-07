@@ -12,7 +12,7 @@ from orchestrator.app_server_wake import (AppServerWake, NATIVE_APPROVAL_POLICY,
                                           THREAD_EVENT_LIMIT, THREAD_STREAM_GAP,
                                           WakeProxy, load_binding)
 from orchestrator.core import Refusal
-from orchestrator.native_read_client import ReadProxy
+from orchestrator.native_read_client import NativeReadFailure, ReadProxy
 
 BRAIN = "11111111-1111-4111-8111-111111111111"
 OTHER = "22222222-2222-4222-8222-222222222222"
@@ -253,6 +253,63 @@ class WakeTest(unittest.TestCase):
         self.assertEqual(result["status"], "unavailable")
         self.assertEqual([method for method, _ in FakeProxy.instances[0].calls],
                          ["thread/read", "thread/resume"])
+        self.assertEqual(result["nativeFailure"], {"version": 1, "stage": "observation_record",
+            "reason": "validation_failed", "resumeAttempted": True, "turnStartAttempted": False})
+        self.assertIn("saving the one-shot observation marker", result["detail"])
+        self.assertNotIn("ledger unavailable", str(result))
+
+    @patch("orchestrator.app_server_wake.WakeProxy", FakeProxy)
+    def test_failed_steps_are_distinct_private_and_keep_one_shot_boundary(self):
+        for method, stage, resume, started in (("thread/read", "thread_read", False, False),
+                ("thread/resume", "thread_resume", True, False), ("turn/start", "turn_start", True, True)):
+            with self.subTest(method=method):
+                FakeProxy.fail_at = method
+                result = self.wake.send(BRAIN, "PRIVATE POINTER", "control")
+                self.assertEqual(result["status"], "uncertain" if started else "unavailable")
+                self.assertEqual(result["nativeFailure"], {"version": 1, "stage": stage,
+                    "reason": "validation_failed", "resumeAttempted": resume, "turnStartAttempted": started})
+                self.assertEqual(sum(m == method for m, _ in FakeProxy.instances[-1].calls), 1)
+                self.assertNotIn("PRIVATE", str(result))
+                self.assertNotIn("private native error", str(result))
+                self.assertTrue(FakeProxy.instances[-1].closed)
+                self.wake.ledger.command["notification"].pop("nativeThreadObservation", None)
+
+    def test_rpc_error_retains_only_reserved_code_and_failed_step(self):
+        class RejectedResume(FakeProxy):
+            def _rpc(self, method, params):
+                if method == "thread/resume":
+                    self.calls.append((method, params))
+                    raise NativeReadFailure("rpc_error", "Native read unavailable", -32602)
+                return super()._rpc(method, params)
+        with patch("orchestrator.app_server_wake.WakeProxy", RejectedResume):
+            result = self.wake.send(BRAIN, "pointer", "control")
+        self.assertEqual(result["nativeFailure"]["rpcCode"], -32602)
+        self.assertEqual(result["nativeFailure"]["stage"], "thread_resume")
+        self.assertFalse(result["nativeFailure"]["turnStartAttempted"])
+        self.assertEqual([m for m, _ in FakeProxy.instances[-1].calls], ["thread/read", "thread/resume"])
+
+    def test_connection_constructor_failure_is_sanitized_without_send(self):
+        with patch("orchestrator.app_server_wake.WakeProxy", side_effect=OSError("PRIVATE PATH TOKEN")):
+            result = self.wake.send(BRAIN, "pointer", "control")
+        self.assertEqual(result["nativeFailure"], {"version": 1, "stage": "connect",
+            "reason": "io_unavailable", "resumeAttempted": False, "turnStartAttempted": False})
+        self.assertNotIn("PRIVATE", str(result))
+        self.assertFalse(FakeProxy.instances)
+
+    @patch("orchestrator.app_server_wake.WakeProxy", FakeProxy)
+    def test_observer_start_failure_keeps_returned_turn_id_without_retry(self):
+        with patch("orchestrator.app_server_wake.threading.Thread") as thread:
+            thread.return_value.start.side_effect = RuntimeError("PRIVATE OBSERVER ERROR")
+            result = self.wake.send(BRAIN, "pointer", "control")
+        self.assertEqual(result["status"], "uncertain")
+        self.assertEqual(result["nativeTurnId"], TURN)
+        self.assertEqual(result["nativeTurnStatus"], "unconfirmed")
+        self.assertEqual(result["nativeFailure"]["stage"], "subscription")
+        self.assertEqual(self.wake.ledger.command["notification"]["nativeThreadObservation"]["nativeTurnId"], TURN)
+        self.assertEqual([m for m, _ in FakeProxy.instances[-1].calls], ["thread/read", "thread/resume", "turn/start"])
+        self.assertFalse(self.wake._subscriptions)
+        self.assertTrue(FakeProxy.instances[-1].closed)
+        self.assertNotIn("PRIVATE", str(result))
 
     @patch("orchestrator.app_server_wake.WakeProxy", FakeProxy)
     def test_active_brain_refuses_without_owned_prompt_stream(self):

@@ -10,6 +10,39 @@ const box={workspaceId:'alpha',el:(...args)=>new Element(...args)};
 vm.createContext(box);vm.runInContext(fs.readFileSync('web/summaries.js','utf8'),box);
 const all=n=>[n,...n.children.flatMap(all)];
 box.num=String;box.when=String;
+let failureRoot=new Element('div');
+const failedNotification={status:'unavailable',nativeFailure:{version:1,stage:'thread_resume',reason:'rpc_error',
+  rpcCode:-32602,resumeAttempted:true,turnStartAttempted:false,message:'PRIVATE ERROR',data:'PRIVATE PROMPT'}};
+box.wakeFailureDetails(failureRoot,failedNotification);
+let failureNodes=all(failureRoot);
+assert.equal(failureNodes.find(n=>n.tag==='details').open,false);
+assert(failureNodes.some(n=>n.text==='Details · Failed delivery step'));
+assert(failureNodes.some(n=>n.text==='Step: Load brain with reviewed settings'));
+assert(failureNodes.some(n=>n.text==='Native JSON-RPC code: -32602'));
+assert(failureNodes.some(n=>n.text==='Brain turn start was not attempted.'));
+assert(!failureNodes.some(n=>String(n.text).includes('PRIVATE')));
+assert(!failureNodes.some(n=>n.tag==='button'||n.tag==='a'),'Diagnostics cannot resend or confirm');
+const failureDetails=failureNodes.find(n=>n.tag==='details');failureDetails.open=true;failureDetails.events.toggle();
+failureRoot=new Element('div');box.wakeFailureDetails(failureRoot,failedNotification);
+assert(all(failureRoot).find(n=>n.tag==='details').open,'Refresh preserves the current request disclosure');
+box.workspaceId='beta';failureRoot=new Element('div');box.wakeFailureDetails(failureRoot,failedNotification);
+assert(!all(failureRoot).find(n=>n.tag==='details').open,'Another project does not inherit details state');
+box.workspaceId='alpha';failureRoot=new Element('div');box.wakeFailureDetails(failureRoot,failedNotification,'different-request');
+assert(!all(failureRoot).find(n=>n.tag==='details').open,'Different requests remain isolated');
+failureDetails.isConnected=false;failureDetails.open=false;failureDetails.events.toggle();
+failureRoot=new Element('div');box.wakeFailureDetails(failureRoot,failedNotification);
+assert(all(failureRoot).find(n=>n.tag==='details').open,'Detached toggles cannot erase the current disclosure');
+for(const change of [{version:2},{stage:'PRIVATE'},{reason:'PRIVATE'},{resumeAttempted:null},{turnStartAttempted:'false'}]){
+  failureRoot=new Element('div');box.wakeFailureDetails(failureRoot,{nativeFailure:{...failedNotification.nativeFailure,...change}});
+  assert.equal(failureRoot.children.length,0,'Unknown diagnostic shape is not interpreted');
+}
+failureRoot=new Element('div');box.wakeFailureDetails(failureRoot,{status:'unavailable',detail:'Old generic failure'});
+assert.equal(failureRoot.children.length,0,'Historical failures are not backfilled');
+failureRoot=new Element('div');box.wakeFailureDetails(failureRoot,{nativeFailure:{...failedNotification.nativeFailure,
+  stage:'turn_start',turnStartAttempted:true,rpcCode:'PRIVATE'}});
+failureNodes=all(failureRoot);
+assert(failureNodes.some(n=>n.text==='Brain turn start was attempted; its outcome remains unconfirmed.'));
+assert(!failureNodes.some(n=>String(n.text).includes('PRIVATE')));
 const policyStop={title:'Phase stopped at a policy checkpoint',explanation:'Scope needs review.',
   issues:[{code:'scope',label:'Requested work outside reviewed scope',source:'brain_reported',nextStep:'Review exact scope.'}],
   issueCount:1,issuesTruncated:false,usageRelevant:false,registeredTasks:1,maxTasks:2,maxParallelTasks:1,

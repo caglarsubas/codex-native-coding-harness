@@ -117,6 +117,34 @@ class ProxyTest(EndpointFixture, unittest.TestCase):
                 with self.assertRaises(Refusal) as error: self.read()
                 self.assertNotIn("SECRET", str(error.exception))
 
+    def test_rpc_diagnostics_discard_messages_data_and_nonreserved_codes(self):
+        for code in (-32602, "SECRET", True, 123456789, None):
+            with self.subTest(code=code):
+                proxy = client.ReadProxy({})
+                row = {"id": 1, "error": {"code": code, "message": "PRIVATE TOKEN PATH",
+                                          "data": {"prompt": "PRIVATE TRANSCRIPT"}}}
+                with patch.object(proxy, "_write") as write, patch.object(proxy, "_line", return_value=row), \
+                     self.assertRaises(client.NativeReadFailure) as caught:
+                    proxy._rpc("thread/read", {"threadId": "owned", "includeTurns": False})
+                self.assertEqual(caught.exception.reason, "rpc_error")
+                self.assertEqual(caught.exception.rpc_code, -32602 if code == -32602 else None)
+                self.assertEqual(str(caught.exception), "Native read unavailable")
+                self.assertNotIn("PRIVATE", str(vars(caught.exception)))
+                write.assert_called_once()
+
+    def test_notification_flood_and_unexpected_response_remain_fail_closed(self):
+        for row, reason, count in (({"method": "event", "params": {"text": "PRIVATE"}}, "notification_limit", 65),
+                                  ({"id": 999, "result": {}}, "unexpected_response", 1),
+                                  ({"id": 1, "method": "approval", "params": {"text": "PRIVATE"}}, "unexpected_response", 1)):
+            proxy = client.ReadProxy({})
+            with patch.object(proxy, "_write") as write, patch.object(proxy, "_line", return_value=row) as read, \
+                 self.assertRaises(client.NativeReadFailure) as caught:
+                proxy._rpc("thread/read", {"threadId": "owned", "includeTurns": False})
+            self.assertEqual(caught.exception.reason, reason)
+            self.assertNotIn("PRIVATE", str(vars(caught.exception)))
+            self.assertEqual(read.call_count, count)
+            write.assert_called_once()
+
     def test_notification_text_is_discarded(self):
         (self.root / "mode").write_text("notification")
         self.assertNotIn("SECRET", canonical(self.read()))

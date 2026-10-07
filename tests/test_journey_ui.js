@@ -147,6 +147,18 @@ assert.equal(box.journeyDisclosure('fixture','Details',()=>{}).open,true);box.wo
 disclosure.isConnected=false;disclosure.open=false;disclosure.events.toggle();box.workspaceId='beta';assert.equal(box.journeyDisclosure('fixture','Details',()=>{}).open,true,'Detached toggle cannot erase a remembered choice');
 console.log('Roadmap journey: state guidance, no implied approval, retained drafts, unknown usage and disclosure isolation passed');
 
+const historyState=box.state;
+box.state={commands:[{id:'saved-pause',kind:'standard_pause',status:'queued',createdAt:123,
+  notification:{status:'unavailable',nativeFailure:{version:1,stage:'thread_resume',reason:'rpc_error',
+    rpcCode:-32602,resumeAttempted:true,turnStartAttempted:false}}}]};
+const diagnosticRoot=new Element('main'),diagnosticCalls=calls.length;
+box.controlRequestHistory(diagnosticRoot);
+assert.match(text(diagnosticRoot),/Details · Failed delivery step/);
+assert.match(text(diagnosticRoot),/Load brain with reviewed settings/);
+assert.match(text(diagnosticRoot),/Brain turn start was not attempted/);
+assert.equal(calls.length,diagnosticCalls,'Reading delivery details never starts a turn or submits a control');
+box.state=historyState;
+
 // A no-run pilot and completed phases must follow their unfinished request,
 // rather than offering another preparation prompt. A receipt is not a reply.
 box.busy=false;box.connected=true;box.workspaceId='alpha';box.state=base();box.state.mission=null;

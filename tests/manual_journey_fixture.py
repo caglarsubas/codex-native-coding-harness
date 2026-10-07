@@ -77,14 +77,14 @@ if __name__ == '__main__':
                         '-c', 'user.email=fixture@example.invalid', 'commit', '--allow-empty',
                         '-qm', 'Disposable preview'], check=True)
         (fixture.root / 'empty-codex-logs').mkdir()
-        for identity in ['alpha', 'draft', 'running', 'connection-lost', 'paused', 'recovering', 'completed', 'blocked', 'needs-catalog',
+        for identity in ['alpha', 'draft', 'running', 'connection-lost', 'wake-failed', 'paused', 'recovering', 'completed', 'blocked', 'needs-catalog',
                          'native-tools-missing', 'catalog-not-retryable']:
             ledger, token = (fixture.ledger, fixture.token) if identity == 'alpha' else fixture.workspace(identity)
             (ledger.root / 'observations.json').write_text(json.dumps({'codexHome': str(fixture.root / 'empty-codex-logs')}))
             if identity == 'draft':
                 from orchestrator.missions import read as mission_read
                 change(ledger, request(spec=specification(mode='phase_delegated'), expectedRevision=mission_read(ledger)['revision']))
-            if identity in ('running', 'connection-lost', 'paused', 'recovering', 'completed', 'blocked'):
+            if identity in ('running', 'connection-lost', 'wake-failed', 'paused', 'recovering', 'completed', 'blocked'):
                 fixture.control(ledger=ledger)
                 run_id = read(ledger)['run']['id']
                 if identity == 'connection-lost':
@@ -98,6 +98,18 @@ if __name__ == '__main__':
                         ledger.put(db, 'commands', command['id'], command)
                 else:
                     brain(fixture.registry, ledger, token, {'operation': 'receive', 'runId': run_id})
+                if identity == 'wake-failed':
+                    pause = fixture.control('pause', ledger=ledger)
+                    with ledger.tx() as db:
+                        command = ledger.get(db, 'commands', pause['id'])
+                        command['notification'] = {'status': 'unavailable', 'brainId': 'fixture-brain',
+                            'attemptedAt': time.time(), 'finishedAt': time.time(),
+                            'detail': 'Codex delivery failed while loading the brain with its reviewed settings. '
+                                      'No brain turn was started by this request. The saved request will not be resent automatically. '
+                                      'Inspect its delivery details before recovery.',
+                            'nativeFailure': {'version': 1, 'stage': 'thread_resume', 'reason': 'rpc_error',
+                                              'rpcCode': -32602, 'resumeAttempted': True, 'turnStartAttempted': False}}
+                        ledger.put(db, 'commands', command['id'], command)
                 if identity == 'completed':
                     def call(operation, **values):
                         return brain(fixture.registry, ledger, token, {'operation': operation, 'runId': run_id, **values})
@@ -112,7 +124,7 @@ if __name__ == '__main__':
                     call('finish', taskId='fixture-task', outcome='completed', evidence={
                         'source': 'Synthetic commit', 'tests': 'Synthetic tests', 'artifacts': [],
                         'preservation': 'Disposable fixture', 'summary': 'Synthetic evidence only; no native task ran.'})
-                if identity not in ('running', 'connection-lost'):
+                if identity not in ('running', 'connection-lost', 'wake-failed'):
                     if identity in ('paused', 'recovering'):
                         fixture.control('pause', ledger=ledger)
                         brain(fixture.registry, ledger, token, {'operation': 'receive', 'runId': run_id})

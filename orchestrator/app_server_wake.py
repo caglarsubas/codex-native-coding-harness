@@ -15,7 +15,7 @@ import threading
 import time
 
 from .core import Refusal, canonical, digest, require
-from .native_read_client import ReadProxy, decode, file_identity, secure_path, socket_identity, validate_endpoint
+from .native_read_client import NativeReadFailure, ReadProxy, decode, file_identity, secure_path, socket_identity, validate_endpoint
 from .projects import text as catalog_text
 
 UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\Z")
@@ -36,6 +36,18 @@ COMMAND_FIELDS = {"threadId", "turnId", "itemId", "reason", "command", "cwd",
 FILE_FIELDS = {"threadId", "turnId", "itemId", "reason", "grantRoot", "startedAtMs"}
 THREAD_EVENT_LIMIT = 128
 THREAD_STREAM_GAP = "owned_stream_not_exhaustive"
+WAKE_FAILURE_STAGES = {
+    "connect": "opening the reviewed host connection",
+    "thread_read": "reading the bound brain",
+    "thread_identity": "checking the brain, project and checkout",
+    "request_check": "checking the saved request",
+    "receipt_check": "checking the saved recovery request",
+    "thread_resume": "loading the brain with its reviewed settings",
+    "resumed_identity": "checking the loaded brain's identity",
+    "observation_record": "saving the one-shot observation marker",
+    "turn_start": "starting the brain turn",
+    "subscription": "retaining the turn observer",
+}
 
 
 class NativeConnectionLost(Refusal):
@@ -800,16 +812,22 @@ class AppServerWake:
                 return {"status": "unavailable", "detail": "Owned Codex host is closing; no message was sent."}
         if not self.configured(brain_id):
             return {"status": "unavailable", "detail": "Reviewed Codex app-server binding is unavailable; the saved control was not sent."}
-        proxy = WakeProxy(self.binding["endpoint"], timeout=15)
+        proxy = None
+        stage = "connect"
+        resume_attempted = False
         effect_started = False
+        confirmed_turn_id = None
         retained = False
         try:
+            proxy = WakeProxy(self.binding["endpoint"], timeout=15)
             proxy.__enter__()
+            stage = "thread_read"
             read = proxy._rpc("thread/read", {"threadId": brain_id, "includeTurns": False})
             thread = read.get("thread") if isinstance(read, dict) else None
             if isinstance(thread, dict) and thread.get("projectId") is None:
                 return {"status": "unavailable", "detail":
                         "Native Codex did not report the brain's project identity; no turn was sent."}
+            stage = "thread_identity"
             cwd = self._identity(thread, brain_id)
             status = thread.get("status")
             require(isinstance(status, dict) and status.get("type") in
@@ -820,31 +838,41 @@ class AppServerWake:
                 # subscription for active turns is qualified, refuse the effect.
                 return {"status": "unavailable", "detail":
                         "The bound brain already has an active turn; native approval coverage for queued turns is unavailable. No message was sent."}
+            stage = "request_check"
             with self.ledger.tx() as db:
                 recovery = self.ledger.get(db, "commands", command_id).get("kind") == "brain_reply_recovery"
             if recovery:
                 from .reply_recovery import send_check
+                stage = "receipt_check"
                 send_check(self.ledger, self.binding, command_id, proxy)
             policy = self.binding["brains"][brain_id]["nativePolicy"]
+            stage = "thread_resume"
+            resume_attempted = True
             resumed = proxy._rpc("thread/resume", {"threadId": brain_id,
                                                     "config": {"features": {"code_mode": {"enabled": policy["codeMode"]}}},
                                                     "sandbox": policy["sandbox"],
                                                     "approvalPolicy": policy["approvalPolicy"]})
+            stage = "resumed_identity"
             self._identity(resumed.get("thread") if isinstance(resumed, dict) else None, brain_id)
             if recovery:
                 # Resume changes native loading, not dispatch authority. Recheck
                 # a racing Stop and exact original immediately before turn/start.
+                stage = "receipt_check"
                 send_check(self.ledger, self.binding, command_id, proxy)
             # Immediately before this boundary a concurrent native turn may start.
             # A rejection or lost response is uncertain, never permission to retry.
+            stage = "observation_record"
             self._begin_thread_observation(command_id, brain_id)
             proxy._on_thread_started = lambda row: self._record_thread_started(command_id, brain_id, row)
+            stage = "turn_start"
             effect_started = True
             started = proxy._rpc("turn/start", {"threadId": brain_id,
                 "input": [{"type": "text", "text": message}], "cwd": cwd})
             turn = started.get("turn") if isinstance(started, dict) else None
             require(isinstance(turn, dict) and isinstance(turn.get("id"), str) and
                     0 < len(turn["id"]) <= 128, "Native turn start was not confirmed")
+            confirmed_turn_id = turn["id"]
+            stage = "subscription"
             thread = threading.Thread(target=self._observe_turn,
                 args=(proxy, command_id, brain_id, turn["id"]), daemon=True,
                 name="codex-brain-wake-observer")
@@ -855,21 +883,34 @@ class AppServerWake:
             retained = True
             return {"status": "accepted", "nativeTurnId": turn["id"], "nativeDelivery": "owned_turn_start",
                     "detail": "Turn started on the bound Codex app-server. Waiting for the brain's ledger receipt; native turn completion is separate."}
-        except (OSError, Refusal, ValueError, KeyError, RuntimeError):
+        except (OSError, Refusal, ValueError, KeyError, RuntimeError) as error:
             with self._lock:
                 self._subscriptions.discard(proxy)
-            return {"status": "uncertain" if effect_started else "unavailable",
-                    "detail": ("Native turn outcome is unknown. No automatic resend."
-                               if effect_started else "Bound Codex app-server inspection failed before a turn was sent.")}
+            failure = {"version": 1, "stage": stage,
+                       "reason": (error.reason if isinstance(error, NativeReadFailure) else
+                                  "connection_lost" if isinstance(error, NativeConnectionLost) else
+                                  "io_unavailable" if isinstance(error, OSError) else "validation_failed"),
+                       "resumeAttempted": resume_attempted, "turnStartAttempted": effect_started}
+            if isinstance(error, NativeReadFailure) and error.rpc_code is not None:
+                failure["rpcCode"] = error.rpc_code
+            result = {"status": "uncertain" if effect_started else "unavailable",
+                    "nativeFailure": failure,
+                    "detail": (f"Codex delivery failed while {WAKE_FAILURE_STAGES[stage]}. " +
+                               ("The turn outcome is unknown." if effect_started else "No brain turn was started by this request.") +
+                               " The saved request will not be resent automatically. Inspect its delivery details before recovery.")}
+            if confirmed_turn_id is not None:
+                result.update(nativeTurnId=confirmed_turn_id, nativeTurnStatus="unconfirmed")
+            return result
         finally:
             if not retained:
                 if effect_started:
                     try:
-                        self._finish_thread_observation(command_id, brain_id, None, "unconfirmed",
+                        self._finish_thread_observation(command_id, brain_id, confirmed_turn_id, "unconfirmed",
                             event_error=bool(getattr(proxy, "_thread_event_error", False)))
                     except (OSError, Refusal):
                         pass
-                proxy.__exit__(None, None, None)
+                if proxy is not None:
+                    proxy.__exit__(None, None, None)
 
     def _observe_turn(self, proxy, command_id, brain_id, turn_id):
         """Keep the owned subscription alive; store only bounded lifecycle facts."""

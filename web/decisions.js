@@ -165,6 +165,7 @@ function decisionCard(d, root) {
     if(command&&d.status==='answered') {
       const delivery=commandPresentation(command);
       card.append(callout(delivery.label,delivery.detail));
+      if(typeof wakeFailureDetails==='function')wakeFailureDetails(card,command.notification,command.id);
     }
     if(d.receivedAt)card.append(el("p","Received by brain "+when(d.receivedAt),"muted"));
   }

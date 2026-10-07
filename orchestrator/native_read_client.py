@@ -19,6 +19,18 @@ SOURCES = ["cli", "vscode", "exec", "appServer", "subAgent", "subAgentReview",
            "subAgentCompact", "subAgentThreadSpawn", "subAgentOther", "unknown"]
 
 
+class NativeReadFailure(Refusal):
+    """Closed operational metadata, never the native error message or data."""
+    def __init__(self, reason, message, rpc_code=None):
+        require(reason in {"rpc_error", "unexpected_response", "notification_limit",
+                           "deadline_exceeded", "proxy_closed"}, "Invalid native failure reason")
+        self.reason = reason
+        # Only JSON-RPC's reserved error range. Ignore strings, booleans and
+        # provider-defined values instead of retaining an arbitrary payload.
+        self.rpc_code = rpc_code if type(rpc_code) is int and -32768 <= rpc_code <= -32000 else None
+        super().__init__(message)
+
+
 def secure_path(value, *, socket_file=False):
     require(isinstance(value, str) and 0 < len(value) <= 4096 and "\x00" not in value, "Invalid endpoint path")
     path = Path(value)
@@ -136,10 +148,12 @@ class ReadProxy:
 
     def _ready(self, stream, event):
         remaining = self.deadline - time.monotonic()
-        require(remaining > 0, "Native read deadline exceeded")
+        if remaining <= 0:
+            raise NativeReadFailure("deadline_exceeded", "Native read deadline exceeded")
         with selectors.DefaultSelector() as selector:
             selector.register(stream, event)
-            require(selector.select(remaining), "Native read deadline exceeded")
+            if not selector.select(remaining):
+                raise NativeReadFailure("deadline_exceeded", "Native read deadline exceeded")
 
     def _write_bytes(self, raw):
         while raw:
@@ -155,7 +169,8 @@ class ReadProxy:
             self._ready(self.process.stdout, selectors.EVENT_READ)
             try: chunk = os.read(self.process.stdout.fileno(), 65536)
             except BlockingIOError: continue
-            require(chunk, "Native proxy output closed. The reviewed host connection is unavailable; check host connection after repair. No request was retried.")
+            if not chunk:
+                raise NativeReadFailure("proxy_closed", "Native proxy output closed. The reviewed host connection is unavailable; check host connection after repair. No request was retried.")
             self.total += len(chunk); self.buffer += chunk
             require(self.total <= self.total_limit and len(self.buffer) <= self.response_limit + 4096,
                     "Native response exceeds its bound")
@@ -241,11 +256,15 @@ class ReadProxy:
             if "id" not in row:
                 require(isinstance(row.get("method"), str), "Malformed native notification")
                 continue  # Drop notifications, including all conversation content.
-            require("method" not in row and type(row["id"]) is int and row["id"] == self.sequence,
-                    "Unexpected native response or server request")
-            require("error" not in row and "result" in row, "Native read unavailable")
+            if "method" in row or type(row["id"]) is not int or row["id"] != self.sequence:
+                raise NativeReadFailure("unexpected_response", "Unexpected native response or server request")
+            if "error" in row:
+                error = row["error"]
+                code = error.get("code") if isinstance(error, dict) else None
+                raise NativeReadFailure("rpc_error", "Native read unavailable", code) from None
+            require("result" in row, "Native read unavailable")
             return row["result"]
-        raise Refusal("Native notification count exceeds its bound")
+        raise NativeReadFailure("notification_limit", "Native notification count exceeds its bound")
 
     def call(self, method, params):
         """Callers cannot use this client for an arbitrary RPC or broaden listing."""

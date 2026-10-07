@@ -85,6 +85,25 @@ class NotificationTest(unittest.TestCase):
             self.assertEqual(result["notification"]["status"], "unavailable")
             send.assert_not_called()
 
+    def test_owned_failure_details_survive_receipt_replay_without_resend(self):
+        self.ledger.workspace_id = "fixture"
+        self.ledger.platform_root = Path(self.tmp.name)
+        binding = {"endpoint": {}, "brains": {BRAIN: {"workspaceId": "fixture"}}}
+        failure = {"version": 1, "stage": "thread_resume", "reason": "rpc_error", "rpcCode": -32602,
+                   "resumeAttempted": True, "turnStartAttempted": False}
+        with patch("orchestrator.app_server_wake.AppServerWake.configured", return_value=True), \
+             patch("orchestrator.app_server_wake.AppServerWake.send", return_value={
+                 "status": "unavailable", "detail": "Brain load rejected; no turn started.", "nativeFailure": failure}) as send:
+            notifier = BrainNotifier(self.ledger, app_server_binding=binding)
+            first = notifier.notify(self.command["id"])
+            replay = notifier.notify(self.command["id"])
+            self.assertEqual(first["notification"]["nativeFailure"], failure)
+            self.assertEqual(first, replay)
+            self.assertEqual(first["status"], "queued")
+            self.assertNotIn("nativeTurnId", first["notification"])
+            send.assert_called_once()
+            self.run.assert_not_called()
+
     def test_checkpoint_continuation_is_one_shot_and_keeps_stop_dominant(self):
         self.ledger.workspace_id = "fixture"
         self.ledger.platform_root = Path(self.tmp.name)
