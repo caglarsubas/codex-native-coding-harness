@@ -53,7 +53,14 @@ async function requestCatalogForPlay(s){
   finally{standardCatalogInFlight.delete(key);if(workspaceId===key)render();}
 }
 async function reviewStandardControl(s,operation,run){
-  if(busy||!connected)return;busy=true;
+  if(busy||!connected)return;
+  // Keep new Play settings editable in the same signed conversation adapter.
+  // Minimal/legacy embeds without the guide retain their existing controls.
+  if(operation==='play'&&typeof assistantRequestStep==='function'){
+    if(typeof sessionShowGuide==='function')sessionShowGuide();
+    await assistantRequestStep('phase_play');return;
+  }
+  busy=true;
   const key=workspaceId;let prepared=false;
   try{
     const budget=state.mission?.document?.spec.authority.tokenBudget||1;

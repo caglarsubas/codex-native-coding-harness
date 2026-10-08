@@ -17,6 +17,13 @@ standard-project cycle stays in this workspace:
    Expand scope, success criteria and exclusions when needed. Type **confirm review**.
 4. If native capabilities need refreshing, confirm that request here and follow its
    receipt. When ready, request Play, then type **confirm play** for that exact preview.
+   The Play window and brain allowance are editable suggestions. Changing either
+   disables confirmation until **Update Play preview** obtains a new signed review.
+   Refreshing an expired review preserves those values rather than restoring defaults.
+   Use whole hours (1–24); the brain reservation must fit inside the reviewed phase
+   budget while leaving its checkpoint reserve and positive task headroom intact.
+   The reservation is planning capacity, not a provider billing cap. No prose is
+   parsed as authority, and editing does not change the mission or an existing run.
 5. Ask for progress or request **Pause** or **Resume**. These use the registered
    standard phase and preserve its consumed budget and checkpoint requirements.
    If usage needs measuring first, confirm the local usage check in chat. Missing

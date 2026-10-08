@@ -35,15 +35,27 @@ function assistantWorkflowState(action,current=state,now=Date.now()/1000){
     request.preview?(request.preview.operation!=='pause'&&current?.standard?.contextHash!==request.preview.contextHash):
     ['codex_check','usage_check'].includes(doc.workflow)?current?.standard?.contextHash!==request.contextHash:current?.meta?.revision!==request.expectedRevision;
   if(stale||current?.meta?.brainId!==doc.brainId)return {locked:true,label:'Project changed',detail:'Refresh this review to see the current scope before confirming.',refreshable:true};
+  if(action.playEdited)return {locked:true,label:'Play settings changed',detail:'Update the preview to review and sign these values before confirming. Nothing has started.',refreshable:true};
   return {locked:false,label:'Ready for your confirmation',detail:action.guided?'Click Help to run this bounded preparation. Review and Play stay separate.':'Type “'+workflowPhrases[doc.workflow]+'” or use the button below.'};
+}
+function assistantPlaySettings(action){
+  if(!action.playInputs)return action.proposal.document.preview.runSettings;
+  const {hours,allowance}=action.playInputs;
+  if(!/^\d+$/.test(hours.value)||!/^\d+$/.test(allowance.value))return null;
+  const durationHours=Number(hours.value),brainAllowance=Number(allowance.value);
+  return Number.isSafeInteger(durationHours)&&durationHours>=1&&durationHours<=24&&Number.isSafeInteger(brainAllowance)&&brainAllowance>=1&&brainAllowance<=1000000000
+    ?{durationHours,brainAllowance}:null;
 }
 async function assistantRefreshWorkflow(action,item){
   if(!connected||assistantPending||!assistantWorkflowState(action).refreshable)return;
   const project=workspaceId,doc=action.proposal.document;
   let refreshed=null;
+  const settings=doc.workflow==='phase_play'?assistantPlaySettings(action):null;
+  if(doc.workflow==='phase_play'&&!settings){assistantStatus('Enter whole hours from 1 to 24 and a positive whole-token brain allowance.',true);return;}
   action.refreshing=true;assistantPending=true;assistantConnectionChanged();
   try{
-    const body=doc.workflow==='brain_message'?{key:doc.workflow,text:doc.preview.message}:{key:doc.workflow};
+    const body=doc.workflow==='brain_message'?{key:doc.workflow,text:doc.preview.message}:doc.workflow==='phase_play'
+      ?{key:doc.workflow,runSettings:{durationHours:settings.durationHours,brainAllowance:settings.brainAllowance}}:{key:doc.workflow};
     const proposal=await api('/api/assistant/preview',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify(body)});
     if(project!==workspaceId)return;
     const holder=el('div'),next=assistantWorkflowPreview(holder,proposal,action.guided);
@@ -117,6 +129,21 @@ function assistantWorkflowPreview(item,proposal,guided=false){
   const expiry=el('p',null,'muted');section.append(expiry);
   if(guided)section.insertBefore(controls,section.children[2]);
   const action={proposal,workspace:workspaceId,element:section,status,confirm,dismiss,renew,expiry,sending:false,receipt:null,guided};
+  if(doc.workflow==='phase_play'&&p.runSettings){
+    const fields=el('fieldset',null,'play-settings');fields.append(el('legend','Edit this new Play proposal'));
+    const hours=el('input'),allowance=el('input');
+    for(const [label,input,value,min,max] of [['Play window (hours)',hours,p.runSettings.durationHours,1,24],['Brain allowance (tokens)',allowance,p.runSettings.brainAllowance,1,1000000000]]){
+      input.type='number';input.inputMode='numeric';input.min=String(min);input.max=String(max);input.step='1';input.value=String(value);
+      const row=el('label');row.append(el('span',label),input);fields.append(row);
+    }
+    fields.append(el('p','Suggestions are editable, not authority. Update the signed preview, then confirm Play separately. Brain allowance is reserved within the reviewed budget; it is not a provider billing cap.','muted'));
+    action.playInputs={hours,allowance};
+    for(const input of [hours,allowance])input.oninput=()=>{
+      const values=assistantPlaySettings(action);action.playEdited=!values||values.durationHours!==p.runSettings.durationHours||values.brainAllowance!==p.runSettings.brainAllowance;
+      action.refreshError=null;refreshAssistantActions();
+    };
+    section.insertBefore(fields,exact);
+  }
   // A newly requested preview replaces only unsubmitted, certain previews.
   if(!guided)for(const old of assistantActions.values())if(old.proposal.document.workflow&&!old.receipt&&!old.sending&&!old.uncertain&&!old.guided)old.cancelled=true;
   if(guided)dismiss.hidden=true;

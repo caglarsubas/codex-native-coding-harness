@@ -167,8 +167,9 @@ class JourneyProposals(ActionProposals):
         super().__init__()
         self.runtime = runtime
 
-    def prepare(self, action, state, session):
+    def prepare(self, action, state, session, *, play_settings=None):
         kind = action["kind"]
+        require(play_settings is None or kind == "phase_play", "Run settings apply only to a new Play preview")
         if kind == "brain_reply_recovery":
             from . import reply_recovery as recovery
             from .native_read_client import ReadProxy
@@ -210,10 +211,21 @@ class JourneyProposals(ActionProposals):
             proposed_play = (suggest_play_settings(mission["document"]["spec"]["authority"]["tokenBudget"])
                              if op == "play" else None)
             allowance = proposed_play["brainAllowanceTokens"] if op == "play" else run["brainAllowance"]
+            duration = proposed_play["durationHours"] if op == "play" else 8
+            if play_settings is not None:
+                require(isinstance(play_settings, dict) and set(play_settings) == {"brainAllowance", "durationHours"},
+                        "Edit only brain allowance and Play hours")
+                from . import missions
+                missions.integer(play_settings["brainAllowance"], "Brain allowance", 1, 1_000_000_000)
+                missions.integer(play_settings["durationHours"], "Run hours", 1, 24)
+                limits = mission["document"]["spec"]["authority"]
+                require(play_settings["brainAllowance"] + limits["checkpointReserveTokens"] < limits["tokenBudget"],
+                        "Brain allowance must leave the reviewed checkpoint reserve and some task headroom")
+                allowance, duration = play_settings["brainAllowance"], play_settings["durationHours"]
             request = self.runtime.standard_controls.preview(self.runtime.ledger, {
                 "operation": op, "contextHash": standard["contextHash"],
                 "brainAllowance": allowance,
-                "durationHours": proposed_play["durationHours"] if op == "play" else 8,
+                "durationHours": duration,
                 "measureUsage": op == "play"}, session)
             ident = request["preview"]["id"]
             if op == "play":

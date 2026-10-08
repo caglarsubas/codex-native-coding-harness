@@ -198,5 +198,15 @@ function all(root){return [root,...root.children.flatMap(x=>x instanceof Element
   const ownedOverdue=box.catalogStatus({status:'queued',createdAt:1,notification:{status:'accepted',nativeDelivery:'owned_turn_start'}});
   assert.match(ownedOverdue.detail,/bound Codex host started this turn/);
   assert.ok(!ownedOverdue.detail.includes('legacy desktop queue'),'Owned-host progress does not imply legacy delivery');
+  const guidedSteps=[],guideOpens=[],beforeGuidedPlay=sent.length;
+  box.assistantRequestStep=async key=>guidedSteps.push(key);
+  box.sessionShowGuide=()=>guideOpens.push(true);
+  await box.reviewStandardControl(box.state.standard,'play',null);
+  assert.deepEqual(guidedSteps,['phase_play'],'The full app opens editable signed Play in its existing guide');
+  assert.equal(guideOpens.length,1);
+  assert.equal(sent.length,beforeGuidedPlay,'The direct Play control cannot bypass the signed guide');
+  box.connected=false;await box.reviewStandardControl(box.state.standard,'play',null);box.connected=true;
+  box.busy=true;await box.reviewStandardControl(box.state.standard,'play',null);box.busy=false;
+  assert.equal(guidedSteps.length,1,'Disconnected or busy controls cannot prepare another Play preview');
   console.log('Standard UI: explicit confirmation, project separation, unknown usage and checkpoint controls passed');
 })().catch(error=>{console.error(error);process.exitCode=1;});

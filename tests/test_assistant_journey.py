@@ -123,6 +123,47 @@ class AssistantJourneyTest(unittest.TestCase):
         self.confirm(p)
         self.assertEqual(standard.read(self.ledger)['run']['status'], 'stopping')
 
+    def test_edited_play_settings_are_signed_proposals_not_mission_or_run_changes(self):
+        state = self.snapshot()
+        action = resolve_action({'key': 'phase_play'}, catalog(state, {}), '')
+        before = copy.deepcopy(state['mission'])
+        settings = {'durationHours': 4, 'brainAllowance': 40_000}
+        proposal = self.proposals.prepare(action, state, self.session, play_settings=settings)
+        self.assertEqual(proposal['document']['preview']['runSettings'], {**settings, 'measureUsage': True})
+        self.assertEqual(missions.read(self.ledger), before)
+        self.assertIsNone(standard.read(self.ledger)['run'])
+        self.assertFalse(self.ledger.snapshot()['commands'])
+        bad = copy.deepcopy(proposal)
+        bad['document']['preview']['runSettings']['durationHours'] = 24
+        with self.assertRaises(Refusal): self.confirm(bad)
+        with self.assertRaises(Refusal): self.confirm(proposal, 'foreign-session')
+        result, _ = self.confirm(proposal)
+        run = standard.read(self.ledger)['run']
+        self.assertEqual(run['brainAllowance'], 40_000)
+        self.assertAlmostEqual(run['expiresAt'] - run['startedAt'], 4 * 3600, places=2)
+        self.assertEqual(run['limits'], before['document']['spec']['authority'])
+        self.assertEqual(self.confirm(proposal)[0]['result']['id'], result['result']['id'])
+        self.assertEqual(len(self.ledger.snapshot()['commands']), 1)
+
+    def test_play_edits_refuse_unbounded_values_and_other_controls(self):
+        state = self.snapshot()
+        action = resolve_action({'key': 'phase_play'}, catalog(state, {}), '')
+        base = {'durationHours': 4, 'brainAllowance': 40_000}
+        limits = state['mission']['document']['spec']['authority']
+        cases = [[], {}, {**base, 'measureUsage': False}, {**base, 'durationHours': True},
+                 {**base, 'durationHours': 0}, {**base, 'durationHours': 25},
+                 {**base, 'durationHours': '4'}, {**base, 'brainAllowance': 0},
+                 {**base, 'brainAllowance': 1.5}, {**base, 'brainAllowance': True},
+                 {**base, 'brainAllowance': limits['tokenBudget'] - limits['checkpointReserveTokens']}]
+        for settings in cases:
+            with self.subTest(settings=settings), self.assertRaises(Refusal):
+                self.proposals.prepare(action, state, self.session, play_settings=settings)
+        other = resolve_action({'key': 'phase_prepare'}, catalog(state, {}), '')
+        with self.assertRaises(Refusal):
+            self.proposals.prepare(other, state, self.session, play_settings=base)
+        self.assertIsNone(standard.read(self.ledger)['run'])
+        self.assertFalse(self.ledger.snapshot()['commands'])
+
     def test_malformed_confirmation_refuses_without_effect(self):
         for body in (None, [], ['preview'], {'proposal':[]}, {'proposal':{'document':[]}}):
             with self.assertRaises(Refusal): self.proposals.confirm(self.ledger, body, self.session)
@@ -326,6 +367,15 @@ class AssistantJourneyTest(unittest.TestCase):
             status,_,p=send_http(prefix+'/assistant/preview',{'key':'phase_play'},auth)
             self.assertEqual(status,200,p)
             self.assertIsNone(standard.read(self.ledger)['run'])
+            settings = {'brainAllowance': 40_000, 'durationHours': 4}
+            status, _, edited = send_http(prefix+'/assistant/preview', {'key':'phase_play','runSettings':settings}, auth)
+            self.assertEqual(status, 200, edited)
+            self.assertEqual(edited['document']['preview']['runSettings'], {**settings, 'measureUsage':True})
+            for malformed in (None, {}, {**settings,'measureUsage':False}, {**settings,'durationHours':25}):
+                self.assertEqual(send_http(prefix+'/assistant/preview', {'key':'phase_play','runSettings':malformed}, auth)[0],409)
+            self.assertEqual(send_http(prefix+'/assistant/preview', {'key':'phase_pause','runSettings':settings}, auth)[0],409)
+            self.assertIsNone(standard.read(self.ledger)['run'])
+            self.assertFalse(self.ledger.snapshot()['commands'])
             self.assertEqual(send_http(prefix+'/assistant/preview',{'key':'phase_play','payload':{}},auth)[0],409)
             with patch('orchestrator.assistant.Client.request') as inference:
                 status,_,direct=send_http(prefix+'/assistant/preview',{'key':'brain_message','text':'Explain the current phase. Do not start work.'},auth)
