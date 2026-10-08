@@ -4,6 +4,7 @@ Never reset or resend the original delivery claim. This narrow empty-run path
 is not effect reconciliation, Resume, phase completion or pilot qualification.
 """
 import contextlib
+import copy
 import math
 from pathlib import Path
 import sqlite3
@@ -18,6 +19,7 @@ BOUNDARY = ("One checkpoint-only turn for the saved Pause. Development stays sto
             "No Play, Resume, workers, ordinary messages, approvals, source edits, settings, "
             "policy changes, merges or effect retries. Preserve usage and unknown coverage.")
 ALLOWANCE = 500_000  # Cooperative one-turn guidance, not a phase/provider cap.
+REPLACEMENT_FIELDS = FIELDS | {"replacement"}
 
 
 def finite(value):
@@ -56,6 +58,72 @@ def fingerprint(command):
     return digest({k: command[k] for k in ("id", "kind", "payload", "actor", "createdAt")})
 
 
+def retired_attempt(command, replacement_id, at):
+    """A failed disposition, never a brain receipt or a reset delivery claim."""
+    result = copy.deepcopy(command)
+    result.update(status="failed", replacement={"id": replacement_id, "at": at},
+        result="Pre-turn recovery failure retained; separately reviewed replacement saved. No brain receipt is implied.")
+    return result
+
+
+def replacement_context(state, original, recovery_id=None):
+    run = state["meta"]["standardRun"]
+    permit = run.get("pauseRecovery") or {}
+    if not permit or (permit.get("id") == recovery_id and not permit.get("priorAttempt")):
+        return None
+    archived = permit.get("id") == recovery_id
+    if archived:
+        saved = permit.get("priorAttempt")
+        require(isinstance(saved, dict) and set(saved) == {"command", "permit"}, "Retained failed attempt is incomplete")
+        previous, previous_permit = saved["command"], saved["permit"]
+    else:
+        require(not permit.get("priorAttempt"), "The replacement recovery was already attempted; no third wake is permitted")
+        previous_permit = permit
+        previous = next((c for c in state.get("commands", []) if c["id"] == permit.get("id")), None)
+    require(isinstance(previous, dict) and isinstance(previous_permit, dict), "The failed recovery record is missing")
+    p, n = previous.get("payload") or {}, previous.get("notification") or {}
+    require(isinstance(p, dict) and isinstance(n, dict), "The failed recovery shape is invalid")
+    require(previous.get("kind") == KIND and previous.get("actor") == "assistant_owner_confirmed" and
+            previous.get("status") == "queued" and set(p) == FIELDS and
+            not any(k in previous for k in ("receivedAt", "completedAt", "checkpointHash", "replacement")) and
+            not previous.get("needsBrainReceipt") and pre_turn_failure(previous) and
+            isinstance(n.get("nativeFailure"), dict) and n.get("brainId") == state["meta"]["brainId"] and
+            finite(previous.get("createdAt")) and previous["createdAt"] <= n["attemptedAt"],
+            "The prior recovery lacks closed proof of failure before turn start; inspect it without replay")
+    require(set(previous_permit) == {"id", "pauseId", "status", "authorizedAt", "receiveBy", "allowanceTokens", "boundary"} and
+            previous_permit.get("id") == previous["id"] and previous_permit.get("pauseId") == original["id"] and
+            previous_permit.get("status") == "queued" and previous_permit.get("authorizedAt") == previous["createdAt"] and
+            previous_permit.get("receiveBy") == previous["createdAt"]+3600 and
+            previous_permit.get("allowanceTokens") == ALLOWANCE and previous_permit.get("boundary") == BOUNDARY,
+            "Prior recovery permit changed or already received")
+    require(p.get("runId") == run["id"] and p.get("phaseId") == run["phaseId"] and
+            p.get("pauseId") == original["id"] and p.get("pauseFingerprint") == fingerprint(original) and
+            p.get("notificationHash") == digest(original["notification"]) and
+            p.get("brainId") == state["meta"]["brainId"] and p.get("scopeHash") == scope_hash(run),
+            "Prior recovery scope, usage, expiry or original Pause changed")
+    if archived:
+        current = next((c for c in state.get("commands", []) if c["id"] == previous["id"]), None)
+        require(current == retired_attempt(previous, recovery_id, permit["authorizedAt"]),
+                "Retained failed attempt or its disposition changed")
+    return {"command": previous, "permit": previous_permit}
+
+
+def replacement_binding(context):
+    if context is None:
+        return None
+    c = context["command"]
+    return {"id": c["id"], "commandHash": digest(c), "notificationHash": digest(c["notification"]),
+            "permitHash": digest(context["permit"])}
+
+
+def check_replacement(context, binding_hash, observation):
+    if context:
+        p = context["command"]["payload"]
+        require(isinstance(p.get("observation"), dict) and p["bindingHash"] == binding_hash and
+                same_turn(p["observation"], observation),
+                "Prior recovery host or latest native turn changed; replacement is not permitted")
+
+
 def eligible(state, recovery_id=None, controller=False):
     meta = state["meta"]
     run = meta.get("standardRun") or {}
@@ -77,7 +145,6 @@ def eligible(state, recovery_id=None, controller=False):
             "An outstanding decision needs its own receipt")
     commands = state.get("commands") or []
     permit = run.get("pauseRecovery") or {}
-    require(not permit or permit.get("id") == recovery_id, "This Pause already has its one recovery attempt; follow its receipt")
     received = controller and permit.get("status") == "processing"
     originals = [c for c in commands if c.get("kind") == "standard_pause" and
                  c.get("payload", {}).get("runId") == run["id"] and
@@ -89,11 +156,13 @@ def eligible(state, recovery_id=None, controller=False):
             (original.get("completedAt") == permit.get("receivedAt") if received else not original.get("completedAt")) and
             not original.get("receivedAt") and pre_turn_failure(original),
             "The saved Pause lacks proof that no turn was started; reconcile its existing delivery")
+    replacement = replacement_context(state, original, recovery_id)
+    previous_id = replacement["command"]["id"] if replacement else None
     for c in commands:
-        if c["id"] in (original["id"], recovery_id):
+        if c["id"] in (original["id"], recovery_id, previous_id):
             continue
         require(not (c.get("kind") == KIND and c.get("payload", {}).get("pauseId") == original["id"]),
-                "This Pause already has its one recovery attempt; follow its receipt")
+                "An unbound recovery attempt needs its own reconciliation")
         require(c.get("status") not in ("queued", "processing") and not c.get("needsBrainReceipt"),
                 "Another pending request needs its own reconciliation")
     return original
@@ -102,7 +171,9 @@ def eligible(state, recovery_id=None, controller=False):
 def availability(state):
     try:
         original = eligible(state)
-        return {"available": True, "pauseId": original["id"], "reason": None}
+        prior = replacement_binding(replacement_context(state, original))
+        return {"available": True, "pauseId": original["id"], "replacementOf": prior["id"] if prior else None,
+                "reason": None}
     except Refusal as exc:
         return {"available": False, "reason": str(exc)}
 
@@ -157,9 +228,14 @@ def validate_in(ledger, db, command, meta, controller=False):
     except (OSError, sqlite3.Error, TypeError, AttributeError) as exc:
         raise Refusal("Registered platform is unavailable; Pause recovery stays blocked") from exc
     p = command["payload"]
-    require(command["kind"] == KIND and command["actor"] == "assistant_owner_confirmed" and set(p) == FIELDS,
+    require(command["kind"] == KIND and command["actor"] == "assistant_owner_confirmed" and set(p) in (FIELDS, REPLACEMENT_FIELDS),
             "Exact signed Pause recovery required")
-    original = eligible(state_in(ledger, db, meta), command["id"], controller)
+    state = state_in(ledger, db, meta)
+    original = eligible(state, command["id"], controller)
+    replacement = replacement_context(state, original, command["id"])
+    require((set(p) == REPLACEMENT_FIELDS if replacement else set(p) == FIELDS) and
+            p.get("replacement") == replacement_binding(replacement), "Review the exact failed attempt separately")
+    check_replacement(replacement, p["bindingHash"], p["observation"])
     run, o = meta["standardRun"], p["observation"]
     require(original["id"] == p["pauseId"] and fingerprint(original) == p["pauseFingerprint"] and
             digest(original["notification"]) == p["notificationHash"] and run["id"] == p["runId"] and
@@ -173,7 +249,8 @@ def validate_in(ledger, db, command, meta, controller=False):
     require(controller or (finite(o.get("observedAt")) and 0 <= time.time()-o["observedAt"] <= 300),
             "Native observation expired; nothing was sent")
     permit = run.get("pauseRecovery") or {}
-    require(controller or not permit or time.time() <= permit["receiveBy"], "Pause recovery permit expired; no retry")
+    require(controller or permit.get("id") != command["id"] or time.time() <= permit["receiveBy"],
+            "Pause recovery permit expired; no retry")
     return original
 
 
@@ -191,9 +268,15 @@ def confirm(registry, ledger, request):
             "result": "Checkpoint-only recovery saved; development remains stopped."}
         validate_in(ledger, db, command, meta)
         run = meta["standardRun"]
+        previous = replacement_context(state_in(ledger, db, meta),
+            ledger.get(db, "commands", command["payload"]["pauseId"]), command["id"])
         run["pauseRecovery"] = {"id": command["id"], "pauseId": command["payload"]["pauseId"],
             "status": "queued", "authorizedAt": command["createdAt"], "receiveBy": command["createdAt"]+3600,
             "allowanceTokens": ALLOWANCE, "boundary": BOUNDARY}
+        if previous:
+            run["pauseRecovery"]["priorAttempt"] = copy.deepcopy(previous)
+            ledger.put(db, "commands", previous["command"]["id"],
+                retired_attempt(previous["command"], command["id"], command["createdAt"]))
         ledger.put(db, "commands", command["id"], command)
         save(ledger, db, meta, run, "pause_recovery_authorized")
         return command

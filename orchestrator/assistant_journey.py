@@ -145,7 +145,7 @@ def catalog(state):
         None if run.get("status") == "running" else "There is no running phase to pause.")
     from .pause_recovery import availability, BOUNDARY as PAUSE_BOUNDARY
     pause_recovery = availability(state)
-    add("phase_pause_recovery", "Recover saved Pause", PAUSE_BOUNDARY,
+    add("phase_pause_recovery", "Review replacement checkpoint recovery" if pause_recovery.get("replacementOf") else "Recover saved Pause", PAUSE_BOUNDARY,
         pause_recovery["reason"] or ("A reviewed owned Codex host is required." if
             state.get("brainNotification", {}).get("transport") != "owned_app_server" else None))
     add("phase_resume", "Resume this phase", "Continue the saved phase with its existing limits and consumed usage.",
@@ -233,6 +233,8 @@ class JourneyProposals(ActionProposals):
             require(not host.pending_approval(state["meta"]["brainId"]), "Native approval needs its own reconciliation")
             with ReadProxy(host.binding["endpoint"]) as proxy:
                 observation = pause_recovery.observe(proxy, host.binding, original)
+            previous = pause_recovery.replacement_context(state, original)
+            pause_recovery.check_replacement(previous, digest(host.binding), observation)
             require(self.runtime.ledger.snapshot()["meta"]["revision"] == state["meta"]["revision"],
                     "Project changed during inspection; check again")
             run = standard["run"]
@@ -241,12 +243,19 @@ class JourneyProposals(ActionProposals):
                     "pauseFingerprint": pause_recovery.fingerprint(original), "notificationHash": digest(original["notification"]),
                     "brainId": state["meta"]["brainId"], "bindingHash": digest(host.binding),
                     "observation": observation, "scopeHash": pause_recovery.scope_hash(run)}}
+            if previous:
+                request["payload"]["replacement"] = pause_recovery.replacement_binding(previous)
             preview["summary"] = ["The saved Pause failed before starting a brain turn.",
                 "One separate checkpoint-only turn may receive that Pause and save an empty paused checkpoint.",
                 "Development stays stopped. Usage, expiry and the original failed delivery record are preserved."]
             preview["details"] = {"pauseId": original["id"], "runId": run["id"], "observation": observation,
                 "allowanceTokens": pause_recovery.ALLOWANCE,
                 "allowanceBoundary": "Cooperative one-turn guidance; not a phase-budget increase or provider billing cap."}
+            if previous:
+                preview["summary"] = ["The first recovery also failed before turn start; its full record will be preserved.",
+                    "Review one replacement checkpoint-only recovery on the same host and native turn. No third attempt is allowed.",
+                    "The old attempt is recorded as failed, not received. Development, usage and expiry stay unchanged."]
+                preview["details"]["replacement"] = request["payload"]["replacement"]
         elif kind == "phase_recovery":
             from .checkpoint_recovery import SUGGESTED_TOKENS, instruction, pending_message
             run = standard["run"]

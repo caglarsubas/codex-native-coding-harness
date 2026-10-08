@@ -132,7 +132,9 @@ def plan(state):
 
     if run.get("status") == "stopping" and actions["phase_pause_recovery"]["available"]:
         result["requestId"] = s.get("pauseRecovery", {}).get("pauseId")
-        return step("decision", "Recover the saved Pause",
+        replacement = s.get("pauseRecovery", {}).get("replacementOf")
+        return step("decision", "Review replacement checkpoint recovery" if replacement else "Recover the saved Pause",
+                    "The first recovery failed before turn start. Review one separately bound replacement; no automatic retry or third attempt." if replacement else
                     "Its delivery failed before starting a turn. Review one checkpoint-only recovery; development stays stopped.",
                     "phase_pause_recovery")
     pause_recovery = run.get("pauseRecovery") or {}

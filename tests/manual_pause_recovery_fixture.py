@@ -1,5 +1,6 @@
 """Disposable rendered Pause recovery QA; every native read/send is mocked."""
 import json
+import argparse
 import os
 import threading
 from unittest.mock import patch
@@ -11,6 +12,10 @@ from test_pause_recovery import PauseRecoveryTest
 def main():
     fixture = PauseRecoveryTest()
     fixture.setUp()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--replacement', action='store_true', help='Render a proved failed first recovery; all native operations remain mocked')
+    if parser.parse_args().replacement:
+        fixture.failed_first()
     ledger, registry = fixture.ledger, fixture.registry
     root = fixture.fixture.root
 

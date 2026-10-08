@@ -14,8 +14,10 @@ The owner separately confirms **confirm pause recovery** for that exact preview.
 No technical prompt needs composing. Short summaries precede the bindings under
 Details. Progress distinguishes recovery saved, native delivery, saved Pause
 received, and paused checkpoint retained. A checkpoint is not phase success or
-pilot acceptance. A failed/uncertain recovery stays owned; no second attempt is
-offered for the original Pause.
+pilot acceptance. An uncertain recovery stays owned and is never retried. One
+proved pre-turn failed recovery may offer **Review replacement checkpoint
+recovery**, using the same signed control with a new, separately reviewed ID.
+No technical prompt or host replacement is needed; this is never automatic.
 
 The preview is session/workspace/ledger/revision-bound and pins the exact run,
 phase, limits, usage, expiry, brain, original Pause fingerprint and notification
@@ -66,6 +68,37 @@ rejected metadata-only resume remains one consumed recovery attempt, with its
 failed step retained. There is no fallback to full history and installing a
 compatible bridge does not re-arm that attempt.
 
+## One separately reviewed pre-turn replacement
+
+The owner-authorized exception permits at most **two recovery attempts total**
+for the same Pause. A second attempt is available only if the first has a closed
+native failure diagnostic with `turnStartAttempted: false`, `unavailable` delivery,
+valid claim/timestamps and no native turn, delivery, observation or turn-status
+marker. Legacy prose alone is insufficient for replacing a recovery. Sending,
+accepted, uncertain, received, expired-without-proved-failure, or any attempted
+turn start remains fenced. Expiry alone never authorizes another attempt.
+
+Keep the first recovery's run, phase, scope, limits, usage/gaps, expiry, original
+Pause and notification hashes unchanged. The current reviewed host and latest
+completed native turn must match those bound to the first attempt, in addition
+to every fresh repeated identity/activity read and pre-send fence above. A host
+rebind or a newer unrelated turn is not interchangeable evidence.
+
+The exact signed replacement payload binds the previous command, notification
+and permit hashes. In one owner-confirmed transaction, retain the full previous
+command and permit under `pauseRecovery.priorAttempt`; give the old command a
+`failed` disposition with the replacement ID/time, not a receipt or completion.
+Its original payload, fingerprint, creation time and failed native claim are
+unchanged. The new journal receives its own one-hour checkpoint-only permit;
+the old permit is not renewed and phase duration/budgets are not extended.
+Only the new exact request can receive the saved Pause. Replaying either signed
+confirmation returns only its historical receipt; the old claim is never resent.
+Check the retained snapshot/disposition at confirmation, both send boundaries,
+receipt and checkpoint. Drift refuses and transactional interruption rolls back.
+
+The replacement is permanently consumed even if it fails before turn start. No
+third wake, ordinary-message bypass, implicit Resume or automatic retry is allowed.
+
 ## Designated brain procedure
 
 Read the source skill, `references/standard-cycle.md` and this document completely.
@@ -104,6 +137,9 @@ foreign identity/policy, uncertainty, historical replay, dedicated receipt and
 checkpoint-only scope. JavaScript tests cover next-step selection, progress and
 typed confirmation. `tests/manual_pause_recovery_fixture.py` provides rendered
 desktop/mobile QA; every native read and send is mocked and state is disposable.
+Replacement tests additionally cover immutable failed snapshots, exact owner
+binding, unchanged scope/host/turn, unknown-effect refusal, rollback, historical
+replay, old-request receipt refusal and the absolute two-attempt bound.
 
 Run full local Python discovery, all JavaScript suites, syntax and diff checks.
 No GitHub Actions or paid service. Quiesce older writers and back up private state
