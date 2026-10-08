@@ -131,6 +131,11 @@ Source delivery installs/starts nothing. Quiesce older writers and back up priva
 state before installation. A newly started listener may change canonical socket
 identity and requires the existing exact binding review; never silently repin or
 reuse old approvals. Never replay wakes or automatically Resume, Review or Play.
+For the sole proved pre-turn Pause replacement, the separately signed
+[same-brain continuity review](FAILED-PAUSE-RECOVERY.md#same-brain-replacement-host-continuity)
+may retain exact old/new endpoint bindings without treating a dead socket as a
+permanent brain identity. This does not launch or qualify a replacement host,
+approve its dashboard connection, or extend the two-attempt limit.
 
 Check the registered ledger before requesting another host-launch review. A
 filesystem device-number change can block the registry even while its inode,

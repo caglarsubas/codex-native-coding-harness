@@ -204,6 +204,8 @@ def main():
     p.add_argument("--desktop-brain-wake", action="store_true", help="After queue acknowledgment, open the exact existing standard brain in the signed desktop app, in the background")
     p.add_argument("--brain-app-server-binding", type=Path, metavar="PRIVATE_JSON",
                    help="Opt in to the reviewed, exact standard-brain app-server host instead of the desktop queue")
+    p.add_argument("--pause-recovery-prior-binding", type=Path, metavar="PRIVATE_JSON",
+                   help="Preserved historical binding for a separately signed pre-turn Pause replacement; never a connection target")
     p.add_argument("--inference-env", type=Path, help="Existing private inference configuration; never a browser-selected path")
     args = parser.parse_args()
     if args.action == "serve" and args.notify_brain and args.brain_app_server_binding:
@@ -211,9 +213,15 @@ def main():
     if args.action == "serve" and args.desktop_brain_wake and not args.notify_brain:
         raise Refusal("Desktop brain wake requires --notify-brain")
     notification_binding = None
+    pause_recovery_prior_binding = None
     if args.action == "serve" and args.brain_app_server_binding:
         from .app_server_wake import load_binding
         notification_binding = load_binding(args.brain_app_server_binding)
+    if args.action == "serve" and args.pause_recovery_prior_binding:
+        if not args.brain_app_server_binding or not (args.platform and args.workspace):
+            raise Refusal("Pause host continuity requires an exact registered workspace and reviewed owned binding")
+        from .pause_host_continuity import load_previous
+        pause_recovery_prior_binding = load_previous(args.pause_recovery_prior_binding)
     from .workspaces import Registry
     if args.workspace and not args.platform:
         raise Refusal("--workspace requires --platform")
@@ -350,7 +358,8 @@ def main():
             raise Refusal("Register at least one workspace before serving")
         serve(registry.ledger(workspaces[0]["id"]), args.port, notification_cli=args.notify_brain,
               registry=registry, inference_env=args.inference_env, public_port=args.public_port,
-              account_file=args.account_file, notification_binding=notification_binding, desktop_wake=args.desktop_brain_wake)
+              account_file=args.account_file, notification_binding=notification_binding, desktop_wake=args.desktop_brain_wake,
+              pause_recovery_prior_binding=pause_recovery_prior_binding)
         return
     if registry and not args.workspace:
         raise Refusal("Select an exact --workspace; no default portfolio is inferred")
@@ -668,7 +677,8 @@ def main():
         from .server import serve
         serve(ledger, args.port, notification_cli=args.notify_brain, registry=registry,
               inference_env=args.inference_env, public_port=args.public_port,
-              account_file=args.account_file, notification_binding=notification_binding, desktop_wake=args.desktop_brain_wake); return
+              account_file=args.account_file, notification_binding=notification_binding, desktop_wake=args.desktop_brain_wake,
+              pause_recovery_prior_binding=pause_recovery_prior_binding); return
     print(json.dumps(out if out is not None else {"ok": True}, ensure_ascii=False, indent=2))
 
 

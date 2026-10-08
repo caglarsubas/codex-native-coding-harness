@@ -214,8 +214,8 @@ class WakeProxy(ReadProxy):
         return row
 
 
-def load_binding(path):
-    """Read only a private, exact operator binding; never discover a socket."""
+def _read_binding(path):
+    """Read immutable private bytes; endpoint qualification is deliberately separate."""
     path = Path(path)
     require(path.is_absolute() and path.resolve(strict=True) == path, "Canonical private brain binding required")
     info = path.lstat()
@@ -229,6 +229,12 @@ def load_binding(path):
                 file_identity(path.lstat()),
                 "Brain binding changed")
     require(isinstance(value, dict) and set(value) == {"endpoint", "brains"}, "Invalid brain binding")
+    return value
+
+
+def load_binding(path):
+    """Read only a private, exact operator binding; never discover a socket."""
+    value = _read_binding(path)
     require(isinstance(value["brains"], dict) and 0 < len(value["brains"]) <= 32,
             "Invalid brain inventory")
     # This performs the same executable, socket and server-identity pin checks
@@ -266,8 +272,10 @@ def load_binding(path):
 
 
 class AppServerWake:
-    def __init__(self, binding, ledger):
+    def __init__(self, binding, ledger, pause_recovery_prior_binding=None):
         self.binding = binding
+        # Historical bytes are never a connect target or notification fallback.
+        self.pause_recovery_prior_binding = copy.deepcopy(pause_recovery_prior_binding)
         self.ledger = ledger
         self._lock = threading.Lock()
         self._subscriptions = set()
