@@ -74,7 +74,8 @@ function refreshAssistantActions(){
     if(action.proposal.document.workflow){
       const info=assistantWorkflowState(action),message=(info.detail.startsWith(info.label+'.')?info.detail:info.label+'. '+info.detail)+(action.refreshError?' '+action.refreshError:'');
       if(action.status.textContent!==message)action.status.textContent=message;
-      if(action.renew){action.renew.hidden=!info.refreshable;action.renew.disabled=!connected||assistantPending;}
+      if(action.renew){action.renew.hidden=!info.refreshable;action.renew.disabled=!connected||assistantPending;action.renew.textContent=action.playEdited?'Update Play preview':'Refresh review';}
+      if(action.playInputs)for(const input of Object.values(action.playInputs))input.disabled=!!info.recorded||action.sending||action.cancelled||action.uncertain||action.refreshing;
       if(action.expiry){const seconds=Math.max(0,Math.ceil(action.proposal.document.expiresAt-Date.now()/1000)),remaining=seconds<60?`${seconds} second${seconds===1?'':'s'}`:`${Math.ceil(seconds/60)} minute${seconds>60?'s':''}`;action.expiry.hidden=!!info.recorded||action.cancelled;const text=seconds?`Confirmation window: ${remaining} remaining. Refreshing never confirms or extends the phase.`:'Confirmation window ended. Refresh the review here; no need to write another message.';if(action.expiry.textContent!==text)action.expiry.textContent=text;}
       action.confirm.disabled=!connected||info.locked||assistantPending;action.confirm.textContent=info.recorded?'Saved':action.uncertain?'Recover receipt':action.guided?'Help me continue development':workflowPhrases[action.proposal.document.workflow];
       action.dismiss.disabled=!!info.recorded||action.sending||action.cancelled||action.uncertain;

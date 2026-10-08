@@ -675,15 +675,19 @@ class Handler(BaseHTTPRequestHandler):
                 from .assistant_actions import catalog, resolve_action
                 from .assistant import context
                 direct = isinstance(body, dict) and body.get("key") == "brain_message" and set(body) == {"key", "text"}
-                if urlsplit(self.path).query or not isinstance(body, dict) or (set(body) != {"key"} and not direct):
+                edit_play = isinstance(body, dict) and body.get("key") == "phase_play" and set(body) == {"key", "runSettings"}
+                if urlsplit(self.path).query or not isinstance(body, dict) or (set(body) != {"key"} and not direct and not edit_play):
                     raise Refusal("Select one current assistant action")
                 if direct:
                     from .assistant import validate_request
                     validate_request({"view": "conversation", "messages": [{"role": "user", "content": body["text"]}]})
                 snapshot = runtime.snapshot()
                 _, links = context(snapshot, "roadmap")
-                action = resolve_action(body, catalog(snapshot, links), body["text"] if direct else "")
-                return self.respond(200, runtime.assistant_proposals.prepare(action, snapshot, csrf))
+                action = resolve_action({"key": body["key"]} if edit_play else body, catalog(snapshot, links), body["text"] if direct else "")
+                if edit_play and not isinstance(body["runSettings"], dict):
+                    raise Refusal("Explicit Play settings are required")
+                return self.respond(200, runtime.assistant_proposals.prepare(action, snapshot, csrf,
+                    **({"play_settings": body["runSettings"]} if edit_play else {})))
             if path == "/api/assistant":
                 from .assistant import chat
                 if not runtime.inference_lock.acquire(blocking=False):
