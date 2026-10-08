@@ -14,6 +14,50 @@ from .core import digest, require
 
 FIELDS = {"version", "previousBinding", "candidateBinding", "ledgerIdentity",
           "catalogHash", "projectLocationHash", "hostId"}
+SOCKET_FIELDS = {"device", "inode", "owner", "mode", "changedNs"}
+
+
+def _browser_proof(proof, *, decode):
+    """Lossless browser envelope only; retained pins and their hashes stay integers."""
+    require(isinstance(proof, dict) and set(proof) == FIELDS and
+            type(proof["version"]) is int and proof["version"] == 1,
+            "Exact replacement-host continuity review required")
+    result = copy.deepcopy(proof)
+
+    def identity(value):
+        if decode:
+            # Reject coercion, mixed representations and unbounded digit strings.
+            require(isinstance(value, str) and 0 < len(value) <= 20 and
+                    all("0" <= c <= "9" for c in value) and
+                    (value == "0" or value[0] != "0"),
+                    "Canonical decimal continuity identity required")
+            return int(value)
+        require(type(value) is int and value >= 0 and len(str(value)) <= 20,
+                "Exact integer continuity identity required")
+        return str(value)
+
+    require(isinstance(result["ledgerIdentity"], list) and len(result["ledgerIdentity"]) == 2,
+            "Retained ledger identity required")
+    result["ledgerIdentity"] = [identity(v) for v in result["ledgerIdentity"]]
+    for key in ("previousBinding", "candidateBinding"):
+        binding = result[key]
+        require(isinstance(binding, dict) and set(binding) == {"endpoint", "brains"} and
+                isinstance(binding["endpoint"], dict), "Exact reviewed host binding required")
+        endpoint = binding["endpoint"]
+        if "socketIdentity" in endpoint:
+            pins = endpoint["socketIdentity"]
+            require(isinstance(pins, dict) and set(pins) == SOCKET_FIELDS,
+                    "Exact reviewed socket identity required")
+            endpoint["socketIdentity"] = {k: identity(v) for k, v in pins.items()}
+    return result
+
+
+def for_browser(proof):
+    return _browser_proof(proof, decode=False)
+
+
+def from_browser(proof):
+    return _browser_proof(proof, decode=True)
 
 
 def registry_view(ledger):

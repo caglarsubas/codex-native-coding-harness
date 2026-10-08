@@ -143,6 +143,16 @@ Historical confirmation returns only its receipt, even if the endpoint is gone.
 This does not re-arm the failed attempt, change run scope/usage/expiry, enable a
 third attempt, or authorize any other pending request on the replacement host.
 
+The signed browser envelope carries both hosts' socket identity integers and
+the ledger device/inode as canonical decimal strings. Nanosecond identities
+exceed JavaScript's exact integer range; sending them as JSON numbers would
+round the pins and invalidate an otherwise unchanged preview signature. Verify
+the signature and browser/project binding before decoding these strings, and
+decode before native inspection or journal retention. The private bindings,
+binding hashes, continuity proof and receipts retain their exact integer pins.
+Malformed or mixed identity representations fail closed; this is not a relaxed
+identity check or permission to reuse a rejected preview after installation.
+
 Source delivery does not install, launch or change either live host binding.
 Host qualification, checkpoint receipt, stopped-phase closeout and the actual
 native-approval pilot remain separate observed outcomes.
@@ -191,10 +201,22 @@ replay, old-request receipt refusal and the absolute two-attempt bound.
 `test_pause_host_continuity.py` additionally covers private historical binding
 reads without old-endpoint inspection, signed old/new continuity, catalog/root/
 brain/turn/policy drift, both send gates, retained snapshots and late receipt
-validation. All native responses in these tests are synthetic.
+validation. Actual JavaScript JSON round-trip tests include nanosecond values
+above the safe integer range, exact retained binding hashes, malformed signed
+wire rejection before native reads, and receipt-only historical replay.
+All native responses in these tests are synthetic.
 Use `PYTHONPATH=.:tests python3 tests/manual_pause_recovery_fixture.py --host-continuity`
 for disposable desktop/mobile preview, confirmation and paused-checkpoint checks.
 The fixture never connects to a real host or sends a real native instruction.
+
+Lossless browser-envelope qualification (2026-10-08): the complete local Python
+discovery run completed 2,109 tests with one optional Graphify test skipped;
+all 31 JavaScript suites, JavaScript syntax checks and diff checks passed.
+The disposable continuity fixture accepted a real browser confirmation with
+unsafe-range nanosecond pins, followed its simulated receipt to an empty paused
+checkpoint, and rendered that result on desktop and at 320px without horizontal
+page overflow. Native reads and delivery were mocked. These checks qualify
+source behavior, not installed code, live recovery or pilot acceptance.
 
 Run full local Python discovery, all JavaScript suites, syntax and diff checks.
 No GitHub Actions or paid service. Quiesce older writers and back up private state
