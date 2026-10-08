@@ -179,6 +179,12 @@ uncertain effects, task ownership and strict Harness remain fenced. A paused
 checkpoint is not pilot acceptance or permission for Play. Source, installation
 and live qualification remain separate. See [failed-Pause recovery](FAILED-PAUSE-RECOVERY.md).
 
+Replacement-host recovery previews preserve socket nanosecond pins and ledger
+identities as decimal strings only in the signed browser envelope. Confirmation
+restores their exact integers after authentication; retained binding hashes and
+the existing native/one-shot gates are unchanged. Browser rounding must not be
+misdiagnosed as a disconnected host or silently repaired by weakening a pin.
+
 The fixed 20-question evaluation in `tests/test_knowledge_eval.py` checks
 top-ten retrieval against manually reviewed owner modules and two deliberately
 missing-evidence identifiers. Local tests provide source qualification only.

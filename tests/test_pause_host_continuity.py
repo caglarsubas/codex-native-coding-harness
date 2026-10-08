@@ -2,6 +2,7 @@ import contextlib
 import copy
 import json
 import sqlite3
+import subprocess
 import unittest
 from unittest.mock import patch
 
@@ -27,9 +28,13 @@ class HostContinuityTest(unittest.TestCase):
             "projectKind": "local", "label": "Fixture", "hostId": "local", "path": str(f.fixture.repo),
             "isGitRepository": True}]}, 1)
         projects.bind(f.registry, "alpha", "local", CATALOG, projects.catalog(f.registry)["hash"])
+        f.host.binding["endpoint"]["socketIdentity"] = {"device": 16777234, "inode": 1234567,
+            "owner": 501, "mode": 384, "changedNs": 1791357525294552828}
         self.old_binding = copy.deepcopy(f.host.binding)
         self.old_preview, self.old, self.old_permit = f.failed_first()
-        f.host.binding["endpoint"] = {"fixture": "new-reviewed-endpoint"}
+        f.host.binding["endpoint"] = {"fixture": "new-reviewed-endpoint", "socketIdentity": {
+            "device": 16777234, "inode": 2345678, "owner": 501, "mode": 384,
+            "changedNs": 1791440279570030875}}
         f.host.pause_recovery_prior_binding = copy.deepcopy(self.old_binding)
         # Bounded project identity reads are real contract checks with disposable
         # synthetic responses, not native qualification.
@@ -51,15 +56,63 @@ class HostContinuityTest(unittest.TestCase):
         with contextlib.closing(f.ledger.connect()) as db: before = list(db.iterdump())
         with contextlib.closing(sqlite3.connect(f.registry.db)) as db: registry = list(db.iterdump())
         p = f.preview()
-        proof = p["document"]["request"]["payload"]["hostContinuity"]
+        wire = p["document"]["request"]["payload"]["hostContinuity"]
+        proof = continuity.from_browser(wire)
         self.assertEqual(proof["previousBinding"], self.old_binding)
         self.assertEqual(proof["candidateBinding"], f.host.binding)
+        self.assertTrue(all(isinstance(v, str) for v in wire["ledgerIdentity"]))
+        self.assertEqual(wire["candidateBinding"]["endpoint"]["socketIdentity"]["changedNs"], "1791440279570030875")
         self.assertIn("separately reviewed replacement host", json.dumps(p))
         with contextlib.closing(f.ledger.connect()) as db: self.assertEqual(before, list(db.iterdump()))
         with contextlib.closing(sqlite3.connect(f.registry.db)) as db: self.assertEqual(registry, list(db.iterdump()))
         self.assertEqual(f.host.sent, [])
         self.assertTrue(all(m in ("project/read", "thread/read", "thread/turns/list") for m, _ in f.metadata.calls))
         self.assertEqual(sum(m == "project/read" for m, _ in f.metadata.calls), 2)
+
+    def test_actual_javascript_roundtrip_confirms_and_retains_exact_integer_pins(self):
+        f = self.f; p = f.preview(); before = copy.deepcopy(p)
+        browser = subprocess.run(["node", "-e",
+            "let s=''; process.stdin.on('data', c=>s+=c); process.stdin.on('end', ()=>process.stdout.write(JSON.stringify(JSON.parse(s))));"],
+            input=json.dumps(p), capture_output=True, text=True, timeout=10, check=True)
+        roundtrip = json.loads(browser.stdout)
+        self.assertEqual(roundtrip, p)
+        c = f.confirm(roundtrip)[0]["result"]
+        proof = c["payload"]["hostContinuity"]
+        self.assertEqual(proof["previousBinding"], self.old_binding)
+        self.assertEqual(proof["candidateBinding"], f.host.binding)
+        self.assertTrue(all(type(v) is int for v in proof["ledgerIdentity"]))
+        self.assertEqual(digest(proof["previousBinding"]), self.old["payload"]["bindingHash"])
+        self.assertEqual(digest(proof["candidateBinding"]), c["payload"]["bindingHash"])
+        self.assertEqual(p, before, "Decoding must not mutate the signed wire document")
+        self.assertEqual(standard.read(f.ledger)["run"]["pauseRecovery"]["priorAttempt"],
+                         {"command": self.old, "permit": self.old_permit})
+        calls = list(f.metadata.calls)
+        with patch("orchestrator.assistant_journey.time.time", return_value=10**12):
+            self.assertFalse(f.confirm(roundtrip)[1])
+        self.assertEqual(f.metadata.calls, calls)
+        self.assertEqual(f.host.sent, [])
+
+    def test_wire_codec_preserves_large_ledger_and_all_socket_identity_fields(self):
+        proof = continuity.from_browser(self.f.preview()["document"]["request"]["payload"]["hostContinuity"])
+        proof["ledgerIdentity"] = [2**64-1, 2**53+1]
+        for key in ("previousBinding", "candidateBinding"):
+            proof[key]["endpoint"]["socketIdentity"] = {k: 2**64-1 for k in continuity.SOCKET_FIELDS}
+        wire = continuity.for_browser(proof)
+        rounded = json.loads(json.dumps(wire), parse_int=lambda s: int(float(s)))
+        self.assertEqual(continuity.from_browser(rounded), proof)
+
+    def test_malformed_signed_wire_identity_refuses_before_native_reads_or_writes(self):
+        f = self.f; p = f.preview(); calls = list(f.metadata.calls)
+        with contextlib.closing(f.ledger.connect()) as db: before = list(db.iterdump())
+        for value in (1791440279570030875, True, 1.5, "01", "-1", "+1", "1e18", "1.0", " 1", "１", "", "1"*21, None):
+            bad = copy.deepcopy(p)
+            bad["document"]["request"]["payload"]["hostContinuity"]["candidateBinding"]["endpoint"]["socketIdentity"]["changedNs"] = value
+            bad["signature"] = f.proposals.sign(bad["document"])
+            with self.subTest(value=value), self.assertRaisesRegex(Refusal, "Canonical decimal"):
+                f.confirm(bad)
+        self.assertEqual(f.metadata.calls, calls)
+        self.assertEqual(f.host.sent, [])
+        with contextlib.closing(f.ledger.connect()) as db: self.assertEqual(before, list(db.iterdump()))
 
     def test_confirmation_send_receipt_checkpoint_and_historical_replay(self):
         f = self.f; p = f.preview(); c = f.confirm(p)[0]["result"]

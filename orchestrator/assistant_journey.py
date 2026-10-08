@@ -1,5 +1,6 @@
 """Conversation entry points for existing owner controls; no new execution path."""
 import contextlib
+import copy
 import hmac
 import json
 import time
@@ -263,7 +264,8 @@ class JourneyProposals(ActionProposals):
                     "The old attempt is recorded as failed, not received. Development, usage and expiry stay unchanged."]
                 preview["details"]["replacement"] = request["payload"]["replacement"]
             if continuity:
-                request["payload"]["hostContinuity"] = continuity
+                from .pause_host_continuity import for_browser
+                request["payload"]["hostContinuity"] = for_browser(continuity)
                 preview["summary"][1] = "Review one checkpoint-only recovery on the separately reviewed replacement host, for the same brain, project and completed turn. No third attempt is allowed."
                 row = host.binding["brains"][state["meta"]["brainId"]]
                 preview["details"]["hostContinuity"] = {
@@ -404,6 +406,12 @@ class JourneyProposals(ActionProposals):
         if kind == "phase_pause_recovery":
             from . import pause_recovery, reply_recovery
             from .native_read_client import ReadProxy
+            if "hostContinuity" in request["payload"]:
+                from .pause_host_continuity import from_browser
+                # Authenticate the exact wire document above, then restore pins
+                # before native I/O and the unchanged integer-based journal gates.
+                request = copy.deepcopy(request)
+                request["payload"]["hostContinuity"] = from_browser(request["payload"]["hostContinuity"])
             state = self.runtime.snapshot()
             require(state["meta"]["revision"] == request["expectedRevision"], "Project changed; review again")
             original = pause_recovery.eligible(state)
