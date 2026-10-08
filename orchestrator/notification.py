@@ -22,7 +22,7 @@ NOTIFY_KINDS = {"decision_response", "resume", "reconcile", "checkpoint", "archi
 
 
 class BrainNotifier:
-    def __init__(self, ledger, cli=None, app_server_binding=None, desktop_wake=False):
+    def __init__(self, ledger, cli=None, app_server_binding=None, desktop_wake=False, pause_recovery_prior_binding=None):
         self.ledger = ledger
         # A trusted local startup option, never supplied by an HTTP request.
         from .installed_codex import resolve_cli
@@ -36,7 +36,9 @@ class BrainNotifier:
         self.app_server = None
         if app_server_binding is not None:
             from .app_server_wake import AppServerWake
-            self.app_server = AppServerWake(app_server_binding, ledger)
+            self.app_server = AppServerWake(app_server_binding, ledger, pause_recovery_prior_binding)
+        if pause_recovery_prior_binding is not None and self.app_server is None:
+            raise ValueError("Pause host continuity requires the reviewed owned transport")
         if self.app_server and self.cli:
             raise ValueError("Choose one brain notification transport")
 

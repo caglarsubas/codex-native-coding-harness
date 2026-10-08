@@ -231,10 +231,16 @@ class JourneyProposals(ActionProposals):
             original = pause_recovery.eligible(state)
             reply_recovery.check_binding(state, host.binding)
             require(not host.pending_approval(state["meta"]["brainId"]), "Native approval needs its own reconciliation")
-            with ReadProxy(host.binding["endpoint"]) as proxy:
-                observation = pause_recovery.observe(proxy, host.binding, original)
             previous = pause_recovery.replacement_context(state, original)
-            pause_recovery.check_replacement(previous, digest(host.binding), observation)
+            continuity = None
+            with ReadProxy(host.binding["endpoint"]) as proxy:
+                if previous and previous["command"]["payload"]["bindingHash"] != digest(host.binding):
+                    from .pause_host_continuity import inspect
+                    observation, continuity = inspect(self.runtime.registry, state["workspace"]["id"], state,
+                        previous, getattr(host, "pause_recovery_prior_binding", None), host.binding, proxy)
+                else:
+                    observation = pause_recovery.observe(proxy, host.binding, original)
+            pause_recovery.check_replacement(previous, digest(host.binding), observation, continuity)
             require(self.runtime.ledger.snapshot()["meta"]["revision"] == state["meta"]["revision"],
                     "Project changed during inspection; check again")
             run = standard["run"]
@@ -256,6 +262,16 @@ class JourneyProposals(ActionProposals):
                     "Review one replacement checkpoint-only recovery on the same host and native turn. No third attempt is allowed.",
                     "The old attempt is recorded as failed, not received. Development, usage and expiry stay unchanged."]
                 preview["details"]["replacement"] = request["payload"]["replacement"]
+            if continuity:
+                request["payload"]["hostContinuity"] = continuity
+                preview["summary"][1] = "Review one checkpoint-only recovery on the separately reviewed replacement host, for the same brain, project and completed turn. No third attempt is allowed."
+                row = host.binding["brains"][state["meta"]["brainId"]]
+                preview["details"]["hostContinuity"] = {
+                    "previousBindingHash": previous["command"]["payload"]["bindingHash"],
+                    "candidateBindingHash": digest(host.binding), "brainId": state["meta"]["brainId"],
+                    "projectId": row["projectId"], "catalogProjectId": row.get("catalogProjectId", row["projectId"]),
+                    "checkout": row["cwd"], "nativePolicy": row["nativePolicy"], "latestCompletedTurn": observation["turnId"],
+                    "boundary": "Only host continuity for this checkpoint request. No host launch, retry, Play or Resume."}
         elif kind == "phase_recovery":
             from .checkpoint_recovery import SUGGESTED_TOKENS, instruction, pending_message
             run = standard["run"]
@@ -397,7 +413,14 @@ class JourneyProposals(ActionProposals):
             reply_recovery.check_binding(state, host.binding)
             require(not host.pending_approval(doc["brainId"]), "Native approval needs its own reconciliation")
             with ReadProxy(host.binding["endpoint"]) as proxy:
-                observation = pause_recovery.observe(proxy, host.binding, original)
+                if "hostContinuity" in request["payload"]:
+                    from .pause_host_continuity import inspect
+                    previous = pause_recovery.replacement_context(state, original)
+                    observation, continuity = inspect(self.runtime.registry, state["workspace"]["id"], state, previous,
+                        request["payload"]["hostContinuity"]["previousBinding"], host.binding, proxy)
+                    require(continuity == request["payload"]["hostContinuity"], "Reviewed host continuity changed")
+                else:
+                    observation = pause_recovery.observe(proxy, host.binding, original)
             require(pause_recovery.same_turn(observation, request["payload"]["observation"]),
                     "Reviewed native turn changed; check again")
             return self.result(doc, pause_recovery.confirm(self.runtime.registry, ledger, request)), True

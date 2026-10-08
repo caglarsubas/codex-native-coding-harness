@@ -63,7 +63,14 @@ saved attempt prevents automatic replay. The owner-approved pre-turn replacement
 exception allows at most one separately signed replacement when the first recovery
 has a closed failure diagnostic proving turn start was not attempted, no native
 delivery/turn/observation marker, and unchanged original Pause, run scope, usage,
-expiry, host binding and latest completed native turn. Retain the full failed
+expiry and latest completed native turn. The host binding must stay unchanged
+unless the separately signed replacement includes exact old/new host-continuity
+evidence under docs/FAILED-PAUSE-RECOVERY.md. Only an already operator-reviewed
+replacement endpoint may differ; brain, workspace, both project IDs, checkout
+and native approval policy remain identical, with repeated independent native
+project/brain/turn reads and retained catalog/ledger identity. The preserved old
+binding is historical hash evidence only, never a connection target or fallback.
+No auto-start, auto-rebind or reconnect follows. Retain the full failed
 command and permit in the replacement journal; record its old command as failed,
 never received. Unknown delivery, an attempted turn start or any prior replacement
 permanently fences another wake. No third attempt, automatic notification, phase

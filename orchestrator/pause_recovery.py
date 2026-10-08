@@ -20,6 +20,7 @@ BOUNDARY = ("One checkpoint-only turn for the saved Pause. Development stays sto
             "policy changes, merges or effect retries. Preserve usage and unknown coverage.")
 ALLOWANCE = 500_000  # Cooperative one-turn guidance, not a phase/provider cap.
 REPLACEMENT_FIELDS = FIELDS | {"replacement"}
+CONTINUITY_FIELDS = REPLACEMENT_FIELDS | {"hostContinuity"}
 
 
 def finite(value):
@@ -116,7 +117,11 @@ def replacement_binding(context):
             "permitHash": digest(context["permit"])}
 
 
-def check_replacement(context, binding_hash, observation):
+def check_replacement(context, binding_hash, observation, continuity=None):
+    if continuity is not None:
+        from .pause_host_continuity import validate
+        validate(continuity, context, binding_hash, observation)
+        return
     if context:
         p = context["command"]["payload"]
         require(isinstance(p.get("observation"), dict) and p["bindingHash"] == binding_hash and
@@ -228,14 +233,17 @@ def validate_in(ledger, db, command, meta, controller=False):
     except (OSError, sqlite3.Error, TypeError, AttributeError) as exc:
         raise Refusal("Registered platform is unavailable; Pause recovery stays blocked") from exc
     p = command["payload"]
-    require(command["kind"] == KIND and command["actor"] == "assistant_owner_confirmed" and set(p) in (FIELDS, REPLACEMENT_FIELDS),
+    require(command["kind"] == KIND and command["actor"] == "assistant_owner_confirmed" and set(p) in (FIELDS, REPLACEMENT_FIELDS, CONTINUITY_FIELDS),
             "Exact signed Pause recovery required")
     state = state_in(ledger, db, meta)
     original = eligible(state, command["id"], controller)
     replacement = replacement_context(state, original, command["id"])
-    require((set(p) == REPLACEMENT_FIELDS if replacement else set(p) == FIELDS) and
+    require((set(p) in (REPLACEMENT_FIELDS, CONTINUITY_FIELDS) if replacement else set(p) == FIELDS) and
             p.get("replacement") == replacement_binding(replacement), "Review the exact failed attempt separately")
-    check_replacement(replacement, p["bindingHash"], p["observation"])
+    check_replacement(replacement, p["bindingHash"], p["observation"], p.get("hostContinuity"))
+    if "hostContinuity" in p:
+        from .pause_host_continuity import check_catalog
+        check_catalog(ledger, p["hostContinuity"])
     run, o = meta["standardRun"], p["observation"]
     require(original["id"] == p["pauseId"] and fingerprint(original) == p["pauseFingerprint"] and
             digest(original["notification"]) == p["notificationHash"] and run["id"] == p["runId"] and
@@ -290,8 +298,17 @@ def send_check(ledger, binding, command_id, proxy):
         original = validate_in(ledger, db, command, meta)
         check_binding({**state_in(ledger, db, meta), "workspace": {"id": ledger.workspace_id}}, binding)
         require(digest(binding) == command["payload"]["bindingHash"], "Reviewed host binding changed")
-    require(same_turn(observe(proxy, binding, original), command["payload"]["observation"]),
-            "Reviewed native turn changed")
+    if "hostContinuity" in command["payload"]:
+        from .pause_host_continuity import inspect, registry_view
+        state = ledger.snapshot()
+        previous = replacement_context(state, original, command_id)
+        observed, proof = inspect(registry_view(ledger), ledger.workspace_id, state, previous,
+            command["payload"]["hostContinuity"]["previousBinding"], binding, proxy)
+        require(proof == command["payload"]["hostContinuity"] and same_turn(observed, command["payload"]["observation"]),
+                "Reviewed host continuity changed")
+    else:
+        require(same_turn(observe(proxy, binding, original), command["payload"]["observation"]),
+                "Reviewed native turn changed")
     with ledger.tx() as db:
         current = ledger.get(db, "commands", command_id)
         validate_in(ledger, db, current, ledger.get(db, "meta", 1))

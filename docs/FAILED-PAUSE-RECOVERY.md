@@ -17,7 +17,9 @@ received, and paused checkpoint retained. A checkpoint is not phase success or
 pilot acceptance. An uncertain recovery stays owned and is never retried. One
 proved pre-turn failed recovery may offer **Review replacement checkpoint
 recovery**, using the same signed control with a new, separately reviewed ID.
-No technical prompt or host replacement is needed; this is never automatic.
+No technical prompt is needed; this is never automatic. If the reviewed host has
+gone away, the narrow host-continuity review below is required separately from
+host launch and dashboard connection review.
 
 The preview is session/workspace/ledger/revision-bound and pins the exact run,
 phase, limits, usage, expiry, brain, original Pause fingerprint and notification
@@ -81,8 +83,9 @@ turn start remains fenced. Expiry alone never authorizes another attempt.
 Keep the first recovery's run, phase, scope, limits, usage/gaps, expiry, original
 Pause and notification hashes unchanged. The current reviewed host and latest
 completed native turn must match those bound to the first attempt, in addition
-to every fresh repeated identity/activity read and pre-send fence above. A host
-rebind or a newer unrelated turn is not interchangeable evidence.
+to every fresh repeated identity/activity read and pre-send fence above. Only
+the exact separately signed continuity exception below permits a changed host
+binding. A newer unrelated turn or a replacement brain is never interchangeable.
 
 The exact signed replacement payload binds the previous command, notification
 and permit hashes. In one owner-confirmed transaction, retain the full previous
@@ -98,6 +101,51 @@ receipt and checkpoint. Drift refuses and transactional interruption rolls back.
 
 The replacement is permanently consumed even if it fails before turn start. No
 third wake, ordinary-message bypass, implicit Resume or automatic retry is allowed.
+
+### Same-brain replacement-host continuity
+
+The owner authorized removing the circular dependency on a dead socket without
+loosening native identity or retry limits. For this **one second attempt only**,
+an operator may separately review/qualify a replacement host and its dashboard
+connection, then start the stopped, backed-up dashboard with both:
+
+```text
+--brain-app-server-binding PRIVATE_REVIEWED_CANDIDATE.json
+--pause-recovery-prior-binding PRIVATE_PRESERVED_PREVIOUS.json
+```
+
+This additional option only supplies historical evidence to the existing signed
+replacement preview. It is not host launch, host-binding approval, a wake,
+an automatic recovery or permission to use the previous connection. The old
+file remains private, bounded and immutable, and its complete hash must match
+the first failed recovery. A missing old socket or changed old executable is
+not grounds to inspect or revive that obsolete endpoint.
+
+Require exactly one brain mapping, identical in both bindings: designated brain,
+workspace, native project ID, app-catalog project ID, canonical checkout and
+workspace-write/on-request/Code Mode disabled policy. Only endpoint pins may
+change. Require the retained catalog mapping, exact registered database identity
+and canonical project root to match; names and paths alone are insufficient.
+On the already reviewed candidate connection, bracket the repeated latest-ended
+turn observations with metadata-only project/brain reads. The exact completed
+turn, completion time, brain and native project must match the first failure.
+Changing roots, active/unknown activity, a newer turn or pending native approval
+refuse. No project metadata update, discovery, resume or turn/start occurs during
+inspection.
+
+The same signed replacement preview displays the old/new binding hashes and
+unchanged identity/policy/turn under Details. It retains both complete bindings
+and catalog/database pins in `hostContinuity`; confirmation rechecks them before
+the existing transaction. At both send boundaries, repeat the candidate identity
+and turn reads on the actual retained sending connection. Receipt/checkpoint
+validate the retained continuity and catalog, never connect to the old host.
+Historical confirmation returns only its receipt, even if the endpoint is gone.
+This does not re-arm the failed attempt, change run scope/usage/expiry, enable a
+third attempt, or authorize any other pending request on the replacement host.
+
+Source delivery does not install, launch or change either live host binding.
+Host qualification, checkpoint receipt, stopped-phase closeout and the actual
+native-approval pilot remain separate observed outcomes.
 
 ## Designated brain procedure
 
@@ -140,6 +188,13 @@ desktop/mobile QA; every native read and send is mocked and state is disposable.
 Replacement tests additionally cover immutable failed snapshots, exact owner
 binding, unchanged scope/host/turn, unknown-effect refusal, rollback, historical
 replay, old-request receipt refusal and the absolute two-attempt bound.
+`test_pause_host_continuity.py` additionally covers private historical binding
+reads without old-endpoint inspection, signed old/new continuity, catalog/root/
+brain/turn/policy drift, both send gates, retained snapshots and late receipt
+validation. All native responses in these tests are synthetic.
+Use `PYTHONPATH=.:tests python3 tests/manual_pause_recovery_fixture.py --host-continuity`
+for disposable desktop/mobile preview, confirmation and paused-checkpoint checks.
+The fixture never connects to a real host or sends a real native instruction.
 
 Run full local Python discovery, all JavaScript suites, syntax and diff checks.
 No GitHub Actions or paid service. Quiesce older writers and back up private state
