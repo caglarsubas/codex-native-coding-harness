@@ -13,6 +13,10 @@ assert.equal(present({status:'sending',attemptedAt:99}).label,'Notifying brain')
 assert.equal(present({status:'sending',attemptedAt:1}).label,'Delivery unconfirmed');
 assert.equal(present({status:'unavailable',detail:'Saved'}).label,'Notification unavailable');
 assert.equal(present({status:'uncertain',detail:'Saved'}).label,'Delivery unconfirmed');
+const retainedFailure=context.commandPresentation({kind:'standard_pause_recovery',status:'failed',replacement:{id:'new-attempt',at:1},
+  notification:{status:'unavailable',nativeFailure:{turnStartAttempted:false}}});
+assert.match(retainedFailure.label,/Pre-turn recovery failed/);
+assert.match(retainedFailure.detail,/not a brain receipt or an automatic resend/);
 assert.equal(present({status:'accepted',finishedAt:99},{fresh:true,status:'idle'}).label,'Sent to Codex');
 assert.equal(present({status:'accepted',finishedAt:99},{fresh:true,status:'running'}).label,'Brain active · awaiting receipt');
 assert.equal(present({status:'accepted',finishedAt:99},{fresh:false,status:'running'}).label,'Sent to Codex');

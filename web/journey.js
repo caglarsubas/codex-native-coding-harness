@@ -131,9 +131,9 @@ function roadmapJourneyState(snapshot,isConnected=true,now=Date.now()/1000){
     handoff.status==='received'?'The replacement received its checkpoint. Project identity and final owner review still need to be resolved before continuing.':'A replacement brain is being prepared. Follow its recorded progress before continuing the phase.',
     'Review handoff progress','handoff',{canPause:run?.status==='running'});
   const pending=[...(snapshot.commands||[])].reverse().find(c=>run&&c.payload?.runId===run.id&&['standard_play','standard_pause','standard_resume'].includes(c.kind)&&['queued','processing'].includes(c.status));
-  if(run?.status==='stopping'&&s.pauseRecovery?.available&&snapshot.brainNotification?.transport==='owned_app_server')return result(2,'Recover the saved Pause',
-    'Its delivery failed before starting a brain turn. Review one checkpoint-only recovery; development stays stopped.',
-    'Recover saved Pause','pause-recover');
+  if(run?.status==='stopping'&&s.pauseRecovery?.available&&snapshot.brainNotification?.transport==='owned_app_server')return result(2,s.pauseRecovery.replacementOf?'Review replacement checkpoint recovery':'Recover the saved Pause',
+    s.pauseRecovery.replacementOf?'The first recovery failed before turn start. Review one replacement; its failed record is preserved and no third attempt is allowed.':'Its delivery failed before starting a brain turn. Review one checkpoint-only recovery; development stays stopped.',
+    s.pauseRecovery.replacementOf?'Review replacement recovery':'Recover saved Pause','pause-recover');
   if(run?.status==='stopping'&&['queued','processing'].includes(run.pauseRecovery?.status)){
     const request=(snapshot.commands||[]).find(c=>c.id===run.pauseRecovery.id);
     return result(2,'Following Pause recovery','Native delivery, the saved Pause receipt and the paused checkpoint are separate. No second wake will be sent.',

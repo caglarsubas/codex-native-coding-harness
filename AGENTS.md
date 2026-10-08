@@ -59,8 +59,16 @@ requests, tasks, packets, runners, native approvals and uncertain delivery remai
 fenced. Only `standard-brain pause_recovery_receive` may receipt the saved Pause;
 then retain an empty `paused` checkpoint and release. No ordinary draining, new
 effects, Resume, Play, approval response, phase success or pilot acceptance. A
-saved attempt permanently prevents another for that Pause. Source delivery does
-not install, rebind or change live state. Read docs/FAILED-PAUSE-RECOVERY.md fully.
+saved attempt prevents automatic replay. The owner-approved pre-turn replacement
+exception allows at most one separately signed replacement when the first recovery
+has a closed failure diagnostic proving turn start was not attempted, no native
+delivery/turn/observation marker, and unchanged original Pause, run scope, usage,
+expiry, host binding and latest completed native turn. Retain the full failed
+command and permit in the replacement journal; record its old command as failed,
+never received. Unknown delivery, an attempted turn start or any prior replacement
+permanently fences another wake. No third attempt, automatic notification, phase
+Resume, Play or pilot success follows. Source delivery does not install, rebind or
+change live state. Read docs/FAILED-PAUSE-RECOVERY.md fully.
 
 The owner approved implementing an opt-in, documented Codex app-server wake
 bridge for registered standard projects. This supersedes the queue-only
