@@ -68,13 +68,17 @@ def validate(spec, repositories):
     criteria = strings(spec["successCriteria"], "Success criteria")
     exclusions = strings(spec["exclusions"], "Exclusions")
     phase = spec["phase"]
-    require(isinstance(phase, dict) and set(phase) in (
-        {"id", "title", "objective", "checkpoint", "stopConditions", "scope"},
-        {"id", "title", "objective", "checkpoint", "stopConditions", "scope", "taskOutline"}),
+    phase_fields = {"id", "title", "objective", "checkpoint", "stopConditions", "scope"}
+    require(isinstance(phase, dict) and phase_fields <= set(phase) and
+            set(phase) <= phase_fields | {"taskOutline", "durationHours"},
             "Phase fields must match the v1 contract")
     require(isinstance(phase["id"], str) and re.fullmatch(r"[a-z0-9][a-z0-9-]{0,63}", phase["id"]), "Invalid phase ID")
     clean_phase = {key: text(phase[key], "Phase " + key) for key in ("title", "objective", "checkpoint")}
     clean_phase.update(id=phase["id"], stopConditions=strings(phase["stopConditions"], "Stop conditions"))
+    # Optional for historical document/hash compatibility. Never infer authority
+    # from a prose deadline or inject a default into a saved legacy document.
+    if "durationHours" in phase:
+        clean_phase["durationHours"] = integer(phase["durationHours"], "Phase hours", 1, 24)
     require(isinstance(phase["scope"], list) and 1 <= len(phase["scope"]) <= 20, "Select 1–20 repositories for the phase")
     scope = []
     for row in phase["scope"]:

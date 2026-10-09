@@ -112,8 +112,9 @@ async function reviewStandardControl(s,operation,run){
   try{
     const budget=state.mission?.document?.spec.authority.tokenBudget||1;
     const suggestedBrain=Math.max(1,Math.min(Math.floor(budget*.3),12000000));
+    const phaseHours=state.mission?.document?.spec.phase?.durationHours??24;
     const preview=await api('/api/standard/preview',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},
-      body:JSON.stringify({operation,contextHash:s.contextHash,brainAllowance:operation==='play'?suggestedBrain:run?.brainAllowance||suggestedBrain,durationHours:operation==='play'?24:8,measureUsage:operation==='play'})});
+      body:JSON.stringify({operation,contextHash:s.contextHash,brainAllowance:operation==='play'?suggestedBrain:run?.brainAllowance||suggestedBrain,durationHours:operation==='play'?phaseHours:8,measureUsage:operation==='play'})});
     if(workspaceId!==key)return;
     standardPreviews.set(key,preview);selected='standard-confirm';prepared=true;
   }catch(error){if(!error.workspaceChanged)showNotice(error.message,true);}

@@ -37,7 +37,9 @@ its own review and Play. Source delivery does not activate this path on live
 state or reconfigure a host binding. See docs/CHECKPOINT-RECOVERY-WAKE.md.
 
 After recovery replies, the signed `phase_close` owner adapter may close only an
-expired, empty paused standard run as blocked and unqualified. Require the exact
+empty paused standard run that is expired or has a retained, dated `duration`
+checkpoint as blocked and unqualified. The duration-stop exception does not infer
+a deadline from prose, rewrite the original Play expiry or allow Resume. Require the exact
 recovery receipt/reply, released controller, no workers/packets/run effects or
 pending controls, and repeated metadata-only reads showing that exact recovery
 is the latest completed turn on the reviewed bound host. Preserve the old
@@ -46,6 +48,15 @@ settlement, pilot acceptance or permission to reopen the run. Closeout sends no
 notification. Subsequent Help, mission Review and Play remain separate controls;
 polling never collects native evidence or confirms them. Source delivery changes
 no live state or host. See docs/EXPIRED-PHASE-CLOSEOUT.md.
+
+New standard mission drafts use structured `phase.durationHours` (1–24 whole
+hours, normally 24) and consistent narrative stopping points. Play must match
+that exact reviewed duration; changing it requires a new draft and review.
+Resume never resets the original clock. Historical documents lacking the field
+remain unchanged; their explicit Play window is not inferred from prose.
+Any retained duration stop fences continuation and requires closeout/new-phase
+review rather than an extension or automatic retry. Source delivery does not
+install this contract or close an existing run.
 
 ## Owned app-server wake source (2026-09-26)
 

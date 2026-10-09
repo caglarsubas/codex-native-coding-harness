@@ -24,6 +24,11 @@ function all(root){return [root,...root.children.flatMap(x=>x instanceof Element
   assert.equal(routes.at(-1),'roadmap','A signed Play preview opens its visible inspector section');
   assert.equal(sent[0].body.durationHours,24,'New Play suggests a 24-hour window');
   assert.equal(sent[0].body.brainAllowance,1,'A missing reviewed budget never fabricates a large allowance');
+  box.state.mission={document:{spec:{phase:{durationHours:4},authority:{tokenBudget:100000}}}};
+  await box.reviewStandardControl(box.state.standard,'play',null);
+  assert.equal(sent.at(-1).body.durationHours,4,'Legacy/embed Play also uses the exact reviewed phase duration');
+  box.state.mission=null;
+  sent.pop(); // The additional duration regression is independent of later call-count assertions.
   nodes=all(render());let confirm=nodes.find(n=>n.text==='Confirm play');assert.equal(confirm.disabled,true);
   let check=nodes.find(n=>n.type==='checkbox');check.checked=true;check.onchange();assert.equal(confirm.disabled,false);
   box.workspaceId='beta';assert.ok(!all(render()).some(n=>n.text==='Confirm play'),'Project preview isolation');

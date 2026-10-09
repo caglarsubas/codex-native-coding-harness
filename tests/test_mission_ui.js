@@ -11,10 +11,12 @@ class Node{
   reportValidity(){return true;}
 }
 const nodes=root=>[root,...root.children.flatMap(nodes)];
+const inspectorRoutes=[];
 const box={titles:{},Map,JSON,crypto:{randomUUID:()=>`fixture-${++sequence}`},busy:false,connected:true,
   workspaceId:'alpha',csrf:'fixture-csrf',selected:null,
   state:{mission:{revision:1,document:{spec:{goal:'Earlier reviewed scope'}}},repositories:[{id:'fixture',policyProfile:'standard',mergePolicy:'manual'}]},
   document:{querySelector:()=>null},render(){},
+  sessionSelectRoute:route=>inspectorRoutes.push(route),
   el:(tag,text)=>new Node(tag,text),section:(title)=>new Node('h2',title),callout:(title,body)=>new Node('aside',title+' '+body),
   button:(title,click)=>Object.assign(new Node('button',title),{click}),num:String,updateWorkspaceSelector(){},
   showNotice:(message)=>notices.push(message),refresh:async()=>{},
@@ -38,10 +40,12 @@ const run=code=>vm.runInContext(code,box),control={disabled:false,closest:()=>nu
   box.source={repository:'fixture',path:'docs/plan.md',commit:'a'.repeat(40),documentId:'b'.repeat(64),
     documentVersion:3,observedAt:12,kind:'checklist',line:4,text:'Build a bounded fixture'};
   assert.equal(run('openMissionEditor(source)'),true);
+  assert.equal(inspectorRoutes.at(-1),'mission','Opening a local draft invalidates the cached in-page inspector');
   const handoff=run("missionDrafts.get('alpha')");
   assert.equal(handoff.revision,1);assert.equal(handoff.spec.goal,'Build a bounded fixture');
   assert.equal(handoff.spec.authority.approvalMode,'prepare_only');
   assert.equal(handoff.spec.phase.scope.length,0);assert.equal(handoff.spec.authority.tokenBudget,20000000);
+  assert.equal(handoff.spec.phase.durationHours,24,'New standard drafts suggest one explicit 24-hour phase window');
   assert.equal(handoff.spec.authority.checkpointReserveTokens,2000000);
   assert.equal(handoff.spec.authority.maxParallelTasks,1,'No outline cannot imply independent work');
   assert.match(handoff.spec.phase.objective,/Roadmap source: fixture \/ docs\/plan.md/);
@@ -49,6 +53,13 @@ const run=code=>vm.runInContext(code,box),control={disabled:false,closest:()=>nu
   assert.equal(sent.length,0,'Preparing a local draft sends no request');
   assert.equal(run("missionDrafts.get('alpha').source.line"),4);
   box.root=new Node('main');run('missionEditor(root,state.mission)');
+  const phaseHours=nodes(box.root).find(n=>n.tag==='label'&&n.textContent==='Phase window (hours from Play)').children[0];
+  assert.equal(phaseHours.value,24);phaseHours.value='4';phaseHours.oninput();
+  assert.equal(handoff.spec.phase.durationHours,4,'Editing changes only the unsaved proposal');
+  assert.equal(sent.length,0);
+  assert.ok(nodes(box.root).some(n=>String(n.textContent).includes('The phase window above controls Play.')));
+  assert.ok(!nodes(box.root).some(n=>String(n.textContent).includes('Play suggests 24 hours')),
+    'Outline copy must not introduce a competing duration');
   const mergeMode=nodes(box.root).find(n=>n.tag==='label'&&n.textContent==='Phase merge mode').children[0];
   assert.equal(mergeMode.value,'manual','Manual is the default');
   assert.ok(!('mergeMode' in handoff.spec.authority),'Rendering does not opt in');
@@ -86,5 +97,13 @@ const run=code=>vm.runInContext(code,box),control={disabled:false,closest:()=>nu
   assert.ok(notices.at(-1).includes('No execution was authorized'));
   box.connected=false;await box.missionWrite(payload,control);
   assert.equal(sent.length,3,'Disconnected UI must not submit');
+  box.workspaceId='alpha';box.resetDraft=handoff;box.root=new Node('main');
+  run("missionDrafts.set('alpha',resetDraft);missionEditor(root,state.mission)");
+  const routesBeforeDiscard=inspectorRoutes.length;
+  nodes(box.root).find(n=>n.tag==='button'&&n.textContent==='Discard unsaved edits').click();
+  assert.equal(run("missionDrafts.has('alpha')"),false);
+  assert.equal(inspectorRoutes.length,routesBeforeDiscard+1);
+  assert.equal(inspectorRoutes.at(-1),'mission','Discard invalidates the inspector without a ledger write');
+  assert.equal(sent.length,3);
   console.log('Mission draft isolation, retry identity and no-activation checks passed');
 })().catch(error=>{console.error(error);process.exitCode=1;});

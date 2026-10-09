@@ -118,6 +118,13 @@ def current_blockers(ledger, db, run):
     try:
         _, m = eligible(ledger, db)
         require(m["documentHash"] == run["missionHash"] and m["receiptHash"] == run["reviewHash"], "Mission changed: checkpoint and review a new phase")
+        duration = m["document"]["spec"]["phase"].get("durationHours")
+        if duration is not None:
+            require(run["ownerReceipt"]["durationHours"] == duration and
+                    run["expiresAt"] == run["startedAt"] + duration * 3600,
+                    "Run window differs from the reviewed phase duration: checkpoint required")
+        require("duration" not in (run.get("checkpoint") or {}).get("reasonCodes", []),
+                "Recorded duration stop requires closeout and a new phase; Resume cannot extend it")
         require(time.time() < run["expiresAt"], "Run duration expired: checkpoint required")
     except (Refusal, ValueError) as error:
         problems.append(str(error))
@@ -349,6 +356,12 @@ class Controls:
         require(state["contextHash"] == request["contextHash"], "Run changed; refresh before reviewing")
         missions.integer(request["brainAllowance"], "Brain allowance", 1, 1_000_000_000)
         missions.integer(request["durationHours"], "Run hours", 1, 24)
+        if request["operation"] == "play":
+            with read_db(ledger.db) as db:
+                mission = missions.state_in(ledger, db)
+                duration = (mission.get("document") or {}).get("spec", {}).get("phase", {}).get("durationHours")
+                require(duration is None or request["durationHours"] == duration,
+                        "Play hours must match the reviewed phase duration; revise and review the mission to change it")
         doc = {**request, "workspaceId": missions.workspace(ledger), "session": digest(session),
                "id": str(uuid.uuid4()), "runId": state["run"]["id"] if state["run"] else None,
                "expiresAt": time.time()+300, "boundary": BOUNDARY}
@@ -400,12 +413,16 @@ class Controls:
                 require(run is None or not any(m["status"] in ("issued", "uncertain") for m in run.get("merges", [])), "Unresolved merge retains its run")
                 meta, m = eligible(ledger, db)
                 spec = m["document"]["spec"]
+                duration = spec["phase"].get("durationHours")
+                require(duration is None or doc["durationHours"] == duration,
+                        "Play hours must match the reviewed phase duration")
                 require(run is None or run["phaseId"] != spec["phase"]["id"], "Same-phase usage/attempts cannot be reset; use Resume or review a genuinely new phase")
                 require(doc["brainAllowance"]+spec["authority"]["checkpointReserveTokens"] < spec["authority"]["tokenBudget"], "Reserve leaves no worker allowance")
                 identities = {s["repository"]: git_root(ledger.get(db, "repos", s["repository"])["path"]) for s in spec["phase"]["scope"]}
+                started_at = time.time()
                 run = {"id": str(uuid.uuid4()), "protocol": PROTOCOL, "revision": 0, "status": "running",
                        "missionHash": m["documentHash"], "reviewHash": m["receiptHash"], "phaseId": spec["phase"]["id"],
-                       "brainId": meta["brainId"], "startedAt": time.time(), "expiresAt": time.time()+doc["durationHours"]*3600,
+                       "brainId": meta["brainId"], "startedAt": started_at, "expiresAt": started_at+doc["durationHours"]*3600,
                        "limits": spec["authority"], "catalog": meta["standardCatalog"], "identities": identities,
                        "brainAllowance": doc["brainAllowance"], "brainObservedTokens": 0, "brainUsageCoverage": "not_observed",
                        "usageGuardVersion": 1 if doc.get("measureUsage") else None,

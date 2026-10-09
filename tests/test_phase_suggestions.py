@@ -123,6 +123,10 @@ class PhaseSuggestionTest(unittest.TestCase):
         self.assertEqual(suggest_play_settings(2)["brainAllowanceTokens"], 1)
         with self.assertRaises(ValueError):
             suggest_play_settings(0)
+        self.assertEqual(suggest_play_settings(6_000_000, 4)["durationHours"], 4)
+        for invalid in (0, 25, True, "4", 4.0):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                suggest_play_settings(6_000_000, invalid)
 
 
 if __name__ == "__main__":
