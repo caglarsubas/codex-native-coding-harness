@@ -54,6 +54,36 @@ Use `standard-brain PRIVATE_REQUEST_JSON` for the operations below. JSON request
 files are private, not committed. Use `standard-release CHECKPOINT` before
 ending. Do not call legacy `process`, reserve/begin or strict managed handoffs.
 
+### Current owned-host evidence handoff
+
+An owned notification may name its exact command/run and provide the
+`standard-host-inspect RUN_ID COMMAND_ID` pointer. The bridge retains its
+already reviewed binding privately before delivery; the owner should not need
+to supply paths or write another investigation prompt. After receiving the
+control, use this explicit brain-only inspection under the same controller:
+
+`python3 -m orchestrator.cli --platform REGISTRY --workspace ID standard-host-inspect RUN_ID COMMAND_ID`
+
+It checks the exact current owned subscription, private binding hash, both
+separately pinned project identities and repeated project/brain metadata on the
+same host. It makes no native write and does not persist or renew observations.
+It may inspect an active brain without calling native `thread/resume`. An old
+completed receipt, missing handoff, changed host/catalog/run or racing Pause
+cannot become current evidence. Do not use `native-project-preview` (assignment
+qualification) or the desktop task mirror to establish this active host's state.
+
+Keep the original `resumeProfile.observedAt`, requested policy, successful
+resume acknowledgement and native-reported policy distinct. The installed
+protocol reports sandbox, approval policy and reviewer; it does not independently
+report Code Mode. The acknowledged `code_mode.enabled=false` configuration is
+not OS attestation. Check current native tool metadata if the mission needs that
+extra proof. Missing/contrary fields and `issues` stop effects; do not copy
+requested values into reported ones. An empty recorded approval list never
+proves complete native-effect absence. Honor the explicit `gaps` and mission's
+remaining evidence requirements, then re-read current run/usage before any effect.
+This is no permission grant, automatic Resume, diagnostic retry or pilot acceptance.
+Read `docs/STANDARD-HOST-EVIDENCE.md` for the exact boundaries and rollout.
+
 ## Pre-Play capability request
 
 When `standard-state.catalogRefresh.status` is `queued`, process that exact

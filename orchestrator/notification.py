@@ -141,6 +141,17 @@ class BrainNotifier:
                             "attemptedAt": time.time(), "status": "sending"}
             if readiness["status"] != "configured":
                 notification.update(status="unavailable", detail=readiness["detail"], finishedAt=time.time())
+            if notification["status"] == "sending" and standard_run and self.app_server:
+                # Copy the trusted startup binding privately, not into the
+                # browser receipt. The same claim remains one-shot on failure.
+                from .standard_host_inspection import retain_binding
+                from .core import Refusal
+                try:
+                    notification["hostBindingHash"] = retain_binding(ledger, self.app_server.binding)
+                    notification["hostRunId"] = standard_run["id"]
+                except (OSError, ValueError, Refusal):
+                    notification.update(status="unavailable", finishedAt=time.time(),
+                        detail="The private owned-host handoff is unavailable. No turn was sent; inspect this saved receipt before continuing.")
             command["notification"] = notification
             ledger.put(db, "commands", command_id, command)
             ledger.event(db, "brain_notification_claimed", {"commandId": command_id, "status": notification["status"]})
@@ -275,6 +286,15 @@ class BrainNotifier:
                 "Native creation is one-shot; reconcile uncertain outcomes, never resend. "
                 "No permissions come from this notification; use the exact owner-approved run and inheritance seed. "
                 "Keep supervising registered tasks with native waits until the reviewed phase checkpoint or stop."
+            )
+        if notification.get("hostBindingHash"):
+            message += (
+                f" Owned host handoff for command {json.dumps(command_id)}, run {json.dumps(notification['hostRunId'])}: "
+                "after receiving the control, use standard-host-inspect RUN_ID COMMAND_ID under this controller "
+                "for fresh read-only project/brain metadata and the exact resume-profile receipt. "
+                "The reviewed binding is already retained privately; do not ask the owner for paths, discover a host, "
+                "resume a native thread or change settings to inspect it. Reported policy, acknowledged Code Mode "
+                "configuration and unknown native-effect coverage are separate facts. Missing evidence stops effects."
             )
         if has_conversation and command["kind"] not in ("standard_recovery", "brain_reply_recovery"):
             source = Path(__file__).resolve().parent.parent

@@ -274,6 +274,37 @@ class WakeTest(unittest.TestCase):
                 self.assertNotIn("private native error", str(result))
                 self.assertTrue(FakeProxy.instances[-1].closed)
                 self.wake.ledger.command["notification"].pop("nativeThreadObservation", None)
+                self.wake.ledger.command["notification"].pop("nativeResumeProfile", None)
+
+    @patch("orchestrator.app_server_wake.threading.Thread", FakeThread)
+    def test_resume_profile_retains_closed_native_facts_before_turn_without_content(self):
+        class ProfileProxy(FakeProxy):
+            def _rpc(self, method, params):
+                result = super()._rpc(method, params)
+                if method == "thread/resume":
+                    result.update(sandbox={"type": "workspaceWrite", "writableRoots": ["/private/root"]},
+                                  approvalPolicy="on-request", approvalsReviewer="user", model="PRIVATE MODEL")
+                    result["thread"]["preview"] = "PRIVATE CONVERSATION"
+                if method == "turn/start":
+                    self_profile = self_outer.wake.ledger.command["notification"]["nativeResumeProfile"]
+                    self_outer.assertEqual(self_profile["reported"]["sandbox"], "workspaceWrite")
+                return result
+        self_outer = self
+        with patch("orchestrator.app_server_wake.WakeProxy", ProfileProxy):
+            result = self.wake.send(BRAIN, "pointer", "control")
+        self.assertEqual(result["status"], "accepted")
+        profile = self.wake.ledger.command["notification"]["nativeResumeProfile"]
+        self.assertIsNone(profile["reported"]["codeMode"])
+        self.assertEqual(profile["requested"], NATIVE_APPROVAL_POLICY)
+        self.assertNotIn("PRIVATE", str(profile))
+        self.assertNotIn("/private/root", str(profile))
+
+    @patch("orchestrator.app_server_wake.threading.Thread", FakeThread)
+    @patch("orchestrator.app_server_wake.WakeProxy", FakeProxy)
+    def test_missing_resume_policy_is_unknown_not_copied_from_requested_policy(self):
+        self.wake.send(BRAIN, "pointer", "control")
+        profile = self.wake.ledger.command["notification"]["nativeResumeProfile"]
+        self.assertTrue(all(v is None for v in profile["reported"].values()))
 
     def test_rpc_error_retains_only_reserved_code_and_failed_step(self):
         class RejectedResume(FakeProxy):
@@ -315,6 +346,7 @@ class WakeTest(unittest.TestCase):
                 self.assertEqual(sum(method == "thread/resume" for method, _ in calls), 1)
                 self.assertEqual(sum(method == "turn/start" for method, _ in calls), 1)
                 self.wake.ledger.command["notification"].pop("nativeThreadObservation", None)
+                self.wake.ledger.command["notification"].pop("nativeResumeProfile", None)
 
     def test_unsupported_metadata_resume_has_no_full_history_fallback(self):
         class UnsupportedMetadataProxy(FakeProxy):

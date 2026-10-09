@@ -874,6 +874,17 @@ class AppServerWake:
             turns = resumed_thread.get("turns", [])
             require(isinstance(turns, list) and not turns,
                     "Native resume did not return metadata only")
+            # Keep the original metadata-only response tied to this one-shot
+            # notification. A binding alone is not an observed native policy.
+            from .standard_host_inspection import resume_profile
+            with self.ledger.tx() as db:
+                command = self.ledger.get(db, "commands", command_id)
+                note = command.get("notification") or {}
+                require(note.get("brainId") == brain_id and note.get("status") == "sending" and
+                        "nativeResumeProfile" not in note, "Owned resume profile claim changed")
+                note["nativeResumeProfile"] = resume_profile(self.binding, brain_id, command_id, resumed)
+                command["notification"] = note
+                self.ledger.put(db, "commands", command_id, command)
             if recovery:
                 # Resume changes native loading, not dispatch authority. Recheck
                 # a racing Stop and exact original immediately before turn/start.
@@ -894,6 +905,13 @@ class AppServerWake:
             require(isinstance(turn, dict) and isinstance(turn.get("id"), str) and
                     0 < len(turn["id"]) <= 128, "Native turn start was not confirmed")
             confirmed_turn_id = turn["id"]
+            with self.ledger.tx() as db:
+                command = self.ledger.get(db, "commands", command_id)
+                profile = (command.get("notification") or {}).get("nativeResumeProfile")
+                require(profile and profile.get("commandId") == command_id and
+                        "nativeTurnId" not in profile, "Owned turn profile changed")
+                profile["nativeTurnId"] = confirmed_turn_id
+                self.ledger.put(db, "commands", command_id, command)
             stage = "subscription"
             thread = threading.Thread(target=self._observe_turn,
                 args=(proxy, command_id, brain_id, turn["id"]), daemon=True,

@@ -49,6 +49,15 @@ no live state or host. See docs/EXPIRED-PHASE-CLOSEOUT.md.
 
 ## Owned app-server wake source (2026-09-26)
 
+Current standard-run notifications may retain their reviewed startup binding in
+a private hash-addressed handoff and provide `standard-host-inspect` to the
+designated brain. Read docs/STANDARD-HOST-EVIDENCE.md fully before using it.
+The inspector only makes explicit repeated project/brain metadata reads for
+the latest subscribed owned control; it never resumes, starts, discovers or
+responds to native work. Successful resume configuration, reported policy and
+unverified Code Mode/effect coverage are separate. No old receipt backfill,
+automatic Resume, host rebinding or pilot acceptance follows source delivery.
+
 For an empty stopping standard run with one proved pre-turn failed Pause, the
 separately signed `phase_pause_recovery` control may authorize one checkpoint-only
 owned-host wake. Preserve the original failed notification; never reset or resend

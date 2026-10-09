@@ -142,7 +142,7 @@ def _activity(thread):
     return "active" if kind == "active" else "unknown"
 
 
-def _brain_identity(client, scope):
+def _brain_identity(client, scope, *, include_flags=False):
     project = client.call("project/read", {"projectId": scope["projectId"]}).get("project")
     require(isinstance(project, dict) and project.get("id") == scope["projectId"] and
             isinstance(project.get("roots"), list) and len(project["roots"]) == 1,
@@ -157,9 +157,16 @@ def _brain_identity(client, scope):
     require(isinstance(thread, dict) and thread.get("id") == scope["brainId"] and
             thread.get("projectId") == scope["projectId"] and thread.get("cwd") == scope["cwd"],
             "Native brain identity differs from the reviewed host binding")
-    return {"nativeStatus": _activity(thread),
-            "sourceHash": digest({"id": thread["id"], "projectId": thread["projectId"],
-                                  "cwd": thread["cwd"], "status": thread.get("status"), "root": path})}
+    result = {"nativeStatus": _activity(thread),
+              "sourceHash": digest({"id": thread["id"], "projectId": thread["projectId"],
+                                    "cwd": thread["cwd"], "status": thread.get("status"), "root": path})}
+    if include_flags:
+        status = thread.get("status")
+        flags = status.get("activeFlags") if isinstance(status, dict) else None
+        result["activeFlags"] = flags if isinstance(flags, list) and len(flags) <= 2 and \
+            all(f in ("waitingOnApproval", "waitingOnUserInput") for f in flags) and \
+            len(set(flags)) == len(flags) else None
+    return result
 
 
 def _thread(client, target):

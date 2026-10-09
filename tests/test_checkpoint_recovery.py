@@ -18,8 +18,9 @@ import test_standard
 
 
 class OwnedWake:
-    def __init__(self):
+    def __init__(self, binding):
         self.sent = []
+        self.binding = binding
 
     def configured(self, brain_id):
         return True
@@ -52,7 +53,11 @@ class CheckpointRecoveryTest(unittest.TestCase):
             run["expiresAt"] = time.time() - 1
             run["usageHighWater"] = 80_000
             standard.save(self.ledger, db, meta, run, "fixture_expired")
-        self.native = OwnedWake()
+        from orchestrator.app_server_wake import NATIVE_APPROVAL_POLICY
+        brain = self.ledger.snapshot()["meta"]["brainId"]
+        self.native = OwnedWake({"endpoint": {}, "brains": {brain: {
+            "workspaceId": "alpha", "cwd": str(self.fixture.repo), "projectId": "owned-project",
+            "catalogProjectId": "projectless", "nativePolicy": NATIVE_APPROVAL_POLICY.copy()}}})
         self.notifier = BrainNotifier(self.ledger)
         self.notifier.app_server = self.native
         self.runtime = SimpleNamespace(ledger=self.ledger, registry=self.registry,

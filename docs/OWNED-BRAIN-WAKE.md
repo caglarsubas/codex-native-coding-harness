@@ -11,6 +11,12 @@ Binding configuration is not host health. Separate handshake checks, in-place
 review renewal and an opt-in operator supervisor are documented in
 [host lifetime and review recovery](HOST-LIFETIME-AND-REVIEW-RECOVERY.md).
 
+Current standard-run notifications also carry a private, hash-bound
+[host-evidence handoff](STANDARD-HOST-EVIDENCE.md) for the designated brain.
+Its explicit inspector is read-only; requested settings, successful resume
+acknowledgement, native-reported policy and unverified coverage stay separate.
+It never renews authority, replays a control or supplies pilot qualification.
+
 Received pre-phase messages whose native turns ended without a retained reply
 have a separate [receipt-only recovery](RECEIPT-ONLY-RECOVERY.md) control.
 It uses this same bound bridge and one-shot claim, not a diagnostic replay,
