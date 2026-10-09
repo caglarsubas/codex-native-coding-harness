@@ -17,11 +17,13 @@ MAX_FILES_PER_TASK = 40
 MAX_PATH_LENGTH = 500
 
 
-def suggest_play_settings(reviewed_budget):
+def suggest_play_settings(reviewed_budget, duration_hours=None):
     """Suggested preview settings for a new phase; never modify a saved run."""
     if type(reviewed_budget) is not int or reviewed_budget < 1:
         raise ValueError("A positive reviewed phase budget is required")
-    return {"durationHours": 24,
+    if duration_hours is not None and (type(duration_hours) is not int or not 1 <= duration_hours <= 24):
+        raise ValueError("Reviewed phase hours must be an integer from 1 to 24")
+    return {"durationHours": 24 if duration_hours is None else duration_hours,
             "brainAllowanceTokens": max(1, min(reviewed_budget * 3 // 10, 12_000_000))}
 
 

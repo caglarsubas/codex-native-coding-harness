@@ -68,6 +68,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--port', type=int, default=8797)
     parser.add_argument('--assistant', action='store_true', help='Mock local inference for conversational phase QA')
+    parser.add_argument('--phase-hours', type=int, choices=range(1,25),
+                        help='Reviewed structured duration for the disposable alpha project')
     args = parser.parse_args()
     ASSISTANT = args.assistant
     fixture = StandardTest()
@@ -81,6 +83,13 @@ if __name__ == '__main__':
                          'native-tools-missing', 'catalog-not-retryable']:
             ledger, token = (fixture.ledger, fixture.token) if identity == 'alpha' else fixture.workspace(identity)
             (ledger.root / 'observations.json').write_text(json.dumps({'codexHome': str(fixture.root / 'empty-codex-logs')}))
+            if identity == 'alpha' and args.phase_hours is not None:
+                from orchestrator.missions import read as mission_read
+                spec = specification(mode='phase_delegated')
+                spec['phase']['durationHours'] = args.phase_hours
+                spec['phase']['stopConditions'].append('Stop at the structured phase window')
+                current = change(ledger, request(spec=spec, expectedRevision=mission_read(ledger)['revision']))['current']
+                change(ledger, request('review', current['revision'], documentHash=current['documentHash'], confirmed=True))
             if identity == 'draft':
                 from orchestrator.missions import read as mission_read
                 change(ledger, request(spec=specification(mode='phase_delegated'), expectedRevision=mission_read(ledger)['revision']))

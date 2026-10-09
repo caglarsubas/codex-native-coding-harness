@@ -59,8 +59,12 @@ needs an explicit owner-edited allocation or a smaller phase.
 | 3–5 | 30,000,000 | 6 | 10% |
 | 6–10 | 40,000,000 | 10 | 10% |
 
-Parallelism is suggested as at most three independently scoped tasks. New Play
-suggests 24 hours and a brain allowance of 30% of the **reviewed** phase token
+Parallelism is suggested as at most three independently scoped tasks. New standard
+drafts suggest one structured `phase.durationHours: 24` window; the owner can edit
+it before mission review. Play uses that exact reviewed duration rather than
+introducing a second clock. Resume retains the original expiry. Older documents
+are not rewritten, and their separately signed Play window displays the missing
+structured-duration warning. New Play suggests a brain allowance of 30% of the **reviewed** phase token
 allocation, capped at 12,000,000 tokens. A larger phase budget remains possible
 through explicit editing and exact review. Suggestions never rewrite an existing
 mission or paused run. Prior usage observations, gaps, consumed tokens and

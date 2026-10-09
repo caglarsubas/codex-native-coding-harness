@@ -188,7 +188,7 @@ function roadmapJourneyState(snapshot,isConnected=true,now=Date.now()/1000){
     if(budgetAdjusted&&blockers.some(b=>/measure exact run usage|usage observation expired/i.test(b)))return result(3,'Allowance adjusted; refresh usage',
       'The local correction is saved and the phase remains paused. Review a fresh registered usage check; unknown coverage and other prerequisites still block Resume.',
       'Review usage check','usage-check',{reasons:blockers});
-    if(snapshot.phaseCloseout?.available)return result(3,'Recovery finished; close the expired phase',
+    if(snapshot.phaseCloseout?.available)return result(3,'Recovery finished; close the stopped phase',
       'Close this empty phase as blocked and unqualified. Its usage and evidence stay intact. Then Help prepares the next proposal; no prompt writing or Resume.',
       'Review stopped-phase closeout','close',{reasons:blockers});
     if(recovery&&recovery.status!=='replied')return result(3,'Recovery preparation is underway',

@@ -88,6 +88,7 @@ function missionView(root){
   })));
   root.append(el('p',a.mergeMode==='brain_exact_pr_v1'?'Merge opt-in: designated brain may cross-check and issue one exact PR merge in a separately activated standard phase. Existing repository policy still applies.':'Merge mode: manual (default).'));
   root.append(section('Phase limits',standard?'Applied when you confirm Play for this reviewed phase.':'Proposed limits only. Strict-mode activation and packet approvals remain separate.'));
+  if(standard)root.append(el('p',phase.durationHours==null?'No structured phase duration in this older plan. Check its stop conditions when reviewing the explicit Play window.':`Phase window: ${phase.durationHours} hours from new Play. Resume never restarts this clock.`,'muted'));
   root.append(table(['Setting','Proposed value'],[['Packet approval',missionModes[a.approvalMode]],['Repository ownership',a.repositoryMode==='isolated_worktrees'?'Isolated native worktrees · exact-file scopes':'Repository-exclusive (default)'],['Parallel tasks',num(a.maxParallelTasks)],['Total tasks in this phase',num(a.maxTasks)],['Phase token allocation',num(a.tokenBudget)],['Included checkpoint reserve',num(a.checkpointReserveTokens)]]));
   if(phase.taskOutline?.length){const outline=el('details');outline.append(el('summary',`Planned task outline · ${phase.taskOutline.length} tasks`));const planned=el('ul');for(const item of phase.taskOutline)planned.append(el('li',`${item.title} · ${item.repository} · ${item.exactFiles.join(', ')}`));outline.append(planned);root.append(outline);}
   root.append(el('p','The token allocation includes brain, workers, review and checkpoint reserve. Usage coverage is reported separately; the allocation is a cooperative limit.','muted'));
@@ -127,7 +128,11 @@ function openMissionEditor(source=null){
     phase:{id:'',title:'',objective:note,checkpoint:'',stopConditions:[],scope:[]},
     authority:{approvalMode:'prepare_only',repositoryMode:'repo_exclusive',maxParallelTasks:initial?.maxParallelTasks??'',maxTasks:initial?.maxTasks??'',tokenBudget:initial?.tokenBudget??'',checkpointReserveTokens:initial?.checkpointReserveTokens??''}}:
     spec?JSON.parse(JSON.stringify(spec)):{goal:'',successCriteria:[],exclusions:[],phase:{id:'',title:'',objective:'',checkpoint:'',stopConditions:[],scope:[]},authority:{approvalMode:'exact_owner',repositoryMode:'repo_exclusive',maxParallelTasks:initial?.maxParallelTasks??'',maxTasks:initial?.maxTasks??'',tokenBudget:initial?.tokenBudget??'',checkpointReserveTokens:initial?.checkpointReserveTokens??''}};
+  if(standard&&(!spec||source))draftSpec.phase.durationHours=24;
   missionDrafts.set(workspaceId,{revision:m.revision,spec:draftSpec,source:source?{...source,note}:null,touchedLimits:new Set()});
+  // Local drafts do not increment the ledger revision used by the inspector
+  // cache. Select/invalidate the in-page section before rendering the editor.
+  if(typeof sessionSelectRoute==='function')sessionSelectRoute('mission');
   selected='mission-edit';render();document.querySelector('.mission-form textarea')?.focus();
   return true;
 }
@@ -154,6 +159,12 @@ function missionEditor(root,m){
   }else field('Phase objective',phase.objective,v=>phase.objective=v);
   field('Mandatory owner checkpoint · what must be reviewed before continuing',phase.checkpoint,v=>phase.checkpoint=v);
   field('Stop conditions · one per line',phase.stopConditions.join('\n'),v=>phase.stopConditions=missionLines(v),{rows:3,max:20000});
+  if(state.repositories?.length&&state.repositories.every(repo=>repo.policyProfile==='standard')){
+    const hours=field('Phase window (hours from Play)',phase.durationHours??'',v=>{if(v==='')delete phase.durationHours;else phase.durationHours=v;},{type:'number',min:1,max:24});
+    // Blank remains valid for an untouched legacy draft; new drafts start at 24.
+    hours.required=phase.durationHours!=null;
+    form.append(el('p','One clock for the plan and Play. Use 1–24 whole hours and the same deadline in any stopping-point text. Changing a draft never extends an existing run.','muted'));
+  }
   form.append(section('Permitted repositories','Select explicitly; no repository or operation is pre-authorized.'));
   const missing=phase.scope.filter(row=>!state.repositories.some(repo=>repo.id===row.repository));
   if(missing.length){form.append(el('p','No longer registered: '+missing.map(row=>row.repository).join(', '),'muted'),button('Remove unregistered repositories from draft',()=>{phase.scope=phase.scope.filter(row=>!missing.includes(row));render();}));}
@@ -186,7 +197,7 @@ function missionEditor(root,m){
       const suggestion=missionLimitSuggestion(parsed.rows,a.repositoryMode);
       const priorUsage=state.standard?.measuredUsage;
       const usageNote=(!priorUsage||priorUsage.gaps?.length)?' Prior measured remaining budget is unknown; no gap counts as zero.':' Prior measured usage is historical, not this new phase’s balance.';
-      outlineStatus.textContent=(suggestion.limits?`Suggested for a new standard phase: ${num(suggestion.limits.tokenBudget)} tokens, ${num(suggestion.limits.checkpointReserveTokens)} included reserve, ${suggestion.limits.maxTasks} total tasks, up to ${suggestion.limits.maxParallelTasks} parallel; Play suggests 24 hours and 30% brain allowance (up to 12M). `:'')+suggestion.reason+usageNote+' These values do not change the current run or grant Play.';
+      outlineStatus.textContent=(suggestion.limits?`Suggested for a new standard phase: ${num(suggestion.limits.tokenBudget)} tokens, ${num(suggestion.limits.checkpointReserveTokens)} included reserve, ${suggestion.limits.maxTasks} total tasks, up to ${suggestion.limits.maxParallelTasks} parallel; brain allowance suggests 30% (up to 12M). The phase window above controls Play. `:'')+suggestion.reason+usageNote+' These values do not change the current run or grant Play.';
       if(suggestion.limits&&!m.document)for(const [key,input] of Object.entries(numericInputs)){
         if(draft.touchedLimits?.has(key))continue;
         a[key]=suggestion.limits[key];input.value=a[key];
@@ -219,7 +230,7 @@ function missionEditor(root,m){
   }));}
   form.append(el('p','Standard-project limits take effect only after Play. Strict-mode activation remains separate. Token limits use observations and checkpoints, not provider billing caps.','muted'));
   const save=el('button','Save draft','primary');save.type='submit';save.disabled=!state.repositories.length;
-  const cancel=button('Discard unsaved edits',()=>{if(busy)return;missionDrafts.delete(workspaceId);selected=null;render();});form.append(save,cancel);
+  const cancel=button('Discard unsaved edits',()=>{if(busy)return;missionDrafts.delete(workspaceId);selected=null;if(typeof sessionSelectRoute==='function')sessionSelectRoute('mission');render();});form.append(save,cancel);
   form.onsubmit=event=>{event.preventDefault();if(!form.reportValidity())return;missionWrite({operation:'save',expectedRevision:draft.revision,spec:JSON.parse(JSON.stringify(spec))},save);};
   root.append(form);
 }

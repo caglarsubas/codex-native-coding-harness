@@ -98,6 +98,15 @@ receipts. Text is rendered as text, never as HTML or executable instructions.
 ```
 
 The numeric example is synthetic, not an allowance for any real workspace.
+New standard drafts additionally use optional `phase.durationHours`, an integer
+from 1 to 24 (normally 24). It is included in the immutable mission hash and exact
+owner review. Standard Play previews and confirmation must match it, with one
+start time and expiry; Resume never restarts that clock. Preparation instructions
+ask the brain to keep narrative stopping points consistent with this value.
+Historical missions remain readable with unchanged bytes/hashes when it is
+absent. Their prose is never parsed or backfilled as duration authority; the
+legacy Play preview makes the explicit window and uncertainty visible. Strict
+Harness receives no activation permission from this field.
 Modes are `prepare_only`, `exact_owner`, `phase_delegated`. Supported operation
 labels are `edit`, `test`, `commit`, `push`, `open_pr`, `merge`; none execute argv.
 Allowed paths must have an explicit relative prefix; whole-repository wildcard,

@@ -56,5 +56,18 @@ const original={durationHours:24,brainAllowance:1800000};
   assert.equal(action.playInputs.hours.disabled,true,'Uncertain delivery freezes its exact values');
   await box.assistantRefreshWorkflow(action,new Element('article'));assert.equal(calls.length,previewCount,'Uncertain sends never become a new preview');
   assert(!calls.some(c=>c.path.endsWith('/confirm')));
+  const bound=box.assistantWorkflowPreview(new Element('article'),proposal('bound',{
+    durationHours:4,brainAllowance:1800000,durationBoundToMission:true}));
+  assert.equal(bound.playInputs.hours.readOnly,true,'The reviewed mission owns the Play window');
+  assert.equal(bound.playInputs.allowance.readOnly,undefined,'Brain allocation remains an editable proposal');
+  const all=e=>[e,...e.children.flatMap(all)];
+  assert(all(bound.element).some(e=>String(e.text).includes('revise the phase plan and review that draft first')));
+  const close=box.assistantWorkflowPreview(new Element('article'),{document:{
+    workflow:'phase_close',id:'duration-close',brainId:'brain',expiresAt:Date.now()/1000+300,
+    request:{expectedRevision:2},preview:{title:'Close stopped phase',impact:'No wake.',
+      closeout:{phaseId:'legacy-four-hours',stopBasis:'duration_checkpoint',expiresAt:99999,observation:{}}}}});
+  assert(all(close.element).some(e=>String(e.text).includes('Duration-stopped phase: legacy-four-hours')));
+  assert(!all(close.element).some(e=>String(e.text).includes('Expired phase:')));
+  assert(all(close.element).some(e=>String(e.text).includes('Original recorded expiry stays')));
   console.log('Play settings: edited values require a fresh signature; invalid, foreign and uncertain requests remain fenced');
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -17,7 +17,11 @@ standard-project cycle stays in this workspace:
    Expand scope, success criteria and exclusions when needed. Type **confirm review**.
 4. If native capabilities need refreshing, confirm that request here and follow its
    receipt. When ready, request Play, then type **confirm play** for that exact preview.
-   The Play window and brain allowance are editable suggestions. Changing either
+   New standard drafts include `phase.durationHours` (1–24 whole hours, normally
+   24). Play uses that reviewed value, not a second default. Changing the duration
+   requires revising and reviewing the phase plan first. Brain allowance remains
+   editable; older plans without structured hours show an explicit legacy-window
+   warning and retain their separately editable Play value. Changing an editable value
    disables confirmation until **Update Play preview** obtains a new signed review.
    Refreshing an expired review preserves those values rather than restoring defaults.
    Use whole hours (1–24); the brain reservation must fit inside the reviewed phase
@@ -55,10 +59,11 @@ The conversation also offers **confirm brain allowance** for its exact displayed
 proposal. No wake or Resume is included. Usage gaps, pending effects and strict
 controls cannot be waived. See [brain allowance review](STANDARD-BRAIN-BUDGET.md).
 
-If recovery ends but an expired empty phase is still paused, the inspector offers
+If recovery ends but an expired or duration-stopped empty phase is still paused, the inspector offers
 **Review stopped-phase closeout**. It checks the exact ended native turn and
 records an owner-confirmed **blocked · unqualified** outcome without waking the
-brain or changing usage. The saved receipt then offers Help to prepare the
+brain, original expiry or usage. A retained duration stop cannot Resume even if
+an older Play clock has not expired. The saved receipt then offers Help to prepare the
 successor proposal in place. Review and Play remain separate. Workers or
 uncertain run effects cannot use this closeout. See
 [expired-phase closeout](EXPIRED-PHASE-CLOSEOUT.md).

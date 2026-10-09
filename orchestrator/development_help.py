@@ -34,7 +34,8 @@ def message(state):
         "If the current run is still open, explain the exact safe recovery step; do not replace it with another phase. "
         "If it is settled, reuse an appropriate current draft or prepare the next unfinished bounded roadmap phase for review. "
         "If policy changes are necessary, propose only the minimal exact changes with reasons in a new draft, not applied settings. "
-        "Include goal, success criteria, repository/paths, token budget/reserve, duration, task/parallel limits, model and merge policy, "
+        "Include goal, success criteria, repository/paths, token budget/reserve, structured phase.durationHours "
+        "(integer 1–24, normally 24) matching any narrative deadline, task/parallel limits, model and merge policy, "
         "exclusions and stopping checkpoint. Never review or approve a mission, change active limits, reset consumption, "
         "start Play or Resume, implement code, create/continue workers, retry a native effect, merge, install or restart services. "
         "Do not create a scheduler or send another help request. Respect brain stop and Pause; this is one bounded preparation turn. "
@@ -107,7 +108,7 @@ def plan(state):
         closeout = availability(state)
         if closeout["available"]:
             result["requestId"] = authorized["id"]
-            return step("decision", "Recovery finished; close the expired phase",
+            return step("decision", "Recovery finished; close the stopped phase",
                         "No workers belong to this phase. Close it as blocked and unqualified, keeping all usage and evidence. "
                         "Then Help can prepare the successor proposal; Review and Play remain separate.", "phase_close")
     if run.get("status") == "paused" and (s.get("blockers") or

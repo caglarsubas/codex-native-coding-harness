@@ -15,7 +15,9 @@ PREPARE_MESSAGE = (
     "Review this project's configured roadmap sources and latest retained results. "
     "Prepare the next unfinished, bounded phase as a mission draft. Include goal, success criteria, "
     "repository and path scope, token budget, parallel-task limit, merge policy, exclusions and stopping "
-    "checkpoint. Explain unresolved prerequisites. Preserve consumed usage and previous results. "
+    "checkpoint and structured phase.durationHours (integer 1–24, normally 24). Use that same "
+    "duration in any narrative deadline; do not specify a competing clock. "
+    "Explain unresolved prerequisites. Preserve consumed usage and previous results. "
     "Save the draft for my review and reply in the project conversation. Do not start Play or approve the phase."
 )
 
@@ -41,7 +43,8 @@ def prepare_message(state):
         "Resolve only read-only evidence gaps within existing authority; do not waive a control, reset consumption, "
         "retry an uncertain native effect, or reuse this terminal phase ID. "
         "If more development needs a changed policy, prepare a genuinely new bounded mission draft for my review. "
-        "State each exact proposed change and reason, prior usage, token budget and reserve, duration, task and parallel limits, "
+        "State each exact proposed change and reason, prior usage, token budget and reserve, structured phase.durationHours "
+        "(integer 1–24) matching any narrative deadline, task and parallel limits, "
         "repository and path scope, model and merge policy, success criteria, exclusions and stopping checkpoint. "
         "If a prerequisite cannot be reconciled or crosses a new authority boundary, retain the blocker and ask for the exact owner decision. "
         "Reply with a concise diagnosis and next step. Do not review the mission, start Play, or perform worker effects."
@@ -224,7 +227,8 @@ class JourneyProposals(ActionProposals):
             run = standard.get("run") or {}
             # Safe Pause must not depend on a still-valid mission document.
             from .phase_suggestions import suggest_play_settings
-            proposed_play = (suggest_play_settings(mission["document"]["spec"]["authority"]["tokenBudget"])
+            proposed_play = (suggest_play_settings(mission["document"]["spec"]["authority"]["tokenBudget"],
+                             mission["document"]["spec"]["phase"].get("durationHours"))
                              if op == "play" else None)
             allowance = proposed_play["brainAllowanceTokens"] if op == "play" else run["brainAllowance"]
             duration = proposed_play["durationHours"] if op == "play" else 8
@@ -246,6 +250,8 @@ class JourneyProposals(ActionProposals):
             ident = request["preview"]["id"]
             if op == "play":
                 preview["runSettings"] = {k: request["preview"][k] for k in ("brainAllowance", "durationHours", "measureUsage")}
+                if "durationHours" in mission["document"]["spec"]["phase"]:
+                    preview["runSettings"]["durationBoundToMission"] = True
             else:
                 preview["retainedRun"] = {"expiresAt": run["expiresAt"], "brainAllowance": run["brainAllowance"]}
         elif kind == "codex_check":
@@ -339,8 +345,10 @@ class JourneyProposals(ActionProposals):
                 "runHash": digest(run), "brainId": state["meta"]["brainId"],
                 "recoveryId": command["id"], "replyHash": reply["hash"], "observation": observation}
             preview["closeout"] = {"runId": run["id"], "phaseId": run["phaseId"], "expiresAt": run["expiresAt"],
+                "stopBasis": phase_closeout.stop_basis(run),
                 "outcome": "blocked", "qualification": "unqualified", "observation": observation}
-            preview["summary"] = ["Close the expired phase without claiming success or pilot qualification.",
+            preview["summary"] = ["Close the " + ("expired" if preview["closeout"]["stopBasis"] == "expired" else "duration-stopped") +
+                " phase without claiming success or pilot qualification.",
                 "Keep all consumed usage, coverage gaps, previous checkpoint and recovery receipts.",
                 "Next, Help prepares the successor proposal. No brain wake, Review or Play is included in this closeout."]
         else:

@@ -1,9 +1,10 @@
-"""Owner closeout of an empty expired standard run, never native recovery.
+"""Owner closeout of an empty expired/duration-stopped run, never native recovery.
 
 This records an unqualified blocked outcome. It cannot settle task ownership,
 clear an uncertain effect, refresh usage, or start the successor preparation.
 """
 import json
+import math
 import time
 
 from .core import Refusal, digest, require
@@ -12,9 +13,31 @@ from .standard import PROTOCOL, save
 from .conversation import pending
 
 KIND = "standard_closeout"
-BOUNDARY = ("Close this expired, empty phase as blocked and unqualified. Preserve its usage, "
+BOUNDARY = ("Close this stopped, empty phase as blocked and unqualified. Preserve its original expiry, usage, "
             "evidence gaps and recovery records. No brain wake, Resume, Play or pilot acceptance.")
-SUMMARY = "Expired phase closed as blocked and unqualified by the owner. No development or qualification is claimed."
+SUMMARY = "Stopped phase closed as blocked and unqualified by the owner. No development or qualification is claimed."
+
+
+def stop_basis(run):
+    """Saved duration stops need not wait for a conflicting legacy Play clock.
+
+    This labels the owner outcome only; it never reconciles native effects or
+    derives a new deadline from narrative text.
+    """
+    require(type(run.get("expiresAt")) in (int, float) and math.isfinite(run["expiresAt"]),
+            "A recorded finite phase expiry is required")
+    if run["expiresAt"] <= time.time():
+        return "expired"
+    checkpoint = run.get("checkpoint") or {}
+    require(isinstance(checkpoint, dict) and isinstance(checkpoint.get("reasonCodes"), list) and
+            "duration" in checkpoint["reasonCodes"] and
+            isinstance(checkpoint.get("summary"), str) and checkpoint["summary"].strip() and
+            type(checkpoint.get("at")) in (int, float) and
+            type(run.get("startedAt")) in (int, float) and
+            math.isfinite(checkpoint["at"]) and math.isfinite(run["startedAt"]) and
+            run["startedAt"] <= checkpoint["at"] <= time.time(),
+            "Only an expired phase or a retained duration-stop checkpoint can use this closeout")
+    return "duration_checkpoint"
 
 
 def eligible(state):
@@ -24,8 +47,7 @@ def eligible(state):
     require(meta.get("schemaVersion") == 4 and run.get("protocol") == PROTOCOL and
             run.get("status") == "paused" and run.get("brainId") == meta.get("brainId") and
             meta.get("paused") is True, "An exact paused standard phase is required")
-    require(type(run.get("expiresAt")) in (int, float) and run["expiresAt"] <= time.time(),
-            "Only an expired phase can use this closeout")
+    stop_basis(run)
     require(not run.get("ownerCloseout"), "This phase already has its closeout receipt")
     require(not run.get("tasks") and not run.get("merges") and not state.get("workers") and
             not state.get("queue") and not meta.get("runner"),
@@ -142,6 +164,7 @@ def confirm(registry, ledger, request):
         # Keep the old checkpoint verbatim and every usage field unchanged. This
         # is an owner outcome, not a brain checkpoint, settlement or acceptance.
         run["ownerCloseout"] = {"requestId": request["id"], "at": now, "outcome": "blocked",
+            "stopBasis": stop_basis(run), "originalExpiresAt": run["expiresAt"],
             "qualification": "unqualified", "previousCheckpoint": run.get("checkpoint"),
             "recoveryId": recovery["id"], "replyHash": reply["hash"], "observation": observation,
             "boundary": BOUNDARY}

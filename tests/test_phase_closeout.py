@@ -103,6 +103,48 @@ class PhaseCloseoutTest(unittest.TestCase):
         self.assertEqual(p["document"]["expiresAt"], now + 240 + TTL)
         self.assertEqual(self.f.snapshot()["standard"]["run"]["status"], "paused")
 
+    def test_nonexpired_duration_stop_closes_without_rewriting_the_play_clock(self):
+        def duration_stop(meta):
+            run = meta["standardRun"]
+            run["expiresAt"] = run["startedAt"] + 24 * 3600
+            run["checkpoint"]["reasonCodes"] = ["duration", "external_dependency"]
+        self.mutate(duration_stop)
+        before = copy.deepcopy(standard.read(self.ledger)["run"])
+        self.assertIn("Recorded duration stop", " ".join(standard.read(self.ledger)["blockers"]))
+        self.assertFalse(catalog(self.f.snapshot(), {})["phase_resume"]["available"])
+        self.assertEqual(plan(self.f.snapshot())["key"], "phase_close")
+        p = self.preview()
+        self.assertEqual(p["document"]["preview"]["closeout"]["stopBasis"], "duration_checkpoint")
+        self.assertIn("duration-stopped", p["document"]["preview"]["summary"][0])
+        result, notify = self.confirm(p)
+        after = standard.read(self.ledger)["run"]
+        self.assertFalse(notify)
+        self.assertEqual(after["ownerCloseout"]["stopBasis"], "duration_checkpoint")
+        self.assertEqual(after["ownerCloseout"]["originalExpiresAt"], before["expiresAt"])
+        self.assertEqual(after["ownerCloseout"]["previousCheckpoint"], before["checkpoint"])
+        for key in before:
+            if key not in ("revision", "status", "checkpoint", "updatedAt"):
+                self.assertEqual(after[key], before[key], key)
+        self.assertEqual(after["status"], "blocked")
+        self.assertEqual(after["ownerCloseout"]["qualification"], "unqualified")
+        self.assertEqual(self.confirm(p)[0], result)
+        self.assertEqual(len(self.f.native.sent), 1)
+        self.assertEqual(plan(self.f.snapshot())["key"], "phase_help")
+
+    def test_nonexpired_other_stop_or_malformed_duration_checkpoint_cannot_close(self):
+        self.mutate(lambda m: m["standardRun"].update(expiresAt=time.time() + 86400))
+        before = self.f.snapshot()
+        self.assertFalse(phase_closeout.availability(before)["available"])
+        for checkpoint in (None, {"reasonCodes": ["duration"]},
+                           {"reasonCodes": "duration", "summary": "Stop", "at": time.time()},
+                           {"reasonCodes": ["duration"], "summary": "", "at": time.time()},
+                           {"reasonCodes": ["duration"], "summary": "Stop", "at": True},
+                           {"reasonCodes": ["duration"], "summary": "Stop", "at": time.time()+300},
+                           {"reasonCodes": ["duration"], "summary": "Stop", "at": 1}):
+            bad = copy.deepcopy(before)
+            bad["meta"]["standardRun"]["checkpoint"] = checkpoint
+            self.assertFalse(phase_closeout.availability(bad)["available"])
+
     def test_closeout_preserves_usage_gap_and_old_checkpoint_without_wake(self):
         self.mutate(lambda m: m["standardRun"].update(usageReport={"gaps": ["invalid_token_record"],
             "coverage": "gapped", "collectedAt": 1, "through": 1, "tokens": {"total_tokens": 90000}},

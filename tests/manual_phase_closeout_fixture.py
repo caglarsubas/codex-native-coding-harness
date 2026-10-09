@@ -15,6 +15,8 @@ from test_phase_closeout import PhaseCloseoutTest
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=8803)
+    parser.add_argument("--duration-stopped", action="store_true",
+                        help="Rehearse a retained duration stop before the legacy Play clock expires")
     parser.add_argument("--review-seconds", type=int, default=300, choices=range(1, 301),
                         help="Disposable-only review clock for rendered expiry testing")
     args = parser.parse_args()
@@ -22,6 +24,13 @@ if __name__ == "__main__":
     journey.TTL = args.review_seconds
     f = PhaseCloseoutTest()
     f.setUp()
+    if args.duration_stopped:
+        def duration_stop(meta):
+            run = meta["standardRun"]
+            run["expiresAt"] = run["startedAt"] + 24 * 3600
+            run["checkpoint"]["reasonCodes"] = ["duration", "external_dependency"]
+            run["checkpoint"]["summary"] = "The mission's four-hour duration stopped before the legacy 24-hour Play window."
+        f.mutate(duration_stop)
     # No native permission request exists in this synthetic host. Do not make
     # the unrelated permission inspector try to contact a real connection.
     f.f.native.pending_approval = lambda brain_id: None

@@ -115,7 +115,8 @@ function assistantWorkflowPreview(item,proposal,guided=false){
       el('p',`Recorded usage lower bound: ${u.knownLowerBound==null?'unknown':num(u.knownLowerBound)} · coverage ${u.coverage||'unknown'} · ${gaps}. Old phase budget and expiry stay unchanged. This is not a hard provider cap.`,'muted'));
   }
   if(p.closeout){
-    section.append(el('p',`Expired phase: ${p.closeout.phaseId}. Outcome: blocked · unqualified.`, 'chat-phase-title'));
+    section.append(el('p',`${p.closeout.stopBasis==='duration_checkpoint'?'Duration-stopped':'Expired'} phase: ${p.closeout.phaseId}. Outcome: blocked · unqualified.`, 'chat-phase-title'),
+      el('p',`Original recorded expiry stays ${when(p.closeout.expiresAt)}. No budget or duration is reset.`,'muted'));
     const details=el('details');details.append(el('summary','Details · ended-turn check'),
       el('p','The exact recovery turn was observed ended on the reviewed host. This does not verify its commands, permission handling or pilot acceptance.'),
       el('pre',JSON.stringify(p.closeout.observation,null,2)));section.append(details);
@@ -137,6 +138,9 @@ function assistantWorkflowPreview(item,proposal,guided=false){
       input.type='number';input.inputMode='numeric';input.min=String(min);input.max=String(max);input.step='1';input.value=String(value);
       const row=el('label');row.append(el('span',label),input);fields.append(row);
     }
+    hours.readOnly=p.runSettings.durationBoundToMission===true;
+    if(hours.readOnly)fields.append(el('p','The Play window matches the reviewed phase. To change it, revise the phase plan and review that draft first.','muted'));
+    else fields.append(el('p','This older plan has no structured duration. Check its stopping conditions against this explicit Play window; no deadline is inferred from prose.','muted'));
     fields.append(el('p','Suggestions are editable, not authority. Update the signed preview, then confirm Play separately. Brain allowance is reserved within the reviewed budget; it is not a provider billing cap.','muted'));
     action.playInputs={hours,allowance};
     for(const input of [hours,allowance])input.oninput=()=>{

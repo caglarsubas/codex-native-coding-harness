@@ -112,6 +112,16 @@ settings or resume a stopped brain. Release the controller after either receipt.
 
 ## Operating cycle
 
+When preparing a new standard mission, include `phase.durationHours` as 1–24
+whole hours (normally 24). Use the same duration in its objective/checkpoint/stop
+text. The exact reviewed value pins Play; Resume cannot renew it. Do not parse
+or rewrite historical mission prose to fabricate a structured duration. Record
+an observed duration boundary with the existing `duration` checkpoint reason.
+After an empty paused run's exact recovery reply, the owner may separately review
+blocked/unqualified closeout for expiry or that dated duration stop. The original
+expiry, usage/gaps and receipts remain intact. This is no success, settlement,
+retry, new phase authority or permission for the brain to confirm closeout.
+
 ### Recovery-only preparation at a paused checkpoint
 
 An ordinary saved message never wakes a paused run. If the dashboard sends an
