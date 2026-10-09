@@ -71,6 +71,8 @@ def main():
     p.add_argument("--confirm", action="store_true"); p.add_argument("--writers-stopped", action="store_true")
     sub.add_parser("mission-state", help="Read workspace mission configuration; not execution authority")
     sub.add_parser("standard-state", help="Read cooperative run, task journal and usage gaps")
+    p = sub.add_parser("standard-host-inspect", help="Brain-only current owned-host metadata and resume-profile inspection; no wake or write")
+    p.add_argument("run_id"); p.add_argument("command_id")
     p = sub.add_parser("standard-usage-refresh", help="Collect local counters for the exact registered standard run")
     p.add_argument("run_id")
     p = sub.add_parser("standard-native-plan", help="Brain-only registered-task observation plan; no native call")
@@ -227,7 +229,7 @@ def main():
         raise Refusal("--workspace requires --platform")
     if args.state and (args.workspace or args.platform):
         raise Refusal("Choose a registered workspace or --state, not both")
-    if (args.action == "run-readiness" or args.action.startswith(("standard-native-", "task-contract-", "model-policy-", "native-evidence-", "brain-cycle-", "phase-checkpoint-", "native-create-", "native-task-", "native-account-", "phase-usage-", "runner-handoff-", "terminal-handoff-", "result-handoff-", "archive-handoff-", "correction-handoff-"))) and not (args.platform and args.workspace):
+    if (args.action == "run-readiness" or args.action.startswith(("standard-native-", "standard-host-", "task-contract-", "model-policy-", "native-evidence-", "brain-cycle-", "phase-checkpoint-", "native-create-", "native-task-", "native-account-", "phase-usage-", "runner-handoff-", "terminal-handoff-", "result-handoff-", "archive-handoff-", "correction-handoff-"))) and not (args.platform and args.workspace):
         raise Refusal("This operation requires an explicit registered workspace")
     registry = Registry(args.platform, create=args.action == "workspace-register") if args.platform else None
     if notification_binding:
@@ -426,6 +428,12 @@ def main():
             raise Refusal("Explicit registered standard workspace required")
         from .brain_memory import refresh
         out = refresh(ledger, args.run_id)
+    elif action == "standard-host-inspect":
+        if not registry or not args.workspace:
+            raise Refusal("Explicit registered standard workspace required")
+        from .standard import private_token
+        from .standard_host_inspection import inspect
+        out = inspect(registry, ledger, token or private_token(ledger), args.run_id, args.command_id)
     elif action in ("standard-native-plan", "standard-native-collect"):
         if not registry or not args.workspace:
             raise Refusal("Explicit registered standard workspace required")
