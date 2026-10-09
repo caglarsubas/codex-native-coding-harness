@@ -44,8 +44,34 @@ issues, not an empty pending-approval inventory. The retained resume profile is
 bound to this exact command and confirmed turn, not merely the same brain.
 No thread listing, native resume/start, approval response, discovery, source
 execution, token collection, ledger write or ownership release is permitted.
-Each explicit invocation has its own real observation time; reads never rewrite
-the original resume receipt or renew reviewed authority.
+Historical `direct_v1` handoffs keep this direct behavior and their original
+receipts. They are not backfilled or silently switched to another transport.
+
+### Sandbox-safe owned observer handoff
+
+New committed notifications pin `hostInspectionTransport: owned_observer_v1`.
+The sandboxed brain helper must not read or connect the protected Codex control
+socket: that socket can carry native writes, so granting it to the sandbox is
+not a harmless filesystem fix. Instead the explicit helper publishes one closed,
+private request in the existing ledger, bound to its current controller hash,
+run, command, context and subscribed turn. The request contains no socket,
+method, command text or arbitrary target. A 30-second window bounds this active
+query; it is not a host lease, approval lifetime or phase duration.
+
+The already-owned turn observer services that request once using the existing
+fixed read-only proxy to the same pinned app-server host. It performs exactly
+the project/brain reads above, not native writes. A single request-triggered
+worker keeps RPC latency off the heartbeat and approval reader. No request
+means no native collection. Browser polls cannot create this request. Atomic
+private-file publication, a permanent collector claim, and an immutable reply
+prevent partial delivery and automatic recollection after an interrupted query.
+Repeated helper reads return the original observation time while still fresh;
+they never renew it. Missing, expired or context-changed replies remain unknown,
+without direct-socket fallback, reconnect, wider permissions or a native retry.
+
+These IPC records are bounded cooperative local evidence, not cryptographic OS
+attestation. The report exposes only closed metadata, not private response text.
+It never rewrites the original resume receipt or renews reviewed authority.
 
 The host profile is retained from the *existing successful* metadata-only
 `thread/resume` response before its `turn/start`. Only closed fields are retained:
@@ -77,3 +103,7 @@ signed Resume must be separately owner-confirmed after readiness/usage checks;
 the resulting one-shot owned notification carries the new handoff. An expired
 or otherwise inadmissible Resume stays fenced and needs its normal next-step
 control, not an invented continuation exception.
+
+If its original brain allowance has insufficient headroom, use the separately
+signed [brain allowance correction](STANDARD-BRAIN-BUDGET.md). That local
+reallocation cannot repair or retry delivery and never confirms Resume.

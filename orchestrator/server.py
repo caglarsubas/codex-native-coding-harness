@@ -75,6 +75,8 @@ class WorkspaceRuntime:
         self.native_approval_lock = threading.Lock()
         from .standard import Controls
         self.standard_controls = Controls()
+        from .standard_budget import Controls as BrainBudgetControls
+        self.brain_budget_controls = BrainBudgetControls()
         from .brain_handoff import Controls as HandoffControls
         self.handoff_controls = HandoffControls()
         self.usage_lock = threading.Lock()
@@ -595,6 +597,14 @@ class Handler(BaseHTTPRequestHandler):
                     return self.respond(200, refresh(runtime.ledger, body["repository"]))
                 finally:
                     runtime.knowledge_lock.release()
+            if path in ("/api/standard/budget/preview", "/api/standard/budget/confirm") and workspace_id:
+                if urlsplit(self.path).query:
+                    raise Refusal("Brain budget controls accept no query parameters")
+                controls = runtime.brain_budget_controls
+                if path.endswith("/preview"):
+                    return self.respond(200, controls.preview(runtime.registry, runtime.ledger, body, csrf))
+                # Local owner reallocation only. Never pass this to a notifier.
+                return self.respond(200, controls.confirm(runtime.registry, runtime.ledger, body, csrf))
             if path in ("/api/standard/preview", "/api/standard/confirm") and workspace_id:
                 if urlsplit(self.path).query:
                     raise Refusal("Standard controls accept no query parameters")

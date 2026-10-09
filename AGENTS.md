@@ -49,9 +49,19 @@ no live state or host. See docs/EXPIRED-PHASE-CLOSEOUT.md.
 
 ## Owned app-server wake source (2026-09-26)
 
+The separately signed `standard_brain_budget` owner adapter may increase only
+the brain reservation within an unchanged reviewed total for an empty paused
+standard run. Read docs/STANDARD-BRAIN-BUDGET.md before using it. Preserve all
+usage/gaps, scope, reserve, task limits, expiry, checkpoint and receipts; no wake
+or Resume is included. Source delivery does not apply it to live state.
+
 Current standard-run notifications may retain their reviewed startup binding in
 a private hash-addressed handoff and provide `standard-host-inspect` to the
 designated brain. Read docs/STANDARD-HOST-EVIDENCE.md fully before using it.
+New handoffs use a closed private controller/run/turn-bound metadata request
+serviced by the existing owned observer. Never grant the sandbox the protected
+control socket. No request means no collection; an interrupted claim is not
+replayed and there is no direct-socket fallback for this handoff.
 The inspector only makes explicit repeated project/brain metadata reads for
 the latest subscribed owned control; it never resumes, starts, discovers or
 responds to native work. Successful resume configuration, reported policy and

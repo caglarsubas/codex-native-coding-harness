@@ -50,6 +50,7 @@ Session-map freshness and task evidence remain separate from control state.
 | Decision needed | Review decisions | Answer inside existing authority |
 | Pause requested | Follow sessions or inspect delivery | New work fenced; checkpoint not yet saved |
 | Paused and resumable | Review Resume | Same phase, same consumed budget |
+| Empty paused brain-budget stop | Review brain allowance | Signed reallocation inside unchanged phase total; no wake or Resume |
 | Expired/blocked pause | Prepare checkpoint follow-up | Explain the blocker before proposing more work |
 | Completed/blocked phase | Prepare next phase | Read retained results; new review required |
 | Unresolved handoff | Review handoff progress | Optional recovery must finish before continuation |

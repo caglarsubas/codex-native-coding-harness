@@ -127,12 +127,16 @@ class WakeProxy(ReadProxy):
     def _ready(self, stream, event):
         if event == selectors.EVENT_READ and self._watching:
             while True:
+                callback = getattr(self, "_on_wait_tick", None)
+                if callback is not None:
+                    callback()
                 probe_at = self._watch_tick()
                 remaining = self.deadline - time.monotonic()
                 require(remaining > 0, "Native read deadline exceeded")
                 with selectors.DefaultSelector() as selector:
                     selector.register(stream, event)
-                    if selector.select(max(0, min(remaining, probe_at - time.monotonic()))):
+                    if selector.select(max(0, min(remaining, probe_at - time.monotonic(),
+                                                  0.25 if callback is not None else remaining))):
                         return
         if event != selectors.EVENT_WRITE or not hasattr(self._write_deadline, "value"):
             return super()._ready(stream, event)
@@ -963,6 +967,29 @@ class AppServerWake:
             if isinstance(early, tuple) and len(early) == 3 and early[:2] == (brain_id, turn_id):
                 status = early[2] if early[2] in ("completed", "failed", "interrupted") else "unconfirmed"
             elif callable(getattr(proxy, "watch_connection", None)):
+                def inspect_request():
+                    # A fixed read-only request from the current brain controller,
+                    # serviced by this already-owned observer, never by UI polling.
+                    from .standard_host_inspection import service_request, _mailbox
+                    try:
+                        if (getattr(proxy, "_host_inspection_worker", None) is None and
+                                _mailbox(self.ledger, command_id, "-request").exists()):
+                            # Never block WebSocket heartbeat/approval handling on
+                            # read RPC latency. One explicit query, not a scheduler.
+                            def collect():
+                                try:
+                                    service_request(self.ledger, self.binding, command_id, brain_id, turn_id)
+                                except (OSError, Refusal, ValueError):
+                                    pass  # Do not expose private IPC paths in thread tracebacks.
+                            worker = threading.Thread(target=collect, daemon=True)
+                            proxy._host_inspection_worker = worker
+                            worker.start()
+                    except (OSError, Refusal, ValueError):
+                        pass  # Missing/invalid evidence stays unknown; no effect retry.
+                with self.ledger.tx() as db:
+                    control = self.ledger.get(db, "commands", command_id)
+                if (control.get("notification") or {}).get("hostInspectionTransport") == "owned_observer_v1":
+                    proxy._on_wait_tick = inspect_request
                 proxy.watch_connection()
             early_requests = list(getattr(proxy, "_early_requests", ()))
             for _ in range(0 if early and early[:2] == (brain_id, turn_id) else 100_000):

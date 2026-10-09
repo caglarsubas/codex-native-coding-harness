@@ -48,6 +48,13 @@ Pause and retain a paused checkpoint, without resending its failed notification
 or resuming development. Unknown delivery/ownership cannot use this exception.
 See [failed-Pause recovery](FAILED-PAUSE-RECOVERY.md).
 
+For an empty paused phase at a brain-budget checkpoint, **Review brain allowance**
+opens a separate signed local reallocation. Its old/new amount, unchanged phase
+total/reserve, recorded usage and original expiry are visible before confirmation.
+The conversation also offers **confirm brain allowance** for its exact displayed
+proposal. No wake or Resume is included. Usage gaps, pending effects and strict
+controls cannot be waived. See [brain allowance review](STANDARD-BRAIN-BUDGET.md).
+
 If recovery ends but an expired empty phase is still paused, the inspector offers
 **Review stopped-phase closeout**. It checks the exact ended native turn and
 records an owner-confirmed **blocked · unqualified** outcome without waking the

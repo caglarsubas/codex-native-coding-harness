@@ -149,6 +149,7 @@ class BrainNotifier:
                 try:
                     notification["hostBindingHash"] = retain_binding(ledger, self.app_server.binding)
                     notification["hostRunId"] = standard_run["id"]
+                    notification["hostInspectionTransport"] = "owned_observer_v1"
                 except (OSError, ValueError, Refusal):
                     notification.update(status="unavailable", finishedAt=time.time(),
                         detail="The private owned-host handoff is unavailable. No turn was sent; inspect this saved receipt before continuing.")

@@ -517,6 +517,29 @@ class WakeTest(unittest.TestCase):
         self.assertEqual(ledger.command["notification"]["nativeTurnStatus"], "completed")
         self.assertNotIn("PRIVATE", str(ledger.command))
 
+    def test_explicit_inspection_worker_never_blocks_observer_or_repeats_query(self):
+        from types import SimpleNamespace
+        from orchestrator import standard_host_inspection as inspection
+        ledger=MemoryLedger();self.wake.ledger=ledger
+        ledger.command["notification"]["hostInspectionTransport"]=inspection.BROKER
+        entered,release=threading.Event(),threading.Event()
+        class TickProxy(EventProxy):
+            def watch_connection(inner):
+                start=time.monotonic()
+                inner._on_wait_tick();inner._on_wait_tick()
+                self.assertLess(time.monotonic()-start,0.5,"The heartbeat reader must not wait for RPC work")
+        proxy=TickProxy({"method":"turn/completed","params":{"threadId":BRAIN,"turn":{"id":TURN,"status":"completed"}}})
+        def query(*args):
+            entered.set();release.wait(2)
+        with patch.object(inspection,"_mailbox",return_value=SimpleNamespace(exists=lambda:True)), \
+             patch.object(inspection,"service_request",side_effect=query) as collect:
+            try:
+                self.wake._observe_turn(proxy,"control",BRAIN,TURN)
+                self.assertTrue(entered.wait(1));self.assertEqual(collect.call_count,1)
+                self.assertEqual(ledger.command["notification"]["nativeTurnStatus"],"completed")
+            finally:
+                release.set();proxy._host_inspection_worker.join(2)
+
     def test_command_approval_is_exact_owner_choice_and_same_socket_response(self):
         ledger = MemoryLedger()
         self.wake.ledger = ledger

@@ -1,5 +1,5 @@
 "use strict";
-const workflowPhrases={phase_help:'confirm help',phase_prepare:'confirm prepare',phase_reconcile:'confirm reconcile',phase_recovery:'confirm recovery',phase_pause_recovery:'confirm pause recovery',phase_close:'confirm close stopped phase',phase_review:'confirm review',phase_play:'confirm play',phase_pause:'confirm pause',phase_resume:'confirm resume',usage_check:'confirm usage',codex_check:'confirm readiness',brain_message:'confirm send'};
+const workflowPhrases={phase_help:'confirm help',phase_prepare:'confirm prepare',phase_reconcile:'confirm reconcile',phase_recovery:'confirm recovery',phase_pause_recovery:'confirm pause recovery',phase_close:'confirm close stopped phase',phase_review:'confirm review',phase_play:'confirm play',phase_pause:'confirm pause',phase_resume:'confirm resume',brain_budget:'confirm brain allowance',usage_check:'confirm usage',codex_check:'confirm readiness',brain_message:'confirm send'};
 function assistantLocalWorkflow(question,current=state){
   // Exact product starters, not an inferred intent or approval. The normal
   // server catalog still validates and prepares a separate signed preview.
@@ -14,7 +14,7 @@ function assistantLocalWorkflow(question,current=state){
   const pending=(current.commands||[]).some(c=>(c.status==='queued'||c.status==='processing'||c.needsBrainReceipt));
   if(pending){assistantNextStep();assistantStatus('A saved request is still awaiting its receipt. Inspect its status above; no duplicate was sent.');return true;}
   const journey=roadmapJourneyState(current,true);
-  const key={prepare:'phase_prepare',reconcile:'phase_reconcile',recover:'phase_recovery',close:'phase_close',mission:'phase_review',catalog:'codex_check',play:'phase_play',resume:'phase_resume'}[journey.action];
+  const key={prepare:'phase_prepare',reconcile:'phase_reconcile',recover:'phase_recovery',close:'phase_close',mission:'phase_review',catalog:'codex_check',play:'phase_play',resume:'phase_resume',budget:'brain_budget'}[journey.action];
   if(key)assistantRequestStep(key);
   else{assistantNextStep();assistantStatus(journey.detail||journey.title);}
   return true;
@@ -32,7 +32,8 @@ function assistantWorkflowState(action,current=state,now=Date.now()/1000){
   if(now>doc.expiresAt)return {locked:true,label:'Review needs refreshing',detail:'Refresh this review here. Nothing was submitted; your phase and its limits are unchanged.',refreshable:true};
   const request=doc.request;
   const stale=doc.workflow==='phase_review'?(current?.mission?.revision!==request.expectedRevision||current?.mission?.documentHash!==request.documentHash):
-    request.preview?(request.preview.operation!=='pause'&&current?.standard?.contextHash!==request.preview.contextHash):
+    request.preview?(doc.workflow==='brain_budget'?current?.standard?.brainBudget?.contextHash!==request.preview.contextHash:
+      request.preview.operation!=='pause'&&current?.standard?.contextHash!==request.preview.contextHash):
     ['codex_check','usage_check'].includes(doc.workflow)?current?.standard?.contextHash!==request.contextHash:current?.meta?.revision!==request.expectedRevision;
   if(stale||current?.meta?.brainId!==doc.brainId)return {locked:true,label:'Project changed',detail:'Refresh this review to see the current scope before confirming.',refreshable:true};
   if(action.playEdited)return {locked:true,label:'Play settings changed',detail:'Update the preview to review and sign these values before confirming. Nothing has started.',refreshable:true};
@@ -189,7 +190,7 @@ function assistantNextStep(){
   const messages=[...(state.commands||[])].reverse().filter(c=>c.kind==='reconcile'&&c.payload?.message);
   const pending=messages.find(c=>!c.conversationReply);
   if(pending){const info=commandPresentation(pending,state.brainActivity);root.append(el('p','WITH YOUR PROJECT BRAIN','eyebrow'),el('p',info.label),el('p',info.detail,'muted'));if(state.recovery)recoverySummary(root,state.recovery);return;}
-  const journey=roadmapJourneyState(state,true),map={prepare:'phase_prepare',reconcile:'phase_reconcile',mission:'phase_review',catalog:'codex_check',play:'phase_play',pause:'phase_pause',resume:'phase_resume'};
+  const journey=roadmapJourneyState(state,true),map={prepare:'phase_prepare',reconcile:'phase_reconcile',mission:'phase_review',catalog:'codex_check',play:'phase_play',pause:'phase_pause',resume:'phase_resume',budget:'brain_budget'};
   const needsMeasurement=(state.standard?.blockers||[]).some(reason=>/measure exact run usage|usage observation expired/i.test(reason));
   if(needsMeasurement&&!state.recovery?.reconciliationRequired&&!state.recovery?.budgetBoundaryReached&&!journey.request&&['running','paused'].includes(state.standard?.run?.status)){
     root.append(el('p','USAGE CHECK NEEDED','eyebrow'),el('p','Refresh measured usage before the next effect.'),button('Review usage check',()=>assistantRequestStep('usage_check')));return;
@@ -242,8 +243,8 @@ function assistantWorkflowReceipt(action,recorded){
   }
   // Keep the next owner decision beside the just-saved local control. Do not
   // make the owner scroll back to the top after confirming Review or Usage.
-  if(action.receipt&&['phase_review','usage_check'].includes(action.proposal.document.workflow)){
-    const next=roadmapJourneyState(state,connected),key={play:'phase_play',resume:'phase_resume',catalog:'codex_check'}[next.action];
+  if(action.receipt&&['phase_review','usage_check','brain_budget'].includes(action.proposal.document.workflow)){
+    const next=roadmapJourneyState(state,connected),key={play:'phase_play',resume:'phase_resume',catalog:'codex_check','usage-check':'usage_check'}[next.action];
     if(!action.localNext){action.localNext=el('div',null,'assistant-actions');action.element.append(action.localNext);}
     const signature=JSON.stringify([key,next.title,connected,assistantPending]);
     if(action.localNextKey!==signature){action.localNextKey=signature;action.localNext.replaceChildren();

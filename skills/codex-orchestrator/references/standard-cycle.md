@@ -64,9 +64,23 @@ control, use this explicit brain-only inspection under the same controller:
 
 `python3 -m orchestrator.cli --platform REGISTRY --workspace ID standard-host-inspect RUN_ID COMMAND_ID`
 
+For new `owned_observer_v1` handoffs the sandboxed helper submits one closed
+private request to the existing owned observer. Do not read/grant the protected
+control socket from inside the brain sandbox. The fixed read-only collector
+stays off the heartbeat loop, rechecks the same controller/run/turn context and
+retains one immutable reply. Timeout or an interrupted claim is unknown, not
+permission to retry or fall back to a direct socket. Historical handoffs are not
+backfilled. Read docs/STANDARD-HOST-EVIDENCE.md fully before use.
+
+If an empty paused phase needs a larger brain reservation, the owner can use the
+separate signed allowance review in docs/STANDARD-BRAIN-BUDGET.md. The brain
+cannot confirm it. Total/reserve/expiry/usage and receipts remain unchanged, and
+this local control cannot wake the brain or Resume dispatch. Refresh usage and
+resolve host evidence before a separately confirmed Resume.
+
 It checks the exact current owned subscription, private binding hash, both
 separately pinned project identities and repeated project/brain metadata on the
-same host. It makes no native write and does not persist or renew observations.
+same host. It makes no native write, ledger evidence update or observation renewal.
 It may inspect an active brain without calling native `thread/resume`. An old
 completed receipt, missing handoff, changed host/catalog/run or racing Pause
 cannot become current evidence. Do not use `native-project-preview` (assignment

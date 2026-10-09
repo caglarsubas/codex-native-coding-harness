@@ -1,5 +1,52 @@
 "use strict";
 const standardPreviews=new Map();
+const brainBudgetPreviews=new Map(),brainBudgetDrafts=new Map();
+function brainBudgetPanel(parent,s,run){
+  const budget=s.brainBudget;if(!budget||run.status!=='paused')return;
+  const key=workspaceId,pending=brainBudgetPreviews.get(key),panel=el('section',null,'standard-confirmation');
+  panel.id='brain-budget-review';panel.tabIndex=-1;
+  panel.append(el('h2','Brain allowance'),el('p','The phase stays paused. This reallocates within the approved total; it does not increase the phase budget or start work.','muted'));
+  panel.append(el('p',`Current brain allowance: ${num(budget.currentAllowance)} tokens. Phase total: ${num(run.limits.tokenBudget)}; reserve: ${num(run.limits.checkpointReserveTokens)}. Original expiry: ${when(run.expiresAt)}.`));
+  if(!budget.available){panel.append(el('p',budget.reason||'Allowance review is unavailable.','muted'));parent.append(panel);return;}
+  let confirmCheck=null,confirmButton=null;
+  const input=el('input');input.type='number';input.inputMode='numeric';input.step='1';
+  input.min=String(budget.currentAllowance+1);input.max=String(budget.maximumAllowance);
+  input.value=brainBudgetDrafts.get(key)||String(budget.suggestedAllowance);
+  const label=el('label');label.append(el('span','Proposed brain allowance (tokens)'),input);panel.append(label);
+  input.oninput=()=>{brainBudgetDrafts.set(key,input.value);if(confirmButton)confirmButton.disabled=true;if(confirmCheck)confirmCheck.checked=false;};
+  const review=button('Review brain allowance',async()=>{
+    if(busy||!connected||workspaceId!==key)return;
+    const amount=Number(input.value);
+    if(!/^\d+$/.test(input.value)||!Number.isSafeInteger(amount)||amount<=budget.currentAllowance||amount>budget.maximumAllowance){showNotice('Enter a larger whole-token allowance within the phase total and reserve.',true);return;}
+    try{
+      const proposal=await api('/api/standard/budget/preview',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({runId:run.id,contextHash:budget.contextHash,brainAllowance:amount})});
+      if(workspaceId!==key)return;
+      brainBudgetPreviews.set(key,proposal);render();document.getElementById('brain-budget-review')?.focus();
+    }catch(error){showNotice(error.message,true);}
+  });review.disabled=busy||!connected;panel.append(review);
+  if(pending){
+    const p=pending.preview,invalid=()=>!connected||workspaceId!==key||state.standard?.brainBudget?.contextHash!==p.contextHash||
+      Number(input.value)!==p.brainAllowance||Date.now()/1000>=p.expiresAt;
+    if(invalid())panel.append(el('p','Review changed or expired. Review the current allowance again; nothing has been applied.','muted'));
+    else{
+      panel.append(el('h3',`${num(p.previousAllowance)} → ${num(p.brainAllowance)} brain tokens`),el('p',p.boundary),
+        el('p',`Recorded brain tokens: ${p.recordedBrainTokens===null?'Unknown':num(p.recordedBrainTokens)} · ${p.recordedCoverage||'Unknown'}. This is not final usage. Review expires ${when(p.expiresAt)}.`));
+      const details=el('details');details.append(el('summary','Details · retained usage and exact allowance review'),el('pre',JSON.stringify(p,null,2)));panel.append(details);
+      const check=el('input');check.type='checkbox';const choice=el('label');choice.append(check,el('span','I approve this exact allowance change. Keep the phase paused.'));
+      const confirm=button('Confirm brain allowance',async()=>{
+        if(busy||!check.checked||invalid())return;
+        busy=true;confirm.disabled=true;check.disabled=true;review.disabled=true;cancel.disabled=true;updateWorkspaceSelector();
+        try{const result=await api('/api/standard/budget/confirm',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({...pending,confirmed:true})});
+          if(workspaceId===key){brainBudgetPreviews.delete(key);brainBudgetDrafts.delete(key);showNotice(result.result,false,result.id);await refresh();}
+        }catch(error){showNotice(error.message+' Inspect the saved receipt before retrying.',true);}finally{busy=false;render();updateWorkspaceSelector();}
+      },'primary');confirm.disabled=true;check.onchange=()=>{confirm.disabled=busy||invalid()||!check.checked;};
+      confirmCheck=check;confirmButton=confirm;
+      panel.append(choice,confirm);
+    }
+    const cancel=button('Discard allowance review',()=>{if(busy)return;brainBudgetPreviews.delete(key);render();});panel.append(cancel);
+  }
+  parent.append(panel);
+}
 const standardCatalogRequests=new Map(),standardCatalogTimers=new Map(),standardCatalogInFlight=new Set();
 function catalogMissing(s){return (!s.run||['completed','blocked'].includes(s.run.status))&&!s.available&&s.catalogRequired===true;}
 function catalogStatus(refresh){
@@ -95,6 +142,7 @@ function standardPanel(root,mode='all'){
   if(['all','operations'].includes(mode)&&needsCatalog){const status=catalogStatus(s.catalogRefresh);panel.append(callout(status.title,status.detail));catalogReadinessDetails(panel,s.catalogRefresh);scheduleCatalogFollowup(s);}
   else if(mode==='all'&&s.blocker)panel.append(el('p',s.blocker,'checkpoint'));
   if(run){
+    if(['all','usage','operations'].includes(mode))brainBudgetPanel(panel,s,run);
     panel.append(el('p',`Phase ${run.phaseId} · ${run.tasks.length} / ${run.limits.maxTasks} tasks · expires ${when(run.expiresAt)}`));
     if(s.parallelEligibility)panel.append(el('p',`${num(s.parallelEligibility.permitted)} parallel tasks permitted; ${s.parallelEligibility.currentlyEligible===null?'unknown':num(s.parallelEligibility.currentlyEligible)} currently eligible. ${s.parallelEligibility.reason}`,'subline'));
     if(['all','usage'].includes(mode)){
