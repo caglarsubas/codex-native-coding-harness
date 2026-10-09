@@ -25,6 +25,12 @@ const run=(status)=>({id:'run',status,phaseId:'phase-1',expiresAt:2000,limits:{t
 const all=root=>[root,...root.children.flatMap(all)],text=root=>all(root).map(n=>n.text).join('\n');
 const render=()=>{const root=new Element('main');box.roadmapJourney(root);return root;};
 let s=base();assert.equal(model(s).action,'play');assert.equal(model(s,false).action,'refresh');
+const budgetStop=base();budgetStop.standard.run=run('paused');budgetStop.standard.run.checkpoint.reasonCodes=['token_budget'];
+budgetStop.standard.brainBudget={available:true};assert.equal(model(budgetStop).action,'budget');
+box.journeyAction('budget');assert.deepEqual(calls.at(-1),['navigate','usage']);
+budgetStop.standard.run.checkpoint.at=1;budgetStop.standard.run.budgetReviews=[{at:2}];
+budgetStop.standard.blockers=['Measure exact run usage before another effect'];assert.equal(model(budgetStop).action,'usage-check');
+box.journeyAction('usage-check');assert.deepEqual(calls.at(-1),['preview','usage_check']);
 for(const repos of [[],undefined,[{policyProfile:'harness'}],[{policyProfile:'standard'},{policyProfile:'harness'}]]){
   assert.equal(model({...s,repositories:repos}).action,'queue');
 }

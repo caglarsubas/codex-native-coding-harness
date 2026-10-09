@@ -49,6 +49,100 @@ class HostInspectionTest(unittest.TestCase):
         return inspection.inspect(self.registry, self.ledger, kwargs.get("token", self.token),
                                   kwargs.get("run_id", self.run_id), kwargs.get("command_id", self.command_id))
 
+    def broker_request(self):
+        self.update(hostInspectionTransport=inspection.BROKER)
+        context = inspection._context(self.registry, self.ledger, self.token, self.run_id, self.command_id)
+        request = {"version":1,"runId":self.run_id,"commandId":self.command_id,"contextHash":digest(context),
+                   "controllerHash":digest(self.token),"requestedAt":time.time()}
+        inspection._write_once(inspection._mailbox(self.ledger,self.command_id,"-request"), request)
+        return request
+
+    def service(self):
+        inspection.service_request(self.ledger, self.binding, self.command_id, self.fixture.brain_id,"owned-turn-1")
+
+    def test_broker_waiter_never_reads_socket_or_binding_and_reuses_original_report(self):
+        request = self.broker_request(); self.service()
+        calls = copy.deepcopy(self.fixture.fake.calls)
+        reply_path = inspection._mailbox(self.ledger,self.command_id,"-reply")
+        saved = inspection._read_private(reply_path)
+        with patch.object(inspection,"load_binding",side_effect=AssertionError("Sandbox must not read binding")), \
+             patch.object(inspection,"TaskReadProxy",side_effect=AssertionError("Sandbox must not connect socket")):
+            self.assertEqual(self.inspect(), saved["report"])
+            self.assertEqual(self.inspect()["observedAt"],saved["report"]["observedAt"])
+            self.service()
+        self.assertEqual(self.fixture.fake.calls,calls)
+        self.assertEqual(saved["requestHash"],digest(request))
+        self.assertNotIn(self.token,canonical(request)); self.assertNotIn("endpoint",request)
+
+    def test_observer_never_collects_without_explicit_request(self):
+        self.update(hostInspectionTransport=inspection.BROKER); self.service()
+        self.assertFalse(self.fixture.fake.calls)
+        self.assertFalse(inspection._mailbox(self.ledger,self.command_id,"-reply").exists())
+
+    def test_broker_rejects_changed_reply_shape_without_socket_fallback(self):
+        self.broker_request(); self.service()
+        path = inspection._mailbox(self.ledger,self.command_id,"-reply")
+        original = inspection._read_private(path)
+        calls = copy.deepcopy(self.fixture.fake.calls)
+        for edit in (lambda r:r["report"].update(issues=[{"private":"invalid"}]),
+                     lambda r:r["report"].update(gaps=[]),
+                     lambda r:r["report"].update(nativeTurnId="foreign-turn"),
+                     lambda r:r["report"].update(boundary={"executionAuthorized":True})):
+            changed = copy.deepcopy(original); edit(changed)
+            path.unlink(); inspection._write_once(path, changed)
+            with self.assertRaises(Refusal): self.inspect()
+        self.assertEqual(self.fixture.fake.calls, calls)
+
+    def test_broker_services_explicit_wait_from_existing_controller(self):
+        self.update(hostInspectionTransport=inspection.BROKER)
+        with patch.object(inspection.time,"sleep",side_effect=lambda _:self.service()):
+            report=self.inspect()
+        self.assertEqual(report["issues"],[])
+        self.assertEqual([m for m,_ in self.fixture.fake.calls],["project/read","thread/read"]*2)
+
+    def test_broker_stale_changed_context_and_interrupted_query_never_recollect(self):
+        self.broker_request(); self.update(nativeTurnStatus="completed")
+        self.service(); self.assertFalse(self.fixture.fake.calls)
+        saved=inspection._read_private(inspection._mailbox(self.ledger,self.command_id,"-reply"))
+        self.assertEqual(saved["status"],"unavailable")
+        self.update(nativeTurnStatus="active"); self.service(); self.assertFalse(self.fixture.fake.calls)
+
+    def test_broker_expired_request_refuses_before_socket_io_and_never_renews(self):
+        request=self.broker_request()
+        with patch.object(inspection.time,"time",return_value=request["requestedAt"]+31):
+            self.service()
+            with self.assertRaisesRegex(Refusal,"expired"):self.inspect()
+        self.assertFalse(self.fixture.fake.calls)
+        self.assertEqual(inspection._read_private(inspection._mailbox(self.ledger,self.command_id,"-request")),request)
+
+    def test_interrupted_collector_claim_cannot_trigger_automatic_read_retry(self):
+        self.broker_request()
+        inspection._write_once(inspection._mailbox(self.ledger,self.command_id,"-claim"),{"interrupted":True})
+        self.service(); self.assertFalse(self.fixture.fake.calls)
+        self.assertFalse(inspection._mailbox(self.ledger,self.command_id,"-reply").exists())
+
+    def test_broker_rejects_malicious_fields_foreign_controller_and_insecure_files(self):
+        request=self.broker_request()
+        path=inspection._mailbox(self.ledger,self.command_id,"-request")
+        os.chmod(path,0o644)
+        with self.assertRaises(Refusal):self.service()
+        self.assertFalse(self.fixture.fake.calls)
+        os.chmod(path,0o600); path.unlink()
+        inspection._write_once(path,{**request,"controllerHash":"foreign","method":"turn/start"})
+        self.service(); self.assertFalse(self.fixture.fake.calls)
+        self.assertEqual(inspection._read_private(inspection._mailbox(self.ledger,self.command_id,"-reply"))["status"],"unavailable")
+
+    def test_broker_inflight_pause_race_retains_unavailable_not_stale_report(self):
+        self.broker_request()
+        def race(*_):
+            self.fixture.fake.callback=None
+            with self.ledger.tx() as db:
+                meta=self.ledger.get(db,"meta",1);meta["standardRun"]["status"]="stopping"
+                self.ledger.put(db,"meta",1,meta)
+        self.fixture.fake.callback=race;self.service()
+        saved=inspection._read_private(inspection._mailbox(self.ledger,self.command_id,"-reply"))
+        self.assertEqual(saved["status"],"unavailable");self.assertNotIn("report",saved)
+
     def test_repeated_read_is_nonmutating_and_keeps_policy_evidence_separate(self):
         with read_db(self.ledger.db) as db: before = fingerprint(db)
         result = self.inspect()

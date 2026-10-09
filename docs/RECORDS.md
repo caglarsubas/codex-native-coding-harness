@@ -244,3 +244,20 @@ response preserves the failed one-shot notification and its closed stage record,
 without another resume, full-history fallback or turn start. This protocol fix
 does not repair historical claims, create another recovery permit, change the
 host binding or clear usage gaps. Source tests are not live qualification.
+
+## Sandbox-safe host evidence and brain allowance correction
+
+New owned notifications pin `hostInspectionTransport: owned_observer_v1`.
+One private controller/context-bound request, durable collector claim and
+immutable reply retain fixed read-only host metadata. No request means no
+collection; timeout/interruption never grants direct socket access or a resend.
+The observed timestamp remains the original query time. See
+[host evidence](STANDARD-HOST-EVIDENCE.md).
+
+The signed local `standard_brain_budget` command retains its exact owner preview
+hash and `standardRun.budgetReviews` old/new allowance entry. It is completed
+locally, never notifiable, and leaves the phase paused. Original Play/review
+receipts, mission/total/reserve/task limits, expiry, checkpoint and all usage/gaps
+remain intact. Replaying its receipt never applies an older amount. See
+[brain allowance correction](STANDARD-BRAIN-BUDGET.md). Source, installation,
+owner reallocation, Resume and live pilot acceptance remain separate.

@@ -10,7 +10,7 @@ from .assistant_actions import ActionProposals, TTL
 from .core import digest, require
 from .recovery import describe
 
-KINDS = {"phase_help", "phase_prepare", "phase_reconcile", "phase_recovery", "phase_pause_recovery", "phase_close", "phase_review", "phase_play", "phase_pause", "phase_resume", "usage_check", "codex_check", "brain_message"}
+KINDS = {"phase_help", "phase_prepare", "phase_reconcile", "phase_recovery", "phase_pause_recovery", "phase_close", "phase_review", "phase_play", "phase_pause", "phase_resume", "brain_budget", "usage_check", "codex_check", "brain_message"}
 PREPARE_MESSAGE = (
     "Review this project's configured roadmap sources and latest retained results. "
     "Prepare the next unfinished, bounded phase as a mission draft. Include goal, success criteria, "
@@ -152,6 +152,10 @@ def catalog(state):
     add("phase_resume", "Resume this phase", "Continue the saved phase with its existing limits and consumed usage.",
         "Finish the existing brain handoff first." if blocked_handoff else
         None if run.get("status") == "paused" and not s.get("blockers") else "A paused phase with resolved prerequisites is required.")
+    budget = s.get("brainBudget") or {}
+    from .standard_budget import BOUNDARY as BUDGET_BOUNDARY
+    add("brain_budget", "Review brain allowance", BUDGET_BOUNDARY,
+        None if budget.get("available") else budget.get("reason") or "An empty paused owned-host phase is required.")
     add("usage_check", "Refresh phase usage", "Read registered local session counters. Missing measurements stay unknown; this never resumes the phase.",
         None if run else "Start a reviewed phase before measuring its usage.")
     add("codex_check", "Check Codex readiness", "Ask the brain to refresh available native models and efforts.",
@@ -200,7 +204,19 @@ class JourneyProposals(ActionProposals):
         mission, standard = state.get("mission") or {}, state["standard"]
         preview = {k: action[k] for k in ("title", "target", "impact", "href", "details")}
         request = {}
-        if kind == "phase_review":
+        if kind == "brain_budget":
+            budget = standard["brainBudget"]
+            request = self.runtime.brain_budget_controls.preview(self.runtime.registry, self.runtime.ledger,
+                {"runId": standard["run"]["id"], "contextHash": budget["contextHash"],
+                 "brainAllowance": budget["suggestedAllowance"]}, session)
+            ident = request["preview"]["id"]
+            p = request["preview"]
+            preview["summary"] = ["Brain allowance: " + str(p["previousAllowance"]) + " → " + str(p["brainAllowance"]) + " tokens.",
+                "Phase total " + str(p["phaseBudget"]) + "; reserve " + str(p["checkpointReserve"]) + "; both unchanged.",
+                "Recorded brain tokens: " + str(p["recordedBrainTokens"] if p["recordedBrainTokens"] is not None else "unknown") + ". This is not final usage; all gaps stay retained.",
+                "Original phase expiry: " + time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime(p["runExpiresAt"])) + ".",
+                p["boundary"]]
+        elif kind == "phase_review":
             request = {"id": ident, "operation": "review", "expectedRevision": mission["revision"],
                        "documentHash": mission["documentHash"], "confirmed": True}
         elif kind in ("phase_play", "phase_pause", "phase_resume"):
@@ -465,6 +481,9 @@ class JourneyProposals(ActionProposals):
                         ("turnId", "status", "completedAt", "brainId", "projectId", "bindingHash")),
                     "Reviewed native turn changed; check again")
             return self.result(doc, phase_closeout.confirm(self.runtime.registry, ledger, request)), False
+        if kind == "brain_budget":
+            result = self.runtime.brain_budget_controls.confirm(self.runtime.registry, ledger, {**request, "confirmed": True}, session)
+            return self.result(doc, result), False
         if kind in ("phase_play", "phase_pause", "phase_resume"):
             result = self.runtime.standard_controls.confirm(self.runtime.registry, ledger, {**request, "confirmed": True}, session)
         elif kind == "codex_check":
@@ -477,7 +496,7 @@ class JourneyProposals(ActionProposals):
     @staticmethod
     def result(doc, result):
         return {"workflow": doc["workflow"], "id": doc["id"], "result": result,
-                "message": result["result"] if doc["workflow"] == "phase_close" else
+                "message": result["result"] if doc["workflow"] in ("phase_close", "brain_budget") else
                            "Pause recovery saved. Follow delivery, the Pause receipt and its paused checkpoint separately." if doc["workflow"] == "phase_pause_recovery" else
                            "Recovery-only preparation saved. The phase remains paused; follow native delivery and the brain's separate receipt." if doc["workflow"] == "phase_recovery" else
                            "Phase plan reviewed. You can now review Play here." if doc["workflow"] == "phase_review" else

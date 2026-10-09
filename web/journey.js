@@ -181,6 +181,13 @@ function roadmapJourneyState(snapshot,isConnected=true,now=Date.now()/1000){
   }
   if(run?.status==='paused'){
     const recovery=run.recovery;
+    const budgetAdjusted=(run.budgetReviews||[]).some(r=>r.at>=run.checkpoint?.at);
+    if(s.brainBudget?.available&&!budgetAdjusted&&run.checkpoint?.reasonCodes?.includes('token_budget'))return result(3,'Review the brain allowance',
+      'The phase is paused at its budget checkpoint. Reallocate within the approved phase total; preserve usage and gaps. Host evidence and fresh usage are still required before a separate Resume.',
+      'Review brain allowance','budget',{reasons:blockers});
+    if(budgetAdjusted&&blockers.some(b=>/measure exact run usage|usage observation expired/i.test(b)))return result(3,'Allowance adjusted; refresh usage',
+      'The local correction is saved and the phase remains paused. Review a fresh registered usage check; unknown coverage and other prerequisites still block Resume.',
+      'Review usage check','usage-check',{reasons:blockers});
     if(snapshot.phaseCloseout?.available)return result(3,'Recovery finished; close the expired phase',
       'Close this empty phase as blocked and unqualified. Its usage and evidence stay intact. Then Help prepares the next proposal; no prompt writing or Resume.',
       'Review stopped-phase closeout','close',{reasons:blockers});
@@ -238,6 +245,8 @@ function prepareRoadmapPhase(){
   document.getElementById('brain-message')?.focus();
 }
 function journeyAction(action){
+  if(action==='usage-check'){focusAssistantConversation();return assistantRequestStep('usage_check');}
+  if(action==='budget'){navigateView('usage');const panel=document.getElementById('brain-budget-review');panel?.scrollIntoView({block:'start'});panel?.focus();return;}
   if(action==='close'){focusAssistantConversation();return assistantRequestStep('phase_close');}
   if(action==='pause-recover'){focusAssistantConversation();return assistantRequestStep('phase_pause_recovery');}
   if(action==='recover'||action==='recover_follow'){

@@ -5,6 +5,8 @@ immutable copy of the operator-reviewed binding, not a new binding or authority.
 """
 import copy
 import os
+import stat
+import tempfile
 import time
 
 from .app_server_wake import _read_binding, load_binding, NATIVE_APPROVAL_POLICY
@@ -14,6 +16,14 @@ from .standard_native_observation import _base_in, _brain_identity, TaskReadProx
 from . import standard
 
 VERSION = 1
+BROKER = "owned_observer_v1"
+REQUEST_SECONDS = 30
+REPORT_FIELDS = set("version workspaceId runId commandId brainId nativeTurnId bindingHash endpointHash "
+                    "catalogProjectId ownedProjectId startedAt observedAt brain resumeProfile issues gaps boundary".split())
+ISSUES = {"native_active_flags_unavailable", "native_approval_or_user_input_pending",
+          "native_sandbox_unavailable_or_different", "native_approval_policy_unavailable_or_different",
+          "native_approval_reviewer_unavailable_or_different", "unresolved_recorded_native_approval"}
+GAPS = ["code_mode_not_independently_reported", "native_effect_inventory_not_complete"]
 BOUNDARY = {"nativeMutationMade": False, "executionAuthorized": False,
             "approvalAuthorized": False, "taskTreeComplete": False,
             "tokenUsageMeasured": False, "ownershipReleased": False}
@@ -110,14 +120,24 @@ def _context(registry, ledger, token, run_id, command_id):
         return {"revision": meta["revision"], "runHash": digest(run), "runStatus": run["status"],
                 "brainId": meta["brainId"], "bindingHash": note["hostBindingHash"],
                 "nativeTurnId": note["nativeTurnId"], "profile": copy.deepcopy(profile),
+                "transport": note.get("hostInspectionTransport", "direct_v1"),
                 "approvals": copy.deepcopy(note.get("nativeApprovals", []))}
 
 
 def inspect(registry, ledger, token, run_id, command_id):
-    """Explicit, repeated project/read + exact thread/read; no ledger write."""
+    """Explicit fixed metadata query, never a sandbox escape or native effect."""
     context = _context(registry, ledger, token, run_id, command_id)
+    if context["transport"] == BROKER:
+        return _request_inspection(registry, ledger, token, run_id, command_id, context)
+    require(context["transport"] == "direct_v1", "Unsupported host inspection transport")
+    return _collect(registry, ledger, token, run_id, command_id, context)
+
+
+def _collect(registry, ledger, token, run_id, command_id, context, binding=None):
     path = binding_file(ledger, context["bindingHash"])
-    binding = load_binding(path)
+    retained = load_binding(path)
+    require(binding is None or retained == binding, "Owned observer binding changed")
+    binding = retained
     require(digest(binding) == context["bindingHash"], "Reviewed owned host binding changed")
     scope = _scope(registry, ledger.workspace_id, binding)
     started = time.time()
@@ -149,5 +169,147 @@ def inspect(registry, ledger, token, run_id, command_id):
             "catalogProjectId": scope["catalogProjectId"], "ownedProjectId": scope["projectId"],
             "startedAt": started, "observedAt": time.time(), "brain": after,
             "resumeProfile": context["profile"], "issues": issues,
-            "gaps": ["code_mode_not_independently_reported", "native_effect_inventory_not_complete"],
-            "boundary": BOUNDARY}
+            "gaps": GAPS.copy(), "boundary": BOUNDARY.copy()}
+
+
+def _mailbox(ledger, command_id, suffix):
+    from .admission import identifier
+    identifier(command_id)
+    require(ledger.root.resolve(strict=True) == ledger.root and
+            ledger.root.stat().st_uid == os.getuid() and not ledger.root.stat().st_mode & 0o077,
+            "Exact private owner ledger directory required")
+    return ledger.root / ("host-inspection-" + digest(command_id) + suffix + ".json")
+
+
+def _read_private(path):
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    with os.fdopen(fd) as stream:
+        info = os.fstat(stream.fileno())
+        require(stat.S_ISREG(info.st_mode) and info.st_uid == os.getuid() and
+                not info.st_mode & 0o077 and info.st_nlink == 1 and info.st_size <= 65536,
+                "Invalid private host inspection mailbox")
+        from .native_read_client import decode
+        return decode(stream.read())
+
+
+def _write_once(path, value):
+    # One immutable explicit query per owned control. Files are private IPC,
+    # not a second notification/dispatcher or new executable permission.
+    data = canonical(value)
+    require(len(data.encode()) <= 65536, "Host inspection mailbox exceeds its bound")
+    fd, temporary = tempfile.mkstemp(prefix=".host-inspection-", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w") as stream:
+            stream.write(data); stream.flush(); os.fsync(stream.fileno())
+        # Publish complete bytes atomically, without replacing an existing name.
+        os.link(temporary, path, follow_symlinks=False)
+    finally:
+        os.unlink(temporary)
+    directory = os.open(path.parent, os.O_RDONLY)
+    try:
+        os.fsync(directory)
+    finally:
+        os.close(directory)
+
+
+def _request_inspection(registry, ledger, token, run_id, command_id, context):
+    request_path = _mailbox(ledger, command_id, "-request")
+    reply_path = _mailbox(ledger, command_id, "-reply")
+    request = {"version": VERSION, "runId": run_id, "commandId": command_id,
+               "contextHash": digest(context), "controllerHash": digest(token)}
+    try:
+        _write_once(request_path, {**request, "requestedAt": time.time()})
+    except FileExistsError:
+        pass  # Read the original result; never renew or resubmit its query.
+    saved = _read_private(request_path)
+    require(isinstance(saved, dict) and set(saved) == set(request) | {"requestedAt"} and
+            all(saved[k] == v for k, v in request.items()), "Host inspection request changed")
+    require(type(saved["requestedAt"]) in (int, float) and
+            0 <= time.time() - saved["requestedAt"] < REQUEST_SECONDS,
+            "Host inspection request expired; no query was replayed")
+    while time.time() - saved["requestedAt"] < REQUEST_SECONDS:
+        require(_context(registry, ledger, token, run_id, command_id) == context,
+                "Host inspection context changed; no continuation is authorized")
+        try:
+            reply = _read_private(reply_path)
+        except FileNotFoundError:
+            time.sleep(0.1)
+            continue
+        require(isinstance(reply, dict) and set(reply) in
+                ({"requestHash", "status", "report"}, {"requestHash", "status"}) and
+                reply.get("requestHash") == digest(saved),
+                "Host inspection reply belongs to another query")
+        require(reply.get("status") == "completed", "Owned host inspection unavailable; inspect the retained checkpoint")
+        report = reply.get("report")
+        require(isinstance(report, dict) and set(report) == REPORT_FIELDS and report.get("version") == VERSION and
+                report.get("commandId") == command_id and
+                report.get("workspaceId") == ledger.workspace_id and report.get("brainId") == context["brainId"] and
+                report.get("runId") == run_id and report.get("nativeTurnId") == context["nativeTurnId"] and
+                report.get("bindingHash") == context["bindingHash"] and report.get("boundary") == BOUNDARY and
+                type(report.get("observedAt")) in (int, float) and
+                saved["requestedAt"] <= report["observedAt"] <= time.time() and
+                report.get("resumeProfile") == context["profile"],
+                "Host inspection reply is stale or changed")
+        brain = report["brain"]
+        require(isinstance(brain, dict) and set(brain) == {"nativeStatus", "sourceHash", "activeFlags"} and
+                brain["nativeStatus"] == "active" and (brain["activeFlags"] is None or
+                isinstance(brain["activeFlags"], list) and len(brain["activeFlags"]) <= 2 and
+                all(f in ("waitingOnApproval", "waitingOnUserInput") for f in brain["activeFlags"])) and
+                isinstance(report["issues"], list) and len(report["issues"]) <= len(ISSUES) and
+                all(isinstance(i, str) and i in ISSUES for i in report["issues"]) and
+                report["gaps"] == GAPS and type(report["startedAt"]) in (int, float) and
+                saved["requestedAt"] <= report["startedAt"] <= report["observedAt"],
+                "Host inspection metadata shape changed")
+        from .admission import sha, identifier
+        for value in (brain["sourceHash"], report["endpointHash"], report["bindingHash"]):
+            sha(value)
+        for value in (report["catalogProjectId"], report["ownedProjectId"]):
+            identifier(value)
+        require(_context(registry, ledger, token, run_id, command_id) == context,
+                "Host inspection context changed before returning evidence")
+        return report
+    require(False, "Owned observer did not return host evidence; no native effect was retried")
+
+
+def service_request(ledger, binding, command_id, brain_id, turn_id):
+    """Existing owned observer services only an explicit, controller-bound query.
+
+    No socket is granted to the sandbox. No native write, notification, automatic
+    collection, controller acquisition or independent scheduler exists here.
+    """
+    request_path = _mailbox(ledger, command_id, "-request")
+    reply_path = _mailbox(ledger, command_id, "-reply")
+    if not request_path.exists() or reply_path.exists():
+        return
+    request = _read_private(request_path)
+    try:
+        _write_once(_mailbox(ledger, command_id, "-claim"), {"requestHash": digest(request)})
+    except FileExistsError:
+        return  # An interrupted collector is unknown, never automatically recollected.
+    from .core import Refusal
+    try:
+        require(isinstance(request, dict) and set(request) ==
+                {"version", "runId", "commandId", "contextHash", "controllerHash", "requestedAt"} and
+                request["version"] == VERSION and request["commandId"] == command_id and
+                type(request["requestedAt"]) in (int, float) and
+                0 <= time.time() - request["requestedAt"] < REQUEST_SECONDS,
+                "Invalid or expired host inspection request")
+        with standard.read_db(ledger.db) as db:
+            controller = ledger.get(db, "meta", 1).get("controller") or {}
+        token = controller.get("token")
+        require(isinstance(token, str) and digest(token) == request["controllerHash"],
+                "Host inspection controller changed")
+        from .workspaces import Registry
+        registry = Registry(ledger.platform_root)
+        context = _context(registry, ledger, token, request["runId"], command_id)
+        require(context["brainId"] == brain_id and context["nativeTurnId"] == turn_id and
+                context["transport"] == BROKER and digest(context) == request["contextHash"] and
+                context["bindingHash"] == digest(binding), "Host inspection owner context changed")
+        report = _collect(registry, ledger, token, request["runId"], command_id, context, binding)
+        reply = {"requestHash": digest(request), "status": "completed", "report": report}
+    except (OSError, Refusal, ValueError, KeyError):
+        reply = {"requestHash": digest(request), "status": "unavailable"}
+    try:
+        _write_once(reply_path, reply)
+    except FileExistsError:
+        pass

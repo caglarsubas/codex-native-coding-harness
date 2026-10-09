@@ -154,6 +154,8 @@ def projection(ledger, db):
     except (Refusal, ValueError) as error:
         result["blocker"] = str(error)
     if run:
+        from .standard_budget import summary_in
+        result["brainBudget"] = summary_in(ledger, db)
         from .pause_recovery import availability, state_in
         result["pauseRecovery"] = availability(state_in(ledger, db, meta))
         result["blockers"] = current_blockers(ledger, db, run)
