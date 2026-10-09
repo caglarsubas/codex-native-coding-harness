@@ -3,6 +3,7 @@ Object.assign(titles,{conversation:['Brain conversation','Talk to this project�
 const brainDrafts=new Map(),brainPages=new Map();
 const brainRequestFocus=new Map();
 const nativePermissionPreviews=new Map();
+const nativePermissionFocusRequests=new Map();
 const receiptRecoveryPreviews=new Map();
 function receiptRecoveryPanel(article,message){
   const key=workspaceId||'legacy',generation=typeof workspaceGeneration==='undefined'?0:workspaceGeneration;
@@ -54,23 +55,75 @@ function receiptRecoveryPanel(article,message){
   // Asynchronous updates still require the exact connected workspace generation.
   paint(true);
 }
+// Notice polling reads only the already-retained owner request. It never
+// collects native evidence, creates a preview or grants a permission.
+function nativePermissionNoticePaint(panel,value){
+  const visible=value.status==='pending'||value.status==='attention_required'||
+    value.status==='response_claimed'&&['claimed','queued','response_written','uncertain','blocked'].includes(value.delivery);
+  const signature=JSON.stringify([value.status,value.commandId,value.requestHash,value.delivery,value.detail]);
+  if(panel._permissionSignature===signature)return;
+  panel._permissionSignature=signature;panel.hidden=!visible;panel.replaceChildren();
+  if(!visible)return;
+  const copy=el('div'),waiting=value.status==='pending';
+  copy.append(el('strong',waiting?'The brain needs a permission decision':'This native request needs attention'),
+    el('p',waiting?'Review the Codex request here. Nothing is approved automatically.':value.detail));
+  const review=button(waiting?'Review native permission':'Inspect existing request',()=>{
+    nativePermissionFocusRequests.set(workspaceId||'legacy',typeof workspaceGeneration==='undefined'?0:workspaceGeneration);
+    navigateView('conversation');
+  });
+  panel.append(copy,review);
+}
+function nativePermissionNotice(root){
+  const key=workspaceId||'legacy',generation=typeof workspaceGeneration==='undefined'?0:workspaceGeneration;
+  root.hidden=true;root.setAttribute('role','status');root.setAttribute('aria-live','polite');
+  const same=()=>root.isConnected&&key===(workspaceId||'legacy')&&generation===(typeof workspaceGeneration==='undefined'?0:workspaceGeneration);
+  async function load(){
+    try{
+      const value=await api('/api/native-permission');if(!same())return;
+      // Keep only a compact, transient summary on the shell. Never copy the raw
+      // prompt into project state, storage, the graph or the advisory guide.
+      const summary={status:value.status,commandId:value.pending?.commandId||value.commandId,
+        requestHash:value.pending?.requestHash,delivery:value.delivery,detail:value.detail};
+      root._permissionSummary=summary;nativePermissionNoticePaint(root,summary);
+      const mirror=root.parentElement?.querySelector('.session-inspector-permission');
+      if(mirror)nativePermissionNoticePaint(mirror,summary);
+    }catch(error){
+      if(same()){
+        const summary={status:'attention_required',detail:'Permission status could not be checked. Inspect the existing request; do not repeat Play.'};
+        root._permissionSummary=summary;nativePermissionNoticePaint(root,summary);
+        const mirror=root.parentElement?.querySelector('.session-inspector-permission');
+        if(mirror)nativePermissionNoticePaint(mirror,summary);
+      }
+    }finally{if(same()&&typeof window!=='undefined')window.setTimeout(load,5000);}
+  }
+  load();
+}
 function nativePermissionPanel(root){
   const panel=el('section',null,'brain-exchange native-permission');root.append(panel);
   const key=workspaceId||'legacy',generation=typeof workspaceGeneration==='undefined'?0:workspaceGeneration;
   const same=()=>panel.isConnected&&generation===(typeof workspaceGeneration==='undefined'?0:workspaceGeneration)&&key===(workspaceId||'legacy');
-  let shown=null;
+  let shown=null,expiredRequest=null;
+  function focusReview(){
+    if(!same()||!panel.children.length||nativePermissionFocusRequests.get(key)!==generation)return;
+    nativePermissionFocusRequests.delete(key);panel.setAttribute('tabindex','-1');panel.setAttribute('aria-label','Native permission review');
+    panel.scrollIntoView({block:'nearest',behavior:'auto'});panel.focus({preventScroll:true});
+  }
   function post(path,body){return api(path,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify(body)});}
   function paint(value,force=false){
     if(!same())return;
-    const signature=value.status==='pending'?'pending:'+value.pending.requestHash+':'+(value.pending.canAccept?'accept':'no-accept'):value.status+':'+(value.delivery||'');
-    if(!force&&signature===shown)return;
+    const cached=nativePermissionPreviews.get(key),expired=!!cached&&cached.document?.expiresAt<=Date.now()/1000;
+    if(expired)expiredRequest=value.pending?.requestHash||null;
+    else if(cached||value.status!=='pending'||expiredRequest!==value.pending.requestHash)expiredRequest=null;
+    const signature=value.status==='pending'?'pending:'+value.pending.requestHash+':'+(value.pending.canAccept?'accept':'no-accept')+':'+expiredRequest:value.status+':'+(value.delivery||'')+':'+(value.detail||'');
+    if(!force&&signature===shown){focusReview();return;}
     shown=signature;
     panel.replaceChildren();
+    if(expired)nativePermissionPreviews.delete(key);
     if(value.status!=='pending'){
       nativePermissionPreviews.delete(key);
       if(value.status!=='disabled'&&value.detail&&value.detail!=='No current native permission request; inspect the brain before retrying')
-        panel.append(el('p',(value.status==='response_claimed'?'Native permission · '+value.delivery+': ':'Native approval unavailable: ')+value.detail,'muted'));
-      return;
+        panel.append(el('p',(value.status==='response_claimed'?'Native permission · '+value.delivery+': ':'Native permission: ')+value.detail,'muted'));
+      focusReview();return;
     }
     const pending=value.pending,preview=nativePermissionPreviews.get(key);
     if(preview&&(preview.document?.requestHash!==pending.requestHash||preview.document?.decision==='accept'&&!pending.canAccept))nativePermissionPreviews.delete(key);
@@ -79,8 +132,9 @@ function nativePermissionPanel(root){
       el('p','This is a Codex security prompt, not phase or task approval. No permission is granted automatically.','checkpoint'));
     const facts=el('ul');
     facts.append(el('li','Type: '+pending.method),el('li','Observed: '+when(pending.observedAt)),
-      el('li','Expires: '+when(pending.expiresAt)),el('li','Approval available here: '+(pending.canAccept?'yes, after exact review':'no; decline or inspect in Codex')));
+      el('li','Owned connection waiting until: '+when(pending.expiresAt)),el('li','Approval available here: '+(pending.canAccept?'yes, after exact review':'no; decline or inspect in Codex')));
     panel.append(facts);
+    if(expiredRequest)panel.append(el('p','Your confirmation preview expired, but this native request is still waiting. Choose a response below to review it again. Nothing was sent.','checkpoint'));
     const details=el('details'),exact=el('pre',JSON.stringify({request:pending.request,item:pending.item||null},null,2),'brain-message-text');
     details.open=true;details.append(el('summary','Exact native request and item context'),exact);panel.append(details);
     const actions=el('div',null,'inline-actions');
@@ -111,6 +165,7 @@ function nativePermissionPanel(root){
         finally{confirm.disabled=false;}
       },'primary');confirm.disabled=true;check.onchange=()=>{confirm.disabled=!check.checked;};review.append(confirm);panel.append(review);
     }
+    focusReview();
   }
   function load(){
     api('/api/native-permission').then(value=>paint(value)).catch(error=>{if(same())panel.replaceChildren(el('p','Native permission status unavailable: '+error.message,'muted'));})

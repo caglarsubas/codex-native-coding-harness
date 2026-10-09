@@ -8,7 +8,7 @@ import time
 import unittest
 from unittest.mock import patch
 
-from orchestrator.app_server_wake import (AppServerWake, NATIVE_APPROVAL_POLICY,
+from orchestrator.app_server_wake import (AppServerWake, NATIVE_APPROVAL_POLICY, OWNED_TURN_SECONDS,
                                           THREAD_EVENT_LIMIT, THREAD_STREAM_GAP,
                                           WakeProxy, load_binding)
 from orchestrator.core import Refusal
@@ -509,6 +509,7 @@ class WakeTest(unittest.TestCase):
         self.wake._observe_turn(proxy, "control", BRAIN, TURN)
         self.assertTrue(proxy.closed)
         self.assertEqual(ledger.command["notification"]["nativeTurnStatus"], "native_attention_required")
+        self.assertEqual(ledger.command["notification"]["nativeAttention"]["reason"], "unsupported_native_request")
         self.assertNotIn("PRIVATE", str(ledger.command))
         ledger = MemoryLedger(); self.wake.ledger = ledger
         proxy = EventProxy({"method": "turn/completed", "params": {
@@ -516,6 +517,68 @@ class WakeTest(unittest.TestCase):
         self.wake._observe_turn(proxy, "control", BRAIN, TURN)
         self.assertEqual(ledger.command["notification"]["nativeTurnStatus"], "completed")
         self.assertNotIn("PRIVATE", str(ledger.command))
+
+    def test_owner_wait_survives_ten_minutes_without_native_write_or_extension(self):
+        ledger = MemoryLedger(); self.wake.ledger = ledger
+        proxy = ApprovalProxy({"id": 9, "method": "item/commandExecution/requestApproval",
+                               "params": {"threadId": BRAIN, "turnId": TURN,
+                                          "itemId": "item-1", "reason": "PRIVATE"}})
+        now = [time.time()]
+        with patch("orchestrator.app_server_wake.time.time", side_effect=lambda: now[0]):
+            observer = threading.Thread(target=self.wake._observe_turn, args=(proxy, "control", BRAIN, TURN))
+            observer.start()
+            offered = wait_pending(self.wake)
+            self.assertAlmostEqual(offered["expiresAt"] - now[0], OWNED_TURN_SECONDS, delta=1)
+            now[0] += 601
+            self.assertEqual(self.wake.pending_approval(BRAIN)["requestHash"], offered["requestHash"])
+            self.assertEqual(self.wake.pending_approval(BRAIN)["expiresAt"], offered["expiresAt"])
+            self.assertEqual(proxy.writes, [])
+            self.assertFalse(proxy.closed)
+            self.wake.confirm_approval(BRAIN, "control", offered["requestHash"], "decline")
+            observer.join(timeout=2)
+        self.assertFalse(observer.is_alive())
+        self.assertEqual(proxy.writes, [{"id": 9, "result": {"decision": "decline"}}])
+        self.assertEqual(ledger.command["notification"]["nativeTurnStatus"], "completed")
+        observation = ledger.command["notification"]["nativePermissionObservation"]
+        self.assertEqual(observation["reason"], "native_resolved")
+        self.assertEqual(observation["requestHash"], offered["requestHash"])
+        self.assertNotIn("PRIVATE", str(ledger.command))
+
+    def test_owner_wait_expiration_is_closed_metadata_not_replay_permission(self):
+        ledger = MemoryLedger(); self.wake.ledger = ledger
+        proxy = ApprovalProxy({"id": 9, "method": "item/commandExecution/requestApproval",
+                               "params": {"threadId": BRAIN, "turnId": TURN,
+                                          "itemId": "item-1", "reason": "PRIVATE"}})
+        with patch("orchestrator.app_server_wake.APPROVAL_SECONDS", 0.03):
+            self.wake._observe_turn(proxy, "control", BRAIN, TURN)
+        note = ledger.command["notification"]
+        self.assertEqual(note["nativeTurnStatus"], "native_attention_required")
+        self.assertEqual(note["nativePermissionObservation"]["reason"], "owner_wait_elapsed")
+        self.assertGreaterEqual(note["nativePermissionObservation"]["endedAt"],
+                                note["nativePermissionObservation"]["expiresAt"])
+        self.assertIsNone(self.wake.pending_approval(BRAIN))
+        self.assertEqual(proxy.writes, [])
+        self.assertNotIn("PRIVATE", str(note))
+        with self.assertRaises(Refusal):
+            self.wake.confirm_approval(BRAIN, "control", note["nativePermissionObservation"]["requestHash"], "decline")
+        self.assertEqual(proxy.writes, [])
+
+    def test_late_permission_never_extends_the_existing_turn_boundary(self):
+        self.wake.ledger = MemoryLedger()
+        proxy = ApprovalProxy()
+        proxy.deadline = time.monotonic() + 40
+        row = {"id": 9, "method": "item/commandExecution/requestApproval",
+               "params": {"threadId": BRAIN, "turnId": TURN, "itemId": "item-1"}}
+        observer = threading.Thread(target=self.wake._offer_approval,
+                                    args=(proxy, row, "control", BRAIN, TURN, None))
+        observer.start()
+        offered = wait_pending(self.wake)
+        self.assertGreater(offered["expiresAt"] - time.time(), 38)
+        self.assertLessEqual(offered["expiresAt"] - time.time(), 40)
+        self.wake.confirm_approval(BRAIN, "control", offered["requestHash"], "cancel")
+        observer.join(timeout=2)
+        self.assertFalse(observer.is_alive())
+        self.assertEqual(proxy.writes, [{"id": 9, "result": {"decision": "cancel"}}])
 
     def test_explicit_inspection_worker_never_blocks_observer_or_repeats_query(self):
         from types import SimpleNamespace

@@ -119,6 +119,7 @@ async function render(){const root=new Element('root');box.conversationView(root
   };
   root=new Element('root');box.nativePermissionPanel(root);await Promise.resolve();await Promise.resolve();
   nodes=all(root);assert(nodes.some(n=>n.tag==='pre'&&n.text.includes('do-not-run <script>')));
+  assert(!nodes.some(n=>n.focused),'A newly arriving prompt never steals focus');
   assert(!nodes.some(n=>n.text==='Approve this request once'));
   await nodes.find(n=>n.text==='Decline').click();
   nodes=all(root);assert.equal(nativeCalls[0][0],'preview');
@@ -126,6 +127,15 @@ async function render(){const root=new Element('root');box.conversationView(root
   assert.equal(nativeConfirm.disabled,true);nativeCheck.checked=true;nativeCheck.onchange();
   await nativeConfirm.click();assert.equal(nativeCalls[1][0],'confirm');
   assert.equal(nativeCalls[1][1].confirmed,true);
+  nativePending=true;
+  vm.runInContext("nativePermissionPreviews.set('alpha',{document:{requestHash:'a'.repeat(64),decision:'decline',expiresAt:1}})",box);
+  vm.runInContext("nativePermissionFocusRequests.set('alpha',0)",box);
+  root=new Element('root');box.nativePermissionPanel(root);await Promise.resolve();await Promise.resolve();
+  nodes=all(root);
+  assert(nodes.some(n=>n.text?.includes('preview expired, but this native request is still waiting')));
+  assert(!nodes.some(n=>n.text==='Confirm decline'),'An expired preview cannot retain its confirmation button');
+  assert(nodes.some(n=>n['aria-label']==='Native permission review'&&n.focused?.preventScroll===true),'Explicit notice click focuses the permission review, not the message composer');
+  assert.equal(nativeCalls.length,2,'Expiration only updates UI; it never prepares or confirms automatically');
   const source=fs.readFileSync('web/conversation.js','utf8');assert(!source.includes('innerHTML'));
   assert(source.includes("navigateView('artifacts',id)"));assert(source.includes("navigateView('decisions',id)"));
   console.log('Conversation UI: project drafts, explicit confirmation, immutable retry, receipt labels and pending guard passed');

@@ -34,6 +34,20 @@ navigation destination.
 
 ## Local regression record
 
+- Native permission continuity (2026-10-10): full local Python discovery
+  completed 2,165 tests (2,164 passed; the optional Graphify executable check
+  skipped), and all 34 JavaScript suites passed. The 56 focused native wake,
+  signed permission and HTTP tests also passed. Syntax and diff checks passed.
+  New cases cover owner waiting beyond ten minutes without a write, remaining
+  turn lifetime, expiration without replay, short confirmation TTL, hash-only
+  closed causes, unknown historical causes and exact current-turn isolation.
+  A disposable synthetic dashboard verified worker/advisory visibility, explicit
+  focus on the exact review, light/dark themes, 320px modal reflow and keyboard
+  containment, and no alert leakage to another project. No native response was
+  sent. The fixture server/tab were closed and viewport reset after inspection.
+  GitHub reported zero configured workflows; none was added or triggered.
+  Source repair is not installation, live reconciliation or pilot acceptance.
+
 - Python: previous PR #78 qualification ran the disposable Graphify test with
   its explicit executable. This handoff-hardening run completed 1,720 tests:
   1,719 passed and the optional Graphify executable test was skipped because

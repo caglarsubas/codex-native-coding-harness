@@ -191,3 +191,13 @@ missing-evidence identifiers. Local tests provide source qualification only.
 Graphify extraction with an installed binary, a rendered live dashboard,
 disposable-project native handoff, merged source, installed backend and selected
 standard-project activation remain separate evidence states until observed.
+
+Native permission requests now have a workspace-wide notice, including inside
+the narrow-screen inspector sheet. **Review native permission** opens the exact
+owner-only request in Brain chat and focuses it only after that click. No
+permission is granted by polling or by the advisory guide. Waiting uses only
+the remaining six-hour owned-turn subscription; the exact signed confirmation
+still expires after two minutes and all acceptance fences remain. Future closed
+waits retain bounded, hash-only causes; older missing causes stay unknown.
+Source and disposable UI verification do not restore a closed live subscription
+or qualify the pilot. See [owned brain wake](OWNED-BRAIN-WAKE.md).

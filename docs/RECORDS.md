@@ -204,6 +204,16 @@ Review and Play remain separate. See [expired-phase closeout](EXPIRED-PHASE-CLOS
 
 ## Owned native connection loss
 
+Future owned notifications may add `nativePermissionObservation` with
+`version: 1`, `turnId`, `requestHash`, supported approval `method`,
+`observedAt`, `expiresAt`, `endedAt` and a closed `reason` enum. Unbound
+or unsupported requests may instead retain `nativeAttention` with
+`version: 1`, exact owned `turnId`, `observedAt` and a closed `reason`.
+These are lifecycle diagnostics, not a prompt, response claim, native result or
+effect reconciliation. Raw native command/reason/path/item text is never stored
+in either record. Existing records without a cause remain unknown. Owner reads
+do not add these observations or refresh their original times.
+
 A saved notification may retain `nativeTurnStatus: connection_lost` and
 `nativeConnectionLoss` with exactly `reason`, `observedAt`, `outcome: unknown`,
 and `replayed: false`. Reasons are bounded transport categories:

@@ -249,7 +249,8 @@ function sessionMap(root){
   if(!shell||shell.dataset.workspace!==key){
     sessionParkGuide();
     shell=el('div',null,'session-home');shell.dataset.workspace=key;
-    shell.append(el('section',null,'session-pulse'),el('section',null,'session-recovery'),el('section',null,'session-board'));
+    const permissionNotice=el('section',null,'session-native-notice');
+    shell.append(permissionNotice,el('section',null,'session-pulse'),el('section',null,'session-recovery'),el('section',null,'session-board'));
     const scrim=button('Close details',()=>sessionCloseInspector(prefs),'session-sheet-scrim');scrim.id='session-sheet-scrim';scrim.tabIndex=-1;shell.append(scrim,el('aside',null,'session-inspector'));
     shell.lastElementChild.id='session-inspector';shell.lastElementChild.tabIndex=-1;shell.lastElementChild.setAttribute('aria-label','Selected session details');
     shell.addEventListener('keydown',event=>{
@@ -268,6 +269,7 @@ function sessionMap(root){
       if(token){prefs.focus=token;sessionSavePreferences(key,prefs);}
     });
     root.replaceChildren(shell);prefs.graphSignature=null;prefs.inspectorSignature=null;
+    nativePermissionNotice(permissionNotice);
   }
   shell.querySelector('.session-inspector').classList.toggle('is-open',!!prefs.inspectorOpen);
   shell.querySelector('.session-sheet-scrim').classList.toggle('is-open',!!prefs.inspectorOpen);
@@ -484,6 +486,10 @@ function sessionInspector(root,node,prefs){
   identity.append(el('p',prefs.edge?'SELECTED CONNECTION':node.kind==='brain'?'PROJECT BRAIN':'SELECTED TASK','eyebrow'),el('h2',prefs.edge?'Brain → '+node.title:node.title));
   const close=button('Close',()=>sessionCloseInspector(prefs),'session-inspector-close');close.setAttribute('aria-label','Close project details');
   header.append(identity,sessionActivityIndicator(node.activity,prefs.edge),close);root.append(header);
+  const permissionMirror=el('section',null,'session-native-notice session-inspector-permission');
+  permissionMirror.hidden=true;permissionMirror.setAttribute('role','status');permissionMirror.setAttribute('aria-live','polite');root.append(permissionMirror);
+  const permissionSummary=root.parentElement?.querySelector('.session-native-notice')?._permissionSummary;
+  if(permissionSummary)nativePermissionNoticePaint(permissionMirror,permissionSummary);
   const tabs=el('div',null,'session-detail-tabs');tabs.setAttribute('role','tablist');tabs.setAttribute('aria-label','Session detail sections');
   const sectionLabel=SESSION_CONTEXT_VIEWS.find(([name])=>name===prefs.section)?.[1]||'Project details';
   const tabChoices=node.kind==='brain'?[['conversation','Brain chat'],['summary','Overview'],['section',sectionLabel],['guide','Advisory guide']]:[['summary',prefs.edge?'Responsibility':'Overview'],['evidence','Results & evidence'],['metadata','Details']];
