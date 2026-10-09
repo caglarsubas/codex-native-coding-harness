@@ -21,7 +21,11 @@ from .projects import text as catalog_text
 UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\Z")
 MAX_BINDING = 16_384
 MAX_APPROVAL = 16_000
-APPROVAL_SECONDS = 600
+# Waiting for an owner is part of the existing owned turn subscription, not
+# the short-lived signed confirmation preview (native_approval_controls.TTL).
+# Never extend the six-hour turn boundary or reconnect/replay to renew it.
+OWNED_TURN_SECONDS = 6 * 3600
+APPROVAL_SECONDS = OWNED_TURN_SECONDS
 APPROVAL_METHODS = {"item/commandExecution/requestApproval", "item/fileChange/requestApproval"}
 # The owned observer must see native approval requests on its retained socket.
 # A resume can otherwise inherit danger-full-access/never and let an escalated
@@ -537,7 +541,8 @@ class AppServerWake:
         projection = {"commandId": command_id, "brainId": brain_id, "turnId": turn_id,
                       "itemId": params.get("itemId"), "requestId": request_id,
                       "method": row["method"], "observedAt": observed,
-                      "expiresAt": observed + APPROVAL_SECONDS,
+                      "expiresAt": observed + min(APPROVAL_SECONDS,
+                          max(0, proxy.deadline - time.monotonic())),
                       "canAccept": ("accept" in allowed and
                                     self._complete_approval(row, brain_id, turn_id, item) and
                                     self._within_bound_checkout(row, brain_id, item)),
@@ -549,6 +554,10 @@ class AppServerWake:
                 "Native approval context exceeds its bound")
         projection["requestHash"] = digest({"nonce": secrets.token_hex(16), "projection": projection})
         request_hash = projection["requestHash"]
+        observation = {"version": 1, "turnId": turn_id, "requestHash": request_hash,
+                       "method": row["method"], "observedAt": observed,
+                       "expiresAt": projection["expiresAt"]}
+        reason = "observer_read_failed"
         pending = {"projection": projection, "decision": None, "cancelled": False,
                    "event": threading.Event(), "rows": [], "readerError": False, "connectionLoss": None}
         with self._lock:
@@ -594,6 +603,7 @@ class AppServerWake:
                     decision = pending["decision"]
                     pending["event"].clear()
                 if error:
+                    reason = "connection_lost" if pending["connectionLoss"] else "reader_ended"
                     if decision is not None:
                         self._record_approval_status(command_id, brain_id, turn_id, request_hash, "uncertain")
                     if pending["connectionLoss"]:
@@ -606,16 +616,19 @@ class AppServerWake:
                     method, event_params = next_row.get("method"), next_row.get("params")
                     if method == "serverRequest/resolved":
                         if isinstance(event_params, dict) and event_params.get("threadId") == brain_id and event_params.get("requestId") == request_id:
+                            reason = "native_resolved" if response_sent else "resolved_without_response"
                             self._record_approval_status(command_id, brain_id, turn_id, request_hash,
                                                          "resolved" if response_sent else "resolved_without_response")
                             return "resolved" if response_sent else "native_attention_required"
                         if decision is not None:
                             self._record_approval_status(command_id, brain_id, turn_id, request_hash, "uncertain")
+                        reason = "request_scope_changed"
                         return "native_attention_required"
                     if method == "turn/completed":
                         if isinstance(event_params, dict) and event_params.get("threadId") == brain_id:
                             turn = event_params.get("turn")
                             if isinstance(turn, dict) and turn.get("id") == turn_id:
+                                reason = "turn_ended"
                                 if decision is not None:
                                     self._record_approval_status(command_id, brain_id, turn_id, request_hash,
                                                                  "uncertain" if response_sent else "resolved_without_response")
@@ -623,13 +636,16 @@ class AppServerWake:
                                 return value if value in ("completed", "failed", "interrupted") else "unconfirmed"
                         if decision is not None:
                             self._record_approval_status(command_id, brain_id, turn_id, request_hash, "uncertain")
+                        reason = "request_scope_changed"
                         return "native_attention_required"
                     if "id" in next_row and isinstance(method, str):
+                        reason = "another_native_request"
                         if decision is not None:
                             self._record_approval_status(command_id, brain_id, turn_id, request_hash, "uncertain")
                         return "native_attention_required"
                 if decision is not None and not response_sent:
                     if time.time() >= projection["expiresAt"]:
+                        reason = "owner_wait_elapsed"
                         self._record_approval_status(command_id, brain_id, turn_id, request_hash, "blocked")
                         return "native_attention_required"
                     # The observer alone writes on this same retained socket.
@@ -639,24 +655,32 @@ class AppServerWake:
                         sent = self._write_accept_if_current(proxy, response, command_id,
                                                              brain_id, turn_id, projection["requestHash"])
                         if sent is None:
+                            reason = "response_uncertain"
                             self._record_approval_status(command_id, brain_id, turn_id, request_hash, "uncertain")
                             return "native_approval_response_uncertain"
                         if not sent:
+                            reason = "accept_fenced"
                             self._record_approval_status(command_id, brain_id, turn_id, request_hash, "blocked")
                             return "native_attention_required"
                     else:
                         try:
                             proxy._write(response)
                         except (OSError, Refusal, ValueError, RuntimeError):
+                            reason = "response_uncertain"
                             self._record_approval_status(command_id, brain_id, turn_id, request_hash, "uncertain")
                             return "native_approval_response_uncertain"
                     response_sent = True
                     self._record_approval_status(command_id, brain_id, turn_id, request_hash, "response_written")
+            reason = "owner_wait_elapsed"
             if decision is not None:
                 self._record_approval_status(command_id, brain_id, turn_id, request_hash,
                                              "uncertain" if response_sent else "blocked")
             return "native_approval_response_uncertain" if response_sent else "native_attention_required"
         finally:
+            # Hash-only lifecycle metadata explains future closed waits. Never
+            # retain prompt bodies, commands, paths, native reason text or transcripts.
+            proxy._native_permission_observation = {
+                **observation, "endedAt": time.time(), "reason": reason}
             with self._lock:
                 if self._pending_approvals.get(brain_id) is pending:
                     del self._pending_approvals[brain_id]
@@ -960,9 +984,10 @@ class AppServerWake:
         """Keep the owned subscription alive; store only bounded lifecycle facts."""
         status = "unconfirmed"
         connection_loss = None
+        attention_reason = None
         items = {}
         try:
-            proxy.deadline = time.monotonic() + 6 * 3600
+            proxy.deadline = time.monotonic() + OWNED_TURN_SECONDS
             early = getattr(proxy, "_early_completion", None)
             if isinstance(early, tuple) and len(early) == 3 and early[:2] == (brain_id, turn_id):
                 status = early[2] if early[2] in ("completed", "failed", "interrupted") else "unconfirmed"
@@ -1000,6 +1025,7 @@ class AppServerWake:
                 if "id" in row and isinstance(method, str) and (
                         not isinstance(params, dict) or params.get("threadId") != brain_id):
                     status = "native_attention_required"
+                    attention_reason = "request_scope_unknown"
                     break
                 if not isinstance(params, dict) or params.get("threadId") != brain_id:
                     continue
@@ -1019,6 +1045,8 @@ class AppServerWake:
                 if "id" in row and isinstance(method, str):
                     if method not in APPROVAL_METHODS or params.get("turnId") != turn_id:
                         status = "native_attention_required"
+                        attention_reason = ("unsupported_native_request" if method not in APPROVAL_METHODS
+                                            else "request_scope_changed")
                         break
                     outcome = self._offer_approval(proxy, row, command_id, brain_id, turn_id,
                                                    items.get(params.get("itemId")))
@@ -1030,7 +1058,7 @@ class AppServerWake:
             status = "connection_lost"
             connection_loss = error.reason
         except (OSError, Refusal, ValueError):
-            pass
+            attention_reason = "observer_read_failed"
         finally:
             proxy.__exit__(None, None, None)
             with self._lock:
@@ -1045,6 +1073,13 @@ class AppServerWake:
                     if notification.get("nativeTurnId") in (None, turn_id) and notification.get("brainId") == brain_id:
                         notification["nativeTurnStatus"] = status
                         notification["nativeObservedAt"] = time.time()
+                        permission = getattr(proxy, "_native_permission_observation", None)
+                        if permission:
+                            notification["nativePermissionObservation"] = permission
+                        if attention_reason:
+                            notification["nativeAttention"] = {
+                                "version": 1, "turnId": turn_id, "reason": attention_reason,
+                                "observedAt": notification["nativeObservedAt"]}
                         if connection_loss:
                             notification["nativeConnectionLoss"] = {"reason": connection_loss,
                                 "observedAt": notification["nativeObservedAt"],

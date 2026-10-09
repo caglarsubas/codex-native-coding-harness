@@ -63,7 +63,7 @@ generic reconciliation wake, or substitute for activated-phase recovery.
   rejecting the flag fails closed without a full-history fallback or second
   resume. This does not alter the pinned native policy or one-shot claim.
 - The app-server subscription is retained through the owned turn. A bounded
-  command/file-change approval prompt can appear in the brain inspector, with
+  command/file-change approval prompt appears in the brain inspector, with
   the exact request and one-time accept/decline/cancel choices. The dashboard
   signs a two-minute owner preview bound to the exact ledger revision and
   journals the decision claim before
@@ -78,6 +78,23 @@ generic reconciliation wake, or substitute for activated-phase recovery.
   inference payload and durable ledger. An expired, resolved, uncertain or
   unsupported prompt fails closed; there is no automatic resend. Other native
   user-input and security requests still require attention outside this relay.
+- A compact permission notice remains visible across roadmap, advisory and task
+  sections; on narrow screens it appears inside the open inspector sheet.
+  **Review native permission** opens the same brain conversation and exact
+  owner-only prompt. Notice polling is a read of the retained request, not a
+  native scan, wake, preview or decision. It never moves focus on arrival.
+  Waiting for an owner now shares the existing six-hour owned-turn boundary,
+  capped by the subscription's remaining lifetime, rather than closing the
+  socket after ten minutes. It does not extend the turn, phase, host binding,
+  token budget or signed two-minute confirmation preview. An expired preview
+  can be prepared again only by the owner's explicit choice while that exact
+  native request remains pending. No automatic renewal, reconnect or resend.
+  Future closed waits retain only a hash, supported method, exact turn and
+  original lifecycle times with a closed reason enum. Raw prompt content stays
+  ephemeral. Older unexplained interruptions remain unknown; these diagnostics
+  cannot reconstruct a lost prompt, reconcile effects or qualify a pilot.
+  Roll out only after quiescing older writers and backing up private state;
+  source delivery does not repair an already-closed native subscription.
 - `accepted` means app-server returned a turn ID. Neither is the brain's ledger receipt, safe checkpoint,
   worker dispatch, result acceptance or proof of turn completion.
 - If an exact Brain Stop has been received but remains `checkpointing`, an

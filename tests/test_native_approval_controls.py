@@ -3,6 +3,7 @@ import tempfile
 import time
 import unittest
 import uuid
+from unittest.mock import patch
 
 from orchestrator.core import Ledger, Refusal
 from orchestrator.native_approval_controls import NativeApprovalControls, inspect
@@ -85,6 +86,65 @@ class NativeApprovalControlsTest(unittest.TestCase):
                                   {"proposal": proposal, "confirmed": True}, "session-a")
         self.wake.pending = None
         self.assertEqual(inspect(self.ledger, self.wake)["status"], "unavailable")
+        self.assertEqual(self.wake.calls, [])
+
+    def test_confirmation_ttl_is_separate_from_the_long_owner_wait(self):
+        now = time.time()
+        self.wake.pending["observedAt"] = now - 700
+        self.wake.pending["expiresAt"] = now + 20_000
+        proposal = self.controls.preview(self.ledger, self.wake, self.request(), "session-a")
+        self.assertLessEqual(proposal["document"]["expiresAt"] - now, 121)
+        with patch("orchestrator.native_approval_controls.time.time", return_value=now + 122):
+            with self.assertRaisesRegex(Refusal, "preview expired"):
+                self.controls.confirm(self.ledger, self.wake, {"proposal": proposal, "confirmed": True}, "session-a")
+            fresh = self.controls.preview(self.ledger, self.wake, self.request(), "session-a")
+            self.controls.confirm(self.ledger, self.wake, {"proposal": fresh, "confirmed": True}, "session-a")
+        self.assertEqual(len(self.wake.calls), 1)
+
+    def test_closed_attention_is_hash_only_historical_and_never_reconstructed(self):
+        self.wake.pending = None
+        with self.ledger.tx() as db:
+            command = self.ledger.get(db, "commands", self.command["id"])
+            command["notification"].update(nativeTurnStatus="native_attention_required", nativeObservedAt=42,
+                nativePermissionObservation={"version": 1, "turnId": "turn-1", "reason": "owner_wait_elapsed",
+                                             "requestHash": REQUEST, "endedAt": 42, "PRIVATE": "secret"})
+            self.ledger.put(db, "commands", command["id"], command)
+        before = self.ledger.snapshot()
+        result = inspect(self.ledger, self.wake)
+        self.assertEqual(result["status"], "attention_required")
+        self.assertEqual(result["observedAt"], 42)
+        self.assertEqual(result["reason"], "owner_wait_elapsed")
+        self.assertNotIn("PRIVATE", str(result))
+        self.assertNotIn("secret", str(result))
+        self.assertIn("do not repeat Play", result["detail"])
+        after = self.ledger.snapshot()
+        self.assertEqual(after["meta"], before["meta"])
+        self.assertEqual(after["commands"], before["commands"])
+        self.assertEqual(self.wake.calls, [])
+        with self.ledger.tx() as db:
+            command = self.ledger.get(db, "commands", self.command["id"])
+            del command["notification"]["nativePermissionObservation"]
+            self.ledger.put(db, "commands", command["id"], command)
+        self.assertEqual(inspect(self.ledger, self.wake)["reason"], "unknown")
+        self.assertNotIn("waiting window ended", inspect(self.ledger, self.wake)["detail"])
+
+    def test_closed_attention_requires_current_turn_and_latest_owned_control(self):
+        self.wake.pending = None
+        with self.ledger.tx() as db:
+            command = self.ledger.get(db, "commands", self.command["id"])
+            command["notification"].update(nativeTurnStatus="native_attention_required",
+                nativePermissionObservation={"version": 1, "turnId": "foreign-turn", "reason": "owner_wait_elapsed"})
+            self.ledger.put(db, "commands", command["id"], command)
+        self.assertEqual(inspect(self.ledger, self.wake)["reason"], "unknown")
+        newer = self.ledger.submit({"id": str(uuid.uuid4()), "kind": "pause",
+                                   "expectedRevision": self.ledger.snapshot()["meta"]["revision"], "payload": {}})
+        with self.ledger.tx() as db:
+            command = self.ledger.get(db, "commands", newer["id"])
+            command["notification"] = {"brainId": BRAIN, "nativeDelivery": "owned_turn_start",
+                                       "nativeTurnId": "new-turn", "nativeTurnStatus": "completed", "status": "accepted"}
+            self.ledger.put(db, "commands", command["id"], command)
+        self.assertEqual(inspect(self.ledger, self.wake)["status"], "unavailable",
+                         "A new completed turn must not advertise an old interruption")
         self.assertEqual(self.wake.calls, [])
 
     def test_accept_fails_closed_without_complete_context_or_running_phase(self):

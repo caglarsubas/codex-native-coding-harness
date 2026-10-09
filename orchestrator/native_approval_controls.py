@@ -17,6 +17,46 @@ BOUNDARY = ("Native permission only. This is not mission, Play, task, budget, "
             "repository, merge or acceptance authority. No decision is sent "
             "until you confirm the exact pending request.")
 DECISIONS = {"accept", "decline", "cancel"}
+ATTENTION_DETAILS = {
+    "owner_wait_elapsed": "The owned turn's waiting window ended without a confirmed native result.",
+    "reader_ended": "The permission observer ended before native resolution was confirmed.",
+    "connection_lost": "The owned permission connection was lost before resolution was confirmed.",
+    "resolved_without_response": "Codex resolved the request before an owner response was written.",
+    "request_scope_unknown": "A native request could not be bound to this brain.",
+    "request_scope_changed": "A native request did not match the exact retained turn or request.",
+    "another_native_request": "Another native request interrupted this permission wait.",
+    "unsupported_native_request": "The native turn requested an interaction this relay does not support.",
+    "accept_fenced": "A changed safety condition blocked approval before the native write.",
+    "response_uncertain": "The native response outcome is uncertain.",
+    "observer_read_failed": "The observer could not confirm the native turn's result.",
+}
+
+
+def _closed_attention(state, brain_id):
+    # Only the latest delivered owned turn can explain the current interruption.
+    # Old records lacking a reason remain unknown; never backfill a guessed TTL.
+    controls = [c for c in state["commands"]
+                if (c.get("notification") or {}).get("brainId") == brain_id and
+                (c.get("notification") or {}).get("nativeDelivery") == "owned_turn_start" and
+                (c.get("notification") or {}).get("nativeTurnId")]
+    if not controls:
+        return None
+    command = max(controls, key=lambda c: c.get("createdAt", 0))
+    note = command["notification"]
+    if (note.get("nativeTurnStatus") not in
+            ("native_attention_required", "native_approval_response_uncertain", "connection_lost", "unconfirmed") or
+            note.get("nativeApprovals")):
+        return None
+    observed = note.get("nativeAttention") or note.get("nativePermissionObservation") or {}
+    if not isinstance(observed, dict):
+        observed = {}
+    reason = observed.get("reason") if observed.get("version") == 1 and observed.get("turnId") == note["nativeTurnId"] else None
+    reason = reason if isinstance(reason, str) and reason in ATTENTION_DETAILS else "unknown"
+    detail = ATTENTION_DETAILS.get(reason, "The native observer ended without a confirmed result. No cause was retained.")
+    return {"status": "attention_required", "commandId": command["id"],
+            "observedAt": note.get("nativeObservedAt"), "reason": reason,
+            "detail": detail + " No current permission prompt is available here. Reconcile this existing request; do not repeat Play or resend it.",
+            "boundary": BOUNDARY}
 
 
 def _scope(ledger, wake):
@@ -57,6 +97,9 @@ def inspect(ledger, wake):
     except Refusal as error:
         state = ledger.snapshot()
         brain_id = state["meta"]["brainId"]
+        attention = _closed_attention(state, brain_id)
+        if attention:
+            return attention
         entries = [(item.get("claimedAt", 0), item, command["id"])
                    for command in state["commands"]
                    if (command.get("notification") or {}).get("brainId") == brain_id
