@@ -208,6 +208,10 @@ def main():
                    help="Opt in to the reviewed, exact standard-brain app-server host instead of the desktop queue")
     p.add_argument("--pause-recovery-prior-binding", type=Path, metavar="PRIVATE_JSON",
                    help="Preserved historical binding for a separately signed pre-turn Pause replacement; never a connection target")
+    p.add_argument("--turn-recovery-prior-binding", type=Path, metavar="PRIVATE_JSON",
+                   help="Preserved original binding for separately signed ended-turn recovery on an already reviewed host; never a connection target")
+    p.add_argument("--turn-recovery-retired-host", type=Path, metavar="PRIVATE_JSON",
+                   help="Separately reviewed original host PID/launch-claim provenance; metadata-only retirement checks, never process termination")
     p.add_argument("--inference-env", type=Path, help="Existing private inference configuration; never a browser-selected path")
     args = parser.parse_args()
     if args.action == "serve" and args.notify_brain and args.brain_app_server_binding:
@@ -216,6 +220,10 @@ def main():
         raise Refusal("Desktop brain wake requires --notify-brain")
     notification_binding = None
     pause_recovery_prior_binding = None
+    turn_recovery_prior_binding = None
+    turn_recovery_retired_host = None
+    if args.action == "serve" and bool(args.turn_recovery_prior_binding) != bool(args.turn_recovery_retired_host):
+        raise Refusal("Ended-turn host continuity requires both preserved binding and reviewed original-host retirement")
     if args.action == "serve" and args.brain_app_server_binding:
         from .app_server_wake import load_binding
         notification_binding = load_binding(args.brain_app_server_binding)
@@ -224,6 +232,13 @@ def main():
             raise Refusal("Pause host continuity requires an exact registered workspace and reviewed owned binding")
         from .pause_host_continuity import load_previous
         pause_recovery_prior_binding = load_previous(args.pause_recovery_prior_binding)
+    if args.action == "serve" and args.turn_recovery_prior_binding:
+        if not args.brain_app_server_binding or not (args.platform and args.workspace):
+            raise Refusal("Ended-turn host continuity requires an exact registered workspace and reviewed owned binding")
+        from .turn_host_continuity import load_previous
+        turn_recovery_prior_binding = load_previous(args.turn_recovery_prior_binding)
+        from .turn_host_continuity import load_retired
+        turn_recovery_retired_host = load_retired(args.turn_recovery_retired_host)
     from .workspaces import Registry
     if args.workspace and not args.platform:
         raise Refusal("--workspace requires --platform")
@@ -361,7 +376,9 @@ def main():
         serve(registry.ledger(workspaces[0]["id"]), args.port, notification_cli=args.notify_brain,
               registry=registry, inference_env=args.inference_env, public_port=args.public_port,
               account_file=args.account_file, notification_binding=notification_binding, desktop_wake=args.desktop_brain_wake,
-              pause_recovery_prior_binding=pause_recovery_prior_binding)
+              pause_recovery_prior_binding=pause_recovery_prior_binding,
+              turn_recovery_prior_binding=turn_recovery_prior_binding,
+              turn_recovery_retired_host=turn_recovery_retired_host)
         return
     if registry and not args.workspace:
         raise Refusal("Select an exact --workspace; no default portfolio is inferred")
@@ -686,7 +703,9 @@ def main():
         serve(ledger, args.port, notification_cli=args.notify_brain, registry=registry,
               inference_env=args.inference_env, public_port=args.public_port,
               account_file=args.account_file, notification_binding=notification_binding, desktop_wake=args.desktop_brain_wake,
-              pause_recovery_prior_binding=pause_recovery_prior_binding); return
+              pause_recovery_prior_binding=pause_recovery_prior_binding,
+              turn_recovery_prior_binding=turn_recovery_prior_binding,
+              turn_recovery_retired_host=turn_recovery_retired_host); return
     print(json.dumps(out if out is not None else {"ok": True}, ensure_ascii=False, indent=2))
 
 

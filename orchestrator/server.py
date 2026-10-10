@@ -26,7 +26,8 @@ class WorkspaceRuntime:
     """All mutable operational state belongs to one ledger, never to UI selection."""
 
     def __init__(self, ledger, inference_env=ENV_FILE, runtime_root=WEB.parent, notification_cli=None,
-                 notification_binding=None, desktop_wake=False, pause_recovery_prior_binding=None):
+                 notification_binding=None, desktop_wake=False, pause_recovery_prior_binding=None,
+                 turn_recovery_prior_binding=None, turn_recovery_retired_host=None):
         self.ledger = ledger
         self.registry = None
         self.workspace_id = None
@@ -74,7 +75,7 @@ class WorkspaceRuntime:
         self.native_approval_controls = NativeApprovalControls()
         self.native_approval_lock = threading.Lock()
         from .turn_recovery import TurnRecoveryControls
-        self.turn_recovery_controls = TurnRecoveryControls()
+        self.turn_recovery_controls = TurnRecoveryControls(turn_recovery_prior_binding, turn_recovery_retired_host)
         from .standard import Controls
         self.standard_controls = Controls()
         from .standard_budget import Controls as BrainBudgetControls
@@ -150,11 +151,13 @@ class Dashboard(ThreadingHTTPServer, WorkspaceRuntime):
 
     def __init__(self, ledger, port=8768, inference_env=ENV_FILE, runtime_root=WEB.parent,
                  notification_cli=None, registry=None, public_port=None, account_file=None,
-                 notification_binding=None, desktop_wake=False, pause_recovery_prior_binding=None):
+                 notification_binding=None, desktop_wake=False, pause_recovery_prior_binding=None,
+                 turn_recovery_prior_binding=None, turn_recovery_retired_host=None):
         if public_port is not None and (type(public_port) is not int or not 1 <= public_port <= 65535):
             raise ValueError("Public port must be an integer between 1 and 65535")
         ThreadingHTTPServer.__init__(self, ("127.0.0.1", port), Handler)
-        WorkspaceRuntime.__init__(self, ledger, inference_env, runtime_root, notification_cli, notification_binding, desktop_wake, pause_recovery_prior_binding)
+        WorkspaceRuntime.__init__(self, ledger, inference_env, runtime_root, notification_cli, notification_binding, desktop_wake,
+                                  pause_recovery_prior_binding, turn_recovery_prior_binding, turn_recovery_retired_host)
         self.registry = registry
         self.origin = f"http://127.0.0.1:{public_port if public_port is not None else self.server_port}"
         self.bootstrap = secrets.token_urlsafe(32)
@@ -171,7 +174,8 @@ class Dashboard(ThreadingHTTPServer, WorkspaceRuntime):
             raise
         self.runtime_lock = threading.Lock()
         self.runtimes = {}
-        self.runtime_options = (inference_env, runtime_root, notification_cli, notification_binding, desktop_wake, pause_recovery_prior_binding)
+        self.runtime_options = (inference_env, runtime_root, notification_cli, notification_binding, desktop_wake,
+                                pause_recovery_prior_binding, turn_recovery_prior_binding, turn_recovery_retired_host)
         # One configured inference tenancy: serialize explicit calls across workspaces.
         self.shared_inference_lock = self.inference_lock
         self.served_workspaces = {w["id"] for w in registry.list()} if registry else set()
@@ -346,8 +350,7 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/turn-recovery" and workspace_id:
                 if urlsplit(self.path).query:
                     raise Refusal("Turn recovery inspection accepts no query parameters")
-                from .turn_recovery import inspect
-                return self.respond(200, inspect(runtime.ledger, runtime.notifier.app_server))
+                return self.respond(200, runtime.turn_recovery_controls.inspect(runtime.ledger, runtime.notifier.app_server))
             if path == "/api/mission" and workspace_id:
                 from .missions import read
                 return self.respond(200, read(runtime.ledger))
@@ -812,7 +815,8 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def serve(ledger, port, notification_cli=None, registry=None, inference_env=None, public_port=None,
-          account_file=None, notification_binding=None, desktop_wake=False, pause_recovery_prior_binding=None):
+          account_file=None, notification_binding=None, desktop_wake=False, pause_recovery_prior_binding=None,
+          turn_recovery_prior_binding=None, turn_recovery_retired_host=None):
     # Every registered ledger has a single dashboard owner. New registrations
     # become served only after a restart and lock acquisition, never on a GET.
     import fcntl
@@ -832,7 +836,9 @@ def serve(ledger, port, notification_cli=None, registry=None, inference_env=None
                            inference_env=inference_env if inference_env is not None else ENV_FILE,
                            public_port=public_port, account_file=account_file,
                            notification_binding=notification_binding, desktop_wake=desktop_wake,
-                           pause_recovery_prior_binding=pause_recovery_prior_binding)
+                           pause_recovery_prior_binding=pause_recovery_prior_binding,
+                           turn_recovery_prior_binding=turn_recovery_prior_binding,
+                           turn_recovery_retired_host=turn_recovery_retired_host)
         # Freeze the exact locked set, including a registration that races startup.
         if registry:
             server.served_workspaces = {w["id"] for w in registered}
