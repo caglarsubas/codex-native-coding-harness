@@ -139,8 +139,18 @@ function roadmapJourneyState(snapshot,isConnected=true,now=Date.now()/1000){
     return result(2,'Following Pause recovery','Native delivery, the saved Pause receipt and the paused checkpoint are separate. No second wake will be sent.',
       'Inspect recovery progress','request',{request});
   }
+  const turnRecovery=[...(snapshot.commands||[])].reverse().find(c=>c.notification?.hostRunId===run?.id&&c.notification?.turnRecovery)?.notification?.turnRecovery;
+  if(run?.status==='stopping'&&!pending&&turnRecovery?.status==='controller_recovered'&&!snapshot.meta?.controller)
+    return result(2,'The stranded turn was recovered','Development stays stopped. Review the existing safe-checkpoint control so the brain can retain the phase result. No permission or Play was replayed.',
+      'Review safe phase checkpoint','pause');
+  if(run?.status==='stopping'&&!pending&&turnRecovery?.status==='awaiting_end')
+    return result(2,'Following turn recovery','Cancellation was claimed once. Ownership remains retained until the same turn and tracked terminals can be confirmed inactive.',
+      'Check existing turn recovery','conversation');
   if(run?.status==='stopping')return result(2,'Pause requested','New work is fenced. The brain still needs to settle registered tasks and save a safe checkpoint.',pending?'Inspect request delivery':'Follow sessions',pending?'request':'overview',{request:pending});
   const latestControl=[...(snapshot.commands||[])].reverse().find(c=>run&&c.payload?.runId===run.id&&['standard_play','standard_pause','standard_resume'].includes(c.kind));
+  if(run?.status==='running'&&latestControl?.notification?.nativeTurnStatus==='native_attention_required')
+    return result(2,'The native brain turn needs recovery','Its permission observer ended without a confirmed native result. Inspect the exact existing turn in Brain chat; do not repeat Play or send its instruction again.',
+      'Inspect existing turn recovery','conversation',{canPause:true});
   if(run?.status==='running'&&['connection_lost','unconfirmed'].includes(latestControl?.notification?.nativeTurnStatus))return result(2,latestControl.notification.nativeTurnStatus==='connection_lost'?'Connection lost; this request is unresolved':'Native outcome is unconfirmed; inspect this request',
     'The phase is recorded as running, not verified active. Repair the host, then reconcile this existing request and any effects. Its receipt, usage and ownership are preserved; do not repeat Play.',
     'Inspect saved request','request',{request:latestControl,canPause:true});

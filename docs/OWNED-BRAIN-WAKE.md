@@ -270,6 +270,15 @@ and its receipts; do not convert, reset, resume or replay it to run this separat
 standard qualification. Existing strict/Harness and managed admission contracts
 retain their complete-evidence gates.
 
+An empty standard phase with a received owned request, ended observer and an
+abandoned controller has a separate [orphaned-turn recovery](ORPHANED-TURN-RECOVERY.md).
+One exact owner review covers conditional cancellation of the existing turn and
+controller recovery after fresh ended-turn/terminal checks. It never reconstructs
+the lost prompt, answers it, replays Play, reconnects its observer or records a
+checkpoint. Unknown results retain ownership and expose a read-only follow-up.
+The original host binding cannot change through this exception. Source delivery
+and local tests do not confirm a live recovery or complete native qualification.
+
 While an existing workspace Pause is checkpointing with missing/incomplete
 inventory, the one-page graph and guided Help show the operator evidence gap and
 link to the saved blockers. They do not offer another preparation confirmation,

@@ -73,6 +73,8 @@ class WorkspaceRuntime:
         from .native_approval_controls import NativeApprovalControls
         self.native_approval_controls = NativeApprovalControls()
         self.native_approval_lock = threading.Lock()
+        from .turn_recovery import TurnRecoveryControls
+        self.turn_recovery_controls = TurnRecoveryControls()
         from .standard import Controls
         self.standard_controls = Controls()
         from .standard_budget import Controls as BrainBudgetControls
@@ -341,6 +343,11 @@ class Handler(BaseHTTPRequestHandler):
                     raise Refusal("Native permission inspection accepts no query parameters")
                 from .native_approval_controls import inspect
                 return self.respond(200, inspect(runtime.ledger, runtime.notifier.app_server))
+            if path == "/api/turn-recovery" and workspace_id:
+                if urlsplit(self.path).query:
+                    raise Refusal("Turn recovery inspection accepts no query parameters")
+                from .turn_recovery import inspect
+                return self.respond(200, inspect(runtime.ledger, runtime.notifier.app_server))
             if path == "/api/mission" and workspace_id:
                 from .missions import read
                 return self.respond(200, read(runtime.ledger))
@@ -475,7 +482,7 @@ class Handler(BaseHTTPRequestHandler):
             if not 0 < length <= 32768:
                 return self.respond(413, {"error": "Invalid request size"})
             raw = self.rfile.read(length)
-            if urlsplit(self.path).path.endswith(("/retention/preview", "/retention/confirm", "/checkpoint-decisions/preview", "/checkpoint-decisions/confirm", "/result-review-controls/preview", "/result-review-controls/confirm", "/model-policy-controls/preview", "/model-policy-controls/confirm", "/native-observer-controls/preview", "/native-observer-controls/confirm", "/native-permission/preview", "/native-permission/confirm")):
+            if urlsplit(self.path).path.endswith(("/retention/preview", "/retention/confirm", "/checkpoint-decisions/preview", "/checkpoint-decisions/confirm", "/result-review-controls/preview", "/result-review-controls/confirm", "/model-policy-controls/preview", "/model-policy-controls/confirm", "/native-observer-controls/preview", "/native-observer-controls/confirm", "/native-permission/preview", "/native-permission/confirm", "/turn-recovery/preview", "/turn-recovery/confirm", "/turn-recovery/reconcile")):
                 from .retention_controls import decode
                 body = decode(raw)
             else:
@@ -553,6 +560,22 @@ class Handler(BaseHTTPRequestHandler):
                     if path.endswith("/preview"):
                         return self.respond(200, runtime.native_approval_controls.preview(*args, body, csrf))
                     return self.respond(200, runtime.native_approval_controls.confirm(*args, body, csrf))
+                finally:
+                    runtime.native_approval_lock.release()
+            if path in ("/api/turn-recovery/preview", "/api/turn-recovery/confirm", "/api/turn-recovery/reconcile") and workspace_id:
+                if urlsplit(self.path).query:
+                    raise Refusal("Turn recovery controls accept no query parameters")
+                if not runtime.native_approval_lock.acquire(blocking=False):
+                    return self.respond(409, {"error": "Native permission or recovery review is already in progress"})
+                try:
+                    args = (self.server.registry, runtime.ledger, runtime.notifier.app_server)
+                    if path.endswith("/preview"):
+                        result = runtime.turn_recovery_controls.preview(*args, body, csrf)
+                    elif path.endswith("/confirm"):
+                        result = runtime.turn_recovery_controls.confirm(*args, body, csrf)
+                    else:
+                        result = runtime.turn_recovery_controls.reconcile(*args, body)
+                    return self.respond(200, result)
                 finally:
                     runtime.native_approval_lock.release()
             if path == "/api/mission" and workspace_id:

@@ -47,6 +47,12 @@ def _closed_attention(state, brain_id):
             ("native_attention_required", "native_approval_response_uncertain", "connection_lost", "unconfirmed") or
             note.get("nativeApprovals")):
         return None
+    recovered = note.get("turnRecovery") or {}
+    if (recovered.get("status") == "controller_recovered" and
+            note.get("hostRunId") == (state["meta"].get("standardRun") or {}).get("id")):
+        return {"status": "turn_recovered", "commandId": command["id"],
+                "detail": "The existing turn ended and its abandoned controller was recovered. Development stays stopped; review the safe phase checkpoint. No lost permission was answered or original instruction replayed.",
+                "boundary": BOUNDARY}
     observed = note.get("nativeAttention") or note.get("nativePermissionObservation") or {}
     if not isinstance(observed, dict):
         observed = {}

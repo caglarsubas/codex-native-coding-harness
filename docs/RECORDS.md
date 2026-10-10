@@ -204,6 +204,19 @@ Review and Play remain separate. See [expired-phase closeout](EXPIRED-PHASE-CLOS
 
 ## Owned native connection loss
 
+The separately owner-confirmed `notification.turnRecovery` journal records the
+exact original command/turn, signed review hash, unchanged binding hash, private
+controller/context hashes, claim time, cancellation delivery (`unknown`,
+`acknowledged`, `not_needed`) and status (`awaiting_end`, `controller_recovered`).
+Repeated metadata observations retain exact turn/activity and original query time,
+with `effectOutcome: unknown` and `taskTreeComplete: false`. The raw controller,
+prompt and native response bodies are never exposed. The original notification
+is not rewritten as successful recovery. An identical confirmation is a receipt
+replay; later explicit checks never resend the cancellation. Recovering the exact
+abandoned controller leaves the run stopping, dispatch paused, deadline/usage/gaps
+preserved and checkpoint absent unless independently retained. See
+[orphaned-turn recovery](ORPHANED-TURN-RECOVERY.md); it grants no phase success.
+
 Future owned notifications may add `nativePermissionObservation` with
 `version: 1`, `turnId`, `requestHash`, supported approval `method`,
 `observedAt`, `expiresAt`, `endedAt` and a closed `reason` enum. Unbound

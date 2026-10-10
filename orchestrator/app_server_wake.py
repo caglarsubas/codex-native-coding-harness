@@ -355,6 +355,11 @@ class AppServerWake:
             projection["allowedDecisions"] = [choice for choice in projection["allowedDecisions"] if choice != "accept"]
         return projection
 
+    def orphan_recovery_idle(self):
+        """No live observer/response may race a separately reviewed recovery."""
+        with self._lock:
+            return not self._closed and not self._subscriptions and not self._pending_approvals
+
     def _phase_allows_accept(self, brain_id):
         if self.ledger is None:
             return False

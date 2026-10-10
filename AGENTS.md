@@ -12,6 +12,17 @@ screen-only restrictions for those standard controls, not strict Harness gates.
 Keep source scope and mission review visible, review separate from Play, and
 brain replies outside inference history. Do not introduce a parallel dispatcher.
 
+An empty unresolved standard run whose owned observer ended without a native
+decision intent may use the separately signed orphaned-turn recovery in
+docs/ORPHANED-TURN-RECOVERY.md. Confirm only the exact displayed native turn on
+its unchanged reviewed host. Claim once before conditional `turn/interrupt`;
+then recover only its exact abandoned controller after repeated ended-turn,
+inactive-thread and known-empty tracked-terminal metadata. No observer reconnect,
+approval response, task/effect reconciliation, checkpoint, wake, Resume, new Play,
+host replacement or pilot acceptance follows. Unknown delivery retains ownership;
+later explicit checks are read-only and never resend cancellation. Source delivery
+does not install this path, change a live host or confirm a recovery.
+
 The displayed **Help me continue development** button confirms only its signed,
 bounded preparation request. Generate the investigation/phase-preparation prompt
 server-side and use the same one-shot brain conversation receipt. Follow pending
