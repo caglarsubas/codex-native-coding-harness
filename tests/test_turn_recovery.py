@@ -28,6 +28,7 @@ class Proxy(NativeProxy):
     unavailable = False
     on_interrupt = None
     on_enter = None
+    ended_activity = "idle"
 
     def __init__(self, endpoint, scope, turn_id):
         super().__init__(endpoint)
@@ -42,7 +43,7 @@ class Proxy(NativeProxy):
 
     def _rpc(self, method, params):
         if method == "thread/read":
-            type(self).status = "active" if self.turn_status == "inProgress" else "notLoaded"
+            type(self).status = "active" if self.turn_status == "inProgress" else self.ended_activity
         if method in ("project/read", "thread/read"):
             return super()._rpc(method, params)
         self.calls.append((method, params))
@@ -81,6 +82,7 @@ class TurnRecoveryTest(unittest.TestCase):
         Proxy.interrupts, Proxy.calls, Proxy.project_reads = 0, [], 0
         Proxy.lost_response, Proxy.end_after_interrupt, Proxy.unavailable = False, True, False
         Proxy.on_interrupt, Proxy.on_enter, Proxy.on_project_read = None, None, None
+        Proxy.ended_activity = "idle"
         now = time.time()
         with self.ledger.tx() as db:
             meta = self.ledger.get(db, "meta", 1)
@@ -226,6 +228,9 @@ class TurnRecoveryTest(unittest.TestCase):
         self.assertEqual(Proxy.interrupts, 1)
 
     def test_unknown_or_active_terminals_and_foreign_turn_fence(self):
+        Proxy.turn_status, Proxy.ended_activity = "interrupted", "notLoaded"
+        with self.assertRaises(Refusal): self.preview()
+        Proxy.turn_status, Proxy.ended_activity = "inProgress", "idle"
         for page in ({}, {"data": []}, {"data": [], "nextCursor": "more"},
                      {"data": [{"processId": "42"}], "nextCursor": None}):
             Proxy.terminals = page

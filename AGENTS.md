@@ -1,5 +1,23 @@
 # Codex Orchestrator — personal tooling
 
+## Ended-turn replacement-host recovery (2026-10-10)
+
+For the narrow empty-run orphaned-turn recovery below, source may support an
+operator-supplied, separately reviewed replacement host and preserved original
+binding under docs/ORPHANED-TURN-RECOVERY.md. This is ended-turn reconciliation
+only, never replacement cancellation or another recovery attempt. Require the
+unchanged single brain/workspace/checkout/both project IDs/native policy, the
+original host PID's separately reviewed launch-claim provenance, repeated fixed
+metadata reads proving that PID is absent, and repeated exact ended-turn,
+loaded-idle and known-empty tracked-terminal evidence on the reviewed candidate.
+An unloaded thread remains unknown; do not resume it to manufacture evidence.
+The original endpoint is historical only. Pin complete continuity and retirement
+records in the signed review and private claim; preserve all original request,
+usage/gaps/expiry/receipt bytes. A prior claimed recovery cannot migrate. The
+conditional controller release does not settle effects, retain a checkpoint or
+qualify the pilot. No host launch, binding change, native load, cancellation,
+notification, permission response, Play or Resume follows source delivery.
+
 ## Assistant-led standard project workflow
 
 The owner requires conversation as the primary interaction surface. Standard phase

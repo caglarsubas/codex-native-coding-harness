@@ -19,6 +19,7 @@ from .native_project_assignment import _scope, _native_identity
 from .native_read_client import ReadProxy, validate_endpoint
 from .retention_controls import RetentionControls, identity
 from .standard import PROTOCOL, save
+from . import turn_host_continuity as continuity
 
 TTL = 300
 BOUNDARY = ("Cancel only this existing brain turn if it is still active. Recover its abandoned controller only "
@@ -118,7 +119,7 @@ def inspect(ledger, wake):
                 "detail": ("The abandoned controller was recovered. Development remains stopped. Next: request a safe phase checkpoint."
                            if entry["status"] == "controller_recovered" else
                            "Recovery was claimed once. Check the existing turn again; cancellation will not be resent."),
-                "boundary": BOUNDARY}
+                "boundary": continuity.BOUNDARY if entry.get("hostContinuity") else BOUNDARY}
     try:
         require(wake is not None, "No reviewed owned host is configured")
         command = eligible(state)
@@ -155,10 +156,15 @@ class RecoveryProxy(ReadProxy):
         return super()._rpc(method, params)
 
 
-def observe(proxy, scope, turn_id):
+def observe(proxy, scope, turn_id, *, require_loaded=False):
     def one():
-        thread, _ = _native_identity(proxy, scope, require_idle=False)
+        thread, roots = _native_identity(proxy, scope, require_idle=False)
         require(thread.get("projectId") == scope["projectId"], "Native project identity changed")
+        if require_loaded:
+            require(thread["status"]["type"] == "idle",
+                    "Replacement recovery needs loaded-idle terminal evidence; notLoaded is unknown. No thread was loaded")
+        require(thread["status"]["type"] != "notLoaded",
+                "Tracked terminals on an unloaded thread remain unknown. No thread was loaded")
         page = proxy._rpc("thread/turns/list", {"threadId": scope["brainId"], "cursor": None,
                          "limit": 1, "sortDirection": "desc", "itemsView": "notLoaded"})
         require(isinstance(page, dict) and isinstance(page.get("data"), list) and len(page["data"]) == 1,
@@ -173,8 +179,10 @@ def observe(proxy, scope, turn_id):
                 "Tracked terminals are active or unknown; they need separate supervision")
         activity = thread["status"]["type"]
         require((row["status"] == "inProgress" and activity == "active") or
-                (row["status"] != "inProgress" and activity in ("idle", "notLoaded")),
+                (row["status"] != "inProgress" and activity == "idle"),
                 "Native activity and turn history disagree")
+        last, last_roots = _native_identity(proxy, scope, require_idle=False)
+        require(last == thread and last_roots == roots, "Native identity or activity changed during terminal inspection")
         return {"turnId": turn_id, "status": row["status"], "completedAt": row.get("completedAt"),
                 "activity": activity, "trackedTerminals": 0}
     before, after = one(), one()
@@ -183,12 +191,27 @@ def observe(proxy, scope, turn_id):
 
 
 class TurnRecoveryControls(RetentionControls):
+    def __init__(self, prior_binding=None, retired_host=None):
+        super().__init__()
+        self.prior_binding = copy.deepcopy(prior_binding)
+        self.retired_host = copy.deepcopy(retired_host)
+
+    def inspect(self, ledger, wake):
+        value = inspect(ledger, wake)
+        if value["status"] == "review_available":
+            command = eligible(saved_state(ledger))
+            if digest(wake.binding) != command["notification"]["hostBindingHash"]:
+                if self.prior_binding is None or self.retired_host is None:
+                    value.update(status="unavailable", detail="The replacement host needs separately reviewed historical binding and retirement records")
+                    return value
+                value.update(boundary=continuity.BOUNDARY,
+                             detail="Review read-only recovery of the original ended turn on the separately reviewed replacement host. Development stays stopped.")
+        return value
+
     def _bound(self, registry, ledger, wake, state):
         command = eligible(state)
         require(wake is not None and wake.orphan_recovery_idle(), "The original observer or native prompt is still active")
         binding = copy.deepcopy(wake.binding)
-        require(digest(binding) == command["notification"]["hostBindingHash"],
-                "The original host binding changed; no replacement or reconnect is authorized")
         require(not fence_exists(ledger.root), "Strict maintenance blocks turn recovery")
         with registry.tx() as db:
             require(record_in(db) is None, "Strict platform maintenance blocks turn recovery")
@@ -196,28 +219,57 @@ class TurnRecoveryControls(RetentionControls):
         require(scope["root"] == ledger.root and scope["brainId"] == state["meta"]["brainId"] and
                 scope["ledgerRevision"] == state["meta"]["revision"] and scope["hostId"] == "local",
                 "Registered recovery identity changed")
-        return command, binding, scope
+        proof = None
+        if digest(binding) != command["notification"]["hostBindingHash"]:
+            proof = continuity.proof(self.prior_binding, binding, command, scope)
+            continuity.retirement(self.retired_host, self.prior_binding)
+        entry = command["notification"].get("turnRecovery")
+        if entry:
+            require(entry.get("hostContinuity") == proof and entry["bindingHash"] == digest(binding) and
+                    (not proof or entry.get("retiredHost") == self.retired_host),
+                    "A claimed recovery cannot change host or obtain another recovery attempt")
+        return command, binding, scope, proof
+
+    def _observe(self, proxy, scope, turn_id, proof):
+        observed = observe(proxy, scope, turn_id, require_loaded=proof is not None)
+        if proof:
+            require(observed["status"] != "inProgress", "Replacement recovery cannot cancel or resume an active turn")
+        return observed
+
+    def _continuity_unchanged(self, proof, retired):
+        if proof is None:
+            return True
+        continuity.retirement(retired, proof["previousBinding"])
+        return self.prior_binding == proof["previousBinding"] and self.retired_host == retired
 
     def preview(self, registry, ledger, wake, body, session):
         exact(body, {"commandId"})
         state = saved_state(ledger)
-        command, binding, scope = self._bound(registry, ledger, wake, state)
+        command, binding, scope, proof = self._bound(registry, ledger, wake, state)
+        retired = copy.deepcopy(self.retired_host) if proof else None
         require(command["id"] == body["commandId"] and not command["notification"].get("turnRecovery"),
                 "This turn already has a recovery claim; check its existing outcome instead")
         turn_id = command["notification"]["nativeTurnId"]
         with RecoveryProxy(binding["endpoint"], scope, turn_id) as proxy:
-            observed = observe(proxy, scope, turn_id)
+            observed = self._observe(proxy, scope, turn_id, proof)
         validate_endpoint(binding["endpoint"])
         membership(registry, ledger, binding, scope)
-        require(context(saved_state(ledger)) == context(state) and wake.binding == binding and wake.orphan_recovery_idle(),
+        require(context(saved_state(ledger)) == context(state) and wake.binding == binding and wake.orphan_recovery_idle() and
+                self._continuity_unchanged(proof, retired),
                 "Project or host changed during recovery inspection")
         now = time.time()
         doc = {"kind": "orphaned_turn_recovery", "id": str(uuid.uuid4()), "workspaceId": ledger.workspace_id,
                "ledgerIdentity": identity(ledger), "session": digest(session), "contextHash": context(state),
                "commandId": command["id"], "brainId": scope["brainId"], "turnId": turn_id,
                "bindingHash": digest(binding), "scopeHash": digest({k: str(v) for k, v in scope.items()}),
-               "action": "cancel_then_reconcile" if observed["status"] == "inProgress" else "reconcile_ended_turn",
-               "observation": observed, "createdAt": now, "expiresAt": now + TTL, "boundary": BOUNDARY}
+               "action": ("reconcile_ended_turn_on_reviewed_host" if proof else
+                          "cancel_then_reconcile" if observed["status"] == "inProgress" else "reconcile_ended_turn"),
+               "observation": observed, "createdAt": now, "expiresAt": now + TTL,
+               "boundary": continuity.BOUNDARY if proof else BOUNDARY}
+        if proof:
+            doc["hostContinuity"] = continuity.for_browser(proof)
+            doc["originalBindingHash"] = digest(proof["previousBinding"])
+            doc["retiredHost"] = retired
         return {"document": doc, "signature": self.sign(doc)}
 
     def confirm(self, registry, ledger, wake, body, session):
@@ -237,23 +289,33 @@ class TurnRecoveryControls(RetentionControls):
         entry = ((existing or {}).get("notification") or {}).get("turnRecovery")
         if entry:
             require(entry.get("reviewHash") == digest(doc), "Another recovery already owns this turn")
-            return inspect(ledger, wake)
+            return self.inspect(ledger, wake)
         require(0 <= time.time() - doc["createdAt"] <= TTL and time.time() <= doc["expiresAt"],
                 "Recovery review expired. Refresh review; nothing was sent")
         state = saved_state(ledger)
-        command, binding, scope = self._bound(registry, ledger, wake, state)
+        command, binding, scope, proof = self._bound(registry, ledger, wake, state)
+        reviewed_proof = continuity.from_browser(doc["hostContinuity"]) if "hostContinuity" in doc else None
+        require(reviewed_proof == proof and
+                (not proof or doc["action"] == "reconcile_ended_turn_on_reviewed_host" and
+                 doc["originalBindingHash"] == digest(proof["previousBinding"])),
+                "The separately reviewed original/replacement host continuity changed")
+        require(not proof or doc.get("retiredHost") == self.retired_host,
+                "Reviewed original-host retirement changed")
         require(context(state) == doc["contextHash"] and digest(binding) == doc["bindingHash"] and
                 digest({k: str(v) for k, v in scope.items()}) == doc["scopeHash"] and
                 command["id"] == doc["commandId"] and command["notification"]["nativeTurnId"] == doc["turnId"],
                 "Recovery scope changed; review the current request")
         with RecoveryProxy(binding["endpoint"], scope, doc["turnId"]) as proxy:
-            observed = observe(proxy, scope, doc["turnId"])
+            observed = self._observe(proxy, scope, doc["turnId"], proof)
+            if proof:
+                continuity.same_ended(doc["observation"], observed)
             require(doc["action"] == "cancel_then_reconcile" or observed["status"] != "inProgress",
                     "The ended turn became active; no cancellation is authorized")
             with registry.tx() as registry_db, ledger.tx() as db:
                 require(record_in(registry_db) is None and not fence_exists(ledger.root), "Maintenance changed")
                 current = state_in(ledger, db)
-                require(context(current) == doc["contextHash"] and wake.binding == binding and wake.orphan_recovery_idle(),
+                require(context(current) == doc["contextHash"] and wake.binding == binding and wake.orphan_recovery_idle() and
+                        self._continuity_unchanged(proof, doc.get("retiredHost")),
                         "Recovery context changed before claim")
                 membership(registry, ledger, binding, scope)
                 eligible(current)
@@ -264,11 +326,16 @@ class TurnRecoveryControls(RetentionControls):
                 entry = {"id": doc["id"], "reviewHash": digest(doc), "bindingHash": doc["bindingHash"],
                          "controllerHash": digest(meta["controller"]), "claimedAt": time.time(),
                          "status": "awaiting_end", "delivery": "unknown", "observation": observed}
+                if proof:
+                    entry["hostContinuity"] = copy.deepcopy(proof)
+                    entry["originalBindingHash"] = doc["originalBindingHash"]
+                    entry["retiredHost"] = copy.deepcopy(doc["retiredHost"])
                 command["notification"]["turnRecovery"] = entry
                 ledger.put(db, "commands", command["id"], command)
                 entry["contextHash"] = context(state_in(ledger, db))
                 ledger.put(db, "commands", command["id"], command)
             if observed["status"] == "inProgress":
+                require(proof is None, "Replacement recovery never permits a native cancellation")
                 # Keep local safety context locked through this sole native send.
                 # Claim above is already committed; any lost result stays owned.
                 try:
@@ -300,19 +367,22 @@ class TurnRecoveryControls(RetentionControls):
         entry = ((command or {}).get("notification") or {}).get("turnRecovery")
         require(entry, "No owner-confirmed recovery exists; review recovery first")
         if entry["status"] == "controller_recovered":
-            return inspect(ledger, wake)
+            return self.inspect(ledger, wake)
         try:
-            command, binding, scope = self._bound(registry, ledger, wake, state)
+            command, binding, scope, proof = self._bound(registry, ledger, wake, state)
             require(command["id"] == body["commandId"] and context(state) == entry["contextHash"],
                     "New project activity fenced the old recovery")
             with RecoveryProxy(binding["endpoint"], scope, command["notification"]["nativeTurnId"]) as proxy:
-                observed = observe(proxy, scope, command["notification"]["nativeTurnId"])
+                observed = self._observe(proxy, scope, command["notification"]["nativeTurnId"], proof)
+            if proof:
+                continuity.same_ended(entry["observation"], observed)
             validate_endpoint(binding["endpoint"])
             require(observed["status"] != "inProgress", "The existing turn has not ended yet")
             with registry.tx() as registry_db, ledger.tx() as db:
                 require(record_in(registry_db) is None and not fence_exists(ledger.root) and
                         context(state_in(ledger, db)) == entry["contextHash"] and wake.binding == binding and
-                        wake.orphan_recovery_idle(), "Recovery context changed during ended-turn inspection")
+                        wake.orphan_recovery_idle() and self._continuity_unchanged(proof, entry.get("retiredHost")),
+                        "Recovery context changed during ended-turn inspection")
                 current = state_in(ledger, db)
                 membership(registry, ledger, binding, scope)
                 eligible(current)
@@ -327,7 +397,7 @@ class TurnRecoveryControls(RetentionControls):
                 ledger.put(db, "commands", command["id"], command)
                 ledger.event(db, "orphaned_turn_controller_recovered", {"commandId": command["id"], "turnId": observed["turnId"]})
         except (Refusal, OSError, ValueError):
-            result = inspect(ledger, wake)
+            result = self.inspect(ledger, wake)
             result["detail"] = "The turn or host could not be confirmed inactive. Ownership stays retained. Repair the reviewed host, then check this same recovery; do not repeat Play."
             return result
-        return inspect(ledger, wake)
+        return self.inspect(ledger, wake)

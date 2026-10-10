@@ -212,9 +212,18 @@ function turnRecoveryPanel(root,commandId){
     const doc=preview.document;
     panel.append(el('h4',doc.action==='cancel_then_reconcile'?'Cancel this turn and check that it ended':'Check this already-ended turn'),
       el('p',doc.boundary,'checkpoint'),el('p','This review expires '+when(doc.expiresAt)+'. It does not extend the phase.','muted'));
+    if(doc.hostContinuity)panel.append(el('p','This is an ended-turn check on a separately reviewed replacement host. No cancellation or thread loading will be sent.','checkpoint'));
     const details=el('details');details.append(el('summary','Details · Exact recovery target'),
       el('p','Project: '+doc.workspaceId),el('p','Brain: '+doc.brainId),el('p','Turn: '+doc.turnId),
       el('p','Observed: '+doc.observation.status+' · '+when(doc.observation.observedAt)));
+    if(doc.hostContinuity)details.append(el('p','Original host binding: '+doc.originalBindingHash),
+      el('p','Reviewed replacement binding: '+doc.bindingHash),
+      el('p','Brain, checkout, workspace, both project identities and restricted native policy are unchanged.'));
+    const boundBrain=doc.hostContinuity?.candidateBinding?.brains?.[doc.brainId];
+    if(boundBrain)details.append(el('p','Native project: '+boundBrain.projectId),
+      el('p','Codex catalog project: '+(boundBrain.catalogProjectId||boundBrain.projectId)),el('p','Checkout: '+boundBrain.cwd));
+    if(doc.retiredHost)details.append(el('p','Original host PID: '+doc.retiredHost.processId),
+      el('p','Original host launch claim: '+doc.retiredHost.launchClaimHash));
     panel.append(details);
     const label=el('label',null,'decision-confirm'),check=el('input');check.type='checkbox';
     label.append(check,el('span','I confirm this exact turn recovery. Development stays stopped.'));panel.append(label);

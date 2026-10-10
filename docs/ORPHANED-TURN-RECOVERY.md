@@ -38,7 +38,8 @@ request. Pin the original endpoint and both project identities, current catalog,
 registered ledger identity and checkout's Git common repository. Repeated
 `project/read`, metadata-only `thread/read`, latest `thread/turns/list` without
 items and bounded `thread/backgroundTerminals/list` must agree on the exact turn
-and no tracked terminals. Unsupported, changing, active or incomplete terminal
+and no tracked terminals. Ended-turn activity must be loaded-idle; `notLoaded`
+does not prove zero tracked terminals. Unsupported, changing, active or incomplete terminal
 metadata remains unknown; no empty-page or desktop-host substitution is allowed.
 
 The signed review is session-, workspace-, controller-, revision-, catalog-,
@@ -77,8 +78,8 @@ remains intact. Raw prompts, transcripts, native error bodies and endpoint paths
 are not copied into this journal or inference history.
 
 An unavailable original host is an operator repair boundary, not permission to
-start or silently rebind another host. A replacement endpoint needs a separately
-reviewed continuity design; this version refuses it. After controller recovery,
+start or silently rebind another host. The separately reviewed ended-turn
+continuity path below can inspect an already qualified replacement. After controller recovery,
 the run stays stopping and dispatch stays paused. A designated-brain safe
 checkpoint, applicable closeout and a newly reviewed successor Play remain
 separate operations. Nothing here extends an expired phase or grants the lost
@@ -104,3 +105,80 @@ preparation of the existing safe-checkpoint review without confirming it. Its
 native responses were synthetic. No live pilot state, host binding, original
 request, phase deadline or native permission was changed. No GitHub Actions or
 paid CI execution was added or invoked.
+
+## Separately reviewed replacement host: ended turns only
+
+The original host can exit before the signed recovery is used. Do not keep
+asking for a review that needs a dead endpoint. An operator may separately
+review and qualify a replacement host and dashboard binding, back up private
+state, stop older dashboard writers, and supply:
+
+```text
+--brain-app-server-binding PRIVATE_REVIEWED_CANDIDATE.json
+--turn-recovery-prior-binding PRIVATE_PRESERVED_ORIGINAL.json
+--turn-recovery-retired-host PRIVATE_REVIEWED_RETIREMENT.json
+```
+
+The original binding is historical evidence only: its complete hash must equal
+the original notification/profile. It is never validated against an obsolete
+socket, connected to, resumed, or used as a fallback. Require exactly one
+identical brain mapping in both bindings, including workspace, canonical
+checkout, both distinct project IDs and workspace-write/on-request/Code Mode-off
+policy. Only endpoint pins may differ. The registered catalog, database identity
+and Git common repository checks remain unchanged.
+
+Retirement configuration has exactly `version: 1`, `bindingHash`, `processId`
+and `launchClaimHash`. Before separately reviewing it, the operator must verify
+the PID against the original binding's retained host inspection and one-shot
+launch journal; the hash is provenance, not independent authentication or proof
+by itself. Never guess a PID from a name, socket file or process listing. A
+current, fixed `/bin/ps -p PID -o pid=` metadata read must prove exact absence
+before and after native inspection and before conditional controller release.
+A live/reused PID, unreadable process metadata or missing historical provenance
+refuses. No process is killed and no host is started by this path. This rules out
+releasing an original in-memory turn merely because a different host reports a
+persisted ended turn. It does not prove process-tree cleanup.
+
+On the already reviewed candidate, repeated project/thread/turn reads must
+identify the exact original latest turn as ended, with matching completion
+metadata, **loaded-idle** activity and complete known-empty tracked terminals.
+Identity reads bracket the terminal inspection. `notLoaded` is unknown, not zero
+terminals; the path never calls `thread/resume` to manufacture an idle observation.
+Unknown/unsupported terminal APIs, active/new/changing turns, pending approvals,
+observed children, tasks, packets, managed ownership and Brain Stop all remain
+fenced. If the candidate cannot supply this evidence, host qualification is
+still incomplete and no recovery claim is created.
+
+The same unchecked **Confirm turn recovery** signs the exact old/new binding
+hashes, retirement record, catalog/ledger/controller/run context and ended turn.
+Unsafe-range socket/ledger identity integers travel as canonical decimal strings;
+verify the envelope signature/session before decoding, and preserve their exact
+integers in the private journal. Only read RPCs are possible in this mode: no
+interrupt, load, turn start, permission response or replay. Record native
+delivery as `not_needed`, separately from conditional controller recovery.
+
+A claim is pinned to its selected binding and retirement record. Neither a
+previous original-host cancellation claim nor a replacement claim can migrate
+to another endpoint or obtain another attempt. Historical HTTP replay returns
+only its receipt, even after the host disappears. Explicit checks of an unresolved
+claim repeat only its own metadata observations and original-PID absence; polling
+does not collect them. Preserve the original notification/profile and every
+usage gap/deadline/receipt. Effect outcome and task-tree completeness remain
+unknown, and development stays stopped without a fabricated checkpoint.
+
+Host launch, binding review, loaded-thread qualification, safe phase checkpoint,
+closeout/successor review and actual native permission response are still separate
+observed outcomes. Source merge and synthetic tests do not complete this pilot.
+
+### Source verification (2026-10-10)
+
+The complete local suite passed: 2,201 Python tests (one existing skip), all 35
+JavaScript suites, all 31 web JavaScript syntax checks and `git diff --check`.
+The 36 focused recovery tests include lossless browser round trips, exact
+registered HTTP routing, original-PID absence and drift, historical-endpoint
+non-use, unknown/active/unloaded refusal, preservation of the original request
+and replay without native I/O. A disposable rendered desktop/320px rehearsal
+confirmed the replacement review, recorded recovery and separate safe-checkpoint
+preview. Native reads and retirement were synthetic; the original live pilot
+ledger, binding, usage, controller and deadline were unchanged. These checks
+qualify source behavior, not a replacement host or live pilot acceptance.

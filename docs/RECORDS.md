@@ -216,6 +216,12 @@ replay; later explicit checks never resend the cancellation. Recovering the exac
 abandoned controller leaves the run stopping, dispatch paused, deadline/usage/gaps
 preserved and checkpoint absent unless independently retained. See
 [orphaned-turn recovery](ORPHANED-TURN-RECOVERY.md); it grants no phase success.
+An ended-turn-only replacement review additionally retains both complete private
+bindings, original binding hash and reviewed original-PID/launch-claim provenance
+under `hostContinuity` and `retiredHost`. It never rewrites the original
+notification/profile or migrates a consumed claim. Native delivery is
+`not_needed`; loaded-idle/terminal evidence and conditional controller recovery
+remain distinct from effect settlement, checkpoint retention and acceptance.
 
 Future owned notifications may add `nativePermissionObservation` with
 `version: 1`, `turnId`, `requestHash`, supported approval `method`,
