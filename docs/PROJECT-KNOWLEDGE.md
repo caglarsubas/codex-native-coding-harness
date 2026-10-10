@@ -201,3 +201,13 @@ still expires after two minutes and all acceptance fences remain. Future closed
 waits retain bounded, hash-only causes; older missing causes stay unknown.
 Source and disposable UI verification do not restore a closed live subscription
 or qualify the pilot. See [owned brain wake](OWNED-BRAIN-WAKE.md).
+
+An ended approval observer with an unresolved empty standard turn now exposes
+[one-shot turn recovery](ORPHANED-TURN-RECOVERY.md) in the same brain inspector.
+The server generates and checks the exact target; no long owner-authored recovery
+prompt is required. One signed confirmation covers conditional cancellation and
+verified recovery of that abandoned controller. It does not answer a lost native
+permission or grant a checkpoint, wake, Resume or pilot acceptance. The roadmap
+stops advertising active development and exposes its existing safe-checkpoint
+review after recovery. Lost outcomes retain ownership and a read-only follow-up;
+historical records and measured-usage gaps remain unchanged.

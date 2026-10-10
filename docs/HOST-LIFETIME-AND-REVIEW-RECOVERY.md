@@ -127,6 +127,14 @@ This is not a boot service or guaranteed connectivity after desktop exit.
 
 ## Rollout boundary
 
+An ended permission observer can strand an existing native turn and its ledger
+controller; a successful host handshake cannot repair that lifecycle gap. Use the
+separate [orphaned-turn review](ORPHANED-TURN-RECOVERY.md) for eligible empty standard
+runs. Its one confirmation includes cancellation only if still active and local
+controller recovery only after repeated exact ended-turn and tracked-terminal
+checks. Missing host evidence retains ownership. It cannot launch, repin, restore
+a subscription, respond to a lost permission, extend the phase or retry Play.
+
 Source delivery installs/starts nothing. Quiesce older writers and back up private
 state before installation. A newly started listener may change canonical socket
 identity and requires the existing exact binding review; never silently repin or

@@ -55,6 +55,9 @@ delete s.standard.catalogRefresh.catalogError;
 assert.match(box.catalogReadinessIssue({status:'failed',catalogError:{code:'schema_unavailable',retryable:true}}).detail,/could not observe/,'An unavailable observation does not prove tool absence');
 s.standard.catalogRequired=false;assert.equal(model(s).action,'runReadiness');
 s=base();s.standard.run=run('running');assert.equal(model(s).action,'overview');assert.equal(model(s).canPause,true);
+s.commands=[{kind:'standard_play',status:'completed',payload:{runId:'run'},notification:{nativeTurnStatus:'native_attention_required'}}];
+assert.equal(model(s).action,'conversation');assert.match(model(s).title,/needs recovery/,'A lost observer must not advertise verified active work');
+s.commands=[];
 s.workflow={openDecisions:2};assert.equal(model(s).action,'decisions');assert.equal(model(s).canPause,true);
 s.standard.blockers=['Missing usage'];assert.equal(model(s).action,'pause');
 s.recovery={reconciliationRequired:true};s.meta={controller:null};
@@ -91,6 +94,14 @@ s.standard.blockers=[];s.standard.run.expiresAt=2000;s.standard.run.recovery.sta
 s.standard.run.recovery.status='replied';assert.equal(model(s).action,'resume','A replied recovery does not block a separately reviewed eligible Resume');
 s.standard.run.recovery=null;
 s.standard.run=run('stopping');assert.equal(model(s).action,'overview');assert.equal(model(s).canPause,undefined);
+s.commands=[{status:'completed',notification:{hostRunId:'run',turnRecovery:{status:'awaiting_end'}}}];
+assert.equal(model(s).action,'conversation','A consumed cancellation follows its existing outcome');
+s.commands[0].notification.turnRecovery.status='controller_recovered';s.meta={controller:null};
+assert.equal(model(s).action,'pause','Recovered controller exposes the existing safe checkpoint review');
+box.state=s;const callsBeforeRecovery=calls.length;box.journeyAction(model(s).action);
+assert.deepEqual(calls.slice(callsBeforeRecovery),[['review','pause']],'The next step prepares review, never confirms or notifies');
+s.commands[0].notification.hostRunId='older-run';assert.equal(model(s).action,'overview','Historical recovery cannot select a successor action');
+s.commands=[];
 s.standard.run=run('unrecognized');assert.equal(model(s).action,'conversation');
 for(const status of ['completed','blocked']){s.standard.run=run(status);assert.equal(model(s).action,'prepare');assert.equal(model(s).stage,3);}
 assert.equal(model(s).label,'Prepare recovery proposal');

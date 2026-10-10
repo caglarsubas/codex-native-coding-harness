@@ -4,6 +4,7 @@ const brainDrafts=new Map(),brainPages=new Map();
 const brainRequestFocus=new Map();
 const nativePermissionPreviews=new Map();
 const nativePermissionFocusRequests=new Map();
+const turnRecoveryPreviews=new Map();
 const receiptRecoveryPreviews=new Map();
 function receiptRecoveryPanel(article,message){
   const key=workspaceId||'legacy',generation=typeof workspaceGeneration==='undefined'?0:workspaceGeneration;
@@ -123,6 +124,7 @@ function nativePermissionPanel(root){
       nativePermissionPreviews.delete(key);
       if(value.status!=='disabled'&&value.detail&&value.detail!=='No current native permission request; inspect the brain before retrying')
         panel.append(el('p',(value.status==='response_claimed'?'Native permission · '+value.delivery+': ':'Native permission: ')+value.detail,'muted'));
+      if(['attention_required','turn_recovered'].includes(value.status)&&value.commandId)turnRecoveryPanel(panel,value.commandId);
       focusReview();return;
     }
     const pending=value.pending,preview=nativePermissionPreviews.get(key);
@@ -172,6 +174,61 @@ function nativePermissionPanel(root){
       .finally(()=>{if(same()&&typeof window!=='undefined')window.setTimeout(load,5000);});
   }
   load();
+}
+function turnRecoveryPanel(root,commandId){
+  const panel=el('section',null,'turn-recovery');root.append(panel);
+  const key=workspaceId||'legacy',generation=typeof workspaceGeneration==='undefined'?0:workspaceGeneration;
+  const same=()=>panel.isConnected&&key===(workspaceId||'legacy')&&generation===(typeof workspaceGeneration==='undefined'?0:workspaceGeneration);
+  const post=(path,body)=>api(path,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify(body)});
+  function paint(value){
+    if(!same())return;panel.replaceChildren();
+    if(value.status==='unavailable'){
+      panel.append(el('p','Recovery is not available here: '+value.detail,'muted'));return;
+    }
+    panel.append(el('h3',value.status==='controller_recovered'?'Recovery recorded':'Recover the stranded brain turn'),el('p',value.detail));
+    if(value.status==='controller_recovered'){
+      turnRecoveryPreviews.delete(key);
+      panel.append(button('Review safe phase checkpoint',()=>{journeyAction('pause');},'primary'));return;
+    }
+    if(value.status!=='review_available'){
+      turnRecoveryPreviews.delete(key);
+      const check=button('Check this existing turn again',async()=>{
+        check.disabled=true;
+        try{const result=await post('/api/turn-recovery/reconcile',{commandId:value.commandId});if(same()){paint(result);await refresh();}}
+        catch(error){if(same())showNotice('Recovery check unavailable. Nothing was resent. '+error.message,true);}
+        finally{check.disabled=false;}
+      });panel.append(check);return;
+    }
+    let preview=turnRecoveryPreviews.get(key);
+    if(preview?.document?.commandId!==commandId){turnRecoveryPreviews.delete(key);preview=null;}
+    const expired=preview&&preview.document.expiresAt<=Date.now()/1000;
+    const review=button(preview?'Refresh recovery review':'Review turn recovery',async()=>{
+      review.disabled=true;
+      try{const result=await post('/api/turn-recovery/preview',{commandId});if(same()){turnRecoveryPreviews.set(key,result);paint(value);}}
+      catch(error){if(same())showNotice('Cannot inspect the reviewed host. Nothing was cancelled. '+error.message,true);}
+      finally{review.disabled=false;}
+    });panel.append(review);
+    if(!preview)return;
+    const doc=preview.document;
+    panel.append(el('h4',doc.action==='cancel_then_reconcile'?'Cancel this turn and check that it ended':'Check this already-ended turn'),
+      el('p',doc.boundary,'checkpoint'),el('p','This review expires '+when(doc.expiresAt)+'. It does not extend the phase.','muted'));
+    const details=el('details');details.append(el('summary','Details · Exact recovery target'),
+      el('p','Project: '+doc.workspaceId),el('p','Brain: '+doc.brainId),el('p','Turn: '+doc.turnId),
+      el('p','Observed: '+doc.observation.status+' · '+when(doc.observation.observedAt)));
+    panel.append(details);
+    const label=el('label',null,'decision-confirm'),check=el('input');check.type='checkbox';
+    label.append(check,el('span','I confirm this exact turn recovery. Development stays stopped.'));panel.append(label);
+    const confirm=button('Confirm turn recovery',async()=>{
+      if(!check.checked)return;
+      if(doc.expiresAt<=Date.now()/1000){paint(value);return;}
+      confirm.disabled=true;
+      try{const result=await post('/api/turn-recovery/confirm',{proposal:preview,confirmed:true});if(same()){turnRecoveryPreviews.delete(key);paint(result);showNotice(result.detail);await refresh();}}
+      catch(error){if(same())showNotice('Recovery result not confirmed. Check the existing recovery before any new action. '+error.message,true);}
+      finally{confirm.disabled=!check.checked||doc.expiresAt<=Date.now()/1000;}
+    },'primary');confirm.disabled=true;check.onchange=()=>{confirm.disabled=!check.checked||doc.expiresAt<=Date.now()/1000;};panel.append(confirm);
+    if(expired)panel.append(el('p','This review expired. Refresh recovery review above; nothing was sent.','checkpoint'));
+  }
+  api('/api/turn-recovery').then(paint).catch(error=>{if(same())panel.append(el('p','Recovery status unavailable. '+error.message,'muted'));});
 }
 function brainDraftStorageKey(key){return 'orchestrator-brain-draft:'+key;}
 function loadBrainDraft(key){
