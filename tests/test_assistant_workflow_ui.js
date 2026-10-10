@@ -110,3 +110,13 @@ const countBeforePause=run('sent');assert.equal(box.assistantTypedConfirmation('
 assert.equal(run('sent'),countBeforePause+1,'Exact recovery phrase selects its own signed preview');
 run('pauseRecovery.receipt={result:{id:"pause-recovery",kind:"standard_pause_recovery",status:"queued"},message:"Saved"}');
 box.assistantTypedConfirmation('confirm pause recovery');assert.equal(run('sent'),countBeforePause+1,'Saved receipt cannot send again');
+
+run(`assistantActions.clear(); var pauseReceipt={workspace:'alpha',submit:()=>sent++,proposal:{document:{workflow:'phase_pause_receipt_recovery',id:'pause-receipt',brainId:'brain',expiresAt:Date.now()/1000+300,request:{expectedRevision:2}}}}; assistantActions.set('pause-receipt',pauseReceipt);`);
+const countBeforeReceipt=run('sent');
+box.assistantTypedConfirmation('confirm pause recovery');
+assert.equal(run('sent'),countBeforeReceipt,'Pre-turn recovery phrase must not select the ended-Pause receipt preview');
+assert.equal(box.assistantTypedConfirmation('confirm pause receipt recovery'),true);
+assert.equal(run('sent'),countBeforeReceipt+1,'Only the exact receipt-recovery confirmation selects its signed preview');
+run('pauseReceipt.receipt={result:{id:"pause-receipt",kind:"standard_pause_receipt_recovery",status:"queued"},message:"Saved"}');
+box.assistantTypedConfirmation('confirm pause receipt recovery');
+assert.equal(run('sent'),countBeforeReceipt+1,'Saved receipt recovery cannot send again');

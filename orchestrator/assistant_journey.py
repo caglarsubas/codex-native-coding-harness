@@ -7,10 +7,10 @@ import time
 import uuid
 
 from .assistant_actions import ActionProposals, TTL
-from .core import digest, require
+from .core import Refusal, digest, require
 from .recovery import describe
 
-KINDS = {"phase_help", "phase_prepare", "phase_reconcile", "phase_recovery", "phase_pause_recovery", "phase_close", "phase_review", "phase_play", "phase_pause", "phase_resume", "brain_budget", "usage_check", "codex_check", "brain_message"}
+KINDS = {"phase_help", "phase_prepare", "phase_reconcile", "phase_recovery", "phase_pause_recovery", "phase_pause_receipt_recovery", "phase_close", "phase_review", "phase_play", "phase_pause", "phase_resume", "brain_budget", "usage_check", "codex_check", "brain_message"}
 PREPARE_MESSAGE = (
     "Review this project's configured roadmap sources and latest retained results. "
     "Prepare the next unfinished, bounded phase as a mission draft. Include goal, success criteria, "
@@ -152,6 +152,11 @@ def catalog(state):
     add("phase_pause_recovery", "Review replacement checkpoint recovery" if pause_recovery.get("replacementOf") else "Recover saved Pause", PAUSE_BOUNDARY,
         pause_recovery["reason"] or ("A reviewed owned Codex host is required." if
             state.get("brainNotification", {}).get("transport") != "owned_app_server" else None))
+    from .pause_receipt_recovery import availability as receipt_available, BOUNDARY as RECEIPT_BOUNDARY
+    receipt = receipt_available(state)
+    add("phase_pause_receipt_recovery", "Recover Pause receipt and checkpoint", RECEIPT_BOUNDARY,
+        receipt["reason"] or ("A reviewed owned Codex host is required." if
+            state.get("brainNotification", {}).get("transport") != "owned_app_server" else None))
     add("phase_resume", "Resume this phase", "Continue the saved phase with its existing limits and consumed usage.",
         "Finish the existing brain handoff first." if blocked_handoff else
         None if run.get("status") == "paused" and not s.get("blockers") else "A paused phase with resolved prerequisites is required.")
@@ -258,6 +263,29 @@ class JourneyProposals(ActionProposals):
             request = {"id": ident, "contextHash": standard["contextHash"]}
         elif kind == "usage_check":
             request = {"id": ident, "runId": standard["run"]["id"], "contextHash": standard["contextHash"]}
+        elif kind == "phase_pause_receipt_recovery":
+            from . import pause_receipt_recovery as recovery, reply_recovery
+            from .native_read_client import ReadProxy
+            host = self.runtime.notifier.app_server
+            require(host is not None, "The reviewed owned host is required")
+            original = recovery.eligible(state)
+            reply_recovery.check_binding(state, host.binding)
+            require(not host.pending_approval(state["meta"]["brainId"]), "Native approval needs reconciliation")
+            with ReadProxy(host.binding["endpoint"]) as proxy:
+                observation = recovery.observe(proxy, host.binding, original)
+            require(self.runtime.ledger.snapshot()["meta"]["revision"] == state["meta"]["revision"], "Project changed during inspection")
+            run = standard["run"]
+            request = {"id": ident, "expectedRevision": state["meta"]["revision"], "runHash": digest(run),
+                "payload": {"runId": run["id"], "phaseId": run["phaseId"], "pauseId": original["id"],
+                    "pauseFingerprint": recovery.fingerprint(original), "notificationHash": digest(original["notification"]),
+                    "brainId": state["meta"]["brainId"], "bindingHash": digest(host.binding),
+                    "observation": observation, "scopeHash": recovery.scope_hash(run)}}
+            preview["summary"] = ["The saved Pause started a turn, but that completed turn recorded no receipt.",
+                "Authorize one separate receipt/checkpoint-only turn. If unloaded, load for inspection first; unknown terminals cannot permit turn start.",
+                "Do not replay Play, Pause or a diagnostic. Keep usage, gaps, the original phase clock and historical effect uncertainty."]
+            preview["details"] = {"pauseId": original["id"], "runId": run["id"], "observation": observation,
+                "allowanceTokens": recovery.ALLOWANCE, "expiresAt": run["expiresAt"],
+                "allowanceBoundary": "Cooperative one-turn guidance; not a budget increase, billing cap or phase extension."}
         elif kind == "phase_pause_recovery":
             from . import pause_recovery, reply_recovery
             from .native_read_client import ReadProxy
@@ -439,6 +467,33 @@ class JourneyProposals(ActionProposals):
             from .brain_memory import refresh
             require(standard.read(ledger)["contextHash"] == request["contextHash"], "Run changed; review a fresh usage request")
             return self.result(doc, refresh(ledger, request["runId"], doc["id"])), False
+        if kind == "phase_pause_receipt_recovery":
+            from . import pause_receipt_recovery as recovery, reply_recovery
+            from .native_read_client import ReadProxy
+            try:
+                state = self.runtime.snapshot()
+                require(state["meta"]["revision"] == request["expectedRevision"], "Project changed; review again")
+                original = recovery.eligible(state)
+                host = self.runtime.notifier.app_server
+                require(host is not None and digest(host.binding) == request["payload"]["bindingHash"], "Reviewed host changed")
+                reply_recovery.check_binding(state, host.binding)
+                require(not host.pending_approval(doc["brainId"]), "Native approval needs reconciliation")
+                with ReadProxy(host.binding["endpoint"]) as proxy:
+                    observation = recovery.observe(proxy, host.binding, original)
+                require(recovery.same_turn(observation, request["payload"]["observation"]), "Reviewed latest turn changed")
+                command, first = recovery.confirm(self.runtime.registry, ledger, request)
+                return self.result(doc, command), first
+            except Refusal:
+                # Another authenticated confirmation may have committed between
+                # the initial replay read and this metadata check. Read only its
+                # exact receipt; never suppress an unrelated refusal or resend.
+                with contextlib.closing(ledger.connect()) as db:
+                    row = db.execute("SELECT data FROM commands WHERE id=?", (request["id"],)).fetchone()
+                if row:
+                    command = json.loads(row[0])
+                    if command.get("kind") == recovery.KIND and command.get("fingerprint") == digest(request):
+                        return self.result(doc, command), False
+                raise
         if kind == "phase_pause_recovery":
             from . import pause_recovery, reply_recovery
             from .native_read_client import ReadProxy
@@ -505,7 +560,7 @@ class JourneyProposals(ActionProposals):
     def result(doc, result):
         return {"workflow": doc["workflow"], "id": doc["id"], "result": result,
                 "message": result["result"] if doc["workflow"] in ("phase_close", "brain_budget") else
-                           "Pause recovery saved. Follow delivery, the Pause receipt and its paused checkpoint separately." if doc["workflow"] == "phase_pause_recovery" else
+                           "Pause recovery saved. Follow delivery, the Pause receipt and its paused checkpoint separately." if doc["workflow"] in ("phase_pause_recovery", "phase_pause_receipt_recovery") else
                            "Recovery-only preparation saved. The phase remains paused; follow native delivery and the brain's separate receipt." if doc["workflow"] == "phase_recovery" else
                            "Phase plan reviewed. You can now review Play here." if doc["workflow"] == "phase_review" else
                            "Usage refreshed. Remaining measured budget is unknown." if doc["workflow"] == "usage_check" and result.get("gaps") else

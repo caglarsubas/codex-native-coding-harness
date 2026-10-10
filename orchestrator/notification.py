@@ -18,7 +18,7 @@ ACK = re.compile(rf"Queued message ({UUID}) for thread ({UUID})\.")
 TIMEOUT = 8
 NOTIFY_KINDS = {"decision_response", "resume", "reconcile", "checkpoint", "archive", "brain_stop", "brain_resume", "brain_checkpoint_continue",
                 "approve", "hold", "prioritize", "listening", "pause", "standard_play", "standard_pause", "standard_resume",
-                "standard_catalog_refresh", "standard_recovery", "standard_pause_recovery", "brain_handoff", "brain_reply_recovery"}
+                "standard_catalog_refresh", "standard_recovery", "standard_pause_recovery", "standard_pause_receipt_recovery", "brain_handoff", "brain_reply_recovery"}
 
 
 class BrainNotifier:
@@ -81,8 +81,11 @@ class BrainNotifier:
                     or command.get("actor") not in ("dashboard", "assistant_owner_confirmed") or command.get("notification")):
                 return command
             meta = ledger.get(db, "meta", 1)
-            if command["kind"] == "standard_pause_recovery":
-                from .pause_recovery import validate_in
+            if command["kind"] in ("standard_pause_recovery", "standard_pause_receipt_recovery"):
+                if command["kind"] == "standard_pause_receipt_recovery":
+                    from .pause_receipt_recovery import validate_in
+                else:
+                    from .pause_recovery import validate_in
                 from .core import Refusal
                 try:
                     validate_in(ledger, db, command, meta)
@@ -186,7 +189,23 @@ class BrainNotifier:
             "Reconcile superseded or completed requests without replay. This notification itself grants no packet approval, "
             "target access, workers, acceptance runs, model/effort changes or merges."
         )
-        if command["kind"] == "standard_pause_recovery":
+        if command["kind"] == "standard_pause_receipt_recovery":
+            from .pause_receipt_recovery import BOUNDARY, ALLOWANCE
+            source = Path(__file__).resolve().parent.parent
+            message = (
+                f"Owner-confirmed receipt/checkpoint-only recovery {command_id}. "
+                f"Use source {json.dumps(str(source))}, platform {json.dumps(str(ledger.platform_root))}, workspace {ledger.workspace_id}. "
+                "Read the source orchestration skill and docs/ENDED-PAUSE-RECEIPT-RECOVERY.md completely. "
+                "Inspect the exact inbox and standard-state, verify this task is its designated brain, and acquire only its controller. "
+                f"Use only standard-brain pause_receipt_recovery_receive with runId {command['payload']['runId']} and requestId {command_id}. "
+                f"{BOUNDARY} Cooperative one-turn allowance: {ALLOWANCE} tokens, not a provider cap. "
+                "Do not use generic receive/process or rerun the original instruction. Any prior aborted or unknown diagnostic "
+                "does not establish denial or non-execution. Do not run any diagnostic or native permission response. "
+                "Retain only an empty paused checkpoint with brainObservedTokens null, preserving all known usage and gaps. "
+                "Preserve the original expiry and unknown historical terminal/effect outcome in its summary; use duration and usage_evidence reasons only when observed. "
+                "Release the controller with that checkpoint and end this turn. No phase success or pilot qualification."
+            )
+        elif command["kind"] == "standard_pause_recovery":
             from .pause_recovery import BOUNDARY, ALLOWANCE
             source = Path(__file__).resolve().parent.parent
             message = (
@@ -288,7 +307,7 @@ class BrainNotifier:
                 "No permissions come from this notification; use the exact owner-approved run and inheritance seed. "
                 "Keep supervising registered tasks with native waits until the reviewed phase checkpoint or stop."
             )
-        if notification.get("hostBindingHash"):
+        if notification.get("hostBindingHash") and command["kind"] != "standard_pause_receipt_recovery":
             message += (
                 f" Owned host handoff for command {json.dumps(command_id)}, run {json.dumps(notification['hostRunId'])}: "
                 "after receiving the control, use standard-host-inspect RUN_ID COMMAND_ID under this controller "
@@ -297,7 +316,7 @@ class BrainNotifier:
                 "resume a native thread or change settings to inspect it. Reported policy, acknowledged Code Mode "
                 "configuration and unknown native-effect coverage are separate facts. Missing evidence stops effects."
             )
-        if has_conversation and command["kind"] not in ("standard_recovery", "brain_reply_recovery"):
+        if has_conversation and command["kind"] not in ("standard_recovery", "brain_reply_recovery", "standard_pause_receipt_recovery"):
             source = Path(__file__).resolve().parent.parent
             scope = (f"--platform {json.dumps(str(ledger.platform_root))} --workspace {ledger.workspace_id}"
                      if getattr(ledger, "workspace_id", None) else f"--state {json.dumps(str(ledger.root))}")

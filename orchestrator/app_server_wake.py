@@ -882,9 +882,12 @@ class AppServerWake:
             stage = "request_check"
             with self.ledger.tx() as db:
                 recovery_kind = self.ledger.get(db, "commands", command_id).get("kind")
-                recovery = recovery_kind in ("brain_reply_recovery", "standard_pause_recovery")
+                recovery = recovery_kind in ("brain_reply_recovery", "standard_pause_recovery", "standard_pause_receipt_recovery")
             if recovery:
-                if recovery_kind == "standard_pause_recovery":
+                if recovery_kind == "standard_pause_receipt_recovery":
+                    from .pause_receipt_recovery import send_check
+                    require(not self.pending_approval(brain_id), "Native approval needs reconciliation")
+                elif recovery_kind == "standard_pause_recovery":
                     from .pause_recovery import send_check
                     require(not self.pending_approval(brain_id), "Native approval needs reconciliation")
                 else:
@@ -922,9 +925,14 @@ class AppServerWake:
                 # Resume changes native loading, not dispatch authority. Recheck
                 # a racing Stop and exact original immediately before turn/start.
                 stage = "receipt_check"
-                if recovery_kind == "standard_pause_recovery":
+                if recovery_kind in ("standard_pause_recovery", "standard_pause_receipt_recovery"):
                     require(not self.pending_approval(brain_id), "Native approval needs reconciliation")
-                send_check(self.ledger, self.binding, command_id, proxy)
+                if recovery_kind == "standard_pause_receipt_recovery":
+                    # The claimed resume may load for inspection, never make an
+                    # unknown tracker safe. Prove current terminals before start.
+                    send_check(self.ledger, self.binding, command_id, proxy, require_loaded=True)
+                else:
+                    send_check(self.ledger, self.binding, command_id, proxy)
             # Immediately before this boundary a concurrent native turn may start.
             # A rejection or lost response is uncertain, never permission to retry.
             stage = "observation_record"

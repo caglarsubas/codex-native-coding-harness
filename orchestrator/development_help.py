@@ -131,6 +131,14 @@ def plan(state):
         return step("blocked", "Checkpoint recovery needs attention",
                     actions["phase_recovery"]["unavailableReason"])
 
+    if run.get("status") == "stopping" and actions["phase_pause_receipt_recovery"]["available"]:
+        return step("decision", "Recover Pause receipt and checkpoint",
+                    "The exact Pause turn ended without a receipt. Review one receipt/checkpoint-only recovery; "
+                    "unknown tracked terminals cannot permit its turn to start. No Play or diagnostic is repeated.",
+                    "phase_pause_receipt_recovery")
+    if run.get("status") == "stopping" and (run.get("pauseReceiptRecovery") or {}).get("status") in ("queued", "processing"):
+        result["requestId"] = run["pauseReceiptRecovery"]["id"]
+        return step("follow", "Following receipt/checkpoint recovery", "Follow the same saved attempt; no second wake will be sent.")
     if run.get("status") == "stopping" and actions["phase_pause_recovery"]["available"]:
         result["requestId"] = s.get("pauseRecovery", {}).get("pauseId")
         replacement = s.get("pauseRecovery", {}).get("replacementOf")

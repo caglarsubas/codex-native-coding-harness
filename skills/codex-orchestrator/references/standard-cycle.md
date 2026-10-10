@@ -8,6 +8,18 @@ select model and effort from the owner-bound native catalog, based on complexity
 and remaining allowance. Do not guess speed settings: the native interface does
 not expose them. Keep requested settings distinct from observed settings.
 
+## Ended Pause without a receipt
+
+An exact owner-confirmed `standard_pause_receipt_recovery` is a different,
+receipt/checkpoint-only turn. Read `docs/ENDED-PAUSE-RECEIPT-RECOVERY.md` completely
+before acting. Verify the designated brain, then use only
+`standard-brain pause_receipt_recovery_receive` with the saved run/request IDs,
+retain an empty `paused` checkpoint with `brainObservedTokens: null`, release
+the controller and end. Do not process or execute the original Pause/Play,
+diagnostic, ordinary input, worker or native approval. Loaded current tracker
+evidence does not reconcile historical effects, unknown usage or all descendants.
+No phase Resume, clock extension, success or pilot acceptance follows.
+
 ## Pending brain replacement
 
 When an existing replacement candidate and final package receipt are recorded,

@@ -17,6 +17,16 @@ const retainedFailure=context.commandPresentation({kind:'standard_pause_recovery
   notification:{status:'unavailable',nativeFailure:{turnStartAttempted:false}}});
 assert.match(retainedFailure.label,/Pre-turn recovery failed/);
 assert.match(retainedFailure.detail,/not a brain receipt or an automatic resend/);
+const receiptKind='standard_pause_receipt_recovery';
+assert.equal(context.commandPresentation({kind:receiptKind,status:'queued'}).label,'Pause receipt recovery saved');
+const receiptPending=context.commandPresentation({kind:receiptKind,status:'processing'});
+assert.equal(receiptPending.label,'Pause received · stopped checkpoint pending');
+assert.match(receiptPending.detail,/development is not resumed/);
+const receiptCheckpoint=context.commandPresentation({kind:receiptKind,status:'completed',notification:{status:'accepted'}});
+assert.equal(receiptCheckpoint.label,'Stopped checkpoint retained · effects unverified');
+assert.match(receiptCheckpoint.detail,/Usage, expiry and historical terminal\/effect uncertainty remain/);
+assert.match(receiptCheckpoint.detail,/not phase success or pilot acceptance/);
+assert.equal(context.commandPresentation({kind:receiptKind,status:'queued',notification:{status:'uncertain'}}).label,'Delivery unconfirmed');
 assert.equal(present({status:'accepted',finishedAt:99},{fresh:true,status:'idle'}).label,'Sent to Codex');
 assert.equal(present({status:'accepted',finishedAt:99},{fresh:true,status:'running'}).label,'Brain active · awaiting receipt');
 assert.equal(present({status:'accepted',finishedAt:99},{fresh:false,status:'running'}).label,'Sent to Codex');

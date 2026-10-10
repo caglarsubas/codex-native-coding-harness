@@ -3,16 +3,16 @@
 // No polling callback confirms a control or sends a message to the brain.
 const developmentHelpViews=new Map();
 function developmentHelpProgress(command,current,now=Date.now()/1000){
-  if(command.kind==='standard_pause_recovery'){
+  if(['standard_pause_recovery','standard_pause_receipt_recovery'].includes(command.kind)){
     const n=command.notification,info=commandPresentation(command,current.brainActivity,now);
-    const permit=current.standard?.run?.pauseRecovery;
+    const permit=current.standard?.run?.[command.kind==='standard_pause_receipt_recovery'?'pauseReceiptRecovery':'pauseRecovery'];
     const expired=!command.receivedAt&&permit?.id===command.id&&now>=permit.receiveBy;
     return {rows:[['Pause recovery saved','done',command.createdAt],
       ['Native delivery',n?.status==='accepted'?'done':['unavailable','uncertain'].includes(n?.status)?'attention':'waiting',n?.finishedAt],
       ['Saved Pause received',command.receivedAt?'done':expired?'attention':'waiting',command.receivedAt],
       ['Paused checkpoint retained',command.checkpointHash?'done':'waiting',command.completedAt]],
       title:expired?'Recovery receipt window expired':info.label,
-      detail:expired?'Inspect this existing recovery and host; no second wake is permitted. Development stays stopped.':info.detail,
+      detail:command.checkpointHash?'Stopped checkpoint saved. Usage and historical effect uncertainty are preserved; this is not pilot acceptance.':expired?'Inspect this existing recovery and host; no second wake is permitted. Development stays stopped.':info.detail,
       attention:expired||['unavailable','uncertain'].includes(n?.status)};
   }
   if(command.kind==='standard_recovery'){
@@ -96,7 +96,7 @@ function developmentHelpRender(root,entry){
     if(Date.now()/1000>data.proposal.document.expiresAt)panel.append(button('Refresh help preview',()=>developmentHelpUpdate(true)));
   }else{
     const next=el('div',null,'development-next');next.append(el('h3',data.title),el('p',data.detail,'muted'));
-    if(data.mode==='decision'&&data.key){const b=button(data.key==='phase_close'?'Review stopped-phase closeout':data.key==='phase_pause_recovery'?(data.title||'Recover saved Pause'):'Review next step',()=>assistantRequestStep(data.key),'primary');b.disabled=assistantPending;entry.buttons=[b];next.append(b);panel.prepend(next);}
+    if(data.mode==='decision'&&data.key){const b=button(data.key==='phase_close'?'Review stopped-phase closeout':['phase_pause_recovery','phase_pause_receipt_recovery'].includes(data.key)?(data.title||'Recover saved Pause'):'Review next step',()=>assistantRequestStep(data.key),'primary');b.disabled=assistantPending;entry.buttons=[b];next.append(b);panel.prepend(next);}
     else if(data.mode!=='follow')panel.append(next);
     else if(!command)panel.append(el('p','Your request is recorded. Refreshing its saved progress…','muted'));
     if(data.mode==='needs_input'){

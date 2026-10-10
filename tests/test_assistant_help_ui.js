@@ -84,6 +84,14 @@ const elements=n=>[n,...n.children.flatMap(elements)];
   assert.equal(progress.rows[2][1],'done');assert.equal(progress.rows[3][1],'waiting','Pause receipt is not a checkpoint');
   pauseRecovery.checkpointHash='checkpoint';pauseRecovery.status='completed';progress=box.developmentHelpProgress(pauseRecovery,box.state,6);
   assert.equal(progress.rows[3][1],'done');
+  const receiptRecovery={...pauseRecovery,id:'receipt',kind:'standard_pause_receipt_recovery'};
+  box.state.standard.run.pauseReceiptRecovery={id:'receipt',receiveBy:500};
+  progress=box.developmentHelpProgress(receiptRecovery,box.state,6);
+  assert.match(progress.detail,/historical effect uncertainty.*not pilot acceptance/);
+  box.state.meta.revision++;response={mode:'decision',key:'phase_pause_receipt_recovery',title:'Recover the Pause receipt',detail:'No replay'};
+  box.developmentHelpUpdate();await flush();
+  elements(root).find(e=>e.tag==='button'&&e.text==='Recover the Pause receipt').onclick();
+  assert.equal(steps.at(-1)[0],'phase_pause_receipt_recovery');assert.equal(submits.length,1);
   // A response arriving after project selection changes cannot cross projects.
   let resolve;box.api=()=>new Promise(r=>resolve=r);box.state.meta.revision++;box.developmentHelpUpdate();
   box.workspaceId='beta';box.state={...base(),workspace:{id:'beta'}};
