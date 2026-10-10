@@ -19,6 +19,13 @@ from test_turn_recovery import Proxy, TURN
 
 class RenderProxy(Proxy):
     def _rpc(self, method, params):
+        if method == "thread/resume":
+            assert self.load_permit and params == recovery.load_params(self.scope)
+            self.load_permit = False
+            type(self).ended_activity = "idle"
+            return {"thread": {"id": self.scope["brainId"], "cwd": self.scope["cwd"],
+                    "projectId": self.scope["projectId"], "status": {"type": "idle"}, "turns": []},
+                    "sandbox": {"type": "workspaceWrite"}, "approvalPolicy": "on-request", "approvalsReviewer": "user"}
         if method == "thread/read":
             return {"thread": {"id": self.scope["brainId"], "cwd": self.scope["cwd"],
                     "projectId": self.scope["projectId"],
@@ -57,11 +64,13 @@ if __name__ == "__main__":
     RenderProxy.turn_status, RenderProxy.terminals = "inProgress", {"data": [], "nextCursor": None}
     RenderProxy.ended_activity = "idle"
     prior, retired = None, None
-    if "--host-continuity" in sys.argv:
+    if "--host-continuity" in sys.argv or "--inspection-load" in sys.argv:
         prior = copy.deepcopy(binding)
         binding["endpoint"] = {"fixture": "reviewed-synthetic-replacement"}
         retired = {"version": 1, "bindingHash": digest(prior), "processId": 12345, "launchClaimHash": "c"*64}
         RenderProxy.turn_status, RenderProxy.ended_activity = "interrupted", "idle"
+        if "--inspection-load" in sys.argv:
+            RenderProxy.ended_activity = "notLoaded"
     class Wake:
         def __init__(self): self.binding = copy.deepcopy(binding)
         def orphan_recovery_idle(self): return True

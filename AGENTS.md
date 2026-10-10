@@ -171,6 +171,32 @@ qualification. A proposed exec-policy amendment is display-only unless a
 separate authority explicitly supports it; this relay emits only one-command
 accept, decline or cancel, never persistent or session-wide approval.
 
+## Dead-host inspection loading (2026-10-10)
+
+The separately signed orphaned-turn recovery may explicitly authorize one
+`load_for_inspection_then_reconcile` action when an already reviewed replacement
+reports the exact original latest turn ended but the same brain is `notLoaded`.
+Read docs/ORPHANED-TURN-RECOVERY.md before using it. Require the preserved original
+binding and launch provenance, repeated exact original-PID absence, unchanged
+brain/workspace/checkout/both project identities, ended observer, empty standard
+run and no native approval intent. Commit its private claim before one fixed
+`thread/resume` with metadata-only response and the restricted native policy.
+This loads for inspection only; it never starts a turn, replays Play, responds to
+permissions, reconnects the old observer, changes phase authority or resets usage.
+Unloaded terminal coverage is unknown, not zero. Loading acknowledgment cannot
+release the controller: repeat exact loaded-idle ended-turn and complete current
+tracked-terminal reads. Historical terminal/effect gaps and process ownership
+remain unqualified; no safe checkpoint is fabricated. Any uncertain or interrupted
+load consumes the claim permanently; explicit reconciliation only reads the same
+bound host/turn, with no second load or host migration. Polling and previews load
+nothing. Existing original-host recovery and strict Harness gates are unchanged.
+The same recovery pins and retires only the matching abandoned private controller
+credential into a private hash-addressed archive before local ownership release.
+Never blindly unlink a stale token, overwrite a newer credential or expose the
+archive. A partial retirement can reconcile only its exact retained identity;
+unknown terminal reads never retire the credential or release the controller.
+Source delivery does not install, launch, bind, confirm or qualify the live pilot.
+
 ## Device identity recovery (2026-10-07)
 
 The operator-only device-number recovery exception in docs/WORKSPACES.md may

@@ -144,6 +144,8 @@ identify the exact original latest turn as ended, with matching completion
 metadata, **loaded-idle** activity and complete known-empty tracked terminals.
 Identity reads bracket the terminal inspection. `notLoaded` is unknown, not zero
 terminals; the path never calls `thread/resume` to manufacture an idle observation.
+The explicitly signed inspection-loading extension below is the sole exception
+to the no-loading rule; no read or old confirmation authorizes it.
 Unknown/unsupported terminal APIs, active/new/changing turns, pending approvals,
 observed children, tasks, packets, managed ownership and Brain Stop all remain
 fenced. If the candidate cannot supply this evidence, host qualification is
@@ -170,7 +172,78 @@ Host launch, binding review, loaded-thread qualification, safe phase checkpoint,
 closeout/successor review and actual native permission response are still separate
 observed outcomes. Source merge and synthetic tests do not complete this pilot.
 
-### Source verification (2026-10-10)
+## Break the dead-host / unloaded-thread recovery cycle
+
+A fresh replacement host can correctly return the original persisted turn as
+`interrupted` while its runtime status is `notLoaded`. Its terminal API is then
+unavailable. Requiring loaded-idle evidence before permitting any loading makes
+recovery impossible. Bypassing the terminal check or replaying Play would conceal
+uncertainty or duplicate work. The fix separates loading for inspection from
+starting a turn and from controller recovery.
+
+On this separately reviewed replacement only, **Review turn recovery** can now
+offer `load_for_inspection_then_reconcile`. The preview performs repeated exact
+project/brain/latest-ended-turn reads, checks original-PID absence and reports
+`trackedTerminals: null`, `terminalCoverage: unknown`. It does not query an
+unloaded terminal tracker or write/load anything. The same unchanged original
+notification, receipt, controller, run, catalog and both host bindings are pinned.
+Active, different or changing turns cannot obtain this exception. Existing
+original-host recovery still refuses `notLoaded`.
+
+One explicit unchecked **Confirm turn recovery** includes exactly one inspection
+load and conditional local controller recovery. The private journal first commits
+the consumed claim and `stopping` fence, then commits an issued marker before the
+native frame. Under the serialization locks it repeats original-host retirement,
+registered/endpoint/context identity and ended-turn checks immediately before
+the sole documented [`thread/resume`](https://learn.chatgpt.com/docs/app-server)
+request. The request has only the exact brain ID, `excludeTurns: true`,
+workspace-write/on-request, `approvalsReviewer: user` and Code Mode disabled.
+No history, path, instructions, model/effort, runtime roots, permission profile
+or arbitrary target can be supplied. **This is native thread loading, not
+standard phase Resume.** `turn/start`, `turn/steer`, approval responses and
+creation remain impossible on the recovery client. Loading may initialize native
+runtime/MCP components; it is an explicit native action, not a read-only check.
+
+The acknowledgment contains no terminal safety proof. Reconciliation still needs
+fresh repeated loaded-idle metadata for the exact unchanged ended turn plus
+complete known-empty **current-host** tracked-terminal pages, with bracketing
+identity and retirement checks. Unsupported, partial, active or changing reads
+retain the controller. A fresh empty tracker is not a reconstruction of the lost
+host's terminal inventory or OS process-tree cleanup. The journal preserves the
+unloaded pre-observation and `historicalTerminalCoverage: unknown`; effect outcome
+remains unknown and task-tree completeness remains false, even after local
+controller recovery. No native ownership is released or safe checkpoint created.
+The run remains stopping, usage/allowances/gaps/deadline remain unchanged, and
+the existing separate safe-checkpoint controls govern further pilot progress.
+
+Controller recovery also retires its exact private credential, rather than leaving
+`standard-controller.json` behind to block the next brain acquisition. The signed
+preview pins its bytes and filesystem identity without exposing the token. Only
+after the same native inactivity checks pass, an exclusive hard link retains those
+bytes in a private hash-addressed archive before removing the active filename.
+A changed owner, bytes, inode, permissions, symlink, foreign hard link or archive
+collision refuses recovery; nothing is overwritten. Interrupted linking/unlinking
+can reconcile only the exact retained pair under the original consumed claim.
+The database controller remains owned until retirement and the local recovery
+commit succeed. This is credential retirement, not native/process cleanup, a new
+controller acquisition or permission to start work. The private archive must never
+be committed, exposed through a transcript or copied into inference history.
+
+Interrupted claims, failed sends and lost load responses never obtain another
+load, even when no frame was sent. The existing **Check this existing turn again**
+is read-only reconciliation against the same pinned host/turn. An identical
+confirmed HTTP retry reads only its retained receipt. Another turn, controller,
+host, catalog, maintenance fence, Brain Stop or registered effect prevents
+recovery. Current native policy reports are retained separately from requested
+settings; Code Mode acknowledgment is not observed execution qualification.
+
+Rollout must first merge compatible source, quiesce older writers and back up
+private state. Review/install the qualified replacement binding separately; the
+old binding is historical only. Old launch approvals, prior read-only recovery
+reviews and source delivery do not confirm this new native action. No automatic
+load, reconnect, host launch, phase extension, Play or pilot acceptance follows.
+
+### Prior source verification (PR #136, 2026-10-10)
 
 The complete local suite passed: 2,201 Python tests (one existing skip), all 35
 JavaScript suites, all 31 web JavaScript syntax checks and `git diff --check`.
@@ -182,3 +255,31 @@ confirmed the replacement review, recorded recovery and separate safe-checkpoint
 preview. Native reads and retirement were synthetic; the original live pilot
 ledger, binding, usage, controller and deadline were unchanged. These checks
 qualify source behavior, not a replacement host or live pilot acceptance.
+
+### Inspection-load and credential-retirement source verification (2026-10-10)
+
+The updated full local suite passed **2,225 Python tests** (one existing skip),
+all **35 JavaScript suites**, all **31 web syntax checks**, including
+`node --check web/app.js`, and `git diff --check`. The **60 focused recovery
+tests** include 24 new cases for inspection loading and credential retirement:
+read-only unknown projections, exact native policy, durable pre-frame claims,
+lost acknowledgments, concurrent confirmations, active/foreign turns, unsupported
+or partial trackers, retirement/identity drift, maintenance and Brain Stop,
+HTTP authentication/CSRF/idempotency, archive collisions, credential replacement
+and crashes before/after unlink. The next designated-brain acquisition succeeds
+only after the old matching credential has been preserved and retired.
+
+`PYTHONPATH=tests:. python3 tests/manual_turn_recovery_fixture.py --inspection-load`
+provides a disposable synthetic rendered rehearsal. Desktop and 320px sheet
+checks passed, including keyboard disclosures, unchecked confirmation, no
+horizontal overflow, recorded recovery and the separate safe-checkpoint action.
+It does not connect to Codex, approve a live control or qualify the pilot.
+
+An explicit live **read-only** qualification on the existing rebuilt host still
+observed the exact original interrupted turn as `notLoaded`, with current
+terminal coverage **unknown** and no thread load or turn start. Both private
+database logical fingerprints, the original binding, controller, request, expiry
+and recorded usage of 719,893 remained unchanged. Source delivery is separate
+from merge, backed-up installation, replacement-binding review, exact inspection
+confirmation, actual terminal evidence, checkpoint retention and pilot acceptance.
+No GitHub Actions or paid CI service was added or invoked.

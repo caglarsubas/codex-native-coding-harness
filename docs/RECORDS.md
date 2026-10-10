@@ -223,6 +223,23 @@ notification/profile or migrates a consumed claim. Native delivery is
 `not_needed`; loaded-idle/terminal evidence and conditional controller recovery
 remain distinct from effect settlement, checkpoint retention and acceptance.
 
+The explicit replacement-only `load_for_inspection_then_reconcile` review adds
+`inspectionLoad`: a consumed `claimed`/`issued`/`acknowledged` journal, requested
+restricted policy, the original unloaded observation, separately reported resume
+profile and `historicalTerminalCoverage: unknown`. Its native delivery may be
+`inspection_load_acknowledged`; that is not terminal proof. Unloaded observations
+use `trackedTerminals: null` and `terminalCoverage: unknown`, not zero. Subsequent
+fresh known-empty reads use `observed_current_host`, without promoting historical
+effects or tree coverage. No automatic load or another consumed attempt exists.
+
+The signed `controllerCredential` fingerprint pins only device/inode/owner/mode,
+size and byte hash, never token contents. After independently checked inactivity,
+`controllerCredentialRetirement` retains the exact private archive receipt or
+explicit `not_present` fact. Exclusive linking preserves bytes across interruption;
+only the exact consumed recovery may finish that retirement. Arbitrary stale files
+or archives never become permission to clear ownership or overwrite credentials.
+Private archives remain outside source, transcripts and inference history.
+
 Future owned notifications may add `nativePermissionObservation` with
 `version: 1`, `turnId`, `requestHash`, supported approval `method`,
 `observedAt`, `expiresAt`, `endedAt` and a closed `reason` enum. Unbound

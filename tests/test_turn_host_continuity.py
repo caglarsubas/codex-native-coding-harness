@@ -96,8 +96,7 @@ class TurnHostContinuityTest(unittest.TestCase):
             self.assertEqual(Proxy.calls, [])
 
     def test_unloaded_active_unknown_terminal_or_new_turn_is_not_reconciled(self):
-        for status, activity, page in (("interrupted", "notLoaded", {"data": [], "nextCursor": None}),
-                                      ("inProgress", "idle", {"data": [], "nextCursor": None}),
+        for status, activity, page in (("inProgress", "idle", {"data": [], "nextCursor": None}),
                                       ("interrupted", "idle", {}),
                                       ("interrupted", "idle", {"data": [], "nextCursor": "more"}),
                                       ("interrupted", "idle", {"data": [{"processId": "42"}], "nextCursor": None})):

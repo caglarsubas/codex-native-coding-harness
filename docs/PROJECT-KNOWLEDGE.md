@@ -204,6 +204,11 @@ or qualify the pilot. See [owned brain wake](OWNED-BRAIN-WAKE.md).
 
 An ended approval observer with an unresolved empty standard turn now exposes
 [one-shot turn recovery](ORPHANED-TURN-RECOVERY.md) in the same brain inspector.
+An unloaded, separately reviewed replacement can offer one explicitly signed
+inspection-only load. Its acknowledgment is not terminal safety: current tracker
+checks must still pass; historical terminal/effect gaps remain unknown, and the
+original Play, usage and expiry are preserved. Source delivery does not apply it
+to the live pilot.
 The server generates and checks the exact target; no long owner-authored recovery
 prompt is required. One signed confirmation covers conditional cancellation and
 verified recovery of that abandoned controller. It does not answer a lost native
