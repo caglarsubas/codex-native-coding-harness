@@ -94,6 +94,13 @@ s.standard.blockers=[];s.standard.run.expiresAt=2000;s.standard.run.recovery.sta
 s.standard.run.recovery.status='replied';assert.equal(model(s).action,'resume','A replied recovery does not block a separately reviewed eligible Resume');
 s.standard.run.recovery=null;
 s.standard.run=run('stopping');assert.equal(model(s).action,'overview');assert.equal(model(s).canPause,undefined);
+s.standard.pauseReceiptRecovery={available:true};s.brainNotification={transport:'owned_app_server'};
+assert.equal(model(s).action,'pause-receipt-recover');assert.match(model(s).detail,/unverified/);
+box.journeyAction(model(s).action);assert.deepEqual(calls.at(-1),['preview','phase_pause_receipt_recovery']);
+s.standard.pauseReceiptRecovery.available=false;s.standard.run.pauseReceiptRecovery={id:'receipt',status:'queued'};
+s.commands=[{id:'receipt',kind:'standard_pause_receipt_recovery',status:'queued'}];
+assert.equal(model(s).action,'request');assert.match(model(s).detail,/No second wake/);
+delete s.standard.run.pauseReceiptRecovery;s.commands=[];delete s.standard.pauseReceiptRecovery;
 s.commands=[{status:'completed',notification:{hostRunId:'run',turnRecovery:{status:'awaiting_end'}}}];
 assert.equal(model(s).action,'conversation','A consumed cancellation follows its existing outcome');
 s.commands[0].notification.turnRecovery.status='controller_recovered';s.meta={controller:null};

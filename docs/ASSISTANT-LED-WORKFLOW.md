@@ -52,6 +52,12 @@ Pause and retain a paused checkpoint, without resending its failed notification
 or resuming development. Unknown delivery/ownership cannot use this exception.
 See [failed-Pause recovery](FAILED-PAUSE-RECOVERY.md).
 
+If the Pause instead reached an exact completed native turn but saved no receipt,
+**Review Pause receipt recovery** offers a distinct receipt/checkpoint-only
+control. An unloaded host remains unknown until the one-shot inspection load
+proves current tracked terminals empty. The old claim, usage, expiry and historical
+effect uncertainty stay intact. See [ended-Pause receipt recovery](ENDED-PAUSE-RECEIPT-RECOVERY.md).
+
 For an empty paused phase at a brain-budget checkpoint, **Review brain allowance**
 opens a separate signed local reallocation. Its old/new amount, unchanged phase
 total/reserve, recorded usage and original expiry are visible before confirmation.

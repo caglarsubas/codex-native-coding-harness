@@ -131,6 +131,14 @@ function roadmapJourneyState(snapshot,isConnected=true,now=Date.now()/1000){
     handoff.status==='received'?'The replacement received its checkpoint. Project identity and final owner review still need to be resolved before continuing.':'A replacement brain is being prepared. Follow its recorded progress before continuing the phase.',
     'Review handoff progress','handoff',{canPause:run?.status==='running'});
   const pending=[...(snapshot.commands||[])].reverse().find(c=>run&&c.payload?.runId===run.id&&['standard_play','standard_pause','standard_resume'].includes(c.kind)&&['queued','processing'].includes(c.status));
+  if(run?.status==='stopping'&&s.pauseReceiptRecovery?.available&&snapshot.brainNotification?.transport==='owned_app_server')return result(2,'Recover the Pause receipt',
+    'The Pause turn ended without saving its receipt. Review one receipt/checkpoint-only recovery. Development and historical effects remain stopped and unverified.',
+    'Review Pause receipt recovery','pause-receipt-recover');
+  if(run?.status==='stopping'&&['queued','processing'].includes(run.pauseReceiptRecovery?.status)){
+    const request=(snapshot.commands||[]).find(c=>c.id===run.pauseReceiptRecovery.id);
+    return result(2,'Following Pause receipt recovery','Host inspection, native delivery, the Pause receipt and the stopped checkpoint are separate. No second wake will be sent.',
+      'Inspect recovery progress','request',{request});
+  }
   if(run?.status==='stopping'&&s.pauseRecovery?.available&&snapshot.brainNotification?.transport==='owned_app_server')return result(2,s.pauseRecovery.replacementOf?'Review replacement checkpoint recovery':'Recover the saved Pause',
     s.pauseRecovery.replacementOf?'The first recovery failed before turn start. Review one replacement; its failed record is preserved and no third attempt is allowed.':'Its delivery failed before starting a brain turn. Review one checkpoint-only recovery; development stays stopped.',
     s.pauseRecovery.replacementOf?'Review replacement recovery':'Recover saved Pause','pause-recover');
@@ -259,6 +267,7 @@ function journeyAction(action){
   if(action==='budget'){navigateView('usage');const panel=document.getElementById('brain-budget-review');panel?.scrollIntoView({block:'start'});panel?.focus();return;}
   if(action==='close'){focusAssistantConversation();return assistantRequestStep('phase_close');}
   if(action==='pause-recover'){focusAssistantConversation();return assistantRequestStep('phase_pause_recovery');}
+  if(action==='pause-receipt-recover'){focusAssistantConversation();return assistantRequestStep('phase_pause_receipt_recovery');}
   if(action==='recover'||action==='recover_follow'){
     focusAssistantConversation();
     if(typeof developmentHelpUpdate==='function')developmentHelpUpdate();

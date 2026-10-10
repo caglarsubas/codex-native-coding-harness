@@ -89,6 +89,19 @@ install this contract or close an existing run.
 
 ## Owned app-server wake source (2026-09-26)
 
+For an empty stopping standard phase whose exact owned Pause turn completed
+without a ledger receipt, separately signed `phase_pause_receipt_recovery`
+may authorize one receipt/checkpoint-only wake on its unchanged reviewed host.
+Read docs/ENDED-PAUSE-RECEIPT-RECOVERY.md fully. An unloaded tracker remains
+unknown: the claimed metadata-only inspection load must be followed by repeated
+exact project/brain/ended-turn, loaded-idle and known-empty current tracked-terminal
+reads before turn start. Preserve the original Pause claim, all usage/gaps and
+expiry. Only `standard-brain pause_receipt_recovery_receive`, an empty paused
+checkpoint with no new token assertion and controller release are permitted.
+Historical terminal/effect coverage remains unknown. No replay, retry, host
+change, Play, phase Resume, diagnostic, native approval response, settlement or
+pilot acceptance. Source delivery does not install or send this control.
+
 The separately signed `standard_brain_budget` owner adapter may increase only
 the brain reservation within an unchanged reviewed total for an empty paused
 standard run. Read docs/STANDARD-BRAIN-BUDGET.md before using it. Preserve all

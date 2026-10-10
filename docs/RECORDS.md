@@ -140,6 +140,20 @@ All state includes a ledger revision and server timestamp. `/api/state` exposes 
 latest 100 audit events and full-history derived delivery totals. Snapshot reads
 do not change revision and never disclose controller tokens.
 
+## Ended-Pause receipt/checkpoint recovery
+
+The separately signed `standard_pause_receipt_recovery` records one ended-Pause
+receipt/checkpoint attempt under `standardRun.pauseReceiptRecovery`. Its payload
+pins the original Pause fingerprint/notification, scope hash, run/phase/brain,
+unchanged binding and repeated completed-turn metadata. The new notification
+retains `receiptRecoveryObservation` only after loaded-idle, known-empty current
+tracked-terminal checks; unloaded coverage stays null/unknown. Receiving changes
+only the original Pause status/receipt, never its notification. The recovery
+checkpoint explicitly retains unknown historical effects/terminals and incomplete
+task-tree coverage, preserving every usage field and original expiry. No second
+attempt, effect settlement or qualification follows. See
+[ended-Pause receipt recovery](ENDED-PAUSE-RECEIPT-RECOVERY.md).
+
 ## Cooperative exact-PR merge records
 
 Optional reviewed authority `mergeMode` defaults to `manual`; `brain_exact_pr_v1`
