@@ -205,17 +205,24 @@ function turnRecoveryPanel(root,commandId){
     const review=button(preview?'Refresh recovery review':'Review turn recovery',async()=>{
       review.disabled=true;
       try{const result=await post('/api/turn-recovery/preview',{commandId});if(same()){turnRecoveryPreviews.set(key,result);paint(value);}}
-      catch(error){if(same())showNotice('Cannot inspect the reviewed host. Nothing was cancelled. '+error.message,true);}
+      catch(error){if(same())showNotice('Cannot inspect the reviewed host. Nothing was cancelled or loaded. '+error.message,true);}
       finally{review.disabled=false;}
     });panel.append(review);
     if(!preview)return;
     const doc=preview.document;
-    panel.append(el('h4',doc.action==='cancel_then_reconcile'?'Cancel this turn and check that it ended':'Check this already-ended turn'),
+    const inspectionLoad=doc.action==='load_for_inspection_then_reconcile';
+    panel.append(el('h4',inspectionLoad?'Load for inspection, without starting work':doc.action==='cancel_then_reconcile'?'Cancel this turn and check that it ended':'Check this already-ended turn'),
       el('p',doc.boundary,'checkpoint'),el('p','This review expires '+when(doc.expiresAt)+'. It does not extend the phase.','muted'));
-    if(doc.hostContinuity)panel.append(el('p','This is an ended-turn check on a separately reviewed replacement host. No cancellation or thread loading will be sent.','checkpoint'));
+    if(doc.hostContinuity)panel.append(el('p',inspectionLoad?
+      'The replacement host has not loaded this brain. One inspection-only load enables fresh terminal checks. Unknown terminals remain unknown; acknowledgment alone cannot recover the controller. No turn or Play is started.':
+      'This is an ended-turn check on a separately reviewed replacement host. No cancellation or thread loading will be sent.','checkpoint'));
     const details=el('details');details.append(el('summary','Details · Exact recovery target'),
       el('p','Project: '+doc.workspaceId),el('p','Brain: '+doc.brainId),el('p','Turn: '+doc.turnId),
       el('p','Observed: '+doc.observation.status+' · '+when(doc.observation.observedAt)));
+    if(inspectionLoad)details.append(el('p','Current tracked terminals: unknown (thread not loaded). Historical terminal and effect gaps remain retained.'),
+      el('p','Inspection settings: workspace-write · on-request · owner approval review · Code Mode disabled. No model, instructions or history replacement.'));
+    if(doc.controllerCredential)details.append(el('p','After verified inactivity, preserve the matching abandoned controller credential in a private archive and retire its active filename. A changed or newer credential will not be replaced.'),
+      el('p','Reviewed credential byte hash: '+doc.controllerCredential.sha256));
     if(doc.hostContinuity)details.append(el('p','Original host binding: '+doc.originalBindingHash),
       el('p','Reviewed replacement binding: '+doc.bindingHash),
       el('p','Brain, checkout, workspace, both project identities and restricted native policy are unchanged.'));
