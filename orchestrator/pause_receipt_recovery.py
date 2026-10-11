@@ -92,6 +92,28 @@ def availability(state):
         return {"available": False, "reason": str(error)}
 
 
+def stalled(state, now=None):
+    """Explain retained progress only; no RPC, ledger write or retry permission."""
+    run = (state.get("standard") or {}).get("run") or {}
+    permit = run.get("pauseReceiptRecovery") or {}
+    if run.get("status") != "stopping" or permit.get("status") not in ("queued", "processing"):
+        return None
+    command = next((c for c in state.get("commands", []) if c["id"] == permit.get("id") and c.get("kind") == KIND), None)
+    note = (command or {}).get("notification") or {}
+    ended = (note.get("nativeDelivery") == "owned_turn_start" and
+             note.get("nativeTurnStatus") in ("completed", "failed", "interrupted") and
+             (note.get("nativeThreadObservation") or {}).get("streamStatus") == "closed")
+    if ended and not command.get("checkpointHash"):
+        return {"title": "Recovery ended without its checkpoint" if command.get("receivedAt") else "Recovery ended without a Pause receipt",
+                "detail": "This attempt cannot be resent. An operator must repair and verify the runtime, then establish a separately reviewed continuation. "
+                          "Historical terminal and effect status remains unknown. Do not repeat Play, Pause or recovery."}
+    if finite(permit.get("receiveBy")) and (time.time() if now is None else now) > permit["receiveBy"]:
+        return {"title": "Recovery receipt window has ended",
+                "detail": "The saved attempt remains one-shot. Its outcome needs operator reconciliation; expiry is not permission to resend. "
+                          "Historical terminal and effect status remains unknown."}
+    return None
+
+
 def observe(proxy, binding, original, *, require_loaded=False):
     from .turn_recovery import observe as metadata
     brain = original["notification"]["brainId"]

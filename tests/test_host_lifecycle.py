@@ -12,6 +12,7 @@ from unittest.mock import patch
 
 from orchestrator.core import Refusal, digest
 from orchestrator.host_lifecycle import exec_foreground, launch, monitor, review_hash, run_foreground, specification
+from host_runtime_fixture import runtime_fixture
 
 
 class HostLifecycleTest(unittest.TestCase):
@@ -20,8 +21,9 @@ class HostLifecycleTest(unittest.TestCase):
         self.root = Path(self.tmp.name).resolve(); self.root.chmod(0o700)
         self.launcher = self.root / "guarded-launch.zsh"
         self.launcher.write_text("exit 0\n"); self.launcher.chmod(0o600)
-        self.spec = {"schemaVersion": 1, "profile": "standard_owned_host_v1", "launcher": str(self.launcher),
-                     "launcherSha256": hashlib.sha256(self.launcher.read_bytes()).hexdigest(), "cwd": str(self.root)}
+        self.spec = {"schemaVersion": 2, "profile": "standard_owned_host_v1", "launcher": str(self.launcher),
+                     "launcherSha256": hashlib.sha256(self.launcher.read_bytes()).hexdigest(), "cwd": str(self.root),
+                     "runtimePackage": runtime_fixture(self.root / "runtime")}
         self.manifest = self.root / "manifest.json"
         self.manifest.write_text(json.dumps(self.spec)); self.manifest.chmod(0o600)
         self.attempt = self.root / "attempt"

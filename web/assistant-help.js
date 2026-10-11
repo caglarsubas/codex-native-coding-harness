@@ -7,13 +7,15 @@ function developmentHelpProgress(command,current,now=Date.now()/1000){
     const n=command.notification,info=commandPresentation(command,current.brainActivity,now);
     const permit=current.standard?.run?.[command.kind==='standard_pause_receipt_recovery'?'pauseReceiptRecovery':'pauseRecovery'];
     const expired=!command.receivedAt&&permit?.id===command.id&&now>=permit.receiveBy;
+    const ended=command.kind==='standard_pause_receipt_recovery'&&!command.checkpointHash&&
+      n?.nativeDelivery==='owned_turn_start'&&['completed','failed','interrupted'].includes(n.nativeTurnStatus)&&n.nativeThreadObservation?.streamStatus==='closed';
     return {rows:[['Pause recovery saved','done',command.createdAt],
       ['Native delivery',n?.status==='accepted'?'done':['unavailable','uncertain'].includes(n?.status)?'attention':'waiting',n?.finishedAt],
-      ['Saved Pause received',command.receivedAt?'done':expired?'attention':'waiting',command.receivedAt],
-      ['Paused checkpoint retained',command.checkpointHash?'done':'waiting',command.completedAt]],
-      title:expired?'Recovery receipt window expired':info.label,
-      detail:command.checkpointHash?'Stopped checkpoint saved. Usage and historical effect uncertainty are preserved; this is not pilot acceptance.':expired?'Inspect this existing recovery and host; no second wake is permitted. Development stays stopped.':info.detail,
-      attention:expired||['unavailable','uncertain'].includes(n?.status)};
+      ['Saved Pause received',command.receivedAt?'done':expired||ended?'attention':'waiting',command.receivedAt],
+      ['Paused checkpoint retained',command.checkpointHash?'done':ended?'attention':'waiting',command.completedAt]],
+      title:ended?info.label:expired?'Recovery receipt window expired':info.label,
+      detail:command.checkpointHash?'Stopped checkpoint saved. Usage and historical effect uncertainty are preserved; this is not pilot acceptance.':ended?info.detail:expired?'Inspect this existing recovery and host; no second wake is permitted. Development stays stopped.':info.detail,
+      attention:ended||expired||['unavailable','uncertain'].includes(n?.status)};
   }
   if(command.kind==='standard_recovery'){
     const target=current.commands?.find(c=>c.id===command.payload?.messageId),n=command.notification;
