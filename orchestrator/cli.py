@@ -212,6 +212,8 @@ def main():
                    help="Preserved original binding for separately signed ended-turn recovery on an already reviewed host; never a connection target")
     p.add_argument("--turn-recovery-retired-host", type=Path, metavar="PRIVATE_JSON",
                    help="Separately reviewed original host PID/launch-claim provenance; metadata-only retirement checks, never process termination")
+    p.add_argument("--historical-host-chain", type=Path, metavar="PRIVATE_JSON",
+                   help="Separately reviewed multi-host historical provenance; read-only reconciliation only, never a native recovery or connection fallback")
     p.add_argument("--inference-env", type=Path, help="Existing private inference configuration; never a browser-selected path")
     args = parser.parse_args()
     if args.action == "serve" and args.notify_brain and args.brain_app_server_binding:
@@ -222,6 +224,7 @@ def main():
     pause_recovery_prior_binding = None
     turn_recovery_prior_binding = None
     turn_recovery_retired_host = None
+    historical_host_chain = None
     if args.action == "serve" and bool(args.turn_recovery_prior_binding) != bool(args.turn_recovery_retired_host):
         raise Refusal("Ended-turn host continuity requires both preserved binding and reviewed original-host retirement")
     if args.action == "serve" and args.brain_app_server_binding:
@@ -239,6 +242,11 @@ def main():
         turn_recovery_prior_binding = load_previous(args.turn_recovery_prior_binding)
         from .turn_host_continuity import load_retired
         turn_recovery_retired_host = load_retired(args.turn_recovery_retired_host)
+    if args.action == "serve" and args.historical_host_chain:
+        if not args.brain_app_server_binding or not (args.platform and args.workspace):
+            raise Refusal("Historical host provenance requires one exact registered workspace and reviewed current host")
+        from .historical_hosts import load
+        historical_host_chain = load(args.historical_host_chain)
     from .workspaces import Registry
     if args.workspace and not args.platform:
         raise Refusal("--workspace requires --platform")
@@ -378,7 +386,7 @@ def main():
               account_file=args.account_file, notification_binding=notification_binding, desktop_wake=args.desktop_brain_wake,
               pause_recovery_prior_binding=pause_recovery_prior_binding,
               turn_recovery_prior_binding=turn_recovery_prior_binding,
-              turn_recovery_retired_host=turn_recovery_retired_host)
+              turn_recovery_retired_host=turn_recovery_retired_host, historical_host_chain=historical_host_chain)
         return
     if registry and not args.workspace:
         raise Refusal("Select an exact --workspace; no default portfolio is inferred")
@@ -705,7 +713,7 @@ def main():
               account_file=args.account_file, notification_binding=notification_binding, desktop_wake=args.desktop_brain_wake,
               pause_recovery_prior_binding=pause_recovery_prior_binding,
               turn_recovery_prior_binding=turn_recovery_prior_binding,
-              turn_recovery_retired_host=turn_recovery_retired_host); return
+              turn_recovery_retired_host=turn_recovery_retired_host, historical_host_chain=historical_host_chain); return
     print(json.dumps(out if out is not None else {"ok": True}, ensure_ascii=False, indent=2))
 
 

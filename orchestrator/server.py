@@ -2,6 +2,7 @@
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import contextlib
+import copy
 import json
 import hashlib
 import hmac
@@ -28,7 +29,7 @@ class WorkspaceRuntime:
 
     def __init__(self, ledger, inference_env=ENV_FILE, runtime_root=WEB.parent, notification_cli=None,
                  notification_binding=None, desktop_wake=False, pause_recovery_prior_binding=None,
-                 turn_recovery_prior_binding=None, turn_recovery_retired_host=None):
+                 turn_recovery_prior_binding=None, turn_recovery_retired_host=None, historical_host_chain=None):
         self.ledger = ledger
         self.registry = None
         self.workspace_id = None
@@ -77,6 +78,9 @@ class WorkspaceRuntime:
         self.native_approval_lock = threading.Lock()
         from .turn_recovery import TurnRecoveryControls
         self.turn_recovery_controls = TurnRecoveryControls(turn_recovery_prior_binding, turn_recovery_retired_host)
+        from types import SimpleNamespace
+        self.historical_controls = SimpleNamespace(prior_binding=copy.deepcopy(turn_recovery_prior_binding),
+            retired_host=copy.deepcopy(turn_recovery_retired_host), host_chain=copy.deepcopy(historical_host_chain))
         from .standard import Controls
         self.standard_controls = Controls()
         from .standard_budget import Controls as BrainBudgetControls
@@ -160,12 +164,12 @@ class Dashboard(ThreadingHTTPServer, WorkspaceRuntime):
     def __init__(self, ledger, port=8768, inference_env=ENV_FILE, runtime_root=WEB.parent,
                  notification_cli=None, registry=None, public_port=None, account_file=None,
                  notification_binding=None, desktop_wake=False, pause_recovery_prior_binding=None,
-                 turn_recovery_prior_binding=None, turn_recovery_retired_host=None):
+                 turn_recovery_prior_binding=None, turn_recovery_retired_host=None, historical_host_chain=None):
         if public_port is not None and (type(public_port) is not int or not 1 <= public_port <= 65535):
             raise ValueError("Public port must be an integer between 1 and 65535")
         ThreadingHTTPServer.__init__(self, ("127.0.0.1", port), Handler)
         WorkspaceRuntime.__init__(self, ledger, inference_env, runtime_root, notification_cli, notification_binding, desktop_wake,
-                                  pause_recovery_prior_binding, turn_recovery_prior_binding, turn_recovery_retired_host)
+                                  pause_recovery_prior_binding, turn_recovery_prior_binding, turn_recovery_retired_host, historical_host_chain)
         self.registry = registry
         self.origin = f"http://127.0.0.1:{public_port if public_port is not None else self.server_port}"
         self.bootstrap = secrets.token_urlsafe(32)
@@ -183,7 +187,7 @@ class Dashboard(ThreadingHTTPServer, WorkspaceRuntime):
         self.runtime_lock = threading.Lock()
         self.runtimes = {}
         self.runtime_options = (inference_env, runtime_root, notification_cli, notification_binding, desktop_wake,
-                                pause_recovery_prior_binding, turn_recovery_prior_binding, turn_recovery_retired_host)
+                                pause_recovery_prior_binding, turn_recovery_prior_binding, turn_recovery_retired_host, historical_host_chain)
         # One configured inference tenancy: serialize explicit calls across workspaces.
         self.shared_inference_lock = self.inference_lock
         self.served_workspaces = {w["id"] for w in registry.list()} if registry else set()
@@ -824,7 +828,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def serve(ledger, port, notification_cli=None, registry=None, inference_env=None, public_port=None,
           account_file=None, notification_binding=None, desktop_wake=False, pause_recovery_prior_binding=None,
-          turn_recovery_prior_binding=None, turn_recovery_retired_host=None):
+          turn_recovery_prior_binding=None, turn_recovery_retired_host=None, historical_host_chain=None):
     # Every registered ledger has a single dashboard owner. New registrations
     # become served only after a restart and lock acquisition, never on a GET.
     import fcntl
@@ -846,7 +850,7 @@ def serve(ledger, port, notification_cli=None, registry=None, inference_env=None
                            notification_binding=notification_binding, desktop_wake=desktop_wake,
                            pause_recovery_prior_binding=pause_recovery_prior_binding,
                            turn_recovery_prior_binding=turn_recovery_prior_binding,
-                           turn_recovery_retired_host=turn_recovery_retired_host)
+                           turn_recovery_retired_host=turn_recovery_retired_host, historical_host_chain=historical_host_chain)
         # Freeze the exact locked set, including a registration that races startup.
         if registry:
             server.served_workspaces = {w["id"] for w in registered}

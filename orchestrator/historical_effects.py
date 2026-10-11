@@ -15,7 +15,7 @@ import time
 
 from .core import Refusal, canonical, digest, require
 from .admission import exact
-from . import ended_recovery_record as record, turn_host_continuity as continuity
+from . import ended_recovery_record as record, turn_host_continuity as continuity, historical_hosts
 from .enrollment import fence_exists, record_in
 from .native_read_client import ReadProxy, validate_endpoint, file_identity, decode
 from .turn_recovery import observe, membership
@@ -47,8 +47,8 @@ def eligible(state):
     require(note.get("status") == "accepted" and note.get("nativeDelivery") == "owned_turn_start" and
             note.get("brainId") == run["brainId"] and note.get("hostRunId") == run["id"] and
             isinstance(note.get("nativeTurnId"), str) and note["nativeTurnId"] and
-            note.get("hostBindingHash") == recovery["notification"]["hostBindingHash"] and
-            (note.get("nativeThreadObservation") or {}).get("streamStatus") == "closed",
+            isinstance(note.get("hostBindingHash"), str) and len(note["hostBindingHash"]) == 64 and
+            (note.get("nativeThreadObservation") or {}).get("streamStatus") in ("closed", "unconfirmed"),
             "Original Play identity/delivery/ended observer must be pinned; unknown delivery is not absence")
     # No native response claim, child observation or uncertain permission delivery
     # can be silently retired through the narrow non-execution closeout.
@@ -56,6 +56,45 @@ def eligible(state):
             (note.get("nativeThreadObservation") or {}).get("events") == [],
             "Historical approval intents or descendants need their own reconciliation")
     return original, recovery, play[0]
+
+
+def inspection_context(registry, ledger, wake, controls):
+    chain = getattr(controls, "host_chain", None)
+    if chain is None:
+        state, original, recovery, binding, scope, proof, retired = record.inspection_context(
+            registry, ledger, wake, controls, allow_record=True)
+        _, _, play = eligible(state)
+        require(play["notification"]["hostBindingHash"] == recovery["notification"]["hostBindingHash"] and
+                play["notification"]["nativeThreadObservation"]["streamStatus"] == "closed",
+                "Preserved multi-host launch provenance is required; do not retry Play or recovery")
+        return state, original, recovery, play, binding, scope, proof, retired, None
+    state = record.saved_state(ledger)
+    original, recovery, play = eligible(state)
+    require(wake is not None and wake.orphan_recovery_idle() and not fence_exists(ledger.root),
+            "Active observer, prompt or maintenance blocks historical inspection")
+    with registry.tx() as db:
+        require(record_in(db) is None, "Platform maintenance blocks historical inspection")
+    binding = copy.deepcopy(wake.binding)
+    scope = record._scope(registry, ledger.workspace_id, binding)
+    require(scope["root"] == ledger.root and scope["brainId"] == state["meta"]["brainId"] and
+            scope["ledgerRevision"] == state["meta"]["revision"] and scope["hostId"] == "local",
+            "Registered project, brain or ledger changed")
+    from .app_server_wake import NATIVE_APPROVAL_POLICY
+    require(set(binding["brains"]) == {scope["brainId"]} and
+            binding["brains"][scope["brainId"]].get("nativePolicy") == NATIVE_APPROVAL_POLICY,
+            "One exact restricted brain binding required")
+    retained_chain = historical_hosts.inspect(chain, binding, scope, (play, original, recovery), ledger.workspace_id)
+    previous = next((h["binding"] for h in chain["hosts"] if
+                    digest(h["binding"]) == recovery["notification"]["hostBindingHash"]), binding)
+    if previous != binding:
+        proof = continuity.proof(previous, binding, recovery, scope)
+        retired = next(h["retiredHost"] for h in chain["hosts"] if h["binding"] == previous)
+    else:
+        proof = {"version": 1, "previousBinding": binding, "candidateBinding": binding,
+                 **{k: scope[k] for k in ("ledgerIdentity", "catalogHash", "hostId")},
+                 "projectLocationHash": scope["locationHash"]}
+        retired = None
+    return state, original, recovery, play, binding, scope, proof, retired, retained_chain
 
 
 def availability(state):
@@ -89,6 +128,9 @@ class HistoryProxy(record.MetadataProxy):
         super().__init__(endpoint, scope)
         self.cursor = None
         self.pages = 0
+        self.history_turns = set()
+        self.item_cursors = {}
+        self.item_pages = 0
 
     def _rpc(self, method, params):
         if method == "thread/turns/list" and params.get("itemsView") == "full":
@@ -99,8 +141,58 @@ class HistoryProxy(record.MetadataProxy):
             page = ReadProxy._rpc(self, method, params)
             require(isinstance(page, dict) and "nextCursor" in page, "Historical pagination is unknown")
             self.cursor = page["nextCursor"]
+            for turn in page.get("data", []):
+                if isinstance(turn, dict) and isinstance(turn.get("id"), str):
+                    self.history_turns.add(turn["id"])
+            return page
+        if method == "thread/items/list":
+            turn = params.get("turnId")
+            require(turn in self.history_turns and params == {
+                "threadId": self.scope["brainId"], "turnId": turn,
+                "cursor": self.item_cursors.get(turn), "limit": 64, "sortDirection": "asc"} and
+                self.item_pages < MAX_ITEMS*2, "Only exact historical-turn item pagination permitted")
+            self.item_pages += 1
+            page = ReadProxy._rpc(self, method, params)
+            require(isinstance(page, dict) and "nextCursor" in page, "Persisted item pagination is unknown")
+            self.item_cursors[turn] = page["nextCursor"]
             return page
         return super()._rpc(method, params)
+
+
+def persisted_items(proxy, brain, turn):
+    """A second persisted view, not a load or a substitute for missing results."""
+    proxy.item_cursors[turn] = None
+    cursor, seen, result, entries = None, set(), [], []
+    for _ in range(MAX_ITEMS//64+1):
+        try:
+            page = proxy._rpc("thread/items/list", {"threadId": brain, "turnId": turn,
+                "cursor": cursor, "limit": 64, "sortDirection": "asc"})
+        except Refusal as error:
+            # Unsupported stores / read errors are unavailable, never empty.
+            # No fallback thread load, command, discovery or RPC resend.
+            # Once a page was observed, never discard it and fall back to a
+            # smaller primary inventory: it may already contain contrary work.
+            if result or cursor is not None:
+                raise Refusal("Persisted item coverage interrupted; observed pages cannot be discarded") from error
+            return None
+        require(isinstance(page, dict) and isinstance(page.get("data"), list) and
+                len(page["data"]) <= 64 and "nextCursor" in page, "Malformed persisted item history")
+        for entry in page["data"]:
+            require(isinstance(entry, dict) and entry.get("turnId") == turn and isinstance(entry.get("item"), dict),
+                    "Persisted item belongs to another turn")
+            item = entry["item"]
+            ident = item.get("id")
+            require(isinstance(ident, str) and 0 < len(ident) <= 200 and ident not in seen,
+                    "Duplicate or unknown persisted item identity")
+            seen.add(ident); result.append(item)
+            entries.append(entry)
+            require(len(result) <= MAX_ITEMS, "Persisted item bound exceeded; no truncation permitted")
+        cursor = page["nextCursor"]
+        if cursor is None: return {"items":result, "entriesHash":digest(entries)}
+        require(page["data"] and isinstance(cursor, str) and 0 < len(cursor) <= 4096 and
+                cursor not in seen, "Persisted item pagination is stalled or unknown")
+        seen.add(cursor)
+    raise Refusal("Persisted item pagination exceeds its bound")
 
 
 def native_history(proxy, brain, first, last):
@@ -124,20 +216,33 @@ def native_history(proxy, brain, first, last):
         if not (record.receipt.finite(completion) and 0 < completion <= time.time()):
             completion = None
             gaps.append("historical_turn_completion_unknown:"+turn["id"])
+        paged = persisted_items(proxy, brain, turn["id"])
+        items = turn["items"]
+        if paged is not None:
+            original_items = {i.get("id"): i for i in items if isinstance(i, dict)}
+            paged_map = {i["id"]: i for i in paged["items"]}
+            require(len(original_items) == len(items) and
+                    all(ident in paged_map and original_items[ident] == paged_map[ident] for ident in original_items),
+                    "Independent persisted item views conflict or omit a known item")
+            items = paged["items"]
         turns.append({"id": turn["id"], "status": turn["status"], "completedAt": completion,
                       "itemsHash": digest(turn["items"]), "itemCount": len(turn["items"])})
+        turns[-1].update(persistedItemsHash=paged["entriesHash"] if paged is not None else None,
+                         persistedItemsCoverage="observed" if paged is not None else "unavailable")
         item_ids = set()
-        for item in turn["items"]:
+        for item in items:
             require(isinstance(item, dict) and isinstance(item.get("id"), str) and 0 < len(item["id"]) <= 200 and
                     item["id"] not in item_ids, "Historical item identity is missing or duplicated")
             item_ids.add(item["id"])
             if item.get("type") in INFO:
                 continue
+            require(not any(e["id"] == item["id"] for e in effects), "Historical effect ID reused across turns")
             status = item.get("status") if item.get("status") in ("completed", "failed", "declined", "inProgress") else "unknown"
             command = item.get("command")
             effect = {"turnId": turn["id"], "id": item["id"],
                       "type": item.get("type") if item.get("type") in ("commandExecution", "fileChange", "mcpToolCall", "dynamicToolCall", "collabAgentToolCall") else "unsupported",
                       "status": status, "itemHash": digest(item), "commandHash": digest(command),
+                      "cwdHash": digest(item.get("cwd")), "exitCode": item.get("exitCode") if type(item.get("exitCode")) is int else None,
                       "outcome": "unknown", "terminalCoverage": "unknown"}
             if item.get("type") == "commandExecution" and isinstance(command, str) and command:
                 if status == "declined" and item.get("exitCode") is None:
@@ -163,7 +268,7 @@ def rollout_inventory(ledger, scope, turns, effects=()):
     require(isinstance(home, str) and Path(home).is_absolute(), "Configured local effect inventory is unavailable")
     paths = candidates(Path(home), scope["brainId"])
     require(len(paths) == 1, "Missing or segmented historical inventory remains unknown")
-    calls, seen, current, gaps, file_hash = [], [], None, [], hashlib.sha256()
+    calls, results, completed_items, seen, current, gaps, file_hash = [], [], [], [], None, [], hashlib.sha256()
     wanted = [t["id"] for t in turns]
     native_effects = {(e["turnId"], e["id"]): e for e in effects}
     with open_regular(paths[0]) as stream:
@@ -209,9 +314,18 @@ def rollout_inventory(ledger, scope, turns, effects=()):
                                 payload.get("thread_id") == scope["brainId"] and payload.get("turn_id") == current,
                                 "Ambiguous completed native effect inventory")
                         native = native_effects.get((current, ident))
-                        if not (item.get("type") == "CommandExecution" and native and
-                                native["outcome"] == "not_executed" and item.get("status") in ("declined", "Declined") and
-                                item.get("exit_code") is None and digest(item.get("command")) == native["commandHash"]):
+                        status = item.get("status")
+                        normalized = status[:1].lower()+status[1:] if isinstance(status, str) else None
+                        matches = (item.get("type") == "CommandExecution" and native and
+                                   normalized == native["status"] and
+                                   item.get("exit_code") == native["exitCode"] and
+                                   digest(item.get("command")) == native["commandHash"] and
+                                   digest(item.get("cwd")) == native["cwdHash"])
+                        completed_items.append({"turnId":current, "id":ident, "itemHash":digest(item), "matchesNative":bool(matches)})
+                        require(len(completed_items) <= MAX_ITEMS, "Completed item inventory exceeds its bound")
+                        require(sum(i["turnId"] == current and i["id"] == ident for i in completed_items) == 1,
+                                "Duplicate native completion in rollout inventory")
+                        if not matches:
                             gaps.append("additional_native_effect:"+ident)
                 elif payload.get("type") not in ("token_count", "thread_settings_applied", "task_started", "task_complete",
                                                   "agent_message", "agent_reasoning", "user_message"):
@@ -231,33 +345,62 @@ def rollout_inventory(ledger, scope, turns, effects=()):
                 calls.append({"turnId": current, "id": ident, "callHash": digest(payload),
                               "commandHash": digest(command) if command else None})
                 require(len(calls) <= MAX_ITEMS, "Historical call inventory exceeds its bound")
+            elif kind in ("function_call_output", "custom_tool_call_output"):
+                ident = payload.get("call_id")
+                require(isinstance(ident, str) and 0 < len(ident) <= 200 and
+                        any(c["turnId"] == current and c["id"] == ident for c in calls) and
+                        not any(r["id"] == ident for r in results), "Orphaned, reordered or duplicate historical call result")
+                # Opaque output and model prose cannot attest a native decision.
+                # Keep only its exact association and body hash, never parse or
+                # execute Code Mode programs or infer cleanup from exit code.
+                results.append({"turnId": current, "id":ident, "resultHash":digest(payload)})
             elif kind not in ("message", "reasoning", "function_call_output", "custom_tool_call_output",
                                "web_search_call"):
                 gaps.append("unsupported_rollout_item")
         require(file_identity(before) == file_identity(os.fstat(stream.fileno())) == file_identity(paths[0].stat()),
                 "Historical inventory changed during read")
     require(seen == wanted, "Historical log turn coverage is incomplete or reordered")
-    return {"fileHash": file_hash.hexdigest(), "turnIds": seen, "calls": calls, "gaps": sorted(set(gaps))}
+    return {"fileHash": file_hash.hexdigest(), "turnIds": seen, "calls": calls, "results": results,
+            "completedItems":completed_items, "gaps": sorted(set(gaps))}
 
 
 def cross_check(history, inventory):
     gaps = history["gaps"] + inventory["gaps"]
     native = {(e["turnId"], e["id"]): e for e in history["effects"]}
     local = {(c["turnId"], c["id"]): c for c in inventory["calls"]}
+    nested = {(e["turnId"], e["id"]):e for e in inventory.get("completedItems", [])}
+    outputs = {(r["turnId"], r["id"]):r for r in inventory.get("results", [])}
     for key in native.keys() | local.keys():
         e, c = native.get(key), local.get(key)
-        if not e or not c or c["commandHash"] is None or c["commandHash"] != e["commandHash"]:
+        linked_nested = not c and nested.get(key, {}).get("matchesNative")
+        linked_call = e and c and c["commandHash"] is not None and c["commandHash"] == e["commandHash"]
+        if not (linked_nested or linked_call):
             gaps.append("unmatched_effect:"+key[1])
-    return {"version": 1, "native": history, "inventory": inventory, "gaps": sorted(set(gaps)),
+        if "results" in inventory and c and key not in outputs and not (linked_call and e["outcome"] == "not_executed"):
+            gaps.append("missing_call_result:"+key[1])
+    report = {"version": 2 if "results" in inventory else 1, "native": history, "inventory": inventory, "gaps": sorted(set(gaps)),
             "effectOutcome": "unknown" if gaps else "not_executed",
             "historicalTerminalCoverage": "unknown" if gaps else "native_non_execution",
             "taskTreeComplete": False}
+    if report["version"] == 2:
+        report["missingEvidence"] = missing_evidence(report["gaps"], history, inventory)
+    return report
+
+
+def missing_evidence(gaps, history, inventory):
+    ids = {e["id"]:e["turnId"] for e in history["effects"]}
+    ids.update({c["id"]:c["turnId"] for c in inventory["calls"]})
+    needs = {"missing_call_result":"saved_call_result", "unmatched_effect":"typed_effect_link",
+             "unknown_effect":"conclusive_native_result", "additional_native_effect":"conclusive_native_result",
+             "historical_terminal_unknown":"historical_terminal_cleanup", "historical_turn_completion_unknown":"turn_completion_time"}
+    return [{"id":gap.partition(":")[2] or None,
+             "turnId":gap.partition(":")[2] if gap.startswith("historical_turn_completion_unknown:") else ids.get(gap.partition(":")[2]),
+             "need":needs.get(gap.partition(":")[0], "complete_historical_inventory")} for gap in gaps]
 
 
 def inspect(registry, ledger, wake, controls, *, closing=False):
-    state, original, recovery, binding, scope, proof, retired = record.inspection_context(
-        registry, ledger, wake, controls, allow_record=True)
-    _, _, play = eligible(state)
+    state, original, recovery, play, binding, scope, proof, retired, chain = inspection_context(
+        registry, ledger, wake, controls)
     with HistoryProxy(binding["endpoint"], scope) as proxy:
         before = observe(proxy, scope, recovery["notification"]["nativeTurnId"],
                          require_loaded=closing, allow_unloaded=not closing)
@@ -276,12 +419,15 @@ def inspect(registry, ledger, wake, controls, *, closing=False):
     membership(registry, ledger, binding, scope)
     require(wake.binding == binding and wake.orphan_recovery_idle() and
             record.context(record.saved_state(ledger)) == record.context(state), "Project or host changed")
-    if retired:
+    if chain:
+        require(chain == historical_hosts.inspect(controls.host_chain, binding, scope, (play, original, recovery), ledger.workspace_id),
+                "Historical host provenance changed during inspection")
+    elif retired:
         require(controls.prior_binding == proof["previousBinding"] and controls.retired_host == retired,
                 "Reviewed host continuity changed")
         continuity.retirement(retired, proof["previousBinding"])
     report = cross_check(first, inventory)
-    require(len(canonical(report).encode()) <= 12000, "Historical report exceeds the signed review bound; coverage is not truncated")
+    require(len(canonical(report).encode()) <= 20000, "Historical report exceeds the signed review bound; coverage is not truncated")
     if closing:
         require(report["effectOutcome"] == "not_executed" and not report["gaps"],
                 "Historical effects or terminal outcomes remain unknown; closeout is refused")
@@ -289,7 +435,8 @@ def inspect(registry, ledger, wake, controls, *, closing=False):
             "pauseHash": digest(original), "recoveryHash": digest(recovery), "playHash": digest(play),
             "bindingHash": digest(binding), "scopeHash": digest({k: str(v) for k,v in scope.items()}),
             "observation": after, "report": report,
-            "hostContinuity": continuity.for_browser(proof), "retiredHost": retired}
+            "hostContinuity": continuity.for_browser(proof), "retiredHost": retired,
+            **({"hostChain": chain} if chain else {})}
 
 
 def latest_record(ledger, db, state):
@@ -341,7 +488,8 @@ def confirm(registry, ledger, request, fresh, expires_at):
         original, recovery, play = eligible(state)
         evidence = request["evidence"]
         exact(evidence, {"contextHash", "runHash", "pauseHash", "recoveryHash", "playHash", "bindingHash",
-                         "scopeHash", "observation", "report", "hostContinuity", "retiredHost"})
+                         "scopeHash", "observation", "report", "hostContinuity", "retiredHost"} |
+                         ({"hostChain"} if "hostChain" in evidence else set()))
         record.same_evidence(evidence, fresh)
         require(state["meta"]["revision"] == request["expectedRevision"] and
                 record.context(state) == evidence["contextHash"] and recovery["id"] == request["recoveryId"] and
@@ -357,6 +505,12 @@ def confirm(registry, ledger, request, fresh, expires_at):
                 proof["previousBinding"]["brains"] == proof["candidateBinding"]["brains"], "Exact host continuity required")
         if evidence["retiredHost"]: continuity.retirement(evidence["retiredHost"], proof["previousBinding"])
         else: require(proof["candidateBinding"] == proof["previousBinding"], "Reviewed original-host retirement required")
+        if "hostChain" in evidence:
+            historical_hosts.check_retained(evidence["hostChain"], proof, (play, original, recovery), ledger)
+        else:
+            require(play["notification"]["hostBindingHash"] == recovery["notification"]["hostBindingHash"] and
+                    play["notification"]["nativeThreadObservation"]["streamStatus"] == "closed",
+                    "Exact multi-host provenance is required")
         observed, report_value = fresh["observation"], fresh["report"]
         require(observed["turnId"] == recovery["notification"]["nativeTurnId"] and observed["status"] == "completed" and
                 record.receipt.finite(observed["observedAt"]) and 0 <= time.time()-observed["observedAt"] <= 300 and
@@ -373,6 +527,7 @@ def confirm(registry, ledger, request, fresh, expires_at):
                     prior["request"]["evidence"]["report"] == report_value and
                     prior["request"]["evidence"]["bindingHash"] == evidence["bindingHash"] and
                     prior["request"]["evidence"]["hostContinuity"] == evidence["hostContinuity"] and
+                    prior["request"]["evidence"].get("hostChain") == evidence.get("hostChain") and
                     not report_value["gaps"] and report_value["effectOutcome"] == "not_executed" and
                     observed["activity"] == "idle" and type(observed["trackedTerminals"]) is int and
                     observed["trackedTerminals"] == 0 and observed["terminalCoverage"] == "observed_current_host",

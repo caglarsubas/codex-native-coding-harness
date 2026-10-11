@@ -398,3 +398,15 @@ The immutable sidecar retires pending-control presentation, not native effects o
 brain receipts. No load, wake, replay, Play, Resume, usage reset or pilot acceptance.
 Source delivery installs nothing and confirms no live control. A successor still
 requires separate Help preparation, exact mission Review and Play.
+
+For different historical Play and Pause/recovery hosts, only the separately
+operator-reviewed history-only host chain may bridge the preserved bindings.
+Read the complete multi-host and missing-effect sections in that same document.
+Pin original launch intents/process records/exec claims and repeat exact PID
+absence; use only the current reviewed endpoint and preserve unconfirmed observer
+bytes. This is never native recovery migration. Explicit persisted item pagination
+and saved result/nested completion correlation can provide exact missing native
+evidence. Missing results, opaque programs, compaction or cleanup gaps remain
+unknown and are listed per effect; no output prose, ended turn, unloaded tracker
+or replacement-host emptiness establishes non-execution or cleanup. Polling
+collects nothing, and no source install, launch, wake or live closeout follows.

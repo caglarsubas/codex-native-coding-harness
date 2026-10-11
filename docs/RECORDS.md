@@ -359,3 +359,12 @@ Both are local-completed, idempotent and non-notifiable. The immutable validated
 pending work; it never fabricates a brain receipt or permits another send.
 See [historical evidence and closeout](HISTORICAL-EFFECT-CLOSEOUT.md). Executed-effect
 cleanup, live installation and pilot acceptance remain outside this source adapter.
+
+New version-2 historical reports retain stable persisted-item entry hashes,
+same-turn saved call-result hashes, typed completion linkage and per-effect
+`missingEvidence` requirements. Optional signed `hostChain` pins all retired
+request bindings and their exact private launch-artifact provenance; it never
+selects an old connection or grants a recovery permit. Older version-1 receipts
+stay immutable. Interrupted pagination cannot discard already observed pages,
+and missing results or historical cleanup stay unknown rather than permitting
+closeout. No usage, observer status or receipt is rewritten by this evidence path.

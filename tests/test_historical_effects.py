@@ -35,6 +35,7 @@ class HistoricalEffectsTest(unittest.TestCase):
                  "status": "declined", "exitCode": None, "aggregatedOutput": "PRIVATE OUTPUT"}]}]
         for turn in self.turns: turn["itemsView"] = "full"
         self.metadata = self.f.metadata
+        self.metadata.item_cursors = {}
         self.metadata.page["data"][0]["completedAt"] = 3
         self.rpc = self.metadata._rpc
         self.metadata._rpc = self.native
@@ -70,6 +71,9 @@ class HistoricalEffectsTest(unittest.TestCase):
         self.raw.write_text("\n".join(json.dumps(r) for r in rows)+"\n")
 
     def native(self, method, params):
+        if method == "thread/items/list":
+            self.metadata.calls.append((method, copy.deepcopy(params)))
+            raise Refusal("Fixture store does not support item pagination")
         if method == "thread/turns/list" and params.get("itemsView") == "full":
             self.metadata.calls.append((method, copy.deepcopy(params)))
             idx = 0 if params["cursor"] is None else int(params["cursor"])

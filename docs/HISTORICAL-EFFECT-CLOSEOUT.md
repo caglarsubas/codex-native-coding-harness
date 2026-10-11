@@ -38,11 +38,56 @@ proof. The old endpoint is historical hash evidence only. Original launch proven
 and repeated PID-absence checks are mandatory; no name/path identity substitution,
 binding migration of the consumed recovery or direct fallback connection exists.
 
+### Separately reviewed multi-host history
+
+Play and Pause/recovery may have used different, now-retired owned hosts. The
+history-only `--historical-host-chain PRIVATE_JSON` startup option pins **all**
+those request hosts and the already reviewed current inspection host. It never
+changes the notification binding and is not passed to native turn recovery or
+the older non-waking owner-record adapter. No obsolete endpoint is probed.
+
+The closed manifest has `version: 1`, `workspaceId`, `brainId`,
+`candidateBindingHash` and `hosts` (1–8 unique retired bindings/PIDs). Each host
+contains its complete historical `binding`, `retiredHost` (version, bindingHash,
+processId, launchClaimHash) and `launch` with `intent`, `process`, `execClaim`.
+Each artifact pin is exactly `{path, sha256}`; paths are canonical, small,
+owner-only files with no symlinks. `execClaim` is null for old supervised launches.
+The launch intent's canonical hash must equal `launchClaimHash`, its review hash
+and manifest hash must match its exact launch mode/spec, and its checkout must
+match the binding. The process record must identify that exact PID and mode from
+the same attempt directory. Exec requires the retained empty exclusive
+`exec.claim` marker and `exec_boundary_issued` status, not a failed-launch claim.
+The manifest is operator-supplied provenance, **not authenticated native effect
+or child-process cleanup evidence**. Source does not prepare or approve a live
+replacement launch. Preserve the separately reviewed original launch records.
+
+Require exactly the historical host set of original Play/Pause/recovery, excluding
+the current host, with the identical single brain mapping, both project IDs,
+workspace, checkout and restricted native policy on every binding. Repeat private
+artifact hash and fixed PID-absence checks around inspection and at confirmation.
+The signed private review retains the chain and full original requests, with
+lossless decimal browser encoding of socket/ledger identities. Artifact drift,
+PID reuse, missing launch provenance or any identity substitution refuses.
+
+An accepted Play's **unconfirmed observer** may be inspected only with this
+chain, no native approval intents/descendant events, an inactive current owned
+observer, retired original host and repeated independent ended-turn history.
+This does not rewrite that observer as closed or infer permission denial. Unknown
+Play delivery is still refused. Every missing result, timestamp and historical
+terminal gap remains explicit; the history reader grants no recovery permit.
+
 ## Read-only historical collection
 
 The dedicated `HistoryProxy` allows only fixed project/thread metadata reads,
-current tracked-terminal reads, and cursor-linked `thread/turns/list` with full
+current tracked-terminal reads, cursor-linked `thread/turns/list` with full
 persisted items for the exact designated brain. It has no write or load permit.
+It additionally permits `thread/items/list` restricted to each already observed
+historical turn, with ascending cursor-linked 64-item pages. This documented
+experimental persisted-history API does not resume the thread. Unsupported item
+stores remain `unavailable`, not an empty inventory; full-turn evidence and its
+independent call linkage remain necessary. Malformed, duplicated, foreign-turn,
+stalled, oversized or conflicting paged items refuse the inspection. Additional
+typed paged items can supply a missing native result, never an inferred denial.
 No `thread/resume`, `turn/start`, `turn/interrupt`, command execution, discovery,
 permission response or observer reconnect is available. Host support for the
 experimental full persisted history is required; unsupported or truncated responses
@@ -59,13 +104,29 @@ command bodies or outputs. Hash the full inspected file and native items.
 
 Require the explicit full-items view; a missing historical completion time is
 retained as a gap, never replaced by the current clock or an inferred deadline.
-Nested completed native items, compaction, unsupported records/events, unmatched
-calls and missing results remain gaps. Code Mode's arbitrary outer `exec` program
+Typed nested completions are correlated by exact turn/item ID, command/cwd hashes,
+status and exit code, without equating successful execution with cleanup.
+Compaction, unsupported records/events, unmatched calls and missing results remain
+gaps. Saved function/custom-tool outputs are linked only to an earlier unique
+same-turn call and retained by hash. Duplicate, orphaned or cross-turn outputs
+refuse. Output prose such as "denied" or "all clean" attests nothing.
+Code Mode's arbitrary outer `exec` program
 is not interpreted or executed to reconstruct inner commands. A missing saved
 result or listing entry is not a denial, non-creation or cleanup attestation.
 
-Bounds are 64 turns, 512 items/effects/calls, one historical turn per page,
-32 MiB per configured log, 16 MiB per line and a 12 KiB report. Preserve the native
+Reports now include exact per-effect `missingEvidence`: saved result, typed result
+link, conclusive native result, historical terminal cleanup, completion timestamp
+or complete inventory. This is the missing-effect evidence path, not an upload
+of owner/model assertions. Rechecking reads the same pinned sources and cannot
+create a result that the native runtime never saved. The UI explains that another
+message or confirmation cannot supply it. Full native/call hashes stay in the
+signed private request; the visible preview uses a compact requirements projection
+to avoid duplicating the full inventory. Version-1 saved reports remain valid and
+immutable; new reports use version 2.
+
+Bounds are 64 turns, 512 items per persisted turn and 512 effects/calls/results,
+one historical turn per page, 32 MiB per configured log, 16 MiB per line and a
+20 KiB report. Preserve the native
 client's existing response/time bounds. The complete signed browser submission
 must fit within 30 KiB (below the HTTP 32 KiB limit). Oversize or growing evidence
 is refused rather than silently truncated. Records stay private in the ledger.
@@ -84,7 +145,7 @@ This version qualifies **historical non-execution only**. It does not implement 
 executed-effect cleanup attestor, OS process-tree settlement or a permission-denial
 pilot acceptance evaluator. A command exit code is not proof of descendant cleanup;
 an empty tracker on a replacement host is not historical cleanup proof. Arbitrary
-executed effects need a separately implemented independent evidence path. Retaining
+executed effects still need a separately implemented cleanup attestor. Retaining
 their unknown outcome is useful diagnosis, not permission to move on.
 
 Reconciliation can record an unloaded brain as unknown without loading it. Closeout
@@ -129,8 +190,30 @@ polling, catalog-only preparation and refusal of all native writes. Run the full
 Python suite, JavaScript suites/syntax checks and disposable desktop/mobile UI checks.
 No hosted CI or paid service is added.
 
+Final source verification on 2026-10-11: 2,326 Python tests (one skipped),
+35 JavaScript suites, 31 web JavaScript syntax checks, Python compilation and
+diff checks passed. The 48 historical tests cover multi-host provenance, changed
+launch artifacts/PIDs, exact identities, conflicting item views, metadata drift,
+cursor cycles/bounds and refusal to discard partially observed pages. Disposable
+rendered checks retained missing-evidence copy after refresh at desktop and 320px,
+with no horizontal overflow; keyboard confirmation also covered known
+non-execution followed by separate blocked/unqualified closeout and successor
+preparation availability. No fixture native send was permitted.
+
 Before any separately authorized installation, quiesce older writers and back up
 private state. Do not apply source adapters to the live ledger during delivery.
 No installation can supply a missing historical result or make unknown status safe.
 If the pilot's old diagnostic cannot be independently reconciled, it remains
 unqualified and fenced; do not claim completion or silently run a fresh attempt.
+
+Read-only provenance QA also validated the two exact historical launch attempts,
+their original request binding hashes, unchanged brain/checkout/both project IDs
+and repeated fixed PID absence on 2026-10-11. The private manifest was not installed
+and no old endpoint was contacted. Provenance is not historical cleanup evidence.
+
+Live read-only source qualification on 2026-10-11 observed three exact persisted
+turn/item ranges, six executed command items, and one saved call without a result:
+`call_b2b35e0130c545d7add69d32e247a172`. The brain was unloaded and its current
+terminal coverage unknown. All 34 unresolved evidence requirements stayed fenced;
+the ledger, usage/gaps and expiry were unchanged, with no native writes. This is
+diagnosis, not source installation, terminal closeout or pilot acceptance.
