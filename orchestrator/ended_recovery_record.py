@@ -38,7 +38,7 @@ def saved_state(ledger):
         return state_in(ledger, db)
 
 
-def eligible(state):
+def eligible(state, *, allow_record=False):
     run = state["meta"].get("standardRun") or {}
     permit = run.get("pauseReceiptRecovery") or {}
     require(permit.get("status") == "queued", "Only an exhausted recovery without a ledger receipt can use this record")
@@ -71,7 +71,7 @@ def eligible(state):
             profile.get("bindingHash") == n["hostBindingHash"] and
             profile.get("requested") == NATIVE_APPROVAL_POLICY and profile.get("resumeAcknowledged") is True,
             "Recovery delivery, completed turn, closed observer and restricted profile must be exact; uncertainty cannot be retried")
-    require(not any(c.get("kind") == KIND and c.get("payload", {}).get("recoveryId") == recovery["id"]
+    require(allow_record or not any(c.get("kind") == KIND and c.get("payload", {}).get("recoveryId") == recovery["id"]
                     for c in commands), "This ended recovery already has its owner inspection record")
     return original, recovery
 
@@ -106,10 +106,10 @@ def context(state):
     return digest({k: state[k] for k in ("meta", "repositories", "commands", "workers", "queue", "decisions")})
 
 
-def inspect(registry, ledger, wake, controls):
-    """Explicit review/confirmation only. GETs, Help and polling never call this."""
+def inspection_context(registry, ledger, wake, controls, *, allow_record=False):
+    """Shared identity/ownership guard. No native call or loading permit."""
     state = saved_state(ledger)
-    original, recovery = eligible(state)
+    original, recovery = eligible(state, allow_record=allow_record)
     require(wake is not None and wake.orphan_recovery_idle(),
             "The original observer or native prompt is still active; nothing was resent")
     require(not fence_exists(ledger.root), "Maintenance blocks this inspection")
@@ -132,6 +132,12 @@ def inspect(registry, ledger, wake, controls):
         proof = {"version": 1, "previousBinding": binding, "candidateBinding": binding,
                  **{k: scope[k] for k in ("ledgerIdentity", "catalogHash", "hostId")},
                  "projectLocationHash": scope["locationHash"]}
+    return state, original, recovery, binding, scope, proof, retired
+
+
+def inspect(registry, ledger, wake, controls):
+    """Explicit review/confirmation only. GETs, Help and polling never call this."""
+    state, original, recovery, binding, scope, proof, retired = inspection_context(registry, ledger, wake, controls)
     with MetadataProxy(binding["endpoint"], scope) as proxy:
         observed = observe(proxy, scope, recovery["notification"]["nativeTurnId"], require_loaded=True)
     require(observed["status"] == "completed" and receipt.finite(observed["completedAt"]) and

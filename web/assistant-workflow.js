@@ -1,5 +1,6 @@
 "use strict";
 const workflowPhrases={phase_help:'confirm help',phase_prepare:'confirm prepare',phase_reconcile:'confirm reconcile',phase_recovery:'confirm recovery',phase_pause_recovery:'confirm pause recovery',phase_pause_receipt_recovery:'confirm pause receipt recovery',phase_ended_recovery_record:'confirm non-waking inspection record',phase_close:'confirm close stopped phase',phase_review:'confirm review',phase_play:'confirm play',phase_pause:'confirm pause',phase_resume:'confirm resume',brain_budget:'confirm brain allowance',usage_check:'confirm usage',codex_check:'confirm readiness',brain_message:'confirm send'};
+Object.assign(workflowPhrases,{phase_historical_effects:'confirm historical effects',phase_terminal_closeout:'confirm terminal closeout'});
 function assistantLocalWorkflow(question,current=state){
   // Exact product starters, not an inferred intent or approval. The normal
   // server catalog still validates and prepares a separate signed preview.
@@ -11,10 +12,10 @@ function assistantLocalWorkflow(question,current=state){
   if(resume.includes(phrase)){assistantRequestStep('phase_resume');return true;}
   if(!next.includes(phrase))return false;
   if(typeof developmentHelpStart==='function'){developmentHelpStart();return true;}
-  const pending=(current.commands||[]).some(c=>(c.status==='queued'||c.status==='processing'||c.needsBrainReceipt));
+  const pending=(current.commands||[]).filter(c=>!(current.historicalCommandIds||[]).includes(c.id)).some(c=>(c.status==='queued'||c.status==='processing'||c.needsBrainReceipt));
   if(pending){assistantNextStep();assistantStatus('A saved request is still awaiting its receipt. Inspect its status above; no duplicate was sent.');return true;}
   const journey=roadmapJourneyState(current,true);
-  const key={prepare:'phase_prepare',reconcile:'phase_reconcile',recover:'phase_recovery',close:'phase_close',mission:'phase_review',catalog:'codex_check',play:'phase_play',resume:'phase_resume',budget:'brain_budget'}[journey.action];
+  const key={prepare:'phase_prepare',reconcile:'phase_reconcile',recover:'phase_recovery',close:'phase_close','historical-effects':'phase_historical_effects','terminal-closeout':'phase_terminal_closeout',mission:'phase_review',catalog:'codex_check',play:'phase_play',resume:'phase_resume',budget:'brain_budget'}[journey.action];
   if(key)assistantRequestStep(key);
   else{assistantNextStep();assistantStatus(journey.detail||journey.title);}
   return true;
@@ -90,9 +91,14 @@ function assistantWorkflowPreview(item,proposal,guided=false){
     const details=el('details');details.append(el('summary','Details · saved Pause and latest-ended turn check'),el('pre',JSON.stringify(p.details,null,2)));section.append(details);
     if(doc.workflow==='phase_pause_receipt_recovery')section.append(el('p','Terminal status on an unloaded host is unknown. The one-shot recovery first checks the loaded host; it cannot start unless current tracked terminals are confirmed empty. Historical effects remain unverified.','muted'));
   }
-  if(doc.workflow==='phase_ended_recovery_record'){
+  if(['phase_ended_recovery_record','phase_historical_effects','phase_terminal_closeout'].includes(doc.workflow)){
     section.append(el('p','Blocked · unqualified. This is a local owner record, not a brain receipt or permission to continue.','chat-phase-title'));
-    const details=el('details');details.append(el('summary','Details · non-waking inspection'),el('pre',JSON.stringify(p.details,null,2)));section.append(details);
+    const details=el('details');details.append(el('summary','Details · non-waking evidence'),el('pre',JSON.stringify(p.details,null,2)));section.append(details);
+    if(p.details.historicalEvidence?.gaps?.length){
+      section.append(el('h4','Still missing'),el('p','Closeout stays blocked. These gaps require independent evidence, not a repeated command.','muted'));
+      const labels={unknown_effect:'An effect has no conclusive native result.',historical_terminal_unknown:'A historical command lacks terminal-cleanup evidence.',historical_turn_completion_unknown:'A historical turn has no conclusive completion timestamp.',unmatched_effect:'Native items and saved calls do not match.',additional_native_effect:'A nested native effect is not reconciled.',compacted_effect_inventory:'The saved history contains compaction.'};
+      const gaps=el('ul');for(const label of new Set(p.details.historicalEvidence.gaps.map(gap=>labels[gap.split(':')[0]]||'Part of the historical evidence is unsupported.')))gaps.append(el('li',label));section.append(gaps);
+    }
   }
   if(p.mission){
     const {spec,version}=p.mission,a=spec.authority;
@@ -169,9 +175,9 @@ function assistantWorkflowPreview(item,proposal,guided=false){
     }catch(error){if(error.workspaceChanged)return;if([400,401,403,409].includes(error.status))action.rejected=error.message;else action.uncertain=true;assistantStatus(error.message,true);}
     finally{
       action.sending=false;assistantConnectionChanged();
-      if(action.proposal.document.workflow==='phase_close'&&action.receipt){
+      if(['phase_close','phase_terminal_closeout'].includes(action.proposal.document.workflow)&&action.receipt){
         action.closeoutHeading?.focus({preventScroll:true});assistantRevealControl(action.element);
-      }else if(action.proposal.document.workflow==='phase_ended_recovery_record'&&action.receipt){
+      }else if(['phase_ended_recovery_record','phase_historical_effects'].includes(action.proposal.document.workflow)&&action.receipt){
         action.inspectionHeading?.focus({preventScroll:true});assistantRevealControl(action.element);
       }else if(action.guided)$('assistant-log').scrollTop=0;else assistantScroll();
     }
@@ -210,7 +216,7 @@ function assistantNextStep(){
   root.append(el('p',latest?'BRAIN REPLIED · '+when(latest.conversationReply.at):'CURRENT PROJECT','eyebrow'),el('h3',journey.title));
   const plan=state.mission;
   if(journey.action==='mission'&&plan?.document)root.append(el('p',`Plan v${plan.document.version} · ${plan.document.spec.phase.title}`));
-  const key=map[journey.action]||({recover:'phase_recovery','pause-recover':'phase_pause_recovery','pause-receipt-recover':'phase_pause_receipt_recovery'})[journey.action];
+  const key=map[journey.action]||({recover:'phase_recovery','pause-recover':'phase_pause_recovery','pause-receipt-recover':'phase_pause_receipt_recovery','historical-effects':'phase_historical_effects','terminal-closeout':'phase_terminal_closeout'})[journey.action];
   const reviewable=journey.action!=='mission'||(state.mission?.effectiveStatus==='draft'&&!state.mission?.bindingIssues?.length);
   const prepareBlocked=key==='phase_prepare'&&['paused','stopping'].includes(state.standard?.run?.status);
   if(key&&reviewable&&!prepareBlocked){const b=button(journey.label,()=>assistantRequestStep(key));b.disabled=assistantPending;root.append(b);}
@@ -224,16 +230,16 @@ function assistantNextStep(){
   if(latest)root.append(narrative(latest.conversationReply.message,'Project brain reply'));
 }
 function assistantWorkflowReceipt(action,recorded){
-  if(recorded?.kind==='standard_ended_recovery_record'&&action.proposal.document.workflow==='phase_ended_recovery_record'&&!action.inspectionCollapsed){
+  if(['standard_ended_recovery_record','standard_historical_effects'].includes(recorded?.kind)&&!action.inspectionCollapsed){
     const details=el('details');details.append(el('summary','Details · reviewed non-waking inspection'));
     details.append(...[...action.element.children].filter(child=>child!==action.status));
-    action.inspectionHeading=el('h3','Owner inspection recorded · still blocked');action.inspectionHeading.setAttribute('tabindex','-1');
+    action.inspectionHeading=el('h3',recorded.kind==='standard_historical_effects'?'Historical evidence recorded · no replay':'Owner inspection recorded · still blocked');action.inspectionHeading.setAttribute('tabindex','-1');
     action.element.replaceChildren(action.inspectionHeading,...(action.status?[action.status]:[]),details);
     const article=action.element.closest?.('.chat-turn'),log=$('assistant-log');
     if(article&&log)log.prepend(article);
     action.inspectionCollapsed=true;
   }
-  if(action.receipt&&action.proposal.document.workflow==='phase_close'){
+  if(action.receipt&&['phase_close','phase_terminal_closeout'].includes(action.proposal.document.workflow)){
     // Keep the outcome and next action visible. The already-confirmed scope is
     // still readable, but no longer competes with preparation progress.
     if(!action.closeoutCollapsed){
@@ -249,7 +255,7 @@ function assistantWorkflowReceipt(action,recorded){
     }
     if(!action.localNext){action.localNext=el('div',null,'assistant-actions');action.element.append(action.localNext);}
     const current=state.standard?.run?.ownerCloseout?.requestId===action.proposal.document.id&&state.standard.run.status==='blocked';
-    const waiting=(state.commands||[]).some(c=>c.status==='queued'||c.status==='processing'||c.needsBrainReceipt||
+    const waiting=(state.commands||[]).filter(c=>!(state.historicalCommandIds||[]).includes(c.id)).some(c=>c.status==='queued'||c.status==='processing'||c.needsBrainReceipt||
       (c.kind==='reconcile'&&c.payload?.message&&!c.conversationReply&&c.status==='completed'));
     const signature=JSON.stringify([current,waiting,connected,assistantPending,state.meta?.revision]);
     if(action.localNextKey!==signature){action.localNextKey=signature;action.localNext.replaceChildren();

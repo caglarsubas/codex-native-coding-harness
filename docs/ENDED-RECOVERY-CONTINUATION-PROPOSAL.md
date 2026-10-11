@@ -1,9 +1,10 @@
 # Ended recovery: continuation proposal, not authority
 
-**Status: historical-effect reconciliation and terminal closeout are proposed
-only. A separate source-only [owner inspection record](ENDED-RECOVERY-RECORD.md)
-now covers metadata inspection/local retention, not either missing step. No wake
-or live installation.**
+**Status: a separate source-only [historical reconciliation and terminal
+closeout](HISTORICAL-EFFECT-CLOSEOUT.md) now implements the narrow independently
+proved non-execution path below. Executed/unsupported effects remain unknown.
+The earlier [owner inspection record](ENDED-RECOVERY-RECORD.md) remains metadata-only.
+No wake, live installation or pilot qualification is implied.**
 
 The [ended-Pause receipt recovery](ENDED-PAUSE-RECEIPT-RECOVERY.md) is permanently
 one-shot. An accepted completed turn without a ledger receipt is not a failed
@@ -45,9 +46,9 @@ not another brain recovery attempt. The complete future separately reviewed path
    remains a new mission with separate Review and Play and fresh usage/capability
    evidence. Neither a reconciliation record nor closure passes the pilot.
 
-This proposal deliberately contains **no second native turn**. The partial
-inspection implementation retains unknown historical effects and all execution
-fences; it cannot claim this complete path has shipped. This proposal does not
+This proposal deliberately contains **no second native turn**. The historical
+adapter retains gaps and can close only independently proved non-execution; it
+does not supply an executed-effect cleanup attestor. This proposal does not
 authorize live steps, extend an old approval or relax strict Harness.
 If historical effects cannot be reconciled, the truthful outcome is an
 unqualified, still-fenced pilot, not an automatic fresh attempt. A proposed new

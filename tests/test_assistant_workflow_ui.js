@@ -13,6 +13,12 @@ const run=code=>vm.runInContext(code,box);
 run(`var sent=0; var a={workspace:'alpha',submit:()=>sent++,proposal:{document:{workflow:'phase_review',id:'p',brainId:'brain',expiresAt:Date.now()/1000+300,request:{expectedRevision:1,documentHash:'hash'}}}}; assistantActions.set('p',a);`);
 assert.equal(run('assistantWorkflowState(a).locked'),false);
 assert.equal(box.assistantTypedConfirmation('yes'),false,'Vague consent is never execution');
+for(const [workflow,phrase] of [['phase_historical_effects','confirm historical effects'],['phase_terminal_closeout','confirm terminal closeout']]){
+  run(`assistantActions.clear();var historicalSent=0;var historicalAction={workspace:'alpha',submit:()=>historicalSent++,proposal:{document:{workflow:'${workflow}',id:'history',brainId:'brain',expiresAt:Date.now()/1000+300,request:{expectedRevision:state.meta.revision}}}};assistantActions.set('history',historicalAction);`);
+  assert.equal(box.assistantTypedConfirmation(phrase),true);assert.equal(run('historicalSent'),1);
+  assert.equal(box.assistantTypedConfirmation('close it'),false);assert.equal(run('historicalSent'),1);
+}
+run('assistantActions.clear();assistantActions.set("a",a);');
 run(`var inspectionSent=0; var inspection={workspace:'alpha',submit:()=>inspectionSent++,proposal:{document:{workflow:'phase_ended_recovery_record',id:'record',brainId:'brain',expiresAt:Date.now()/1000+300,request:{expectedRevision:state.meta.revision}}}}; assistantActions.set('record',inspection);`);
 assert.equal(box.assistantTypedConfirmation('confirm non-waking inspection record'),true);
 assert.equal(run('inspectionSent'),1);assert.equal(box.assistantTypedConfirmation('continue recovery'),false);

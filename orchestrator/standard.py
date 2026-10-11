@@ -453,8 +453,11 @@ def brain(registry, ledger, token, request):
         require(record_in(registry_db) is None, "Strict platform enrollment blocks cooperative effects")
         from .pause_recovery import guard
         from .pause_receipt_recovery import guard as receipt_guard
-        guard(meta.get("standardRun") or {}, operation)
-        receipt_guard(meta.get("standardRun") or {}, operation)
+        from .historical_effects import closed_run
+        preparation_only = operation == "catalog" and closed_run(ledger, db, meta.get("standardRun") or {})
+        if not preparation_only:
+            guard(meta.get("standardRun") or {}, operation)
+            receipt_guard(meta.get("standardRun") or {}, operation)
         if operation == "catalog":
             require(set(request) in ({"operation", "models", "source"},
                                      {"operation", "models", "source", "requestId"}),
@@ -529,7 +532,11 @@ def brain(registry, ledger, token, request):
             exact(request, "operation runId")
             meta["inboxCheckedAt"] = time.time()
             from .conversation import pending, receive_in
+            from .historical_effects import historical_ids
+            retired = historical_ids(ledger, db)
             for command in ledger.all(db, "commands"):
+                if command["id"] in retired:
+                    continue  # Owner-retired originals stay byte-identical, never forged brain receipts.
                 if command["kind"].startswith("standard_") and command["kind"] not in ("standard_recovery", "standard_pause_recovery", "standard_pause_receipt_recovery") and command["status"] == "queued":
                     command.update(status="completed", result="Received by designated brain; latest run state governs", completedAt=time.time())
                     ledger.put(db, "commands", command["id"], command)

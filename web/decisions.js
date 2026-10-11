@@ -5,6 +5,9 @@ const decisionDetailsOpen = new Set();
 const decisionLabels = {open:"Needs your decision", answered:"Answer recorded", received:"Received by brain", applied:"Applied to design", blocked:"Needs follow-up", superseded:"Superseded"};
 
 function commandPresentation(c, activity=state?.brainActivity, now=Date.now()/1000) {
+  if((state?.historicalCommandIds||[]).includes(c.id))return {label:'Historical request · owner-reconciled',detail:'The original missing brain receipt and native claim are preserved. Separate evidence closed the phase as blocked and unqualified; nothing was resent.'};
+  if(c.kind==='standard_historical_effects'&&c.status==='completed')return {label:'Historical evidence recorded · no replay',detail:c.result};
+  if(c.kind==='standard_terminal_closeout'&&c.status==='completed')return {label:'Stopped phase closed · unqualified',detail:c.result};
   if(c.kind==='standard_ended_recovery_record'&&c.status==='completed')return {label:'Owner inspection recorded · still blocked',detail:c.result||'Historical effects remain unknown. No brain receipt, checkpoint, closeout or Play was performed.'};
   if(c.kind==='standard_pause_receipt_recovery'&&c.status==='completed')return {label:'Stopped checkpoint retained · effects unverified',detail:'The Pause receipt and paused checkpoint are saved. Usage, expiry and historical terminal/effect uncertainty remain; this is not phase success or pilot acceptance.'};
   if(c.kind==='standard_pause_receipt_recovery'&&['queued','processing'].includes(c.status)&&!c.checkpointHash&&

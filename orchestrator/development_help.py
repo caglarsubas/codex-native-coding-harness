@@ -61,7 +61,10 @@ def validate_in(ledger, db, meta):
             run.get("status") not in ("stopping", "paused"), "The safe checkpoint needs explicit Resume; help cannot resume it")
     require((meta.get("brainHandoff") or {}).get("status") not in ("prepared", "candidate", "received"),
             "Finish the existing brain handoff first")
-    require(not any(c["status"] in ("queued", "processing") or c.get("needsBrainReceipt") for c in ledger.all(db, "commands")),
+    from .historical_effects import historical_ids
+    retired = historical_ids(ledger, db)
+    require(not any(c["status"] in ("queued", "processing") or c.get("needsBrainReceipt") for c in ledger.all(db, "commands")
+                    if c["id"] not in retired),
             "Follow the existing request before asking for more preparation")
 
 
@@ -72,7 +75,8 @@ def plan(state):
     if not actions:
         return {"mode": "unavailable", "title": "Guided help is for standard projects",
                 "detail": "This project retains its existing packet approval controls."}
-    commands = sorted(state.get("commands", []), key=lambda c: (c.get("createdAt", 0), c["id"]), reverse=True)
+    commands = sorted((c for c in state.get("commands", []) if c["id"] not in state.get("historicalCommandIds", [])),
+                      key=lambda c: (c.get("createdAt", 0), c["id"]), reverse=True)
     # Follow only this run's exact preparation and its explicit follow-up chain.
     # An old phase reply must not become the new phase's evidence request.
     related = {}
@@ -138,6 +142,18 @@ def plan(state):
                     "phase_pause_receipt_recovery")
     if run.get("status") == "stopping" and (run.get("pauseReceiptRecovery") or {}).get("status") in ("queued", "processing"):
         result["requestId"] = run["pauseReceiptRecovery"]["id"]
+        saved = (state.get("historicalEffects") or {}).get("latestRecord") or {}
+        if saved.get("current") and saved.get("report", {}).get("gaps"):
+            return step("blocked", "Historical evidence is still missing",
+                        "The saved inspection found unresolved effects. Inspect its missing-evidence details; another confirmation or recovery cannot supply the result. No request was replayed.")
+        if actions["phase_terminal_closeout"]["available"]:
+            return step("decision", "Historical effects reconciled; review terminal closeout",
+                        "Check current terminals and close only as blocked and unqualified. No brain receipt or safe checkpoint is fabricated.",
+                        "phase_terminal_closeout")
+        if actions["phase_historical_effects"]["available"]:
+            return step("decision", "Check the ended recovery's historical effects",
+                        "Read native history and the exact local call inventory. Missing results remain unknown; no effect or recovery is resent.",
+                        "phase_historical_effects")
         from .pause_receipt_recovery import stalled
         issue = stalled(state)
         if issue:

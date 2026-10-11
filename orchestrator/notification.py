@@ -77,6 +77,9 @@ class BrainNotifier:
         ledger = self.ledger
         with ledger.tx() as db:
             command = ledger.get(db, "commands", command_id)
+            from .historical_effects import historical_ids
+            if command_id in historical_ids(ledger, db):
+                return command  # Preserve the original claim; terminal closeout never arms another send.
             if (command["kind"] not in NOTIFY_KINDS or (command["status"] != "queued" and not command.get("needsBrainReceipt"))
                     or command.get("actor") not in ("dashboard", "assistant_owner_confirmed") or command.get("notification")):
                 return command
