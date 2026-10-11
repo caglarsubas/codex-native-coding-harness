@@ -49,6 +49,12 @@ box.connected=true;box.assistantPending=false;box.roadmapJourneyState=()=>({titl
 box.button=(text)=>new Element('button',text);
 box.assistantNextStep();
 const rendered=(root)=>[root,...root.children.flatMap(rendered)];
+const missingRoot=new Element('section');box.historicalMissingEvidence(missingRoot,{gaps:['missing_call_result:call-1','historical_terminal_unknown:exec-1'],missingEvidence:[{id:'call-1',turnId:'turn-1',need:'saved_call_result'}]});
+assert(rendered(missingRoot).some(e=>e.text.includes('A saved call has no saved result')));
+assert(rendered(missingRoot).some(e=>e.text.includes('Historical terminal cleanup is not proved')));
+assert(rendered(missingRoot).some(e=>e.text.includes('not a message from you')));
+assert(!rendered(missingRoot).some(e=>e.tag==='button'),'Evidence requirements cannot offer a retry or infer confirmation');
+assert(rendered(missingRoot).some(e=>e.text.includes('call-1')),'Exact missing effect remains inspectable without command text');
 assert(rendered(nextStep).some(e=>e.text==='Usage evidence is incomplete'));
 assert(rendered(nextStep).some(e=>e.text==='Prepare recovery proposal'));
 console.log('Assistant workflow: exact typed consent, stale/foreign previews, receipt recovery and ambiguity passed');

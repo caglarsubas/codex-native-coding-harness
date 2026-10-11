@@ -30,6 +30,14 @@ an unfinished request; only its retained reply clears that conversation state.
 Safety Pause and the separately reviewed paused-phase recovery path retain priority.
 This guidance does not repair a host, replay a wake or grant Review, Resume or Play.
 
+An exhausted recovery's non-waking history review stays in this same inspector.
+It distinguishes a missing saved result from observed execution without historical
+cleanup proof, and exposes exact per-effect requirements under Details. Missing
+evidence is a host-history issue, not a demand for another long user message or
+confirmation. A multi-host provenance review never reconnects an old host or
+migrates the consumed recovery. No successor or Play is offered while that
+evidence remains unknown; recheck only after independent evidence changes.
+
 Roadmap review, decisions, knowledge, budgets, history and advanced controls
 are contextual inspector sections. Each begins with the outcome, what needs
 attention and the next step. Full narratives, receipts and source records sit

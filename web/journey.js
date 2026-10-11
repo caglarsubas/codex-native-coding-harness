@@ -72,6 +72,7 @@ function controlRequestHistory(root){
     const historical=state.historicalEffects?.latestRecord;
     if(historical){
       body.append(el('h3','Saved historical evidence'),el('p',`${historical.report.gaps.length} unresolved evidence gaps · recorded ${when(historical.at)}${historical.current?'':' · run has changed; this evidence is stale'}. No effect or recovery was replayed.`));
+      historicalMissingEvidence(body,historical.report);
       const evidence=el('details');evidence.append(el('summary','Details · exact historical evidence gaps'),el('pre',JSON.stringify(historical.report,null,2)));body.append(evidence);
     }
     if(state.historicalEffects?.available&&state.brainNotification?.transport==='owned_app_server'){

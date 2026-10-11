@@ -284,7 +284,7 @@ class JourneyProposals(ActionProposals):
             from . import historical_effects as history
             closing = kind == history.CLOSE_WORKFLOW
             evidence = history.inspect(self.runtime.registry, self.runtime.ledger,
-                self.runtime.notifier.app_server, self.runtime.turn_recovery_controls, closing=closing)
+                self.runtime.notifier.app_server, getattr(self.runtime, "historical_controls", self.runtime.turn_recovery_controls), closing=closing)
             require(self.runtime.ledger.snapshot()["meta"]["revision"] == state["meta"]["revision"],
                     "Project changed during historical inspection")
             prior_hash = None
@@ -302,7 +302,9 @@ class JourneyProposals(ActionProposals):
                 "Close this phase as blocked and unqualified; keep every original receipt, usage gap and expiry." if closing else
                 "Retain this evidence only. Unknown historical effects remain blocked; terminal closeout needs its own review."]
             preview["details"] = {"recoveryId": request["recoveryId"], "observation": evidence["observation"],
-                "historicalEvidence": evidence["report"], "outcome": "blocked", "qualification": "unqualified",
+                "historicalEvidence": {k:v for k,v in evidence["report"].items() if k not in ("native", "inventory")},
+                "historicalHostCount": len(evidence.get("hostChain", {}).get("hosts", [])),
+                "outcome": "blocked", "qualification": "unqualified",
                 "boundary": history.CLOSE_BOUNDARY if closing else history.BOUNDARY}
         elif kind == "phase_ended_recovery_record":
             from . import ended_recovery_record as record
@@ -538,7 +540,7 @@ class JourneyProposals(ActionProposals):
             from . import historical_effects as history
             try:
                 evidence = history.inspect(self.runtime.registry, ledger, self.runtime.notifier.app_server,
-                    self.runtime.turn_recovery_controls, closing=request["closing"])
+                    getattr(self.runtime, "historical_controls", self.runtime.turn_recovery_controls), closing=request["closing"])
                 return self.result(doc, history.confirm(self.runtime.registry, ledger, request, evidence, doc["expiresAt"])), False
             except Refusal:
                 with contextlib.closing(ledger.connect()) as db:

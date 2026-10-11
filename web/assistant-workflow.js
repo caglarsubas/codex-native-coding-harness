@@ -94,11 +94,7 @@ function assistantWorkflowPreview(item,proposal,guided=false){
   if(['phase_ended_recovery_record','phase_historical_effects','phase_terminal_closeout'].includes(doc.workflow)){
     section.append(el('p','Blocked · unqualified. This is a local owner record, not a brain receipt or permission to continue.','chat-phase-title'));
     const details=el('details');details.append(el('summary','Details · non-waking evidence'),el('pre',JSON.stringify(p.details,null,2)));section.append(details);
-    if(p.details.historicalEvidence?.gaps?.length){
-      section.append(el('h4','Still missing'),el('p','Closeout stays blocked. These gaps require independent evidence, not a repeated command.','muted'));
-      const labels={unknown_effect:'An effect has no conclusive native result.',historical_terminal_unknown:'A historical command lacks terminal-cleanup evidence.',historical_turn_completion_unknown:'A historical turn has no conclusive completion timestamp.',unmatched_effect:'Native items and saved calls do not match.',additional_native_effect:'A nested native effect is not reconciled.',compacted_effect_inventory:'The saved history contains compaction.'};
-      const gaps=el('ul');for(const label of new Set(p.details.historicalEvidence.gaps.map(gap=>labels[gap.split(':')[0]]||'Part of the historical evidence is unsupported.')))gaps.append(el('li',label));section.append(gaps);
-    }
+    historicalMissingEvidence(section,p.details.historicalEvidence);
   }
   if(p.mission){
     const {spec,version}=p.mission,a=spec.authority;

@@ -2,6 +2,14 @@
 // Presentation only: never rewrite retained evidence or infer a successful outcome.
 const narrativeDisclosures=new Map();
 const wakeFailureDisclosures=new Map();
+function historicalMissingEvidence(root,report){
+  if(!report?.gaps?.length)return;
+  root.append(el('h4','Still missing'),el('p','Closeout stays blocked. These gaps require independent evidence, not a repeated command.','muted'));
+  const labels={unknown_effect:'An effect has no conclusive native result.',historical_terminal_unknown:'Historical terminal cleanup is not proved; an ended turn is not cleanup evidence.',historical_turn_completion_unknown:'A historical turn has no conclusive completion timestamp.',unmatched_effect:'A saved call still needs an exact typed native-result link.',missing_call_result:'A saved call has no saved result. A timeout or missing entry does not prove denial.',additional_native_effect:'A nested native effect is not reconciled.',compacted_effect_inventory:'The saved history contains compaction.'};
+  const gaps=el('ul');for(const label of new Set(report.gaps.map(gap=>labels[gap.split(':')[0]]||'Part of the historical evidence is unsupported.')))gaps.append(el('li',label));root.append(gaps);
+  if(report.missingEvidence?.length){const needs=el('details');needs.append(el('summary','Details · evidence needed for each effect'),el('pre',JSON.stringify(report.missingEvidence,null,2)));root.append(needs);}
+  root.append(el('p','This needs host-history evidence, not a message from you. Do not repeat Play or recovery. Recheck only after that evidence changes.','muted'));
+}
 function wakeFailureDetails(root,notification,requestId=''){
   const failure=notification?.nativeFailure;
   const stages={connect:'Open reviewed host connection',thread_read:'Read bound brain',

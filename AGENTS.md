@@ -1,5 +1,28 @@
 # Codex Orchestrator — personal tooling
 
+## Multi-host historical evidence (2026-10-11)
+
+`phase_historical_effects` may inspect an original accepted Play whose saved
+observer is unconfirmed on a different, retired host, only through the separately
+operator-reviewed `--historical-host-chain` described in
+docs/HISTORICAL-EFFECT-CLOSEOUT.md. Pin every original request binding, unchanged
+brain/workspace/checkout/both project IDs/native policy, original launch intent,
+same-attempt process record and exec claim where applicable. Repeated fixed
+original-PID absence and independently repeated persisted ended-turn/item reads
+are mandatory. Preserve the unconfirmed observer bytes; never backfill them as
+closed. Connect only to the already reviewed current host. This configuration is
+not consumed by native recovery, cancellation, loading or notification controls.
+The explicit missing-effect path may read cursor-linked `thread/items/list` for
+only turns in the exact historical range, correlate saved call-result hashes and
+typed nested completion IDs, and retain per-effect evidence requirements. An
+unsupported store, missing result, opaque Code Mode program, changed view or
+historical cleanup gap stays unknown. No prose denial or command exit establishes
+cleanup. Only complete non-execution can use the existing separately reviewed
+blocked/unqualified closeout; executed effects remain fenced. Source delivery
+installs nothing, configures no live chain and confirms no control. No Play or
+recovery replay, usage reset, host launch/rebind, native load, permission response,
+checkpoint fabrication or pilot acceptance follows.
+
 ## Historical-effect reconciliation and closeout (2026-10-11)
 
 The separately signed non-waking `phase_historical_effects` and
