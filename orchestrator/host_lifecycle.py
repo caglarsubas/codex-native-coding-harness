@@ -42,12 +42,17 @@ def specification(manifest):
 
 
 def validate_spec(value):
-    require(isinstance(value, dict) and set(value) == {"schemaVersion", "profile", "launcher", "launcherSha256", "cwd"} and
-            type(value["schemaVersion"]) is int and value["schemaVersion"] == 1 and value["profile"] == "standard_owned_host_v1", "Exact standard owned-host launch manifest required")
+    fields = {"schemaVersion", "profile", "launcher", "launcherSha256", "cwd"}
+    require(isinstance(value, dict) and type(value.get("schemaVersion")) is int and
+            value["schemaVersion"] in (1, 2) and set(value) == fields | ({"runtimePackage"} if value["schemaVersion"] == 2 else set()) and
+            value["profile"] == "standard_owned_host_v1", "Exact standard owned-host launch manifest required")
     launcher = private_file(value["launcher"])
     require(hashlib.sha256(launcher.read_bytes()).hexdigest() == value["launcherSha256"], "Reviewed launcher changed")
     cwd = Path(value["cwd"])
     require(cwd.is_absolute() and cwd.resolve(strict=True) == cwd and cwd.is_dir(), "Exact existing checkout required")
+    if value["schemaVersion"] == 2:
+        from .host_runtime import validate_pin
+        validate_pin(value["runtimePackage"])
     return value
 
 
@@ -80,6 +85,7 @@ def review_hash(spec, mode):
 
 def prepare_attempt(manifest, attempt, confirm_hash, mode):
     spec = specification(manifest)
+    require(spec["schemaVersion"] == 2, "A complete runtime-package review is required for every new launch; legacy records remain historical")
     require(confirm_hash == review_hash(spec, mode), "Review the exact launch mode and manifest hash first")
     # This is only a presence fence. A pipe is NOT native connectivity proof;
     # the reviewed guarded launcher must validate it in its app-owned context.
@@ -149,6 +155,7 @@ def exec_foreground(manifest, attempt, confirm_hash):
         stream.flush()
         os.fsync(stream.fileno())
     spec = validate_spec(record["spec"])
+    require(spec["schemaVersion"] == 2, "Legacy launch cannot cross a new exec boundary")
     require(digest(spec) == record["manifestHash"], "Launch manifest changed")
     launcher = private_file(spec["launcher"])
     require(hashlib.sha256(launcher.read_bytes()).hexdigest() == spec["launcherSha256"],
@@ -190,6 +197,7 @@ def monitor(attempt, *, foreground=False):
         raise Refusal("Supervisor attempt already claimed") from None
     os.close(claim)
     spec = validate_spec(record["spec"])
+    require(spec["schemaVersion"] == 2, "Legacy launch cannot cross a new process boundary")
     require(digest(spec) == record["manifestHash"], "Launch manifest changed")
     launcher = private_file(spec["launcher"])
     require(hashlib.sha256(launcher.read_bytes()).hexdigest() == spec["launcherSha256"], "Reviewed launcher changed before launch")
@@ -221,6 +229,8 @@ def monitor(attempt, *, foreground=False):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="operation", required=True)
+    package = sub.add_parser("package-preview", help="Inspect one explicit complete local CLI package; no execution or native qualification")
+    package.add_argument("root", type=Path)
     preview = sub.add_parser("preview"); preview.add_argument("manifest", type=Path)
     preview.add_argument("--mode", choices=("exec", "foreground", "detached"), default="detached")
     start = sub.add_parser("start"); start.add_argument("manifest", type=Path); start.add_argument("attempt", type=Path)
@@ -235,11 +245,17 @@ def main():
     internal = sub.add_parser("_monitor", help=argparse.SUPPRESS); internal.add_argument("attempt", type=Path)
     args = parser.parse_args()
     try:
-        if args.operation == "preview":
+        if args.operation == "package-preview":
+            from .host_runtime import inspect_package
+            result = {"runtimePackage": inspect_package(args.root), "startsHost": False, "nativeToolsQualified": False,
+                      "boundary": "File integrity only. No helper, Doctor, tool probe, host, thread, approval or ledger operation runs."}
+        elif args.operation == "preview":
             spec = specification(args.manifest)
             result = {"spec": spec, "manifestHash": digest(spec), "mode": args.mode,
                       "reviewHash": review_hash(spec, args.mode), "startsHost": False,
                       "nativeToolsQualified": False,
+                      "runtimePackagePinned": spec["schemaVersion"] == 2,
+                      "launchable": spec["schemaVersion"] == 2,
                       "boundary": {"exec": "Replace the operator in a qualified app-owned foreground context; no exit monitoring or native qualification is implied.",
                                    "foreground": "Process supervision only; the retained Python ancestor may be rejected by Codex native app tools.",
                                    "detached": "Process supervision only; detached ancestry may be rejected by Codex native app tools."}[args.mode]}

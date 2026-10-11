@@ -12,6 +12,8 @@ acceptance authority. Items change through reviewed repository edits.
 - [x] Pin distinct Codex app catalog and owned app-server project IDs explicitly when the installed host reports both for the same verified repository (source and local fixtures; no native write)
 - [x] Retain bounded, private owned-socket `thread/started` observations from future one-shot turns, with a durable open-stream marker and explicit incomplete coverage (source/fixtures only; not checkpoint evidence)
 - [x] Add an explicit owned-host registered-task/terminal observer for cooperative standard phases, with historical receipts, unknown coverage and Pause-race checks (source and local fixtures; no native wake)
+- [x] Require a complete runtime-package pin for new operator host launches and explain an ended receipt recovery as blocked, without offering another wake (source/fixtures; runtime installation and native qualification separate)
+- [ ] Review the non-waking [exhausted-recovery continuation proposal](ENDED-RECOVERY-CONTINUATION-PROPOSAL.md); no adapter or live authority is delivered by the runtime guard
 - [ ] Qualify the disposable owned-host **standard phase** journey against registered tasks and tracked terminals; do not substitute generic Brain Stop for standard Pause
 - [ ] Separately qualify complete native task/descendant coverage for legacy `workspace_pause_v1` checkpoints; persisted and loaded listings cannot close the existing stopped legacy pilot
 - [ ] Independently qualify native approval handling and a disposable end-to-end owned-host pilot

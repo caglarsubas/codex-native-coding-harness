@@ -6,6 +6,11 @@ const decisionLabels = {open:"Needs your decision", answered:"Answer recorded", 
 
 function commandPresentation(c, activity=state?.brainActivity, now=Date.now()/1000) {
   if(c.kind==='standard_pause_receipt_recovery'&&c.status==='completed')return {label:'Stopped checkpoint retained · effects unverified',detail:'The Pause receipt and paused checkpoint are saved. Usage, expiry and historical terminal/effect uncertainty remain; this is not phase success or pilot acceptance.'};
+  if(c.kind==='standard_pause_receipt_recovery'&&['queued','processing'].includes(c.status)&&!c.checkpointHash&&
+      c.notification?.nativeDelivery==='owned_turn_start'&&['completed','failed','interrupted'].includes(c.notification.nativeTurnStatus)&&
+      c.notification.nativeThreadObservation?.streamStatus==='closed')return {
+    label:c.receivedAt?'Recovery blocked · checkpoint missing':'Recovery blocked · Pause receipt missing',
+    detail:'The recovery turn ended. An operator must repair and verify the runtime and establish a separately reviewed continuation. This attempt cannot be resent; historical terminal and effect status remains unknown. Do not repeat Play, Pause or recovery.'};
   if(c.kind==='standard_pause_receipt_recovery'&&c.status==='processing')return {label:'Pause received · stopped checkpoint pending',detail:'Only the receipt was saved. The restricted recovery must still retain its paused checkpoint; development is not resumed.'};
   if(c.kind==='standard_pause_receipt_recovery'&&c.status==='queued'&&!c.notification)return {label:'Pause receipt recovery saved',detail:'Follow this exact recovery and host. Development stays stopped; no duplicate wake or Play replay is permitted.'};
   if(c.kind==='standard_pause_recovery'&&c.status==='failed'&&c.replacement)return {label:'Pre-turn recovery failed · replacement recorded',detail:'This failed attempt and its delivery claim are preserved. A separate owner-reviewed replacement was saved; this is not a brain receipt or an automatic resend.'};

@@ -27,6 +27,15 @@ assert.equal(receiptCheckpoint.label,'Stopped checkpoint retained · effects unv
 assert.match(receiptCheckpoint.detail,/Usage, expiry and historical terminal\/effect uncertainty remain/);
 assert.match(receiptCheckpoint.detail,/not phase success or pilot acceptance/);
 assert.equal(context.commandPresentation({kind:receiptKind,status:'queued',notification:{status:'uncertain'}}).label,'Delivery unconfirmed');
+const blockedReceipt={kind:receiptKind,status:'queued',notification:{status:'accepted',nativeDelivery:'owned_turn_start',
+  nativeTurnStatus:'completed',nativeThreadObservation:{streamStatus:'closed'}}};
+assert.equal(context.commandPresentation(blockedReceipt).label,'Recovery blocked · Pause receipt missing');
+assert.match(context.commandPresentation(blockedReceipt).detail,/cannot be resent/);
+assert.match(context.commandPresentation(blockedReceipt).detail,/historical terminal and effect status remains unknown/);
+blockedReceipt.status='processing';blockedReceipt.receivedAt=1;
+assert.equal(context.commandPresentation(blockedReceipt).label,'Recovery blocked · checkpoint missing');
+blockedReceipt.notification.nativeThreadObservation.streamStatus='open';
+assert.equal(context.commandPresentation(blockedReceipt).label,'Pause received · stopped checkpoint pending');
 assert.equal(present({status:'accepted',finishedAt:99},{fresh:true,status:'idle'}).label,'Sent to Codex');
 assert.equal(present({status:'accepted',finishedAt:99},{fresh:true,status:'running'}).label,'Brain active · awaiting receipt');
 assert.equal(present({status:'accepted',finishedAt:99},{fresh:false,status:'running'}).label,'Sent to Codex');

@@ -154,6 +154,15 @@ task-tree coverage, preserving every usage field and original expiry. No second
 attempt, effect settlement or qualification follows. See
 [ended-Pause receipt recovery](ENDED-PAUSE-RECEIPT-RECOVERY.md).
 
+An ended recovery without its receipt/checkpoint is projected as blocked from
+retained native turn/observer metadata only. The projection writes nothing and
+never infers idle, terminal cleanup or replay authority. New private operator
+host intents require schema 2 and a complete runtime-package integrity pin;
+legacy launch records remain historical, not fresh launch authority. See
+[runtime preflight](HOST-RUNTIME-PREFLIGHT.md). The separately documented
+[continuation proposal](ENDED-RECOVERY-CONTINUATION-PROPOSAL.md) is not an
+executable control or a second recovery attempt.
+
 ## Cooperative exact-PR merge records
 
 Optional reviewed authority `mergeMode` defaults to `manual`; `brain_exact_pr_v1`

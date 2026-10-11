@@ -203,6 +203,43 @@ class PauseReceiptRecoveryTest(unittest.TestCase):
             self.assertFalse(self.confirm(preview)[1])
         self.assertEqual(self.base.retained(self.original["id"]), self.original)
 
+    def test_ended_unreceived_recovery_explains_operator_block_without_replay_or_ledger_write(self):
+        preview = self.preview(); command = self.confirm(preview)[0]["result"]
+        self.notifier.notify(command["id"])
+        with self.ledger.tx() as db:
+            saved = self.ledger.get(db, "commands", command["id"])
+            saved["notification"].update(nativeDelivery="owned_turn_start", nativeTurnStatus="completed",
+                nativeThreadObservation={"streamStatus": "closed"})
+            self.ledger.put(db, "commands", command["id"], saved)
+        with contextlib.closing(self.ledger.connect()) as db: before = list(db.iterdump())
+        self.metadata.calls.clear()
+        view = plan(self.base.state())
+        self.assertEqual(view["mode"], "blocked")
+        self.assertEqual(view["title"], "Recovery ended without a Pause receipt")
+        self.assertEqual(view["requestId"], command["id"])
+        self.assertIsNone(view["key"])
+        self.assertIn("cannot be resent", view["detail"])
+        self.assertIn("Historical terminal and effect status remains unknown", view["detail"])
+        with contextlib.closing(self.ledger.connect()) as db: self.assertEqual(before, list(db.iterdump()))
+        self.assertFalse(self.metadata.calls)
+        self.notifier.notify(command["id"])
+        self.assertEqual(len(self.host.sent), 1)
+        with self.assertRaises(Refusal): self.preview()
+        self.assertFalse(self.confirm(preview)[1])
+        self.assertEqual(self.base.retained(self.original["id"]), self.original)
+
+    def test_retained_ended_checkpoint_missing_and_expired_status_never_infer_safe_terminals(self):
+        state = {"standard": {"run": {"status": "stopping", "pauseReceiptRecovery": {"id": "recovery", "status": "processing", "receiveBy": 5}}},
+                 "commands": [{"id": "recovery", "kind": recovery.KIND, "receivedAt": 1,
+                     "notification": {"nativeDelivery": "owned_turn_start", "nativeTurnStatus": "completed",
+                                      "nativeThreadObservation": {"streamStatus": "closed"}}}]}
+        self.assertEqual(recovery.stalled(state, now=6)["title"], "Recovery ended without its checkpoint")
+        state["commands"][0]["notification"]["nativeTurnStatus"] = "connection_lost"
+        self.assertEqual(recovery.stalled(state, now=6)["title"], "Recovery receipt window has ended")
+        self.assertIsNone(recovery.stalled(state, now=4))
+        state["standard"]["run"]["status"] = "paused"
+        self.assertIsNone(recovery.stalled(state, now=6))
+
     def test_send_boundary_drift_stop_and_other_pending_requests_fence(self):
         command = self.confirm(self.preview())[0]["result"]
         self.claimed(command)

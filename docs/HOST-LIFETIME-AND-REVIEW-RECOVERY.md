@@ -82,14 +82,22 @@ The managed terminal/process observations remain separate facts. All status
 records are historical. It creates no brain, binding, authority, schedule or
 registry entry; it is not a dispatcher.
 
-The owner-only manifest contains exactly `schemaVersion: 1`,
+New launches require the owner-only manifest to contain exactly `schemaVersion: 2`,
 `profile: standard_owned_host_v1`, the canonical private `launcher` path, its
-exact `launcherSha256`, and the canonical registered checkout `cwd`.
+exact `launcherSha256`, the canonical registered checkout `cwd`, and a
+`runtimePackage` pin from the explicit non-executing package preview. Legacy
+schema-1 reviews and status records remain readable, but cannot authorize a new
+launch boundary. There is no automatic conversion or reuse of an old approval.
 The guarded launcher must independently enforce signed vendor integrity, exact
 checkout/paused rollout state, current app-owned context, workspace-write,
 on-request approvals and Code Mode disabled. The manifest label does not verify
 script semantics or native tools. Never use a generic script, copy pipe values
 from another context, modify the signed vendor or assume a socket proves health.
+
+See [complete runtime-package preflight](HOST-RUNTIME-PREFLIGHT.md). Pin the
+entire completed local package before review or launch, not just the main binary.
+Adding a helper after an app-server process starts does not qualify that process.
+This guard deliberately performs no executing native tool probe.
 
 Prepare a **mode-bound** exec review, then separately confirm its exact
 `reviewHash` in the qualified app-owned foreground context. Use shell `exec`

@@ -79,7 +79,7 @@ if __name__ == '__main__':
                         '-c', 'user.email=fixture@example.invalid', 'commit', '--allow-empty',
                         '-qm', 'Disposable preview'], check=True)
         (fixture.root / 'empty-codex-logs').mkdir()
-        for identity in ['alpha', 'draft', 'running', 'connection-lost', 'wake-failed', 'paused', 'recovering', 'completed', 'blocked', 'needs-catalog',
+        for identity in ['alpha', 'draft', 'running', 'connection-lost', 'wake-failed', 'recovery-ended', 'paused', 'recovering', 'completed', 'blocked', 'needs-catalog',
                          'native-tools-missing', 'catalog-not-retryable']:
             ledger, token = (fixture.ledger, fixture.token) if identity == 'alpha' else fixture.workspace(identity)
             (ledger.root / 'observations.json').write_text(json.dumps({'codexHome': str(fixture.root / 'empty-codex-logs')}))
@@ -93,7 +93,7 @@ if __name__ == '__main__':
             if identity == 'draft':
                 from orchestrator.missions import read as mission_read
                 change(ledger, request(spec=specification(mode='phase_delegated'), expectedRevision=mission_read(ledger)['revision']))
-            if identity in ('running', 'connection-lost', 'wake-failed', 'paused', 'recovering', 'completed', 'blocked'):
+            if identity in ('running', 'connection-lost', 'wake-failed', 'recovery-ended', 'paused', 'recovering', 'completed', 'blocked'):
                 fixture.control(ledger=ledger)
                 run_id = read(ledger)['run']['id']
                 if identity == 'connection-lost':
@@ -119,6 +119,24 @@ if __name__ == '__main__':
                             'nativeFailure': {'version': 1, 'stage': 'thread_resume', 'reason': 'rpc_error',
                                               'rpcCode': -32602, 'resumeAttempted': True, 'turnStartAttempted': False}}
                         ledger.put(db, 'commands', command['id'], command)
+                if identity == 'recovery-ended':
+                    pause = fixture.control('pause', ledger=ledger)
+                    with ledger.tx() as db:
+                        meta = ledger.get(db, 'meta', 1)
+                        command_id = 'fixture-ended-recovery'
+                        meta['standardRun']['pauseReceiptRecovery'] = {'id': command_id, 'pauseId': pause['id'],
+                            'status': 'queued', 'receiveBy': time.time()+3600}
+                        ledger.put(db, 'meta', 1, meta)
+                        original = ledger.get(db, 'commands', pause['id'])
+                        original['notification'] = {'status': 'accepted', 'nativeDelivery': 'owned_turn_start',
+                            'nativeTurnStatus': 'completed', 'nativeThreadObservation': {'streamStatus': 'closed'}}
+                        ledger.put(db, 'commands', original['id'], original)
+                        ledger.put(db, 'commands', command_id, {'id': command_id, 'kind': 'standard_pause_receipt_recovery',
+                            'actor': 'assistant_owner_confirmed', 'status': 'queued', 'createdAt': time.time(),
+                            'payload': {'runId': run_id, 'pauseId': pause['id']}, 'result': 'Synthetic ended recovery; no native action occurred.',
+                            'notification': {'status': 'accepted', 'nativeDelivery': 'owned_turn_start',
+                                'nativeTurnId': 'synthetic-ended-recovery', 'nativeTurnStatus': 'completed',
+                                'nativeThreadObservation': {'streamStatus': 'closed'}}})
                 if identity == 'completed':
                     def call(operation, **values):
                         return brain(fixture.registry, ledger, token, {'operation': operation, 'runId': run_id, **values})
@@ -133,7 +151,7 @@ if __name__ == '__main__':
                     call('finish', taskId='fixture-task', outcome='completed', evidence={
                         'source': 'Synthetic commit', 'tests': 'Synthetic tests', 'artifacts': [],
                         'preservation': 'Disposable fixture', 'summary': 'Synthetic evidence only; no native task ran.'})
-                if identity not in ('running', 'connection-lost', 'wake-failed'):
+                if identity not in ('running', 'connection-lost', 'wake-failed', 'recovery-ended'):
                     if identity in ('paused', 'recovering'):
                         fixture.control('pause', ledger=ledger)
                         brain(fixture.registry, ledger, token, {'operation': 'receive', 'runId': run_id})
