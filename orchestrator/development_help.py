@@ -138,6 +138,10 @@ def plan(state):
                     "phase_pause_receipt_recovery")
     if run.get("status") == "stopping" and (run.get("pauseReceiptRecovery") or {}).get("status") in ("queued", "processing"):
         result["requestId"] = run["pauseReceiptRecovery"]["id"]
+        from .pause_receipt_recovery import stalled
+        issue = stalled(state)
+        if issue:
+            return step("blocked", issue["title"], issue["detail"])
         return step("follow", "Following receipt/checkpoint recovery", "Follow the same saved attempt; no second wake will be sent.")
     if run.get("status") == "stopping" and actions["phase_pause_recovery"]["available"]:
         result["requestId"] = s.get("pauseRecovery", {}).get("pauseId")

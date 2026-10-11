@@ -50,7 +50,11 @@ function projectPhaseStatus(snapshot){
   const attention=snapshot.recovery&&(snapshot.recovery.reconciliationRequired||['running','stopping'].includes(run.status));
   const latestControl=[...(snapshot.commands||[])].reverse().find(c=>c.payload?.runId===run.id&&['standard_play','standard_pause','standard_resume'].includes(c.kind));
   const lost=['connection_lost','unconfirmed'].includes(latestControl?.notification?.nativeTurnStatus);
-  const status=next?`Plan v${m.document.version} ${m.effectiveStatus==='reviewed'?'reviewed · Play not started':'awaits review'} · Previous phase ${run.status}`:lost?`CONNECTION UNRESOLVED · phase recorded ${run.status}`:attention?'RECOVERY REQUIRED':run.status.toUpperCase();
+  const receipt=(snapshot.commands||[]).find(c=>c.id===run.pauseReceiptRecovery?.id&&c.kind==='standard_pause_receipt_recovery');
+  const receiptBlocked=run.status==='stopping'&&['queued','processing'].includes(run.pauseReceiptRecovery?.status)&&!receipt?.checkpointHash&&
+    receipt?.notification?.nativeDelivery==='owned_turn_start'&&['completed','failed','interrupted'].includes(receipt.notification.nativeTurnStatus)&&
+    receipt.notification.nativeThreadObservation?.streamStatus==='closed';
+  const status=next?`Plan v${m.document.version} ${m.effectiveStatus==='reviewed'?'reviewed · Play not started':'awaits review'} · Previous phase ${run.status}`:receiptBlocked?`RECOVERY BLOCKED · phase recorded ${run.status}`:lost?`CONNECTION UNRESOLVED · phase recorded ${run.status}`:attention?'RECOVERY REQUIRED':run.status.toUpperCase();
   const unsettled=run.tasks.filter(t=>!['completed','failed','not_created'].includes(t.status)).length;
   return 'STANDARD · '+status+' · '+unsettled+' registered '+(unsettled===1?'task':'tasks')+' unsettled';
 }
@@ -136,6 +140,14 @@ function roadmapJourneyState(snapshot,isConnected=true,now=Date.now()/1000){
     'Review Pause receipt recovery','pause-receipt-recover');
   if(run?.status==='stopping'&&['queued','processing'].includes(run.pauseReceiptRecovery?.status)){
     const request=(snapshot.commands||[]).find(c=>c.id===run.pauseReceiptRecovery.id);
+    const note=request?.notification,observation=note?.nativeThreadObservation;
+    const ended=note?.nativeDelivery==='owned_turn_start'&&['completed','failed','interrupted'].includes(note.nativeTurnStatus)&&observation?.streamStatus==='closed';
+    if(ended&&!request?.checkpointHash)return result(2,request?.receivedAt?'Recovery ended without its checkpoint':'Recovery ended without a Pause receipt',
+      'This attempt cannot be resent. An operator must repair and verify the runtime, then establish a separately reviewed continuation. Historical terminal and effect status remains unknown. Do not repeat Play, Pause or recovery.',
+      'Inspect blocked recovery','request',{request,requiresOperator:true});
+    if(Number.isFinite(run.pauseReceiptRecovery.receiveBy)&&now>run.pauseReceiptRecovery.receiveBy)return result(2,'Recovery receipt window has ended',
+      'The saved attempt remains one-shot. Its outcome needs operator reconciliation; expiry is not permission to resend. Historical terminal and effect status remains unknown.',
+      'Inspect blocked recovery','request',{request,requiresOperator:true});
     return result(2,'Following Pause receipt recovery','Host inspection, native delivery, the Pause receipt and the stopped checkpoint are separate. No second wake will be sent.',
       'Inspect recovery progress','request',{request});
   }

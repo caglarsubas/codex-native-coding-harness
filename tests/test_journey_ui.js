@@ -100,6 +100,23 @@ box.journeyAction(model(s).action);assert.deepEqual(calls.at(-1),['preview','pha
 s.standard.pauseReceiptRecovery.available=false;s.standard.run.pauseReceiptRecovery={id:'receipt',status:'queued'};
 s.commands=[{id:'receipt',kind:'standard_pause_receipt_recovery',status:'queued'}];
 assert.equal(model(s).action,'request');assert.match(model(s).detail,/No second wake/);
+const recoveryRequest=s.commands[0];
+recoveryRequest.notification={nativeDelivery:'owned_turn_start',nativeTurnStatus:'completed',nativeThreadObservation:{streamStatus:'closed'}};
+assert.equal(model(s).title,'Recovery ended without a Pause receipt');assert.equal(model(s).requiresOperator,true);
+assert.match(box.projectPhaseStatus(s),/RECOVERY BLOCKED.*phase recorded stopping/);
+assert.match(model(s).detail,/cannot be resent/);assert.match(model(s).detail,/Historical terminal and effect status remains unknown/);
+assert.equal(model(s).action,'request','An ended recovery opens its retained record, not a second confirmation');
+recoveryRequest.receivedAt=950;assert.equal(model(s).title,'Recovery ended without its checkpoint');
+delete recoveryRequest.receivedAt;
+for(const status of ['failed','interrupted']){recoveryRequest.notification.nativeTurnStatus=status;assert.equal(model(s).requiresOperator,true);}
+recoveryRequest.notification.nativeTurnStatus='completed';recoveryRequest.notification.nativeThreadObservation.streamStatus='monitoring';
+assert.equal(model(s).title,'Following Pause receipt recovery','An open observer is not an ended attempt');
+recoveryRequest.notification={nativeDelivery:'owned_turn_start',nativeTurnStatus:'connection_lost'};
+assert.equal(model(s).title,'Following Pause receipt recovery','Connection loss is not terminal proof');
+s.standard.run.pauseReceiptRecovery.receiveBy=900;
+assert.equal(model(s).title,'Recovery receipt window has ended');assert.match(model(s).detail,/expiry is not permission to resend/);
+assert.equal(model(s).action,'request');delete s.standard.run.pauseReceiptRecovery.receiveBy;
+delete recoveryRequest.notification;
 delete s.standard.run.pauseReceiptRecovery;s.commands=[];delete s.standard.pauseReceiptRecovery;
 s.commands=[{status:'completed',notification:{hostRunId:'run',turnRecovery:{status:'awaiting_end'}}}];
 assert.equal(model(s).action,'conversation','A consumed cancellation follows its existing outcome');
