@@ -10,7 +10,7 @@ from .assistant_actions import ActionProposals, TTL
 from .core import Refusal, digest, require
 from .recovery import describe
 
-KINDS = {"phase_help", "phase_prepare", "phase_reconcile", "phase_recovery", "phase_pause_recovery", "phase_pause_receipt_recovery", "phase_close", "phase_review", "phase_play", "phase_pause", "phase_resume", "brain_budget", "usage_check", "codex_check", "brain_message"}
+KINDS = {"phase_help", "phase_prepare", "phase_reconcile", "phase_recovery", "phase_pause_recovery", "phase_pause_receipt_recovery", "phase_ended_recovery_record", "phase_close", "phase_review", "phase_play", "phase_pause", "phase_resume", "brain_budget", "usage_check", "codex_check", "brain_message"}
 PREPARE_MESSAGE = (
     "Review this project's configured roadmap sources and latest retained results. "
     "Prepare the next unfinished, bounded phase as a mission draft. Include goal, success criteria, "
@@ -157,6 +157,11 @@ def catalog(state):
     add("phase_pause_receipt_recovery", "Recover Pause receipt and checkpoint", RECEIPT_BOUNDARY,
         receipt["reason"] or ("A reviewed owned Codex host is required." if
             state.get("brainNotification", {}).get("transport") != "owned_app_server" else None))
+    from .ended_recovery_record import availability as record_available, BOUNDARY as RECORD_BOUNDARY
+    record = record_available(state)
+    add("phase_ended_recovery_record", "Review non-waking recovery inspection", RECORD_BOUNDARY,
+        record["reason"] or ("A separately reviewed owned host is required." if
+            state.get("brainNotification", {}).get("transport") != "owned_app_server" else None))
     add("phase_resume", "Resume this phase", "Continue the saved phase with its existing limits and consumed usage.",
         "Finish the existing brain handoff first." if blocked_handoff else
         None if run.get("status") == "paused" and not s.get("blockers") else "A paused phase with resolved prerequisites is required.")
@@ -263,6 +268,19 @@ class JourneyProposals(ActionProposals):
             request = {"id": ident, "contextHash": standard["contextHash"]}
         elif kind == "usage_check":
             request = {"id": ident, "runId": standard["run"]["id"], "contextHash": standard["contextHash"]}
+        elif kind == "phase_ended_recovery_record":
+            from . import ended_recovery_record as record
+            evidence = record.inspect(self.runtime.registry, self.runtime.ledger,
+                self.runtime.notifier.app_server, self.runtime.turn_recovery_controls)
+            require(self.runtime.ledger.snapshot()["meta"]["revision"] == state["meta"]["revision"],
+                    "Project changed during inspection")
+            request = {"id": ident, "expectedRevision": state["meta"]["revision"],
+                       "recoveryId": record.eligible(state)[1]["id"], "evidence": evidence}
+            preview["summary"] = ["No native turn will be started, loaded, interrupted or resent.",
+                "Record only the exact completed turn and loaded-idle, empty current tracker observations.",
+                "Historical effects remain unknown. This does not close the phase, save a brain receipt or allow Play."]
+            preview["details"] = {"recoveryId": request["recoveryId"], "observation": evidence["observation"],
+                "outcome": "blocked", "qualification": "unqualified", "boundary": record.BOUNDARY}
         elif kind == "phase_pause_receipt_recovery":
             from . import pause_receipt_recovery as recovery, reply_recovery
             from .native_read_client import ReadProxy
@@ -456,6 +474,11 @@ class JourneyProposals(ActionProposals):
                 if usage_prior:
                     return self.result(doc, json.loads(usage_prior[0])), False
         if prior:
+            if kind == "phase_ended_recovery_record":
+                from .ended_recovery_record import retained
+                saved = json.loads(prior[0])
+                with contextlib.closing(ledger.connect()) as db:
+                    retained(ledger, db, saved, request)
             return self.result(doc, json.loads(prior[0])), False
         if not mission_prior:
             require(time.time() <= doc["expiresAt"], "Preview expired; request a fresh preview")
@@ -467,6 +490,24 @@ class JourneyProposals(ActionProposals):
             from .brain_memory import refresh
             require(standard.read(ledger)["contextHash"] == request["contextHash"], "Run changed; review a fresh usage request")
             return self.result(doc, refresh(ledger, request["runId"], doc["id"])), False
+        if kind == "phase_ended_recovery_record":
+            from . import ended_recovery_record as record
+            try:
+                evidence = record.inspect(self.runtime.registry, ledger, self.runtime.notifier.app_server,
+                                          self.runtime.turn_recovery_controls)
+                record.same_evidence(request["evidence"], evidence)
+                return self.result(doc, record.confirm(self.runtime.registry, ledger, request, evidence, doc["expiresAt"])), False
+            except Refusal:
+                # A racing tab may have committed exactly this local receipt.
+                # Recover it without further host I/O, never replay any native effect.
+                with contextlib.closing(ledger.connect()) as db:
+                    row = db.execute("SELECT data FROM commands WHERE id=?", (request["id"],)).fetchone()
+                saved = json.loads(row[0]) if row else {}
+                if saved.get("kind") == record.KIND and saved.get("payload", {}).get("requestHash") == digest(request):
+                    with contextlib.closing(ledger.connect()) as db:
+                        record.retained(ledger, db, saved, request)
+                    return self.result(doc, saved), False
+                raise
         if kind == "phase_pause_receipt_recovery":
             from . import pause_receipt_recovery as recovery, reply_recovery
             from .native_read_client import ReadProxy
@@ -559,7 +600,7 @@ class JourneyProposals(ActionProposals):
     @staticmethod
     def result(doc, result):
         return {"workflow": doc["workflow"], "id": doc["id"], "result": result,
-                "message": result["result"] if doc["workflow"] in ("phase_close", "brain_budget") else
+                "message": result["result"] if doc["workflow"] in ("phase_close", "brain_budget", "phase_ended_recovery_record") else
                            "Pause recovery saved. Follow delivery, the Pause receipt and its paused checkpoint separately." if doc["workflow"] in ("phase_pause_recovery", "phase_pause_receipt_recovery") else
                            "Recovery-only preparation saved. The phase remains paused; follow native delivery and the brain's separate receipt." if doc["workflow"] == "phase_recovery" else
                            "Phase plan reviewed. You can now review Play here." if doc["workflow"] == "phase_review" else

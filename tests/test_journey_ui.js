@@ -10,7 +10,7 @@ class Element{
   get lastChild(){return this.children.at(-1);}
 }
 const calls=[],notices=[],drafts=new Map();
-const box={workspaceId:'alpha',busy:false,connected:true,missionDrafts:new Map(),brainDrafts:drafts,brainPages:new Map(),brainRequestFocus:new Map(),standardPreviews:new Map(),standardCatalogInFlight:new Set(),
+const box={workspaceId:'alpha',busy:false,connected:true,assistantPending:false,missionDrafts:new Map(),brainDrafts:drafts,brainPages:new Map(),brainRequestFocus:new Map(),standardPreviews:new Map(),standardCatalogInFlight:new Set(),
   document:{getElementById:()=>null},el:(...args)=>new Element(...args),button:(text,click)=>Object.assign(new Element('button',text),{click}),
   num:String,when:String,navigateView:view=>calls.push(['navigate',view]),showNotice:text=>notices.push(text),
   reviewStandardControl:(s,op)=>calls.push(['review',op]),requestCatalogForPlay:()=>calls.push(['catalog']),refresh:()=>calls.push(['refresh']),
@@ -106,6 +106,22 @@ assert.equal(model(s).title,'Recovery ended without a Pause receipt');assert.equ
 assert.match(box.projectPhaseStatus(s),/RECOVERY BLOCKED.*phase recorded stopping/);
 assert.match(model(s).detail,/cannot be resent/);assert.match(model(s).detail,/Historical terminal and effect status remains unknown/);
 assert.equal(model(s).action,'request','An ended recovery opens its retained record, not a second confirmation');
+s.endedRecoveryRecord={available:true};box.state=s;
+let inspectionHistory=new Element('main');const beforeInspection=calls.length;box.controlRequestHistory(inspectionHistory);
+assert.equal(calls.length,beforeInspection,'Rendering saved availability never inspects a host');
+let inspectionButton=all(inspectionHistory).find(n=>n.text==='Review non-waking recovery inspection');
+assert.equal(inspectionButton.disabled,false);assert.match(text(inspectionHistory),/Unknown historical effects still block closeout and Play/);
+inspectionButton.click();assert.deepEqual(calls.slice(-2),[['focus','assistant'],['preview','phase_ended_recovery_record']],
+  'The new inspection preview must be visible in the docked inspector');
+for(const flag of ['connected','assistantPending']){
+  box[flag]=flag==='assistantPending';inspectionHistory=new Element('main');box.controlRequestHistory(inspectionHistory);
+  assert.equal(all(inspectionHistory).find(n=>n.text==='Review non-waking recovery inspection').disabled,true);
+  box[flag]=flag==='connected';
+}
+s.endedRecoveryRecord.available=false;inspectionHistory=new Element('main');box.controlRequestHistory(inspectionHistory);
+assert.ok(!text(inspectionHistory).includes('Review non-waking recovery inspection'));
+assert.equal(model(s).action,'request','A recorded inspection cannot advance to closeout or Play');
+delete s.endedRecoveryRecord;
 recoveryRequest.receivedAt=950;assert.equal(model(s).title,'Recovery ended without its checkpoint');
 delete recoveryRequest.receivedAt;
 for(const status of ['failed','interrupted']){recoveryRequest.notification.nativeTurnStatus=status;assert.equal(model(s).requiresOperator,true);}

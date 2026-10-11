@@ -1,5 +1,26 @@
 # Codex Orchestrator — personal tooling
 
+## Exhausted-recovery owner inspection (2026-10-11)
+
+The separately signed `phase_ended_recovery_record` adapter may retain one local
+owner inspection of an accepted, completed Pause receipt recovery that ended
+without its ledger receipt. Read docs/ENDED-RECOVERY-RECORD.md before using it.
+It requires an empty stopping standard run, no controller/runner/approval or
+other pending ownership, the exact original Pause/recovery/closed observer and
+restricted policy, and repeated completed-turn, loaded-idle and known-empty
+current tracked-terminal metadata. An unloaded brain remains unknown; this
+adapter has no load or native write permit. A separately reviewed replacement
+may be read only with preserved original binding, unchanged brain/workspace/
+checkout/both project IDs/policy and repeated original-PID absence tied to its
+reviewed launch claim. This never migrates the claimed recovery or connects to
+the old endpoint. Polling and Help collect nothing. Confirmation atomically
+retains an owner-only blocked/unqualified record and local receipt, preserving
+the complete original run/commands, usage/gaps and expiry. It does not add a
+brain receipt, checkpoint, closeout, ownership release or notification, and
+historical effects remain unknown. Existing closeout prerequisites stay intact.
+Source delivery installs nothing, repairs no runtime and does not qualify the
+pilot. Historical reconciliation and terminal closeout remain separate work.
+
 ## Ended-turn replacement-host recovery (2026-10-10)
 
 For the narrow empty-run orphaned-turn recovery below, source may support an
