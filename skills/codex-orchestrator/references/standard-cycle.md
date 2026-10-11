@@ -385,3 +385,16 @@ work does not authorize installation, policy migration, live changes or activati
 5. Keep the run retained until unresolved merge delivery is reconciled. Preserve
    the immutable binding, original observation times and dashboard history. Stop
    at the reviewed owner checkpoint. No next-phase approval follows from merge.
+
+## Exhausted receipt recovery: no second wake
+
+Read `docs/HISTORICAL-EFFECT-CLOSEOUT.md` before using its two separate signed owner
+controls. Historical reconciliation only reads exact native history and configured
+local call inventory, retaining unknowns. Terminal closeout requires independently
+proved non-execution and repeated loaded-idle, known-empty current tracked terminals;
+executed effects or missing results remain fenced. Close only as blocked/unqualified,
+preserving original requests, missing receipts, checkpoint, usage/gaps and expiry.
+The immutable sidecar retires pending-control presentation, not native effects or
+brain receipts. No load, wake, replay, Play, Resume, usage reset or pilot acceptance.
+Source delivery installs nothing and confirms no live control. A successor still
+requires separate Help preparation, exact mission Review and Play.

@@ -11,6 +11,7 @@ from .core import Refusal, digest, require
 from .recovery import describe
 
 KINDS = {"phase_help", "phase_prepare", "phase_reconcile", "phase_recovery", "phase_pause_recovery", "phase_pause_receipt_recovery", "phase_ended_recovery_record", "phase_close", "phase_review", "phase_play", "phase_pause", "phase_resume", "brain_budget", "usage_check", "codex_check", "brain_message"}
+KINDS.update({"phase_historical_effects", "phase_terminal_closeout"})
 PREPARE_MESSAGE = (
     "Review this project's configured roadmap sources and latest retained results. "
     "Prepare the next unfinished, bounded phase as a mission draft. Include goal, success criteria, "
@@ -71,6 +72,9 @@ def reconciliation_message(state):
 
 
 def catalog(state):
+    state = copy.deepcopy(state)
+    state["commands"] = [c for c in state.get("commands", [])
+                         if c["id"] not in state.get("historicalCommandIds", [])]
     s, m = state.get("standard"), state.get("mission") or {}
     repos = state.get("repositories") or []
     if not state.get("workspace") or not s or not repos or any(r.get("policyProfile") != "standard" for r in repos):
@@ -162,6 +166,14 @@ def catalog(state):
     add("phase_ended_recovery_record", "Review non-waking recovery inspection", RECORD_BOUNDARY,
         record["reason"] or ("A separately reviewed owned host is required." if
             state.get("brainNotification", {}).get("transport") != "owned_app_server" else None))
+    from . import historical_effects as history
+    available = history.availability(state)
+    add(history.WORKFLOW, "Review historical effects", history.BOUNDARY,
+        available["reason"] or ("A separately reviewed owned host is required." if
+            state.get("brainNotification", {}).get("transport") != "owned_app_server" else None))
+    close = state.get("terminalCloseout") or {"available": False, "reason": "Historical reconciliation is required."}
+    add(history.CLOSE_WORKFLOW, "Review terminal closeout", history.CLOSE_BOUNDARY,
+        None if close["available"] else close["reason"])
     add("phase_resume", "Resume this phase", "Continue the saved phase with its existing limits and consumed usage.",
         "Finish the existing brain handoff first." if blocked_handoff else
         None if run.get("status") == "paused" and not s.get("blockers") else "A paused phase with resolved prerequisites is required.")
@@ -268,6 +280,30 @@ class JourneyProposals(ActionProposals):
             request = {"id": ident, "contextHash": standard["contextHash"]}
         elif kind == "usage_check":
             request = {"id": ident, "runId": standard["run"]["id"], "contextHash": standard["contextHash"]}
+        elif kind in ("phase_historical_effects", "phase_terminal_closeout"):
+            from . import historical_effects as history
+            closing = kind == history.CLOSE_WORKFLOW
+            evidence = history.inspect(self.runtime.registry, self.runtime.ledger,
+                self.runtime.notifier.app_server, self.runtime.turn_recovery_controls, closing=closing)
+            require(self.runtime.ledger.snapshot()["meta"]["revision"] == state["meta"]["revision"],
+                    "Project changed during historical inspection")
+            prior_hash = None
+            if closing:
+                with contextlib.closing(self.runtime.ledger.connect()) as db:
+                    _, prior = history.latest_record(self.runtime.ledger, db, history.record.saved_state(self.runtime.ledger))
+                    prior_hash = digest(prior)
+            request = {"id": ident, "expectedRevision": state["meta"]["revision"],
+                "recoveryId": history.eligible(state)[1]["id"], "closing": closing,
+                "reconciliationHash": prior_hash, "evidence": evidence}
+            preview["summary"] = [
+                "No thread is loaded, interrupted or started. No permission is answered or effect replayed.",
+                "Historical outcome: "+evidence["report"]["effectOutcome"]+
+                "; current terminals: "+str(evidence["observation"]["trackedTerminals"] if evidence["observation"]["trackedTerminals"] is not None else "unknown")+".",
+                "Close this phase as blocked and unqualified; keep every original receipt, usage gap and expiry." if closing else
+                "Retain this evidence only. Unknown historical effects remain blocked; terminal closeout needs its own review."]
+            preview["details"] = {"recoveryId": request["recoveryId"], "observation": evidence["observation"],
+                "historicalEvidence": evidence["report"], "outcome": "blocked", "qualification": "unqualified",
+                "boundary": history.CLOSE_BOUNDARY if closing else history.BOUNDARY}
         elif kind == "phase_ended_recovery_record":
             from . import ended_recovery_record as record
             evidence = record.inspect(self.runtime.registry, self.runtime.ledger,
@@ -419,6 +455,10 @@ class JourneyProposals(ActionProposals):
                "workspaceId": state["workspace"]["id"], "ledger": digest(str(self.runtime.ledger.db)),
                "session": digest(session), "brainId": state["meta"]["brainId"],
                "createdAt": now, "expiresAt": expires}
+        if kind in ("phase_historical_effects", "phase_terminal_closeout"):
+            from .core import canonical
+            require(len(canonical({"proposal": {"document": doc, "signature": "0"*64}, "confirmed": True}).encode()) <= 30000,
+                    "Historical review exceeds the authenticated request bound; nothing was truncated or submitted")
         return {"document": doc, "signature": self.sign(doc)}
 
     def confirm(self, ledger, body, session):
@@ -474,6 +514,10 @@ class JourneyProposals(ActionProposals):
                 if usage_prior:
                     return self.result(doc, json.loads(usage_prior[0])), False
         if prior:
+            if kind in ("phase_historical_effects", "phase_terminal_closeout"):
+                from .historical_effects import retained
+                with contextlib.closing(ledger.connect()) as db:
+                    retained(ledger, db, json.loads(prior[0]), request)
             if kind == "phase_ended_recovery_record":
                 from .ended_recovery_record import retained
                 saved = json.loads(prior[0])
@@ -490,6 +534,20 @@ class JourneyProposals(ActionProposals):
             from .brain_memory import refresh
             require(standard.read(ledger)["contextHash"] == request["contextHash"], "Run changed; review a fresh usage request")
             return self.result(doc, refresh(ledger, request["runId"], doc["id"])), False
+        if kind in ("phase_historical_effects", "phase_terminal_closeout"):
+            from . import historical_effects as history
+            try:
+                evidence = history.inspect(self.runtime.registry, ledger, self.runtime.notifier.app_server,
+                    self.runtime.turn_recovery_controls, closing=request["closing"])
+                return self.result(doc, history.confirm(self.runtime.registry, ledger, request, evidence, doc["expiresAt"])), False
+            except Refusal:
+                with contextlib.closing(ledger.connect()) as db:
+                    row = db.execute("SELECT data FROM commands WHERE id=?", (request["id"],)).fetchone()
+                    if row:
+                        saved = json.loads(row[0])
+                        history.retained(ledger, db, saved, request)
+                        return self.result(doc, saved), False
+                raise
         if kind == "phase_ended_recovery_record":
             from . import ended_recovery_record as record
             try:
@@ -600,7 +658,7 @@ class JourneyProposals(ActionProposals):
     @staticmethod
     def result(doc, result):
         return {"workflow": doc["workflow"], "id": doc["id"], "result": result,
-                "message": result["result"] if doc["workflow"] in ("phase_close", "brain_budget", "phase_ended_recovery_record") else
+                "message": result["result"] if doc["workflow"] in ("phase_close", "brain_budget", "phase_ended_recovery_record", "phase_historical_effects", "phase_terminal_closeout") else
                            "Pause recovery saved. Follow delivery, the Pause receipt and its paused checkpoint separately." if doc["workflow"] in ("phase_pause_recovery", "phase_pause_receipt_recovery") else
                            "Recovery-only preparation saved. The phase remains paused; follow native delivery and the brain's separate receipt." if doc["workflow"] == "phase_recovery" else
                            "Phase plan reviewed. You can now review Play here." if doc["workflow"] == "phase_review" else

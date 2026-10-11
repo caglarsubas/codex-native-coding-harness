@@ -69,6 +69,19 @@ function controlRequestHistory(root){
   const commands=[...(state.commands||[])].reverse();
   const details=journeyDisclosure('control-requests','Details · Control request history',body=>{
     body.append(el('p','Saved request, native delivery and brain receipt are separate. Inspect the existing request before sending more work. This history submits nothing.','muted'));
+    const historical=state.historicalEffects?.latestRecord;
+    if(historical){
+      body.append(el('h3','Saved historical evidence'),el('p',`${historical.report.gaps.length} unresolved evidence gaps · recorded ${when(historical.at)}${historical.current?'':' · run has changed; this evidence is stale'}. No effect or recovery was replayed.`));
+      const evidence=el('details');evidence.append(el('summary','Details · exact historical evidence gaps'),el('pre',JSON.stringify(historical.report,null,2)));body.append(evidence);
+    }
+    if(state.historicalEffects?.available&&state.brainNotification?.transport==='owned_app_server'){
+      const review=button(historical?'Check historical evidence again':'Review historical effects',()=>{focusAssistantConversation();return assistantRequestStep('phase_historical_effects');});
+      review.disabled=!connected||assistantPending;body.append(review);
+      if(state.terminalCloseout?.available){
+        const close=button('Review terminal closeout',()=>{focusAssistantConversation();return assistantRequestStep('phase_terminal_closeout');});
+        close.disabled=!connected||assistantPending;body.append(close);
+      }else body.append(el('p',state.terminalCloseout?.reason||'Historical effects need reconciliation before closeout.','muted'));
+    }
     if(state.endedRecoveryRecord?.available&&state.brainNotification?.transport==='owned_app_server'){
       body.append(el('p','After separately reviewed host repair, inspect the exact ended recovery without waking it. Unknown historical effects still block closeout and Play.','muted'));
       const review=button('Review non-waking recovery inspection',()=>{
@@ -141,7 +154,18 @@ function roadmapJourneyState(snapshot,isConnected=true,now=Date.now()/1000){
   if(handoff&&['prepared','candidate','received'].includes(handoff.status))return result(3,'Finish the brain handoff',
     handoff.status==='received'?'The replacement received its checkpoint. Project identity and final owner review still need to be resolved before continuing.':'A replacement brain is being prepared. Follow its recorded progress before continuing the phase.',
     'Review handoff progress','handoff',{canPause:run?.status==='running'});
-  const pending=[...(snapshot.commands||[])].reverse().find(c=>run&&c.payload?.runId===run.id&&['standard_play','standard_pause','standard_resume'].includes(c.kind)&&['queued','processing'].includes(c.status));
+  const pending=[...(snapshot.commands||[])].reverse().find(c=>!(snapshot.historicalCommandIds||[]).includes(c.id)&&run&&c.payload?.runId===run.id&&['standard_play','standard_pause','standard_resume'].includes(c.kind)&&['queued','processing'].includes(c.status));
+  if(run?.status==='stopping'&&snapshot.historicalEffects?.available&&snapshot.brainNotification?.transport==='owned_app_server'){
+    if(snapshot.historicalEffects.latestRecord?.current&&snapshot.historicalEffects.latestRecord?.report?.gaps?.length)return result(3,'Historical evidence is still missing',
+      'The saved inspection found unresolved effects. Inspect the exact gaps; another recovery or confirmation will not supply a missing result.',
+      'Inspect missing evidence','operations');
+    if(snapshot.terminalCloseout?.available)return result(3,'Historical effects reconciled; check terminal closeout',
+      'Review fresh current-terminal evidence and close this phase only as blocked and unqualified. No brain receipt, safe checkpoint or pilot success is implied.',
+      'Review terminal closeout','terminal-closeout');
+    return result(3,'Check historical effects without another recovery',
+      'Compare native history with the exact saved call inventory. Missing results stay unknown; nothing is loaded, executed or resent.',
+      'Review historical effects','historical-effects');
+  }
   if(run?.status==='stopping'&&s.pauseReceiptRecovery?.available&&snapshot.brainNotification?.transport==='owned_app_server')return result(2,'Recover the Pause receipt',
     'The Pause turn ended without saving its receipt. Review one receipt/checkpoint-only recovery. Development and historical effects remain stopped and unverified.',
     'Review Pause receipt recovery','pause-receipt-recover');
@@ -282,6 +306,8 @@ function prepareRoadmapPhase(){
   document.getElementById('brain-message')?.focus();
 }
 function journeyAction(action){
+  if(action==='historical-effects'){focusAssistantConversation();return assistantRequestStep('phase_historical_effects');}
+  if(action==='terminal-closeout'){focusAssistantConversation();return assistantRequestStep('phase_terminal_closeout');}
   if(action==='usage-check'){focusAssistantConversation();return assistantRequestStep('usage_check');}
   if(action==='budget'){navigateView('usage');const panel=document.getElementById('brain-budget-review');panel?.scrollIntoView({block:'start'});panel?.focus();return;}
   if(action==='close'){focusAssistantConversation();return assistantRequestStep('phase_close');}

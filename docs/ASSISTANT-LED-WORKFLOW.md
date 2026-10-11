@@ -65,8 +65,19 @@ prepare a signed local inspection record. Its exact confirmation retains only
 **blocked · unqualified** evidence; historical effects stay unknown and the old
 requests, usage and expiry remain intact. It neither adds a brain receipt nor
 unlocks closeout, Help or Play. Polling/Help collect no native evidence. See
-[owner inspection record](ENDED-RECOVERY-RECORD.md); historical reconciliation
-and terminal closeout are still separate, unimplemented work.
+[owner inspection record](ENDED-RECOVERY-RECORD.md).
+
+The separate **Review historical effects** control cross-checks persisted native
+items against the configured exact local call inventory, without loading or waking
+the brain. **confirm historical effects** retains unknowns as blocked/unqualified.
+Only complete proved non-execution can expose **Review terminal closeout**;
+**confirm terminal closeout** additionally requires fresh loaded-idle, known-empty
+current tracked terminals. It preserves the original missing receipts, usage/gaps,
+expiry and checkpoint, and closes as blocked/unqualified, never pilot success.
+The saved closeout offers **Next: Help me continue development** for successor
+preparation; Review and Play remain separate. Executed effects without independent
+cleanup evidence cannot use this path. See [historical evidence and closeout](HISTORICAL-EFFECT-CLOSEOUT.md).
+Source delivery does not install or confirm these controls on the live pilot.
 
 For an empty paused phase at a brain-budget checkpoint, **Review brain allowance**
 opens a separate signed local reallocation. Its old/new amount, unchanged phase

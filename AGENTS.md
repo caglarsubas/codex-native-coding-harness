@@ -1,5 +1,22 @@
 # Codex Orchestrator — personal tooling
 
+## Historical-effect reconciliation and closeout (2026-10-11)
+
+The separately signed non-waking `phase_historical_effects` and
+`phase_terminal_closeout` source adapters are described in
+docs/HISTORICAL-EFFECT-CLOSEOUT.md. Read it fully before using either.
+Reconciliation retains unknown effects without changing the run. Closeout requires
+complete correlated historical non-execution and repeated fresh exact loaded-idle,
+known-empty current tracked terminals; ended turns, command exits, unloaded threads,
+missing results and empty replacement-host trackers do not prove old cleanup.
+Preserve original Play/Pause/consumed recovery bytes, missing receipts, checkpoint,
+usage/gaps and expiry. Close only as blocked/unqualified; never fabricate a brain
+receipt, safe checkpoint or pilot acceptance. Retire exact old pending controls only
+through the validated immutable sidecar, not by changing their status. No native
+write, load, permission response, observer reconnect, replay, Play or Resume follows.
+Executed/unsupported effects remain fenced pending an independent evidence path.
+Source delivery installs nothing, binds nothing and confirms no live control.
+
 ## Exhausted-recovery owner inspection (2026-10-11)
 
 The separately signed `phase_ended_recovery_record` adapter may retain one local

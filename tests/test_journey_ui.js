@@ -332,3 +332,17 @@ assert.equal(model(box.state).request.id,'recovery','Follow recovery rather than
 assert.equal(model(box.state).action,'request');
 assert.match(model(box.state).title,/Following Pause recovery/);
 assert.equal(model(box.state,false).action,'refresh','Disconnected cached eligibility never offers a wake');
+
+box.state.historicalEffects={available:true};box.state.terminalCloseout={available:false};
+assert.equal(model(box.state).action,'historical-effects','Ended recovery offers a non-waking historical inspection, not another wake');
+let beforeHistorical=calls.length;box.journeyAction('historical-effects');
+assert.deepEqual(calls.slice(beforeHistorical),[['focus','assistant'],['preview','phase_historical_effects']]);
+box.state.historicalEffects.latestRecord={current:true,report:{gaps:['unmatched_effect:call']}};
+assert.equal(model(box.state).action,'operations','Known missing evidence is inspected, not another confirmation loop');
+delete box.state.historicalEffects.latestRecord;
+box.state.terminalCloseout.available=true;
+assert.equal(model(box.state).action,'terminal-closeout');
+beforeHistorical=calls.length;box.journeyAction('terminal-closeout');
+assert.deepEqual(calls.slice(beforeHistorical),[['focus','assistant'],['preview','phase_terminal_closeout']]);
+box.state.historicalCommandIds=['recovery'];box.state.standard.run=run('blocked');
+assert.notEqual(model(box.state).action,'request','Owner-retired requests do not keep the successor journey waiting');

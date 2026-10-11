@@ -344,5 +344,18 @@ Its outcome stays `blocked`, qualification `unqualified`, historical terminal
 coverage/effect outcome `unknown` and task-tree completeness `false`. Neither
 current empty tracked terminals nor this receipt is safe-checkpoint or closeout
 evidence. The original requests remain untouched and unresolved. See
-[owner inspection record](ENDED-RECOVERY-RECORD.md); historical reconciliation
-and terminal closeout remain separate, unimplemented work.
+[owner inspection record](ENDED-RECOVERY-RECORD.md).
+
+## Separate historical reconciliation and terminal closeout
+
+`standard_historical_effects` records private bounded native-history/local-inventory
+hashes, exact repeated observations, all original commands and the unchanged run.
+Unknown effects stay blocked. `standard_terminal_closeout` requires the exact prior
+reconciliation and independently known non-execution plus fresh known-empty current
+terminals. Its separate atomic owner receipt closes only as blocked/unqualified,
+without replacing the previous checkpoint or any original receipt, usage or expiry.
+Both are local-completed, idempotent and non-notifiable. The immutable validated
+`historicalEffectClosures` sidecar distinguishes original queued requests from future
+pending work; it never fabricates a brain receipt or permits another send.
+See [historical evidence and closeout](HISTORICAL-EFFECT-CLOSEOUT.md). Executed-effect
+cleanup, live installation and pilot acceptance remain outside this source adapter.

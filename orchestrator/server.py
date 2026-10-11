@@ -1,6 +1,7 @@
 """Loopback dashboard with an opt-in, fixed-purpose native brain notification."""
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import contextlib
 import json
 import hashlib
 import hmac
@@ -136,6 +137,11 @@ class WorkspaceRuntime:
         state["phaseCloseout"] = closeout_availability(state)
         from .ended_recovery_record import availability as ended_record_availability
         state["endedRecoveryRecord"] = ended_record_availability(state)
+        from . import historical_effects
+        with contextlib.closing(self.ledger.connect()) as db:
+            state["historicalCommandIds"] = sorted(historical_effects.historical_ids(self.ledger, db))
+        state["historicalEffects"] = historical_effects.saved_view(self.ledger, state)
+        state["terminalCloseout"] = historical_effects.close_available(self.ledger, state)
         return state
 
     def submit_control(self, body, actor="dashboard"):
