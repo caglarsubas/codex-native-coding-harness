@@ -31,6 +31,8 @@ run('a.receipt={message:"Saved",result:{id:"p",kind:"reconcile",status:"complete
 run('a.receipt=null; a.uncertain=true');assert.equal(run('assistantWorkflowState(a).locked'),false,'Same receipt can be recovered after expiry');
 run('a.uncertain=false; a.proposal.document.expiresAt=Date.now()/1000+300; assistantActions.set("q",{...a});');box.assistantTypedConfirmation('confirm review');assert.equal(run('sent'),1,'Ambiguous confirmation must not choose a target');
 assert(!fs.readFileSync('web/assistant-workflow.js','utf8').includes('innerHTML'));
+assert.match(fs.readFileSync('web/assistant-workflow.js','utf8'),/historicalMissingEvidence\(section,doc\.request\?\.evidence\?\.report\|\|p\.details\.historicalEvidence\)/,
+  'Render all evidence requirements from the single signed report, with an older-preview fallback');
 assert.match(fs.readFileSync('web/one-page.css','utf8'),/\.assistant-body:has\(\.chat-action\) \.assistant-composer\{position:static\}/,'Control reviews must not be obscured by the composer');
 const inspector={scrollTop:40,getBoundingClientRect:()=>({top:100})};
 box.assistantRevealControl({closest:()=>inspector,getBoundingClientRect:()=>({top:300}),scrollIntoView:()=>assert.fail('Do not pan the workspace')});

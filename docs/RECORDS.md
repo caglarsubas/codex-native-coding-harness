@@ -368,3 +368,11 @@ selects an old connection or grants a recovery permit. Older version-1 receipts
 stay immutable. Interrupted pagination cannot discard already observed pages,
 and missing results or historical cleanup stay unknown rather than permitting
 closeout. No usage, observer status or receipt is rewritten by this evidence path.
+
+Historical previews now retain the complete report only in the signed request,
+not again in preview details. The rendered missing-evidence list reads that
+same report (older preview projections remain readable). This corrects real
+multi-host review envelopes that exceeded the authenticated request bound through
+duplication; it neither drops requirements nor expands the bound. Source-only
+delivery does not submit a historical record, settle effects, reset usage, send
+another native request or qualify the pilot.

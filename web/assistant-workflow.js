@@ -94,7 +94,9 @@ function assistantWorkflowPreview(item,proposal,guided=false){
   if(['phase_ended_recovery_record','phase_historical_effects','phase_terminal_closeout'].includes(doc.workflow)){
     section.append(el('p','Blocked · unqualified. This is a local owner record, not a brain receipt or permission to continue.','chat-phase-title'));
     const details=el('details');details.append(el('summary','Details · non-waking evidence'),el('pre',JSON.stringify(p.details,null,2)));section.append(details);
-    historicalMissingEvidence(section,p.details.historicalEvidence);
+    // The signed request owns the full report; do not duplicate its arrays
+    // in preview details. Older signed previews retain their fallback view.
+    historicalMissingEvidence(section,doc.request?.evidence?.report||p.details.historicalEvidence);
   }
   if(p.mission){
     const {spec,version}=p.mission,a=spec.authority;

@@ -124,6 +124,15 @@ signed private request; the visible preview uses a compact requirements projecti
 to avoid duplicating the full inventory. Version-1 saved reports remain valid and
 immutable; new reports use version 2.
 
+The full report occurs **once** in `request.evidence.report`. Preview details
+retain only its version/outcome/coverage/completeness, gap count and host count;
+the UI renders every missing requirement from that exact signed report, with a
+fallback for older previews. Duplicating even the gaps and requirements can make
+an otherwise bounded report exceed the authenticated submission limit. Do not
+truncate evidence or increase that limit to make a review fit. Genuinely oversized
+reviews still refuse before submission, and this envelope correction changes no
+confirmation, native-effect or closeout eligibility.
+
 Bounds are 64 turns, 512 items per persisted turn and 512 effects/calls/results,
 one historical turn per page, 32 MiB per configured log, 16 MiB per line and a
 20 KiB report. Preserve the native
