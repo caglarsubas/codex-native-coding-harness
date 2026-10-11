@@ -1,6 +1,9 @@
 # Ended recovery: continuation proposal, not authority
 
-**Status: proposed policy only. No executable adapter, wake or live installation.**
+**Status: historical-effect reconciliation and terminal closeout are proposed
+only. A separate source-only [owner inspection record](ENDED-RECOVERY-RECORD.md)
+now covers metadata inspection/local retention, not either missing step. No wake
+or live installation.**
 
 The [ended-Pause receipt recovery](ENDED-PAUSE-RECEIPT-RECOVERY.md) is permanently
 one-shot. An accepted completed turn without a ledger receipt is not a failed
@@ -13,7 +16,7 @@ cannot migrate this claimed recovery or authorize another receipt-only turn.
 ## Proposed path without another wake
 
 The candidate successor is **owner reconciliation of an exhausted recovery**,
-not another brain recovery attempt. A future separately reviewed adapter would:
+not another brain recovery attempt. The complete future separately reviewed path would:
 
 1. Pin the exact original Pause, exhausted recovery command/native turn/closed
    observer, run/phase, both project IDs, brain, checkout and native policy.
@@ -42,8 +45,10 @@ not another brain recovery attempt. A future separately reviewed adapter would:
    remains a new mission with separate Review and Play and fresh usage/capability
    evidence. Neither a reconciliation record nor closure passes the pilot.
 
-This proposal deliberately contains **no second native turn**. It does not
-authorize any of these steps, extend an old approval or relax strict Harness.
+This proposal deliberately contains **no second native turn**. The partial
+inspection implementation retains unknown historical effects and all execution
+fences; it cannot claim this complete path has shipped. This proposal does not
+authorize live steps, extend an old approval or relax strict Harness.
 If historical effects cannot be reconciled, the truthful outcome is an
 unqualified, still-fenced pilot, not an automatic fresh attempt. A proposed new
 brain wake would be a material change to the one-shot policy, requiring its own
@@ -51,10 +56,11 @@ explicit owner policy decision rather than being hidden inside runtime repair.
 
 ## Required future verification
 
-Before implementation/live qualification, review the exact closed schemas and
+Before historical reconciliation/closeout implementation or live qualification,
+review the exact closed schemas and
 authority boundary; test immutable original records, unknown/unloaded terminals,
 both project IDs, host continuity, controller/approval ownership, historical
 effect gaps, changed latest turns, usage/expiry preservation, Pause races,
 duplicate confirmation, interrupted local receipt retention and project/session
-isolation. Source delivery adds no live route for this proposal. Runtime and
+isolation. The inspection record adds no terminal closeout or live activation. Runtime and
 pilot acceptance require independent evidence, not fixture assertions.

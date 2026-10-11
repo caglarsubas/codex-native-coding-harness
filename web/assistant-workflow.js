@@ -1,5 +1,5 @@
 "use strict";
-const workflowPhrases={phase_help:'confirm help',phase_prepare:'confirm prepare',phase_reconcile:'confirm reconcile',phase_recovery:'confirm recovery',phase_pause_recovery:'confirm pause recovery',phase_pause_receipt_recovery:'confirm pause receipt recovery',phase_close:'confirm close stopped phase',phase_review:'confirm review',phase_play:'confirm play',phase_pause:'confirm pause',phase_resume:'confirm resume',brain_budget:'confirm brain allowance',usage_check:'confirm usage',codex_check:'confirm readiness',brain_message:'confirm send'};
+const workflowPhrases={phase_help:'confirm help',phase_prepare:'confirm prepare',phase_reconcile:'confirm reconcile',phase_recovery:'confirm recovery',phase_pause_recovery:'confirm pause recovery',phase_pause_receipt_recovery:'confirm pause receipt recovery',phase_ended_recovery_record:'confirm non-waking inspection record',phase_close:'confirm close stopped phase',phase_review:'confirm review',phase_play:'confirm play',phase_pause:'confirm pause',phase_resume:'confirm resume',brain_budget:'confirm brain allowance',usage_check:'confirm usage',codex_check:'confirm readiness',brain_message:'confirm send'};
 function assistantLocalWorkflow(question,current=state){
   // Exact product starters, not an inferred intent or approval. The normal
   // server catalog still validates and prepares a separate signed preview.
@@ -90,6 +90,10 @@ function assistantWorkflowPreview(item,proposal,guided=false){
     const details=el('details');details.append(el('summary','Details · saved Pause and latest-ended turn check'),el('pre',JSON.stringify(p.details,null,2)));section.append(details);
     if(doc.workflow==='phase_pause_receipt_recovery')section.append(el('p','Terminal status on an unloaded host is unknown. The one-shot recovery first checks the loaded host; it cannot start unless current tracked terminals are confirmed empty. Historical effects remain unverified.','muted'));
   }
+  if(doc.workflow==='phase_ended_recovery_record'){
+    section.append(el('p','Blocked · unqualified. This is a local owner record, not a brain receipt or permission to continue.','chat-phase-title'));
+    const details=el('details');details.append(el('summary','Details · non-waking inspection'),el('pre',JSON.stringify(p.details,null,2)));section.append(details);
+  }
   if(p.mission){
     const {spec,version}=p.mission,a=spec.authority;
     section.append(el('p',spec.phase.title+' · plan v'+version,'chat-phase-title'),narrative(spec.goal,'Proposed outcome'),narrative(spec.phase.objective,'Phase objective'));
@@ -167,6 +171,8 @@ function assistantWorkflowPreview(item,proposal,guided=false){
       action.sending=false;assistantConnectionChanged();
       if(action.proposal.document.workflow==='phase_close'&&action.receipt){
         action.closeoutHeading?.focus({preventScroll:true});assistantRevealControl(action.element);
+      }else if(action.proposal.document.workflow==='phase_ended_recovery_record'&&action.receipt){
+        action.inspectionHeading?.focus({preventScroll:true});assistantRevealControl(action.element);
       }else if(action.guided)$('assistant-log').scrollTop=0;else assistantScroll();
     }
   };
@@ -218,6 +224,15 @@ function assistantNextStep(){
   if(latest)root.append(narrative(latest.conversationReply.message,'Project brain reply'));
 }
 function assistantWorkflowReceipt(action,recorded){
+  if(recorded?.kind==='standard_ended_recovery_record'&&action.proposal.document.workflow==='phase_ended_recovery_record'&&!action.inspectionCollapsed){
+    const details=el('details');details.append(el('summary','Details · reviewed non-waking inspection'));
+    details.append(...[...action.element.children].filter(child=>child!==action.status));
+    action.inspectionHeading=el('h3','Owner inspection recorded · still blocked');action.inspectionHeading.setAttribute('tabindex','-1');
+    action.element.replaceChildren(action.inspectionHeading,...(action.status?[action.status]:[]),details);
+    const article=action.element.closest?.('.chat-turn'),log=$('assistant-log');
+    if(article&&log)log.prepend(article);
+    action.inspectionCollapsed=true;
+  }
   if(action.receipt&&action.proposal.document.workflow==='phase_close'){
     // Keep the outcome and next action visible. The already-confirmed scope is
     // still readable, but no longer competes with preparation progress.

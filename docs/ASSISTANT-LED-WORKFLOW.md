@@ -58,6 +58,16 @@ control. An unloaded host remains unknown until the one-shot inspection load
 proves current tracked terminals empty. The old claim, usage, expiry and historical
 effect uncertainty stay intact. See [ended-Pause receipt recovery](ENDED-PAUSE-RECEIPT-RECOVERY.md).
 
+If that one-shot recovery itself completed without its ledger receipt, **Inspect
+blocked recovery** opens the saved control history, never another wake. After
+separately reviewed host repair, **Review non-waking recovery inspection** may
+prepare a signed local inspection record. Its exact confirmation retains only
+**blocked · unqualified** evidence; historical effects stay unknown and the old
+requests, usage and expiry remain intact. It neither adds a brain receipt nor
+unlocks closeout, Help or Play. Polling/Help collect no native evidence. See
+[owner inspection record](ENDED-RECOVERY-RECORD.md); historical reconciliation
+and terminal closeout are still separate, unimplemented work.
+
 For an empty paused phase at a brain-budget checkpoint, **Review brain allowance**
 opens a separate signed local reallocation. Its old/new amount, unchanged phase
 total/reserve, recorded usage and original expiry are visible before confirmation.

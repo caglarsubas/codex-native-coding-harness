@@ -69,6 +69,13 @@ function controlRequestHistory(root){
   const commands=[...(state.commands||[])].reverse();
   const details=journeyDisclosure('control-requests','Details · Control request history',body=>{
     body.append(el('p','Saved request, native delivery and brain receipt are separate. Inspect the existing request before sending more work. This history submits nothing.','muted'));
+    if(state.endedRecoveryRecord?.available&&state.brainNotification?.transport==='owned_app_server'){
+      body.append(el('p','After separately reviewed host repair, inspect the exact ended recovery without waking it. Unknown historical effects still block closeout and Play.','muted'));
+      const review=button('Review non-waking recovery inspection',()=>{
+        focusAssistantConversation();return assistantRequestStep('phase_ended_recovery_record');
+      });
+      review.disabled=!connected||assistantPending;body.append(review);
+    }
     if(!commands.length){body.append(el('p','No saved control requests.'));return;}
     for(const command of commands){
       const info=commandPresentation(command);

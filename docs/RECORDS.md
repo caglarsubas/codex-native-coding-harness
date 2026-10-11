@@ -330,3 +330,19 @@ receipts, mission/total/reserve/task limits, expiry, checkpoint and all usage/ga
 remain intact. Replaying its receipt never applies an older amount. See
 [brain allowance correction](STANDARD-BRAIN-BUDGET.md). Source, installation,
 owner reallocation, Resume and live pilot acceptance remain separate.
+
+## Owner-only exhausted-recovery inspection
+
+`standard_ended_recovery_record` is a completed **local owner record**, never a
+brain receipt or notification. Its `payload` pins `runId`, `recoveryId`,
+`requestHash` and private `recordHash`. One ledger transaction retains the full
+original Pause, exhausted recovery, unchanged run/usage/gaps/expiry, exact signed
+request and repeated metadata evidence in that hash-addressed snapshot. Receipt
+replay verifies the snapshot bytes without collecting or refreshing evidence.
+
+Its outcome stays `blocked`, qualification `unqualified`, historical terminal
+coverage/effect outcome `unknown` and task-tree completeness `false`. Neither
+current empty tracked terminals nor this receipt is safe-checkpoint or closeout
+evidence. The original requests remain untouched and unresolved. See
+[owner inspection record](ENDED-RECOVERY-RECORD.md); historical reconciliation
+and terminal closeout remain separate, unimplemented work.

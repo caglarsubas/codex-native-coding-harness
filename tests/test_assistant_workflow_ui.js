@@ -13,6 +13,10 @@ const run=code=>vm.runInContext(code,box);
 run(`var sent=0; var a={workspace:'alpha',submit:()=>sent++,proposal:{document:{workflow:'phase_review',id:'p',brainId:'brain',expiresAt:Date.now()/1000+300,request:{expectedRevision:1,documentHash:'hash'}}}}; assistantActions.set('p',a);`);
 assert.equal(run('assistantWorkflowState(a).locked'),false);
 assert.equal(box.assistantTypedConfirmation('yes'),false,'Vague consent is never execution');
+run(`var inspectionSent=0; var inspection={workspace:'alpha',submit:()=>inspectionSent++,proposal:{document:{workflow:'phase_ended_recovery_record',id:'record',brainId:'brain',expiresAt:Date.now()/1000+300,request:{expectedRevision:state.meta.revision}}}}; assistantActions.set('record',inspection);`);
+assert.equal(box.assistantTypedConfirmation('confirm non-waking inspection record'),true);
+assert.equal(run('inspectionSent'),1);assert.equal(box.assistantTypedConfirmation('continue recovery'),false);
+run(`assistantActions.delete('record');`);
 assert.equal(box.assistantTypedConfirmation('confirm review'),true);assert.equal(run('sent'),1);
 run('state.mission.revision=2');box.assistantTypedConfirmation('confirm review');assert.equal(run('sent'),1,'Changed draft cannot be confirmed');
 run('state.mission.revision=1; workspaceId="beta"');box.assistantTypedConfirmation('confirm review');assert.equal(run('sent'),1,'Foreign project cannot be confirmed');
@@ -104,6 +108,22 @@ assert(rendered(closed.localNext).some(e=>/Follow the preparation progress/.test
 box.state.commands=[];
 box.state.standard.run={status:'paused'};box.assistantWorkflowReceipt(closed,true);
 assert(!rendered(closed.element).some(e=>e.text==='Next: Help me continue development'),'Stale closeout cannot guide another run');
+
+const inspectionReceipt={kind:'standard_ended_recovery_record',status:'completed'};
+const inspected={receipt:{result:inspectionReceipt},element:new Element('section'),status:new Element('p','Historical effects remain unknown'),proposal:{document:{workflow:'phase_ended_recovery_record'}}};
+const reviewedScope=new Element('p','Reviewed original recovery');inspected.element.append(reviewedScope,inspected.status);
+const recordArticle=new Element('article'),recordLog=[];inspected.element.closest=()=>recordArticle;
+const priorLookup=box.$;box.$=id=>id==='assistant-log'?{prepend:item=>recordLog.unshift(item)}:priorLookup(id);
+box.assistantWorkflowReceipt(inspected,inspectionReceipt);
+assert.equal(recordLog[0],recordArticle,'The saved outcome precedes asynchronous old progress narratives');
+assert.equal(inspected.element.children[0].text,'Owner inspection recorded · still blocked');
+assert.equal(inspected.element.children[1],inspected.status,'The outcome is visible before collapsed review details');
+assert(rendered(inspected.element).includes(reviewedScope),'The reviewed scope remains available under Details');
+const inspectedChildren=inspected.element.children;box.assistantWorkflowReceipt(inspected,inspectionReceipt);
+assert.equal(inspected.element.children,inspectedChildren,'Polling does not rebuild or reopen the reviewed details');
+assert(!rendered(inspected.element).some(e=>/Next:|Help me continue development|Review Play/.test(e.text)),
+  'An owner record does not offer a successor or Play');
+box.$=priorLookup;
 
 run(`assistantActions.clear(); state.meta.revision=2; var pauseRecovery={workspace:'alpha',submit:()=>sent++,proposal:{document:{workflow:'phase_pause_recovery',id:'pause-recovery',brainId:'brain',expiresAt:Date.now()/1000+300,request:{expectedRevision:2}}}}; assistantActions.set('pause-recovery',pauseRecovery);`);
 const countBeforePause=run('sent');assert.equal(box.assistantTypedConfirmation('confirm pause recovery'),true);

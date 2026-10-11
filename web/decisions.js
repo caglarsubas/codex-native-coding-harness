@@ -5,6 +5,7 @@ const decisionDetailsOpen = new Set();
 const decisionLabels = {open:"Needs your decision", answered:"Answer recorded", received:"Received by brain", applied:"Applied to design", blocked:"Needs follow-up", superseded:"Superseded"};
 
 function commandPresentation(c, activity=state?.brainActivity, now=Date.now()/1000) {
+  if(c.kind==='standard_ended_recovery_record'&&c.status==='completed')return {label:'Owner inspection recorded · still blocked',detail:c.result||'Historical effects remain unknown. No brain receipt, checkpoint, closeout or Play was performed.'};
   if(c.kind==='standard_pause_receipt_recovery'&&c.status==='completed')return {label:'Stopped checkpoint retained · effects unverified',detail:'The Pause receipt and paused checkpoint are saved. Usage, expiry and historical terminal/effect uncertainty remain; this is not phase success or pilot acceptance.'};
   if(c.kind==='standard_pause_receipt_recovery'&&['queued','processing'].includes(c.status)&&!c.checkpointHash&&
       c.notification?.nativeDelivery==='owned_turn_start'&&['completed','failed','interrupted'].includes(c.notification.nativeTurnStatus)&&
