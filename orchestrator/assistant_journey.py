@@ -302,7 +302,12 @@ class JourneyProposals(ActionProposals):
                 "Close this phase as blocked and unqualified; keep every original receipt, usage gap and expiry." if closing else
                 "Retain this evidence only. Unknown historical effects remain blocked; terminal closeout needs its own review."]
             preview["details"] = {"recoveryId": request["recoveryId"], "observation": evidence["observation"],
-                "historicalEvidence": {k:v for k,v in evidence["report"].items() if k not in ("native", "inventory")},
+                # Keep the complete report once, inside the signed request.
+                # The UI reads its exact missing-evidence list from there;
+                # duplicating that list here overflows real multi-host reviews.
+                "historicalEvidence": {k:evidence["report"][k] for k in
+                    ("version", "effectOutcome", "historicalTerminalCoverage", "taskTreeComplete")},
+                "historicalGapCount": len(evidence["report"]["gaps"]),
                 "historicalHostCount": len(evidence.get("hostChain", {}).get("hosts", [])),
                 "outcome": "blocked", "qualification": "unqualified",
                 "boundary": history.CLOSE_BOUNDARY if closing else history.BOUNDARY}

@@ -74,6 +74,43 @@ class MultiHostHistoryTest(unittest.TestCase):
         with self.assertRaises(Refusal): self.f.preview()
         self.assertFalse(self.f.metadata.calls)
 
+    def test_large_complete_report_has_one_signed_copy_and_fits_http_envelope(self):
+        evidence = self.f.preview()["document"]["request"]["evidence"]
+        # Representative complete multi-host metadata, not live pilot content.
+        # The old duplicate gap/requirements projection overflowed this shape.
+        report = evidence["report"]
+        report["version"] = 2
+        report["effectOutcome"] = "unknown"
+        report["historicalTerminalCoverage"] = "unknown"
+        report["taskTreeComplete"] = False
+        report["gaps"] = ["historical_terminal_unknown:" + str(i).zfill(36) for i in range(34)]
+        report["missingEvidence"] = [{"id": str(i).zfill(36), "turnId": "a"*36,
+            "need": "historical_terminal_cleanup"} for i in range(34)]
+        report["inventory"]["calls"] = [{"id": str(i).zfill(36), "turnId": "a"*36,
+            "name": "exec_command", "argumentsHash": "b"*64, "commandHash": "c"*64,
+            "parametersHash": "d"*64, "itemHash": "e"*64} for i in range(26)]
+        self.assertGreater(len(canonical(report).encode()), 16000)
+        self.assertLessEqual(len(canonical(report).encode()), 20000)
+        with patch.object(history, "inspect", return_value=evidence):
+            proposal = self.f.preview()
+        signed = proposal["document"]["request"]["evidence"]["report"]
+        self.assertEqual(signed, report, "No proof or unresolved requirement may be removed")
+        details = proposal["document"]["preview"]["details"]
+        self.assertNotIn("gaps", details["historicalEvidence"])
+        self.assertNotIn("missingEvidence", details["historicalEvidence"])
+        self.assertEqual(details["historicalGapCount"], 34)
+        body = {"proposal": proposal, "confirmed": True}
+        self.assertLessEqual(len(canonical(body).encode()), 30000)
+        self.assertLess(len(json.dumps(body).encode()), 32768)
+        self.assertEqual(record.saved_state(self.ledger), self.before)
+
+    def test_genuinely_oversized_report_still_refuses_without_truncation(self):
+        evidence = self.f.preview()["document"]["request"]["evidence"]
+        evidence["report"]["gaps"] = ["unmatched_call:" + str(i).zfill(180) for i in range(200)]
+        with patch.object(history, "inspect", return_value=evidence), self.assertRaises(Refusal):
+            self.f.preview()
+        self.assertEqual(record.saved_state(self.ledger), self.before)
+
     def test_every_request_host_required_no_unrelated_or_duplicate_host(self):
         original = copy.deepcopy(self.chain["hosts"])
         for entries in (original[:1], original+original[:1], []):
