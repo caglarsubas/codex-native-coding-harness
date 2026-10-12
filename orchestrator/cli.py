@@ -79,6 +79,12 @@ def main():
     p.add_argument("binding", type=Path); p.add_argument("run_id")
     p = sub.add_parser("standard-native-collect", help="Brain-only exact owned-host metadata reads; no wake or cleanup")
     p.add_argument("binding", type=Path); p.add_argument("request", type=Path)
+    for name in ("historical-cleanup-plan", "historical-cleanup-collect"):
+        p = sub.add_parser(name, help="Operator read-only cleanup source qualification; no native load/write or ledger change")
+        p.add_argument("binding", type=Path, help="Already reviewed current owned-host binding; never an old endpoint")
+        p.add_argument("--historical-host-chain", type=Path, help="Separately reviewed history-only retired-host provenance")
+        if name.endswith("collect"):
+            p.add_argument("request", type=Path, help="Exact private output of historical-cleanup-plan")
     sub.add_parser("brain-handoff-status", help="Read the prepared/reviewed replacement state")
     p = sub.add_parser("brain-handoff-candidate", help="Old brain records one native replacement task")
     p.add_argument("request", type=Path)
@@ -252,7 +258,7 @@ def main():
         raise Refusal("--workspace requires --platform")
     if args.state and (args.workspace or args.platform):
         raise Refusal("Choose a registered workspace or --state, not both")
-    if (args.action == "run-readiness" or args.action.startswith(("standard-native-", "standard-host-", "task-contract-", "model-policy-", "native-evidence-", "brain-cycle-", "phase-checkpoint-", "native-create-", "native-task-", "native-account-", "phase-usage-", "runner-handoff-", "terminal-handoff-", "result-handoff-", "archive-handoff-", "correction-handoff-"))) and not (args.platform and args.workspace):
+    if (args.action == "run-readiness" or args.action.startswith(("historical-cleanup-", "standard-native-", "standard-host-", "task-contract-", "model-policy-", "native-evidence-", "brain-cycle-", "phase-checkpoint-", "native-create-", "native-task-", "native-account-", "phase-usage-", "runner-handoff-", "terminal-handoff-", "result-handoff-", "archive-handoff-", "correction-handoff-"))) and not (args.platform and args.workspace):
         raise Refusal("This operation requires an explicit registered workspace")
     registry = Registry(args.platform, create=args.action == "workspace-register") if args.platform else None
     if notification_binding:
@@ -472,6 +478,22 @@ def main():
             path = args.request.absolute()
             request = json.loads(read_regular(path, path.parent, 16_000))
             out = standard_native_observation.collect(registry, ledger, credential, args.binding, request)
+    elif action in ("historical-cleanup-plan", "historical-cleanup-collect"):
+        from types import SimpleNamespace
+        from .app_server_wake import AppServerWake, load_binding
+        from . import cleanup_collector, historical_hosts
+        binding = load_binding(args.binding)
+        # Construction makes no native connection/subscription and grants no
+        # notification permit. Collection uses only CleanupProxy's closed reads.
+        wake = AppServerWake(binding, ledger)
+        controls = SimpleNamespace(host_chain=historical_hosts.load(args.historical_host_chain)
+                                   if args.historical_host_chain else None,
+                                   prior_binding=None, retired_host=None)
+        if action.endswith("plan"):
+            out = cleanup_collector.plan(registry, ledger, wake, controls)
+        else:
+            request = cleanup_collector.read_request(args.request)
+            out = cleanup_collector.collect(registry, ledger, wake, controls, request)
     elif action.startswith("brain-handoff-"):
         if not registry or not args.workspace:
             raise Refusal("Explicit registered standard project required")

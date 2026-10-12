@@ -157,6 +157,12 @@ an empty tracker on a replacement host is not historical cleanup proof. Arbitrar
 executed effects still need a separately implemented cleanup attestor. Retaining
 their unknown outcome is useful diagnosis, not permission to move on.
 
+The separate [read-only cleanup collector](CLEANUP-COLLECTOR.md) now collects
+available native process metadata/current tracker linkage and qualifies the fixed
+source's coverage. It grants no executed-effect disposition and does not change
+this non-execution-only closeout gate. Missing historical lifecycle provenance
+cannot be manufactured by current terminal reads or another confirmation.
+
 Reconciliation can record an unloaded brain as unknown without loading it. Closeout
 always requires repeated exact loaded-idle, latest-completed-recovery and complete
 known-empty current tracked-terminal observations. Loading acknowledgment alone
