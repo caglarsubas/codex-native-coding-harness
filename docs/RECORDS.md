@@ -376,3 +376,16 @@ multi-host review envelopes that exceeded the authenticated request bound throug
 duplication; it neither drops requirements nor expands the bound. Source-only
 delivery does not submit a historical record, settle effects, reset usage, send
 another native request or qualify the pilot.
+
+## Read-only cleanup qualification output
+
+`historical_cleanup_collection_v1` is private operator output, not a new ledger
+command, signed authority or settlement proof. Its closed read-scope plan pins
+original command/run/context, exact revision, scope, binding and host-chain hashes.
+The output retains original collection times, hashed source observations,
+unchanged historical evidence, repeated current tracker facts and per-effect
+missing lifecycle/cleanup requirements. It accepts no caller attestation flags.
+The documented source cannot qualify complete historical cleanup. All mutation,
+cleanup verification, ownership release, execution and pilot flags remain false.
+No schema migration or consumer promotes the report into a receipt or closeout.
+See [collector contract and qualification](CLEANUP-COLLECTOR.md).
