@@ -1,5 +1,17 @@
 # Codex Orchestrator — personal tooling
 
+## Native project assignment review validity (2026-10-13)
+
+Read docs/NATIVE-PROJECT-ASSIGNMENT-REVIEW.md fully before native assignment.
+New scope-bound reviews retain exact owner confirmation without a wall-clock
+countdown, but fresh identical catalog/ledger/host/native scope and all safety
+gates remain mandatory at claim and write. Legacy expiry remains intact unless
+the owner explicitly chooses revalidation of the same already reviewed hash;
+retain the original preview/clock and never automatically convert an approval.
+A prior intent, even before a native send, permanently fences a second claim.
+Reconciliation never resends, loads a brain, repairs a host, grants Play/recovery
+or treats unknown terminals as safe. Source delivery installs or confirms nothing.
+
 ## Independent original-effect capture source (2026-10-13)
 
 Read docs/INDEPENDENT-HISTORICAL-EVIDENCE.md before using the separate read-only

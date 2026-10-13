@@ -29,7 +29,7 @@ def main():
     p = sub.add_parser("project-bind", help="Owner mapping of an existing ledger to one exact Codex project")
     p.add_argument("id"); p.add_argument("--host-id", required=True); p.add_argument("--project-id", required=True)
     p.add_argument("--catalog-hash", required=True); p.add_argument("--confirm", action="store_true")
-    p = sub.add_parser("native-project-preview", help="Read-only review of one standard brain's missing native project assignment")
+    p = sub.add_parser("native-project-preview", help="Read-only, scope-bound review of one standard brain's missing native project assignment")
     p.add_argument("binding", type=Path, help="Existing private owned app-server brain binding")
     p = sub.add_parser("native-project-host-preview", help="Read-only identity check for an already assigned brain on a replacement host")
     p.add_argument("binding", type=Path, help="Candidate private owned app-server brain binding")
@@ -37,6 +37,8 @@ def main():
     p.add_argument("binding", type=Path); p.add_argument("preview", type=Path)
     p.add_argument("--confirm-hash", required=True, help="Exact SHA-256 printed by native-project-preview")
     p.add_argument("--confirm", action="store_true")
+    p.add_argument("--revalidate-expired-review", action="store_true",
+                   help="Explicit owner choice to revalidate one exact expired legacy assignment review; no renewed hash or native retry")
     sub.add_parser("native-project-status", help="Read the durable assignment intent; no native call")
     p = sub.add_parser("native-project-reconcile", help="Read native project metadata after an uncertain one-shot assignment")
     p.add_argument("binding", type=Path)
@@ -310,7 +312,8 @@ def main():
                 if info.st_uid != os.getuid() or info.st_nlink != 1 or info.st_mode & 0o077 or not stat.S_ISREG(info.st_mode):
                     raise Refusal("Saved native project preview must be one private regular owner file")
                 proposal = json.loads(read_regular(file, file.parent, native_project.MAX_PREVIEW))
-                out = native_project.confirm(registry, args.workspace, binding, proposal, args.confirm_hash)
+                out = native_project.confirm(registry, args.workspace, binding, proposal, args.confirm_hash,
+                                             revalidate_expired_review=args.revalidate_expired_review)
         print(json.dumps(out, ensure_ascii=False, indent=2)); return
     if args.action.startswith("platform-reconciliation-"):
         if not registry or args.workspace:

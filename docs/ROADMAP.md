@@ -7,6 +7,8 @@ acceptance authority. Items change through reviewed repository edits.
 
 ## Reliable brain wake — source and rollout
 
+- [x] Remove the native metadata-assignment confirmation timer for unchanged exact scope, retaining fresh revalidation and a separately explicit same-hash legacy-expiry path (source/local fixtures only; [contract](NATIVE-PROJECT-ASSIGNMENT-REVIEW.md))
+
 - [x] Add an opt-in, exact-bound, documented app-server wake path for registered standard projects, preserving one-shot ledger claims and independent brain receipts
 - [x] Make legacy desktop-queue acknowledgment honest: it may not start an unloaded brain
 - [x] Pin distinct Codex app catalog and owned app-server project IDs explicitly when the installed host reports both for the same verified repository (source and local fixtures; no native write)

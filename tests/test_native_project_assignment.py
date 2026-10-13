@@ -1,5 +1,8 @@
 import contextlib
+import copy
+import io
 import json
+import os
 from pathlib import Path
 import sqlite3
 import subprocess
@@ -10,7 +13,7 @@ import unittest
 from unittest.mock import patch
 
 from orchestrator.core import Ledger, Refusal, digest
-from orchestrator import native_project_assignment as assignment, projects
+from orchestrator import cli, native_project_assignment as assignment, projects
 from orchestrator.workspaces import Registry
 
 
@@ -109,6 +112,238 @@ class NativeProjectAssignmentTest(unittest.TestCase):
     def replacement_binding(self):
         return {"endpoint": {"fixture": "replacement"}, "brains": {
             BRAIN: dict(self.binding["brains"][BRAIN])}}
+
+    def legacy_review(self, age=600):
+        review = self.preview()
+        doc = review["preview"]
+        doc["kind"] = assignment.KIND
+        doc.pop("reviewValidity")
+        doc["createdAt"] = time.time() - age
+        doc["expiresAt"] = doc["createdAt"] + assignment.TTL
+        review["previewHash"] = digest(doc)
+        return review
+
+    def assert_no_assignment_claim(self):
+        self.assertEqual(NativeProxy.writes, 0)
+        self.assertEqual(assignment.status(self.registry, "pilot")["status"], "not_started")
+        with contextlib.closing(sqlite3.connect(self.ledger.db)) as db:
+            self.assertIsNone(db.execute("SELECT name FROM sqlite_master WHERE name=?", (assignment.TABLE,)).fetchone())
+
+    def test_scope_review_has_no_countdown_and_delayed_confirmation_rechecks_native_identity(self):
+        review = self.preview()
+        original = copy.deepcopy(review)
+        self.assertEqual(review["preview"]["kind"], assignment.REVIEW_KIND)
+        self.assertEqual(review["preview"]["reviewValidity"], "until_scope_changes")
+        self.assertIsNone(review["preview"]["expiresAt"])
+        NativeProxy.calls = []
+        with patch.object(assignment.time, "time", return_value=time.time() + 30 * 86400):
+            result = self.confirm(review)
+        self.assertEqual(result["status"], "verified")
+        self.assertEqual(NativeProxy.writes, 1)
+        self.assertEqual(result["review"], original)
+        self.assertFalse(result["legacyExpiryRevalidated"])
+        self.assertGreater(result["freshPreflightAt"], original["preview"]["createdAt"])
+        self.assertGreaterEqual(sum(method == "project/read" for method, _ in NativeProxy.calls), 3)
+        self.assertEqual({method for method, _ in NativeProxy.calls},
+                         {"project/read", "thread/read", "thread/metadata/update"})
+        self.assertTrue(all(params == {"threadId": BRAIN, "includeTurns": False}
+                            for method, params in NativeProxy.calls if method == "thread/read"))
+
+    def test_legacy_expiry_is_not_implicitly_renewed_by_upgrade_or_a_new_preview(self):
+        review = self.legacy_review()
+        original = copy.deepcopy(review)
+        self.preview()
+        with self.assertRaisesRegex(Refusal, "expired"):
+            self.confirm(review)
+        self.assertEqual(review, original)
+        self.assert_no_assignment_claim()
+
+    def test_explicit_legacy_revalidation_keeps_same_approved_hash_and_original_expiry(self):
+        review = self.legacy_review()
+        original = copy.deepcopy(review)
+        result = assignment.confirm(self.registry, "pilot", self.binding, review, review["previewHash"],
+                                    revalidate_expired_review=True)
+        self.assertEqual(result["status"], "verified")
+        self.assertTrue(result["legacyExpiryRevalidated"])
+        self.assertEqual(result["previewHash"], original["previewHash"])
+        self.assertEqual(result["review"], original)
+        self.assertEqual(review, original)
+        self.assertEqual(NativeProxy.writes, 1)
+        with self.assertRaises(Refusal):
+            assignment.confirm(self.registry, "pilot", self.binding, review, review["previewHash"],
+                               revalidate_expired_review=True)
+        self.assertEqual(NativeProxy.writes, 1)
+
+    def test_unexpired_legacy_review_still_confirms_with_original_rules(self):
+        review = self.legacy_review(age=1)
+        self.assertEqual(self.confirm(review)["status"], "verified")
+        self.assertFalse(assignment.status(self.registry, "pilot")["legacyExpiryRevalidated"])
+
+    def test_revalidation_option_refuses_scope_reviews_unexpired_legacy_and_non_boolean_choices(self):
+        for review, choice in ((self.preview(), True), (self.legacy_review(age=1), True),
+                               (self.legacy_review(), 1), (self.legacy_review(), "yes")):
+            with self.subTest(choice=choice, kind=review["preview"]["kind"]):
+                with self.assertRaises(Refusal):
+                    assignment.confirm(self.registry, "pilot", self.binding, review, review["previewHash"],
+                                       revalidate_expired_review=choice)
+                self.assert_no_assignment_claim()
+
+    def test_review_policy_unknown_fields_future_and_nonfinite_times_refuse(self):
+        base = self.preview()
+        cases = [{"reviewValidity": "forever"}, {"expiresAt": time.time() + 86400},
+                 {"createdAt": True}, {"createdAt": float("nan")}, {"createdAt": float("inf")},
+                 {"createdAt": time.time() + 86400}, {"createdAt": 10 ** 400}, {"extra": "not reviewed"},
+                 {"effect": "Start Play"}, {"nativeStatus": "active"}]
+        for change in cases:
+            with self.subTest(change=change):
+                review = copy.deepcopy(base)
+                review["preview"].update(change)
+                try:
+                    review["previewHash"] = digest(review["preview"])
+                except ValueError:
+                    pass  # Malformed non-finite JSON cannot produce a reviewed hash.
+                with self.assertRaises(Refusal):
+                    self.confirm(review)
+                self.assert_no_assignment_claim()
+
+    def test_scope_review_does_not_confirm_missing_fields(self):
+        base = self.preview()
+        for key in base["preview"]:
+            with self.subTest(key=key):
+                review = copy.deepcopy(base)
+                del review["preview"][key]
+                review["previewHash"] = digest(review["preview"])
+                with self.assertRaises(Refusal):
+                    self.confirm(review)
+                self.assert_no_assignment_claim()
+
+    def test_legacy_revalidation_requires_original_clock_and_exact_confirmation_hash(self):
+        review = self.legacy_review()
+        with self.assertRaises(Refusal):
+            assignment.confirm(self.registry, "pilot", self.binding, review, "a" * 64,
+                               revalidate_expired_review=True)
+        for change in ({"expiresAt": review["preview"]["expiresAt"] + 1},
+                       {"reviewValidity": "until_scope_changes"}):
+            malformed = copy.deepcopy(review)
+            malformed["preview"].update(change)
+            malformed["previewHash"] = digest(malformed["preview"])
+            with self.assertRaises(Refusal):
+                assignment.confirm(self.registry, "pilot", self.binding, malformed, malformed["previewHash"],
+                                   revalidate_expired_review=True)
+        self.assert_no_assignment_claim()
+
+    def test_delayed_scope_review_and_legacy_revalidation_refuse_changed_scope(self):
+        for legacy in (False, True):
+            for key in assignment.SCOPE_FIELDS:
+                with self.subTest(legacy=legacy, key=key):
+                    review = self.legacy_review() if legacy else self.preview()
+                    changed = copy.deepcopy(review)
+                    value = changed["preview"][key]
+                    changed["preview"][key] = ["changed"] if isinstance(value, list) else "changed"
+                    changed["previewHash"] = digest(changed["preview"])
+                    with self.assertRaises(Refusal):
+                        assignment.confirm(self.registry, "pilot", self.binding, changed, changed["previewHash"],
+                                           revalidate_expired_review=legacy)
+                    self.assert_no_assignment_claim()
+
+    def test_legacy_revalidation_refuses_actual_ledger_binding_and_native_activity_drift(self):
+        review = self.legacy_review()
+        original_binding = copy.deepcopy(self.binding)
+        self.binding["endpoint"] = {"fixture": "changed"}
+        with self.assertRaises(Refusal):
+            assignment.confirm(self.registry, "pilot", self.binding, review, review["previewHash"],
+                               revalidate_expired_review=True)
+        self.binding = original_binding
+        NativeProxy.status = "active"
+        with self.assertRaises(Refusal):
+            assignment.confirm(self.registry, "pilot", self.binding, review, review["previewHash"],
+                               revalidate_expired_review=True)
+        NativeProxy.status = "notLoaded"
+        with self.ledger.tx() as db:
+            self.ledger.event(db, "owner_changed_scope", {})
+        with self.assertRaises(Refusal):
+            assignment.confirm(self.registry, "pilot", self.binding, review, review["previewHash"],
+                               revalidate_expired_review=True)
+        self.assert_no_assignment_claim()
+
+    def test_delayed_confirmation_does_not_load_unloaded_brain_or_clear_terminal_unknowns(self):
+        review = self.preview()
+        before = self.ledger.snapshot()["meta"]
+        result = self.confirm(review)
+        after = self.ledger.snapshot()["meta"]
+        self.assertEqual(result["status"], "verified")
+        self.assertEqual(NativeProxy.status, "notLoaded")
+        self.assertEqual({k: v for k, v in before.items() if k != "revision"},
+                         {k: v for k, v in after.items() if k != "revision"})
+        self.assertEqual(after.get("standardRun"), None)
+        self.assertTrue(after["paused"])
+        self.assertFalse(after["pilotPassed"])
+
+    def test_revalidation_lost_response_retains_claim_and_cannot_be_confirmed_again(self):
+        review = self.legacy_review()
+        NativeProxy.fail_update = True
+        result = assignment.confirm(self.registry, "pilot", self.binding, review, review["previewHash"],
+                                    revalidate_expired_review=True)
+        self.assertEqual(result["status"], "uncertain")
+        self.assertEqual(result["review"], review)
+        with self.assertRaises(Refusal):
+            assignment.confirm(self.registry, "pilot", self.binding, review, review["previewHash"],
+                               revalidate_expired_review=True)
+        self.assertEqual(NativeProxy.writes, 1)
+        NativeProxy.project_id = PROJECT
+        self.assertEqual(assignment.reconcile(self.registry, "pilot", self.binding)["status"], "verified")
+        self.assertEqual(NativeProxy.writes, 1)
+
+    def test_same_review_survives_registry_reopen_but_a_claim_cannot_be_replayed_after_restart(self):
+        review = self.preview()
+        self.registry = Registry(self.registry.root)
+        with patch.object(assignment.time, "time", return_value=time.time() + 86400):
+            result = self.confirm(review)
+        self.registry = Registry(self.registry.root)
+        self.assertEqual(assignment.status(self.registry, "pilot"), result)
+        with self.assertRaises(Refusal):
+            self.confirm(review)
+        self.assertEqual(NativeProxy.writes, 1)
+
+    def test_catalog_change_invalidates_both_durable_and_expired_legacy_reviews(self):
+        reviews = (self.preview(), self.legacy_review())
+        projects.record(self.registry, {"schemaVersion": 2, "projects": [{
+            "projectId": PROJECT, "projectKind": "local", "label": "Changed catalog",
+            "hostId": "local", "path": str(self.repo), "isGitRepository": True}]}, time.time())
+        for review in reviews:
+            with self.assertRaises(Refusal):
+                assignment.confirm(self.registry, "pilot", self.binding, review, review["previewHash"],
+                    revalidate_expired_review=review["preview"]["kind"] == assignment.KIND)
+        self.assert_no_assignment_claim()
+
+    def test_cli_routes_legacy_revalidation_only_with_exact_owner_confirmation(self):
+        review = self.legacy_review()
+        path = self.root / "review.json"
+        path.write_text(json.dumps(review)); os.chmod(path, 0o600)
+        args = ["orchestrator", "--platform", str(self.registry.root), "--workspace", "pilot",
+            "native-project-confirm", str(self.root / "binding.json"), str(path),
+            "--confirm-hash", review["previewHash"], "--revalidate-expired-review"]
+        with patch("sys.argv", args), patch("orchestrator.app_server_wake.load_binding", return_value=self.binding):
+            with self.assertRaisesRegex(Refusal, "--confirm"):
+                cli.main()
+        self.assert_no_assignment_claim()
+        with patch("sys.argv", args + ["--confirm"]), contextlib.redirect_stdout(io.StringIO()) as output, \
+                patch("orchestrator.app_server_wake.load_binding", return_value=self.binding):
+            cli.main()
+        self.assertEqual(json.loads(output.getvalue())["status"], "verified")
+        self.assertEqual(NativeProxy.writes, 1)
+
+    def test_cli_ordinary_confirmation_does_not_revalidate_an_expired_legacy_review(self):
+        review = self.legacy_review()
+        path = self.root / "review.json"
+        path.write_text(json.dumps(review)); os.chmod(path, 0o600)
+        args = ["orchestrator", "--platform", str(self.registry.root), "--workspace", "pilot",
+            "native-project-confirm", str(self.root / "binding.json"), str(path),
+            "--confirm-hash", review["previewHash"], "--confirm"]
+        with patch("sys.argv", args), patch("orchestrator.app_server_wake.load_binding", return_value=self.binding):
+            with self.assertRaisesRegex(Refusal, "expired"):
+                cli.main()
+        self.assert_no_assignment_claim()
 
     def test_preview_is_read_only_and_exact_confirmation_is_one_shot(self):
         before = self.ledger.snapshot()["meta"]["revision"]
