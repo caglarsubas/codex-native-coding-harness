@@ -4,6 +4,12 @@ Preview expiry, native read deadlines and phase duration are different clocks.
 None is a host-process TTL. Recovery cannot reset usage, extend phase authority
 or retry an uncertain native send.
 
+Native metadata assignment has a separate operator
+[scope-review contract](NATIVE-PROJECT-ASSIGNMENT-REVIEW.md): new reviews do not
+expire from elapsed reading time, and confirmation always revalidates exact
+current scope. The explicit same-hash legacy path neither rewrites an old expiry
+nor changes any signed workflow, permission, Play or recovery deadline below.
+
 The [disconnect root-cause record](HOST-DISCONNECT-ROOT-CAUSE.md) separates the
 observed desktop-update/session loss from the bridge's former silent six-hour
 wait. Owned turn subscriptions now check transport responsiveness on the same

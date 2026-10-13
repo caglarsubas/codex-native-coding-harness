@@ -311,6 +311,13 @@ or repair the already stopped pilot, which began before such coverage existed.
 
 ## Explicit native project assignment qualification
 
+New assignment scope reviews no longer expire merely while the owner is reading.
+They require the same exact hash confirmation and full fresh revalidation at use.
+The separately explicit legacy-expiry path can retain an already reviewed hash
+without rewriting its original clock. Read
+[assignment review validity](NATIVE-PROJECT-ASSIGNMENT-REVIEW.md) fully before use;
+this changes no Play, recovery, permission or host-binding expiry.
+
 The installed app-server v2 schema exposes `project/read` and
 `thread/metadata/update` with only `threadId` and `projectId` needed for this
 operation. The separate `native-project-*` operator commands use them only for

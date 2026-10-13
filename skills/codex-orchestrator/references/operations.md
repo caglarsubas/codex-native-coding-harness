@@ -268,6 +268,15 @@ See `docs/CONTINUATION.md` for status meanings and recovery.
 
 ## Readiness
 
+For an explicit native standard-brain project assignment, read source
+`docs/NATIVE-PROJECT-ASSIGNMENT-REVIEW.md` completely. New scope reviews remain
+usable only while every exact binding/revision is unchanged; confirmation always
+collects fresh native metadata and rechecks safety. Never ask for another hash
+solely because time elapsed. An expired legacy review requires the owner's exact
+hash confirmation and explicit legacy revalidation choice, not automatic renewal.
+Any claimed/uncertain assignment remains one-shot and can only be read/reconciled.
+This grants no host repair, native load, wake, Play, recovery or terminal assurance.
+
 `readiness` explains retained observations and current ledger gates without
 acquiring a controller. `doctor` refreshes local Git/file metadata only; it never
 runs repository code, setup or acceptance. Use native `list_projects` and

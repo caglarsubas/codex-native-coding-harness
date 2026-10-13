@@ -6,6 +6,7 @@ native metadata write. After any uncertain result, reconciliation only reads.
 """
 import contextlib
 import json
+import math
 from pathlib import Path
 import sqlite3
 import time
@@ -22,9 +23,16 @@ from .workspaces import inspect_ledger, private_path
 
 
 KIND = "native_project_assignment_v1"
+REVIEW_KIND = "native_project_assignment_scope_v2"
+REVIEW_VALIDITY = "until_scope_changes"
 TABLE = "native_project_assignments"
-TTL = 300
+TTL = 300  # Original, unmodified legacy-review expiry; not a v2 authority clock.
 MAX_PREVIEW = 16_384
+EFFECT = "One native thread/metadata/update project assignment; no turn, Play or host activation"
+SCOPE_FIELDS = ("workspaceId", "brainId", "projectId", "catalogProjectId", "checkout", "projectRoots",
+                "ledgerIdentity", "ledgerRevision", "catalogHash", "projectLocationHash",
+                "endpointHash", "bindingHash", "nativeBeforeProjectId")
+LEGACY_FIELDS = set(SCOPE_FIELDS) | {"kind", "nativeStatus", "createdAt", "expiresAt", "effect"}
 UNRESOLVED_NOTIFICATIONS = {"sending", "uncertain"}
 UNRESOLVED_MERGES = {"prepared", "issued", "uncertain"}
 
@@ -204,7 +212,7 @@ def preview(registry, workspace_id, binding):
     require(thread["projectId"] is None,
             "Native brain already has the reviewed project; no metadata write is necessary")
     now = time.time()
-    doc = {"kind": KIND, "workspaceId": workspace_id,
+    doc = {"kind": REVIEW_KIND, "reviewValidity": REVIEW_VALIDITY, "workspaceId": workspace_id,
            "brainId": scope["brainId"], "projectId": scope["projectId"],
            "catalogProjectId": scope["catalogProjectId"],
            "checkout": scope["cwd"], "projectRoots": roots,
@@ -213,8 +221,8 @@ def preview(registry, workspace_id, binding):
            "projectLocationHash": scope["locationHash"],
            "endpointHash": scope["endpointHash"], "bindingHash": scope["bindingHash"],
            "nativeBeforeProjectId": None, "nativeStatus": thread["status"]["type"],
-           "createdAt": now, "expiresAt": now + TTL,
-           "effect": "One native thread/metadata/update project assignment; no turn, Play or host activation"}
+           "createdAt": now, "expiresAt": None,
+           "effect": EFFECT}
     require(len(canonical(doc).encode("utf-8")) <= MAX_PREVIEW, "Project review exceeds its bound")
     return {"preview": doc, "previewHash": digest(doc)}
 
@@ -320,25 +328,54 @@ def _catalog_still_bound(db, workspace_id, scope, doc):
             "Native catalog mapping changed after review")
 
 
-def confirm(registry, workspace_id, binding, proposal, confirmation_hash):
-    """Claim exactly once before write; never retry an existing intent."""
+def _validate_review(proposal, workspace_id, confirmation_hash, revalidate_expired_review):
+    """Owner scope review is distinct from the mandatory fresh native preflight.
+
+    Legacy expiry is preserved unless this exact owner confirmation explicitly
+    chooses the narrow revalidation path. No read, upgrade or v2 preview converts
+    a legacy review. A native intent, even an unattempted one, remains one-shot.
+    """
+    require(type(revalidate_expired_review) is bool, "Explicit legacy revalidation choice required")
     require(isinstance(proposal, dict) and set(proposal) == {"preview", "previewHash"},
             "Exact saved project preview required")
     doc = proposal["preview"]
     sha(confirmation_hash)
-    require(isinstance(doc, dict) and len(canonical(doc).encode("utf-8")) <= MAX_PREVIEW and
+    try:
+        encoded = canonical(doc)
+    except (TypeError, ValueError) as error:
+        raise Refusal("Project review must contain only finite JSON values") from error
+    require(isinstance(doc, dict) and len(encoded.encode("utf-8")) <= MAX_PREVIEW and
             proposal["previewHash"] == digest(doc) == confirmation_hash and
-            doc.get("kind") == KIND and doc.get("workspaceId") == workspace_id and
-            type(doc.get("createdAt")) in (int, float) and
-            0 <= time.time() - doc["createdAt"] <= TTL and
-            doc.get("expiresAt") == doc["createdAt"] + TTL and time.time() <= doc["expiresAt"],
-            "Preview was changed, expired or not explicitly confirmed")
+            doc.get("workspaceId") == workspace_id and doc.get("effect") == EFFECT and
+            type(doc.get("createdAt")) in (int, float) and 0 < doc["createdAt"] <= time.time() and
+            math.isfinite(doc["createdAt"]) and doc.get("nativeBeforeProjectId") is None and
+            doc.get("nativeStatus") in ("idle", "notLoaded"),
+            "Preview was changed, malformed or not explicitly confirmed")
+    if doc.get("kind") == REVIEW_KIND:
+        require(set(doc) == LEGACY_FIELDS | {"reviewValidity"} and
+                doc["reviewValidity"] == REVIEW_VALIDITY and doc["expiresAt"] is None and
+                not revalidate_expired_review,
+                "Exact scope-bound project review required; legacy revalidation does not apply")
+    else:
+        require(doc.get("kind") == KIND and set(doc) == LEGACY_FIELDS and
+                type(doc.get("expiresAt")) in (int, float) and
+                doc["expiresAt"] == doc["createdAt"] + TTL,
+                "Exact original legacy project review required")
+        expired = time.time() > doc["expiresAt"]
+        require(not expired or revalidate_expired_review,
+                "Legacy project review expired; only explicit owner revalidation of this exact hash may continue")
+        require(not revalidate_expired_review or expired,
+                "Legacy expiry revalidation requires an expired original review")
+    return doc
+
+
+def confirm(registry, workspace_id, binding, proposal, confirmation_hash, *, revalidate_expired_review=False):
+    """Claim exactly once before write; never retry an existing intent."""
+    doc = _validate_review(proposal, workspace_id, confirmation_hash, revalidate_expired_review)
     current = preview(registry, workspace_id, binding)["preview"]
     # Native status may move between idle and notLoaded without authorizing a
     # different target. Everything else, including the revision, is exact.
-    for key in ("workspaceId", "brainId", "projectId", "catalogProjectId", "checkout", "projectRoots",
-                "ledgerIdentity", "ledgerRevision", "catalogHash", "projectLocationHash",
-                "endpointHash", "bindingHash", "nativeBeforeProjectId"):
+    for key in SCOPE_FIELDS:
         require(doc.get(key) == current[key], "Native project or ledger changed; inspect a fresh preview")
     scope = _scope(registry, workspace_id, binding)
     # Confirm is maintenance, and the only operation that creates this table.
@@ -356,6 +393,9 @@ def confirm(registry, workspace_id, binding, proposal, confirmation_hash):
                    "catalogProjectId": scope["catalogProjectId"], "checkout": scope["cwd"],
                    "ledgerIdentity": scope["ledgerIdentity"], "endpointHash": scope["endpointHash"],
                    "bindingHash": scope["bindingHash"], "previewHash": confirmation_hash,
+                   "review": proposal, "reviewKind": doc["kind"],
+                   "legacyExpiryRevalidated": revalidate_expired_review,
+                   "freshPreflightAt": current["createdAt"],
                    "claimedAt": time.time(), "status": "intent_committed", "nativeAttempted": False,
                    "nativeBeforeProjectId": None, "nativeOutcome": "not_observed"}
         ledger.put(db, TABLE, scope["brainId"], attempt)
