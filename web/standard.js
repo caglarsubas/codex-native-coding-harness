@@ -176,6 +176,22 @@ function standardPanel(root,mode='all'){
     }
     }
     if(['all','operations'].includes(mode)&&s.blockers?.length)panel.append(callout('Checkpoint required',s.blockers.join(' ')));
+    if(['all','operations'].includes(mode)&&s.nativePolicyVerification){
+      const policy=s.nativePolicyVerification;
+      panel.append(callout('Code Mode is not verified off',
+        (policy.resumeAcknowledged?'The saved resume acknowledged the requested configuration. ':'The exact saved acknowledgement is missing or unverified. ')+
+        'The native protocol did not report the effective Code Mode tool surface. Another message, Play or recovery cannot provide that missing proof.'));
+      panel.append(table(['Saved policy evidence','Recorded fact'],[
+        ['Original observation',when(policy.observedAt)],
+        ['Requested configuration',policy.configurationMatches?'Matches the reviewed binding':'Unverified'],
+        ['Resume acknowledgement',policy.resumeAcknowledged?'Recorded':'Unverified'],
+        ['Sandbox',policy.sandbox==='reported_matching'?'Reported workspace-write':'Unverified'],
+        ['Approval policy',policy.approvalPolicy==='reported_matching'?'Reported on-request':'Unverified'],
+        ['Approval reviewer',policy.approvalsReviewer==='reported_matching'?'Reported user':'Unverified'],
+        ['Effective Code Mode', 'Unknown; required off'],
+        ['Next step','Repair and qualify runtime policy, then refresh usage before separately reviewed Resume']
+      ]),el('p',policy.boundary,'muted'));
+    }
     if(['all','tasks'].includes(mode)){
     if(s.nativeObservation){
       const native=s.nativeObservation;
@@ -209,7 +225,7 @@ function standardPanel(root,mode='all'){
       if(t.threadId){const a=el('a','Open Codex task','button');a.href='codex://threads/'+encodeURIComponent(t.threadId);links.append(a);}
       return [textCell(t.title,`${t.model} · ${t.effort}`),textCell(t.status,t.nativeStatus),links];
     })));
-    if(!run.tasks.length)panel.append(el('p','No tasks have been registered for this phase yet. Follow the brain conversation for its next update.','muted'));
+    if(!run.tasks.length)panel.append(el('p',s.nativePolicyVerification?.codeMode==='unverified'?'No worker has been issued. The required native policy proof is missing; another brain message cannot clear it.':'No tasks have been registered for this phase yet. Follow the brain conversation for its next update.','muted'));
     }
     if(['all','operations'].includes(mode)){
     const history=el('details');history.append(el('summary','Run history · latest 30 retained versions'));
@@ -224,8 +240,10 @@ function standardPanel(root,mode='all'){
   if(['all','operations'].includes(mode))controlRequestHistory(panel);
   if(mode!=='all'){root.append(panel);return;}
   const operation=!run||['completed','blocked'].includes(run.status)?'play':run.status==='paused'?'resume':'pause';
-  const label={play:'Review Play',resume:'Review Resume',pause:'Pause at safe checkpoint'}[operation];
+  const policyBlocked=operation==='resume'&&s.nativePolicyVerification?.codeMode==='unverified';
+  const label=policyBlocked?'Inspect policy evidence':{play:'Review Play',resume:'Review Resume',pause:'Pause at safe checkpoint'}[operation];
   const requestButton=button(label,async()=>{
+    if(policyBlocked){navigateView('operations');return;}
     if(needsCatalog&&catalogReadinessIssue(s.catalogRefresh)){journeyAction('request');return;}
     if(needsCatalog){await requestCatalogForPlay(s);return;}
     await reviewStandardControl(s,operation,run);

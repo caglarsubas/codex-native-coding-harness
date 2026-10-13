@@ -242,6 +242,10 @@ function roadmapJourneyState(snapshot,isConnected=true,now=Date.now()/1000){
     return result(2,'Phase is active','Play is active up to the reviewed stopping checkpoint. Follow the sessions for observed task activity, or pause safely at any time.','Follow sessions','overview',{canPause:true});
   }
   if(run?.status==='paused'){
+    if(s.nativePolicyVerification?.codeMode==='unverified')return result(3,'Codex policy verification is blocked',
+      (s.nativePolicyVerification.resumeAcknowledged?'The host acknowledged the requested settings, but did not prove Code Mode is off. ':'The exact native policy acknowledgement is missing or unverified. ')+
+      'This needs a qualified runtime, not another message or recovery. The phase remains paused with its original usage and expiry.',
+      'Inspect policy evidence','operations',{reasons:blockers,requiresOperator:true});
     const recovery=run.recovery;
     const budgetAdjusted=(run.budgetReviews||[]).some(r=>r.at>=run.checkpoint?.at);
     if(s.brainBudget?.available&&!budgetAdjusted&&run.checkpoint?.reasonCodes?.includes('token_budget'))return result(3,'Review the brain allowance',

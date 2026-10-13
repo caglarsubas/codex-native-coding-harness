@@ -83,6 +83,15 @@ Code Mode's disabled configuration is acknowledged by successful resume but is
 not independently reported by this installed protocol. Named-profile provenance,
 complete effective sandbox roots and OS enforcement are not attested here.
 
+That absence is now an explicit `native_code_mode_unverified` issue as well as
+the preserved `code_mode_not_independently_reported` gap. It must not appear as
+an issue-free policy check. The non-collecting standard admission guard also
+reads the exact retained owned-run handoff and fences new worker claims, issue,
+merge boundaries and Resume. Receipt, observation and checkpoint operations stay
+available. Neither a successful override, disk feature list, unsolicited native
+field nor a model's promise not to use `functions.exec` supplies effective-policy
+proof. See [policy verification](NATIVE-POLICY-VERIFICATION.md).
+
 The result labels these facts separately, exposes unknown coverage and reports
 known contrary/missing policy or unresolved recorded approval as `issues`.
 Even a report with no issues is **not** execution/approval authority, a complete

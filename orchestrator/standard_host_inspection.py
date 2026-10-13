@@ -22,7 +22,8 @@ REPORT_FIELDS = set("version workspaceId runId commandId brainId nativeTurnId bi
                     "catalogProjectId ownedProjectId startedAt observedAt brain resumeProfile issues gaps boundary".split())
 ISSUES = {"native_active_flags_unavailable", "native_approval_or_user_input_pending",
           "native_sandbox_unavailable_or_different", "native_approval_policy_unavailable_or_different",
-          "native_approval_reviewer_unavailable_or_different", "unresolved_recorded_native_approval"}
+          "native_approval_reviewer_unavailable_or_different", "unresolved_recorded_native_approval",
+          "native_code_mode_unverified"}
 GAPS = ["code_mode_not_independently_reported", "native_effect_inventory_not_complete"]
 BOUNDARY = {"nativeMutationMade": False, "executionAuthorized": False,
             "approvalAuthorized": False, "taskTreeComplete": False,
@@ -161,6 +162,10 @@ def _collect(registry, ledger, token, run_id, command_id, context, binding=None)
         issues.append("native_approval_policy_unavailable_or_different")
     if reported.get("approvalsReviewer") != "user":
         issues.append("native_approval_reviewer_unavailable_or_different")
+    # The installed public protocol does not report effective tool mode. A
+    # successful override, disk feature list or caller-supplied field is not
+    # proof that the model-visible Code Mode entrypoints are unavailable.
+    issues.append("native_code_mode_unverified")
     if any(a.get("status") not in ("resolved", "resolved_without_response") for a in context["approvals"]):
         issues.append("unresolved_recorded_native_approval")
     return {"version": VERSION, "workspaceId": ledger.workspace_id, "runId": run_id,
@@ -257,6 +262,7 @@ def _request_inspection(registry, ledger, token, run_id, command_id, context):
                 all(f in ("waitingOnApproval", "waitingOnUserInput") for f in brain["activeFlags"])) and
                 isinstance(report["issues"], list) and len(report["issues"]) <= len(ISSUES) and
                 all(isinstance(i, str) and i in ISSUES for i in report["issues"]) and
+                "native_code_mode_unverified" in report["issues"] and
                 report["gaps"] == GAPS and type(report["startedAt"]) in (int, float) and
                 saved["requestedAt"] <= report["startedAt"] <= report["observedAt"],
                 "Host inspection metadata shape changed")

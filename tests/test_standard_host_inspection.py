@@ -97,7 +97,7 @@ class HostInspectionTest(unittest.TestCase):
         self.update(hostInspectionTransport=inspection.BROKER)
         with patch.object(inspection.time,"sleep",side_effect=lambda _:self.service()):
             report=self.inspect()
-        self.assertEqual(report["issues"],[])
+        self.assertEqual(report["issues"],["native_code_mode_unverified"])
         self.assertEqual([m for m,_ in self.fixture.fake.calls],["project/read","thread/read"]*2)
 
     def test_broker_stale_changed_context_and_interrupted_query_never_recollect(self):
@@ -146,7 +146,7 @@ class HostInspectionTest(unittest.TestCase):
     def test_repeated_read_is_nonmutating_and_keeps_policy_evidence_separate(self):
         with read_db(self.ledger.db) as db: before = fingerprint(db)
         result = self.inspect()
-        self.assertEqual(result["issues"], [])
+        self.assertEqual(result["issues"], ["native_code_mode_unverified"])
         self.assertEqual(result["ownedProjectId"], self.fixture.project_id)
         self.assertEqual(result["catalogProjectId"], self.fixture.catalog_project_id)
         self.assertIsNone(result["resumeProfile"]["reported"]["codeMode"])
@@ -183,9 +183,23 @@ class HostInspectionTest(unittest.TestCase):
         self.note["nativeResumeProfile"]["nativeTurnId"] = "owned-turn-1"
         self.update()
         result = self.inspect()
-        self.assertEqual(len(result["issues"]), 3)
+        self.assertEqual(len(result["issues"]), 4)
         self.assertTrue(all(v is None for v in result["resumeProfile"]["reported"].values()))
         self.assertNotIn("PRIVATE RESPONSE", canonical(result))
+
+    def test_unsolicited_code_mode_fields_cannot_close_the_verification_gap(self):
+        for extra in ({"codeMode": False}, {"effectiveToolMode": "direct"},
+                      {"config": {"features": {"code_mode": {"enabled": False}}}}):
+            response = {"sandbox": {"type": "workspaceWrite"}, "approvalPolicy": "on-request",
+                        "approvalsReviewer": "user", **extra}
+            self.note["nativeResumeProfile"] = inspection.resume_profile(
+                self.binding, self.fixture.brain_id, self.command_id, response)
+            self.note["nativeResumeProfile"]["nativeTurnId"] = "owned-turn-1"
+            self.update()
+            report = self.inspect()
+            self.assertIsNone(report["resumeProfile"]["reported"]["codeMode"])
+            self.assertIn("native_code_mode_unverified", report["issues"])
+            self.assertIn("code_mode_not_independently_reported", report["gaps"])
 
     def test_weaker_or_auto_approved_profile_is_explicitly_reported(self):
         self.note["nativeResumeProfile"] = inspection.resume_profile(self.binding, self.fixture.brain_id, self.command_id,
@@ -193,7 +207,7 @@ class HostInspectionTest(unittest.TestCase):
         self.note["nativeResumeProfile"]["nativeTurnId"] = "owned-turn-1"
         self.update()
         result = self.inspect()
-        self.assertEqual(len(result["issues"]), 3)
+        self.assertEqual(len(result["issues"]), 4)
         self.assertFalse(result["boundary"]["executionAuthorized"])
 
     def test_closed_old_unknown_or_foreign_control_refuses_before_native_read(self):
