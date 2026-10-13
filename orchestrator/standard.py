@@ -130,6 +130,8 @@ def current_blockers(ledger, db, run):
         problems.append(str(error))
     from .brain_memory import blockers as usage_blockers
     problems.extend(usage_blockers(run))
+    from .standard_native_policy import blockers as policy_blockers
+    problems.extend(policy_blockers(ledger, db, run))
     return problems
 
 
@@ -161,6 +163,8 @@ def projection(ledger, db):
     except (Refusal, ValueError) as error:
         result["blocker"] = str(error)
     if run:
+        from .standard_native_policy import projection as policy_projection
+        result["nativePolicyVerification"] = policy_projection(ledger, db, run)
         from .standard_budget import summary_in
         result["brainBudget"] = summary_in(ledger, db)
         from .pause_recovery import availability, state_in

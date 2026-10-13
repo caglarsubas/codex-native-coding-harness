@@ -1,5 +1,18 @@
 # Codex Orchestrator — personal tooling
 
+## Owned Code Mode verification gate (2026-10-13)
+
+Read docs/NATIVE-POLICY-VERIFICATION.md before owned standard continuation.
+The installed v1 protocol does not independently report effective Code Mode.
+Successful configuration overrides and disk feature flags are not proof of off;
+model tool-mode metadata may override flags. Preserve null reported policy and
+the original gap. The explicit `native_code_mode_unverified` issue and retained
+owned-run admission guard fence claim, issue, merge and Resume. Safety receipts,
+observations and checkpoints remain available. Do not fabricate native fields,
+use a model promise as proof, weaken policy, disable a shared host or replay a
+control to clear this gap. Source delivery installs nothing, changes no native
+runtime or binding, resets no usage/expiry and does not qualify the fresh pilot.
+
 ## Native project assignment review validity (2026-10-13)
 
 Read docs/NATIVE-PROJECT-ASSIGNMENT-REVIEW.md fully before native assignment.

@@ -102,8 +102,13 @@ Keep the original `resumeProfile.observedAt`, requested policy, successful
 resume acknowledgement and native-reported policy distinct. The installed
 protocol reports sandbox, approval policy and reviewer; it does not independently
 report Code Mode. The acknowledged `code_mode.enabled=false` configuration is
-not OS attestation. Check current native tool metadata if the mission needs that
-extra proof. Missing/contrary fields and `issues` stop effects; do not copy
+not effective-policy proof or OS attestation. `native_code_mode_unverified` is
+an explicit issue; the retained owned-run policy guard fences claim, issue,
+merge and Resume. Current v1 runtime evidence cannot clear that gate. Do not
+use a disk feature list, unsolicited field or promise to avoid `functions.exec`
+as proof. Retain the checkpoint and release; another Play or recovery wake
+cannot repair runtime policy. Read docs/NATIVE-POLICY-VERIFICATION.md.
+Missing/contrary fields and `issues` stop effects; do not copy
 requested values into reported ones. An empty recorded approval list never
 proves complete native-effect absence. Honor the explicit `gaps` and mission's
 remaining evidence requirements, then re-read current run/usage before any effect.

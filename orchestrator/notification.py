@@ -317,7 +317,10 @@ class BrainNotifier:
                 "for fresh read-only project/brain metadata and the exact resume-profile receipt. "
                 "The reviewed binding is already retained privately; do not ask the owner for paths, discover a host, "
                 "resume a native thread or change settings to inspect it. Reported policy, acknowledged Code Mode "
-                "configuration and unknown native-effect coverage are separate facts. Missing evidence stops effects."
+                "configuration and unknown native-effect coverage are separate facts. "
+                "The v1 protocol cannot independently verify Code Mode off: native_code_mode_unverified blocks "
+                "worker claims, issue and Resume. A successful override or disk feature list cannot clear it. "
+                "Retain the checkpoint and release; do not retry Play or recovery to obtain missing policy evidence."
             )
         if has_conversation and command["kind"] not in ("standard_recovery", "brain_reply_recovery", "standard_pause_receipt_recovery"):
             source = Path(__file__).resolve().parent.parent

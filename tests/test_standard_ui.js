@@ -61,6 +61,16 @@ function all(root){return [root,...root.children.flatMap(x=>x instanceof Element
   }
   box.state.standard.run.status='stopping';assert.equal(all(render()).find(n=>n.text==='Pause at safe checkpoint').disabled,true);
   box.state.standard.run.status='paused';assert.ok(all(render()).some(n=>n.text==='Review Resume'));
+  box.state.standard.nativePolicyVerification={codeMode:'unverified',policyVerified:false,configurationMatches:true,
+    resumeAcknowledged:true,sandbox:'reported_matching',approvalPolicy:'reported_matching',approvalsReviewer:'reported_matching',observedAt:1,
+    boundary:'Saved metadata; terminal safety remains unknown.'};
+  const policyNodes=all(render()),policyCalls=sent.length;
+  assert.ok(!policyNodes.some(n=>n.text==='Review Resume'),'Unverified Code Mode cannot invite a Resume confirmation');
+  assert.ok(policyNodes.some(n=>String(n.text).includes('Code Mode is not verified off')));
+  assert.ok(policyNodes.some(n=>n.tag==='table'&&n.text.includes('Unknown; required off')));
+  await policyNodes.find(n=>n.text==='Inspect policy evidence').click();
+  assert.equal(routes.at(-1),'operations');assert.equal(sent.length,policyCalls,'Policy inspection sends no command');
+  delete box.state.standard.nativePolicyVerification;
   box.state.standard.run.usageGuardVersion=1;
   box.state.standard.measuredUsage={tokens:{input_tokens:100,cached_input_tokens:50,output_tokens:20,reasoning_output_tokens:5,total_tokens:120},
     collectedAt:1,coverage:'gapped',gaps:['missing_prefix'],remainingMeasured:null};

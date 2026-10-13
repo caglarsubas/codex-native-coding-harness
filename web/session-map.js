@@ -7,6 +7,51 @@ Object.assign(titles, {
 const sessionMapPreferences=new Map();
 function sessionCurrentKey(){return typeof workspaceId==='undefined'?'legacy':workspaceId||'legacy';}
 let sessionGuideBody=null;
+let sessionInspectorViewport=null;
+function sessionInspectorFocusables(inspector){
+  return [...inspector.querySelectorAll('button:not([disabled]),a[href],input:not([disabled]),textarea:not([disabled]),select:not([disabled]),summary,[tabindex="0"]')].filter(node=>node.getClientRects().length);
+}
+function sessionWatchInspectorViewport(shell,prefs){
+  sessionInspectorViewport?.dispose();
+  const media=matchMedia('(max-width: 799px)'),inspector=shell.querySelector('.session-inspector'),background=new Map();
+  let removalObserver=null;
+  function restoreBackground(){for(const [node,inert] of background)node.inert=inert;background.clear();}
+  function sync(){
+    if(!shell.isConnected){dispose();return;}
+    const modal=media.matches&&prefs.inspectorOpen;
+    inspector.setAttribute('role',media.matches?'dialog':'complementary');
+    inspector.setAttribute('aria-modal',String(!!modal));
+    if(modal){
+      // Restrict the whole page, not just graph keyboard handlers. Retain any
+      // pre-existing inert state and leave the pointer-only dismiss scrim usable.
+      for(let node=inspector;node.parentElement;node=node.parentElement){
+        for(const sibling of node.parentElement.children){
+          if(sibling===node||sibling.id==='session-sheet-scrim'||['SCRIPT','STYLE','LINK'].includes(sibling.tagName))continue;
+          if(!background.has(sibling))background.set(sibling,sibling.inert);
+          sibling.inert=true;
+        }
+        if(node.parentElement===document.body)break;
+      }
+      if(!inspector.contains(document.activeElement))(sessionInspectorFocusables(inspector)[0]||inspector).focus({preventScroll:true});
+    }else{
+      restoreBackground();
+      // A sheet-only Close control becomes hidden on desktop. Do not leave
+      // keyboard focus there, but never move a visible composer or its caret.
+      if(inspector.contains(document.activeElement)&&!document.activeElement.getClientRects().length)
+        (inspector.querySelector('[role=tab][aria-selected=true]')||inspector).focus({preventScroll:true});
+    }
+  }
+  function dispose(){
+    media.removeEventListener('change',sync);removalObserver?.disconnect();restoreBackground();
+    if(sessionInspectorViewport?.shell===shell)sessionInspectorViewport=null;
+  }
+  media.addEventListener('change',sync);
+  sessionInspectorViewport={shell,sync,dispose};
+  if(typeof MutationObserver==='function'){
+    removalObserver=new MutationObserver(()=>{if(!shell.isConnected)dispose();});
+    removalObserver.observe(document.body,{childList:true,subtree:true});
+  }
+}
 function sessionParkGuide(){
   sessionGuideBody=sessionGuideBody||document.querySelector('.assistant-body');
   if(sessionGuideBody&&document.getElementById('assistant-pane')&&!document.getElementById('assistant-pane').contains(sessionGuideBody))document.getElementById('assistant-pane').append(sessionGuideBody);
@@ -46,6 +91,7 @@ function sessionCloseInspector(prefs){
   prefs.inspectorOpen=false;sessionSavePreferences(sessionCurrentKey(),prefs);
   $('session-inspector')?.classList.remove('is-open');$('session-inspector')?.setAttribute('aria-modal','false');
   $('session-sheet-scrim')?.classList.remove('is-open');
+  sessionInspectorViewport?.sync();
   (document.querySelector('.session-node[aria-pressed="true"]')||document.querySelector('.session-canvas-scroll'))?.focus({preventScroll:true});
 }
 const SESSION_FILTERS={repository:'all',commit:'all',pr:'all',ci:'all',roadmap:'all',activity:'all',from:'',through:'',sort:'recorded'};
@@ -251,13 +297,13 @@ function sessionMap(root){
     shell=el('div',null,'session-home');shell.dataset.workspace=key;
     const permissionNotice=el('section',null,'session-native-notice');
     shell.append(permissionNotice,el('section',null,'session-pulse'),el('section',null,'session-recovery'),el('section',null,'session-board'));
-    const scrim=button('Close details',()=>sessionCloseInspector(prefs),'session-sheet-scrim');scrim.id='session-sheet-scrim';scrim.tabIndex=-1;shell.append(scrim,el('aside',null,'session-inspector'));
+    const scrim=button('Close details',()=>sessionCloseInspector(prefs),'session-sheet-scrim');scrim.id='session-sheet-scrim';scrim.tabIndex=-1;scrim.setAttribute('aria-hidden','true');shell.append(scrim,el('aside',null,'session-inspector'));
     shell.lastElementChild.id='session-inspector';shell.lastElementChild.tabIndex=-1;shell.lastElementChild.setAttribute('aria-label','Selected session details');
     shell.addEventListener('keydown',event=>{
       if(!prefs.inspectorOpen||!matchMedia('(max-width: 799px)').matches)return;
       if(event.key==='Escape'){event.preventDefault();sessionCloseInspector(prefs);return;}
       if(event.key!=='Tab')return;
-      const inspector=shell.querySelector('.session-inspector'),focusable=[...inspector.querySelectorAll('button:not([disabled]),a[href],input:not([disabled]),textarea:not([disabled]),select:not([disabled]),summary,[tabindex="0"]')].filter(node=>node.getClientRects().length);
+      const inspector=shell.querySelector('.session-inspector'),focusable=sessionInspectorFocusables(inspector);
       if(!focusable.length)return;
       const first=focusable[0],last=focusable.at(-1);
       if(!inspector.contains(document.activeElement)){event.preventDefault();first.focus();}
@@ -269,12 +315,11 @@ function sessionMap(root){
       if(token){prefs.focus=token;sessionSavePreferences(key,prefs);}
     });
     root.replaceChildren(shell);prefs.graphSignature=null;prefs.inspectorSignature=null;
+    sessionWatchInspectorViewport(shell,prefs);
     nativePermissionNotice(permissionNotice);
   }
   shell.querySelector('.session-inspector').classList.toggle('is-open',!!prefs.inspectorOpen);
   shell.querySelector('.session-sheet-scrim').classList.toggle('is-open',!!prefs.inspectorOpen);
-  shell.querySelector('.session-inspector').setAttribute('role',matchMedia('(max-width: 799px)').matches?'dialog':'complementary');
-  shell.querySelector('.session-inspector').setAttribute('aria-modal',matchMedia('(max-width: 799px)').matches&&prefs.inspectorOpen?'true':'false');
   sessionPulse(shell.querySelector('.session-pulse'),model);
   sessionRecovery(shell.querySelector('.session-recovery'));
   // Polling must not destroy focused controls, an open conversation, or a draft.
@@ -309,6 +354,9 @@ function sessionMap(root){
       if(target&&target.getClientRects().length)target.focus({preventScroll:true});
     }
   }
+  // Media-query changes run this same metadata/focus-only path even when an
+  // editor suppresses render. No DOM replacement, request or draft rewrite.
+  sessionInspectorViewport?.sync();
 }
 function sessionPulse(root,model){
   const journey=roadmapJourneyState(state,connected),open=state.workflow?.openDecisions??(state.decisions||[]).filter(d=>d.status==='open').length;

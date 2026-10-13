@@ -44,6 +44,7 @@ def platform_issue(reason):
     """Translate only known platform refusals; never forward arbitrary text."""
     value = reason.lower()
     known = (
+        ("native code mode-off policy is unverified", "native_code_mode_unverified", "Code Mode-off policy is unverified", "Repair and qualify runtime policy; another message or recovery cannot supply this proof.", "evidence"),
         ("mission changed", "mission_changed", "Reviewed mission changed", "Review an exact new phase.", "policy_review"),
         ("duration expired", "duration", "Reviewed duration ended", "Review the time limit for a new phase.", "policy_review"),
         ("usage observation expired", "usage_stale", "Usage observation expired", "Refresh phase-scoped usage.", "evidence"),
