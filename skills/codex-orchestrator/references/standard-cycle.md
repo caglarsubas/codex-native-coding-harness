@@ -388,6 +388,13 @@ work does not authorize installation, policy migration, live changes or activati
 
 ## Exhausted receipt recovery: no second wake
 
+A device-number change can block reading an unchanged ledger before historical
+inspection. Only the separate operator-reviewed device-only path in source
+`docs/ENDED-RECOVERY-DEVICE-REVIEW.md` may preserve the exact consumed recovery
+while repairing registry/project device pins. It uses no native transport and
+grants no receipt, cleanup, host launch/rebind or continuation. The designated
+brain cannot confirm it; normal reads and source upgrades cannot apply it.
+
 Read `docs/HISTORICAL-EFFECT-CLOSEOUT.md` before using its two separate signed owner
 controls. Historical reconciliation only reads exact native history and configured
 local call inventory, retaining unknowns. Terminal closeout requires independently
