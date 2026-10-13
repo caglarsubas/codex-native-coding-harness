@@ -16,6 +16,7 @@ acceptance authority. Items change through reviewed repository edits.
 - [x] Implement separate non-waking historical-effect reconciliation and terminal closeout for independently proved non-execution, preserving unknowns, original receipts, usage and expiry (source/disposable fixtures; no live installation or pilot acceptance; [contract](HISTORICAL-EFFECT-CLOSEOUT.md))
 - [ ] Independently reconcile executed/unsupported historical effects and qualify the exact live pilot evidence; current empty terminals are not old cleanup proof
 - [x] Implement explicit read-only cleanup collection/source qualification with complete current terminal pages, exact historical effect linkage and per-effect missing provenance; native reads qualify collection behavior only, not historical cleanup ([contract](CLEANUP-COLLECTOR.md))
+- [x] Add separate device-only owner review for an unchanged empty stopping run with consumed ended recovery, preserving original requests and unknown effects (source/fixtures and read-only preview qualification; no live repair; [contract](ENDED-RECOVERY-DEVICE-REVIEW.md))
 - [ ] Qualify the disposable owned-host **standard phase** journey against registered tasks and tracked terminals; do not substitute generic Brain Stop for standard Pause
 - [ ] Separately qualify complete native task/descendant coverage for legacy `workspace_pause_v1` checkpoints; persisted and loaded listings cannot close the existing stopped legacy pilot
 - [ ] Independently qualify native approval handling and a disposable end-to-end owned-host pilot

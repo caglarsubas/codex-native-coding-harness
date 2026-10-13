@@ -389,3 +389,16 @@ The documented source cannot qualify complete historical cleanup. All mutation,
 cleanup verification, ownership release, execution and pilot flags remain false.
 No schema migration or consumer promotes the report into a receipt or closeout.
 See [collector contract and qualification](CLEANUP-COLLECTOR.md).
+
+## Ended-recovery device review receipt
+
+`workspace_device_ended_recovery_v1` is a distinct registry identity-repair
+document/receipt, not a ledger command or native receipt. It retains the exact
+run and Play/Pause/consumed-recovery hashes, immutable original binding file epoch,
+both native project IDs, unchanged full ledger/reference and registry checksums,
+and explicit retained-only/unknown native evidence. The confirmed transaction
+changes only selected device pins and journals its verified private backups.
+No original ledger bytes/records, usage/gaps, expiry, ownership or native effect
+claim is rewritten. Receipt replay returns the original immutable result without
+repinning a later device. Default and pending-Play repair documents remain separate.
+See [the device-only contract](ENDED-RECOVERY-DEVICE-REVIEW.md).

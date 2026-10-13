@@ -64,8 +64,11 @@ def main():
     p = sub.add_parser("workspace-profile-set"); p.add_argument("profile", type=Path); p.add_argument("--version", type=int, required=True)
     p = sub.add_parser("workspace-identity-preview", help="Read-only device-number recovery review against a private retained backup")
     p.add_argument("reference", type=Path)
-    p.add_argument("--preserve-pending-play", action="store_true",
+    modes = p.add_mutually_exclusive_group()
+    modes.add_argument("--preserve-pending-play", action="store_true",
                    help="Separate review preserving one unreceipted, unknown owned Play in an empty standard run; never replay or reconcile it")
+    modes.add_argument("--preserve-ended-recovery", type=Path, metavar="PRIVATE_ORIGINAL_BINDING",
+                       help="Separate device-only review preserving exact Play/Pause/consumed ended recovery; old binding is bytes only, never a connection target")
     p = sub.add_parser("workspace-identity-recover", help="Exact-owner registry device-pin repair; never replace a ledger or start work")
     p.add_argument("preview", type=Path); p.add_argument("--confirm-hash", required=True)
     p.add_argument("--confirm", action="store_true"); p.add_argument("--writers-stopped", action="store_true")
@@ -370,7 +373,8 @@ def main():
             from . import workspace_identity_recovery as recovery
             if args.action == "workspace-identity-preview":
                 out = recovery.preview(registry, args.workspace, args.reference,
-                                       preserve_pending_play=args.preserve_pending_play)
+                                       preserve_pending_play=args.preserve_pending_play,
+                                       preserve_ended_recovery=args.preserve_ended_recovery)
             else:
                 out = recovery.confirm(registry, args.workspace, recovery.read_preview(args.preview), args.confirm_hash,
                                        confirmed=args.confirm, writers_stopped=args.writers_stopped)

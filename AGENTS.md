@@ -1,5 +1,21 @@
 # Codex Orchestrator — personal tooling
 
+## Ended-recovery device review source (2026-10-13)
+
+The separate operator-only `--preserve-ended-recovery PRIVATE_ORIGINAL_BINDING`
+review is described in docs/ENDED-RECOVERY-DEVICE-REVIEW.md. Read it fully before
+use. Only unchanged device metadata for an empty stopping standard run with exact
+retained Play/Pause/consumed ended recovery is covered. Require the full matching
+earlier reference, unchanged inode/brain/checkout, both explicit native IDs and
+exact original restricted binding/file epoch; never connect to that old endpoint.
+Default and pending-Play repair gates remain unchanged. Exact new owner review,
+stopped writers, private verified backups and atomic registry-only journaling
+are mandatory. Preserve all original ledger/run/command/observer/receipt/usage/gap/
+expiry bytes; no native receipt, ownership release or safety inference follows.
+Retained completed turns do not prove current or historical terminals safe.
+Source delivery installs/applies nothing, repairs no host, replays nothing and
+does not qualify the pilot. Runtime repair and historical evidence remain separate.
+
 ## Multi-host historical evidence (2026-10-11)
 
 `phase_historical_effects` may inspect an original accepted Play whose saved

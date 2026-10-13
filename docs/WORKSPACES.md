@@ -113,6 +113,19 @@ one-shot boundaries. Do not repeat Play or treat identity recovery as pilot acce
 
 Source delivery applies no private recovery and launches no host.
 
+#### Preserve a consumed ended recovery during device review
+
+An empty stopping standard run with the exact original Play/Pause and consumed,
+completed receipt recovery needs a different review. The explicit
+`--preserve-ended-recovery PRIVATE_ORIGINAL_BINDING` mode restores only unchanged
+registry/project device metadata, preserving all original ledger records and
+unknown effects. It makes no native call and cannot use a replacement binding.
+Both native project IDs and the original private binding epoch remain pinned.
+Default and pending-Play gates are unchanged; flags are mutually exclusive.
+Read [the complete operator contract](ENDED-RECOVERY-DEVICE-REVIEW.md) first.
+No installation, confirmation, host repair, replay, closeout or pilot acceptance
+follows source delivery. This review has no timer; changed scope invalidates it.
+
 ## Project introduction
 
 Use `workspace-profile-set <private-json> --version <current-version>` to save

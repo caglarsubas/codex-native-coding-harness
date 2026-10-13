@@ -26,11 +26,14 @@ from .workspaces import fingerprint, identity, private_path
 
 KIND = "workspace_device_recovery_v1"
 PENDING_PLAY_KIND = "workspace_device_pending_play_recovery_v1"
+ENDED_RECOVERY_KIND = "workspace_device_ended_recovery_v1"
 MAX_BYTES = 128 * 1024 * 1024
 MAX_ROWS = 50_000
 MAX_HISTORY = 32
 BOUNDARY = {"changesLedger": False, "startsWork": False, "nativeCallMade": False,
             "renewsRun": False, "changesHostBinding": False, "resetsUsage": False}
+ENDED_BOUNDARY = {**BOUNDARY, "receivesOriginalRequest": False, "replaysNativeEffect": False,
+                  "terminalCleanupVerified": False, "ownershipReleased": False, "pilotAccepted": False}
 
 
 def file_pin(path):
@@ -95,7 +98,7 @@ def validate_history(data):
             "Recovery history needs an explicit migration")
     for record in history:
         require(isinstance(record, dict) and isinstance(record.get("document"), dict) and
-                record["document"].get("kind") in (KIND, PENDING_PLAY_KIND) and
+                record["document"].get("kind") in (KIND, PENDING_PLAY_KIND, ENDED_RECOVERY_KIND) and
                 record["document"].get("workspaceId") == data["id"] and
                 record.get("documentHash") == digest(record["document"]),
                 "Recovery history is invalid")
@@ -169,7 +172,77 @@ def pending_play_context(meta, commands, workers, ledger_db, workspace_id):
             "boundary": "Original Play and native outcome remain unresolved. No receipt, inactivity, absence, retry, wake or continuation is established."}
 
 
-def context(registry, workspace_id, reference, registry_db, ledger_db, *, preserve_pending_play=False):
+def ended_recovery_context(meta, commands, workers, repositories, ledger_db, workspace_id, binding_path):
+    """Retained local eligibility only, NOT fresh terminal or native evidence.
+
+    Device repair must not depend on connecting to the dead host. The separately
+    reviewed original binding is immutable provenance, never a transport target.
+    """
+    from . import historical_effects
+    from .app_server_wake import NATIVE_APPROVAL_POLICY
+    from .pause_host_continuity import load_previous
+    from .native_read_client import file_identity
+    require(type(meta.get("schemaVersion")) is int and meta["schemaVersion"] == 4,
+            "Ended-recovery device review requires the unchanged standard schema")
+    run = meta.get("standardRun")
+    require(isinstance(run, dict), "Exact retained stopping run is required")
+    require(type(run.get("tasks")) is list and run["tasks"] == [] and
+            type(run.get("merges", [])) is list and run.get("merges", []) == [],
+            "Unknown or recorded task/merge ownership needs separate reconciliation")
+    state = {"meta": meta, "commands": commands, "workers": workers, "repositories": repositories,
+             "queue": [json.loads(r[0]) for r in ledger_db.execute("SELECT data FROM queue")],
+             "decisions": [json.loads(r[0]) for r in ledger_db.execute("SELECT data FROM decisions")]}
+    pause, recovery, play = historical_effects.eligible(state)
+    # These are saved claims, not current observer/terminal qualification. Reject
+    # malformed empty-looking values rather than enlarging the existing gates.
+    for command in (play, pause, recovery):
+        note = command["notification"]
+        require(note.get("nativeApprovals", []) == [] and
+                type(note.get("nativeApprovals", [])) is list and
+                note["nativeThreadObservation"].get("events") == [],
+                "Native approval or descendant ownership needs separate reconciliation")
+    path = Path(binding_path)
+    pin, epoch = file_pin(path), file_identity(path.lstat())
+    binding = load_previous(path)  # Private bytes only; no endpoint validation/RPC.
+    require(file_pin(path) == pin and file_identity(path.lstat()) == epoch,
+            "Preserved recovery binding changed during review")
+    brain = meta["brainId"]
+    require(isinstance(binding.get("brains"), dict) and set(binding["brains"]) == {brain} and
+            isinstance(binding.get("endpoint"), dict) and
+            digest(binding) == recovery["notification"]["hostBindingHash"],
+            "Exact original Pause/recovery binding is required; no replacement binding")
+    row = binding["brains"][brain]
+    require(isinstance(row, dict) and set(row) == {
+                "workspaceId", "cwd", "projectId", "catalogProjectId", "nativePolicy"} and
+            row["workspaceId"] == workspace_id and
+            canonical(row["nativePolicy"]) == canonical(NATIVE_APPROVAL_POLICY) and
+            row["projectId"] == recovery["payload"]["observation"]["projectId"],
+            "Preserve both native project IDs and the exact original restricted profile")
+    from .projects import text
+    text(row["projectId"]); text(row["catalogProjectId"])
+    cwd = row["cwd"]
+    require(isinstance(cwd, str) and len(cwd) <= 4096 and Path(cwd).is_absolute() and
+            str(Path(cwd).resolve(strict=True)) == cwd and Path(cwd).is_dir() and
+            sum(r.get("path") == cwd and r.get("projectId") == row["catalogProjectId"]
+                for r in repositories) == 1, "Exact original registered checkout/project required")
+    proof = {"runId": run["id"], "phaseId": run["phaseId"], "runHash": digest(run),
+             "originalCommands": {name: {"id": command["id"], "commandHash": digest(command),
+                "nativeTurnId": command["notification"]["nativeTurnId"],
+                "bindingHash": command["notification"]["hostBindingHash"]}
+                for name, command in (("play", play), ("pause", pause), ("recovery", recovery))},
+             "originalBinding": {"path": str(path), "pin": pin, "fileIdentity": list(epoch),
+                                  "bindingHash": digest(binding), "brainMapping": copy.deepcopy(row)},
+             "nativeEvidence": "retained_only", "effectOutcome": "unknown",
+             "historicalTerminalCoverage": "unknown", "currentTerminalCoverage": "unknown"}
+    return proof, row
+
+
+def context(registry, workspace_id, reference, registry_db, ledger_db, *, preserve_pending_play=False,
+            preserve_ended_recovery=None):
+    require(type(preserve_pending_play) is bool and
+            (preserve_ended_recovery is None or isinstance(preserve_ended_recovery, (str, Path))) and
+            not (preserve_pending_play and preserve_ended_recovery is not None),
+            "Choose one explicit device-only recovery mode")
     registry_proof = checked_fingerprint(registry_db)
     proof = checked_fingerprint(ledger_db)
     row, data = selected_row(registry_db, workspace_id)
@@ -204,8 +277,12 @@ def context(registry, workspace_id, reference, registry_db, ledger_db, *, preser
     commands = [json.loads(r[0]) for r in ledger_db.execute("SELECT data FROM commands")]
     run = meta.get("standardRun")
     pending = None
+    ended, original_mapping = None, None
     if preserve_pending_play:
         pending = pending_play_context(meta, commands, workers, ledger_db, workspace_id)
+    elif preserve_ended_recovery is not None:
+        ended, original_mapping = ended_recovery_context(meta, commands, workers, repos, ledger_db,
+                                                        workspace_id, preserve_ended_recovery)
     else:
         require(all(c.get("status") in ("completed", "failed", "cancelled", "rejected") for c in commands),
                 "Pending commands or uncertain effects cannot use device recovery")
@@ -230,27 +307,39 @@ def context(registry, workspace_id, reference, registry_db, ledger_db, *, preser
                 saved_catalog and any(p["key"] == key and p["locationHash"] == binding.get("locationHash")
                                       for p in saved_catalog["projects"]),
                 "Changed project mapping requires its separate owner review")
-    document = {"kind": PENDING_PLAY_KIND if preserve_pending_play else KIND,
+    if ended is not None:
+        require(len(linked) == 1 and saved_catalog is not None and
+                sum(p.get("projectKind") == "local" and p.get("hostId") == "local" and
+                    p.get("projectId") == original_mapping["catalogProjectId"] and
+                    p.get("key") in linked and
+                    p.get("locationHash") == digest(["local", original_mapping["cwd"]])
+                    for p in saved_catalog["projects"]) == 1,
+                "Preserved recovery must retain its exact local Codex catalog mapping")
+    document = {"kind": ENDED_RECOVERY_KIND if ended is not None else
+                        PENDING_PLAY_KIND if preserve_pending_play else KIND,
             "workspaceId": workspace_id, "root": str(root), "brainId": meta["brainId"],
             "registryPin": file_pin(registry.db), "registryHash": digest(registry_proof),
             "workspaceRecordHash": digest(row), "oldIdentity": old,
             "newIdentity": [pin["device"], pin["inode"]], "ledgerPin": pin,
             "ledgerRevision": meta["revision"], "ledgerHash": digest(proof),
             "reference": {"path": str(reference), "pin": reference_pin, "hash": digest(reference_proof)},
-            "projectBindings": linked, "boundary": BOUNDARY}
+            "projectBindings": linked, "boundary": ENDED_BOUNDARY if ended is not None else BOUNDARY}
     if pending is not None:
         document["pendingPlay"] = pending
+    if ended is not None:
+        document["endedRecovery"] = ended
     return document
 
 
-def preview(registry, workspace_id, reference, *, preserve_pending_play=False):
+def preview(registry, workspace_id, reference, *, preserve_pending_play=False, preserve_ended_recovery=None):
     """No database initialization, mutation, locks on native hosts or notification."""
     require(type(preserve_pending_play) is bool, "Explicit pending-Play preview mode required")
     with read_database(registry.db) as registry_db:
         row, _ = selected_row(registry_db, workspace_id)
         with read_database(Path(row["root"]) / "ledger.sqlite3") as ledger_db:
             document = context(registry, workspace_id, reference, registry_db, ledger_db,
-                               preserve_pending_play=preserve_pending_play)
+                               preserve_pending_play=preserve_pending_play,
+                               preserve_ended_recovery=preserve_ended_recovery)
     return {"documentHash": digest(document), "document": document}
 
 
@@ -286,7 +375,7 @@ def confirm(registry, workspace_id, proposal, confirm_hash, *, confirmed=False, 
             proposal["documentHash"] == confirm_hash == digest(proposal["document"]),
             "Exact recovery preview hash required")
     document = proposal["document"]
-    require(document.get("kind") in (KIND, PENDING_PLAY_KIND) and document.get("workspaceId") == workspace_id,
+    require(document.get("kind") in (KIND, PENDING_PLAY_KIND, ENDED_RECOVERY_KIND) and document.get("workspaceId") == workspace_id,
             "Exact selected workspace recovery required")
     require(isinstance(document.get("reference"), dict) and
             isinstance(document["reference"].get("path"), str), "Recovery reference is missing")
@@ -309,8 +398,15 @@ def confirm(registry, workspace_id, proposal, confirm_hash, *, confirmed=False, 
         # The local transaction makes no writes and is always rolled back.
         local_locks.callback(ledger_db.rollback)
         pending_mode = document["kind"] == PENDING_PLAY_KIND
+        ended_binding = None
+        if document["kind"] == ENDED_RECOVERY_KIND:
+            ended = document.get("endedRecovery")
+            require(isinstance(ended, dict) and isinstance(ended.get("originalBinding"), dict) and
+                    isinstance(ended["originalBinding"].get("path"), str),
+                    "Original ended-recovery binding provenance is required")
+            ended_binding = ended["originalBinding"]["path"]
         current = context(registry, workspace_id, document["reference"]["path"], registry_db, ledger_db,
-                          preserve_pending_play=pending_mode)
+                          preserve_pending_play=pending_mode, preserve_ended_recovery=ended_binding)
         require(current == document, "Recovery scope or evidence changed; prepare a new preview")
         backup_id = "device-recovery-" + str(uuid.uuid4())
         backups = registry.root / "backups"
@@ -321,10 +417,10 @@ def confirm(registry, workspace_id, proposal, confirm_hash, *, confirmed=False, 
         backup_database(registry.db, retained / "platform.sqlite3", document["registryHash"])
         backup_database(root / "ledger.sqlite3", retained / "ledger.sqlite3", document["ledgerHash"])
         require(context(registry, workspace_id, document["reference"]["path"], registry_db, ledger_db,
-                        preserve_pending_play=pending_mode) == document,
+                        preserve_pending_play=pending_mode, preserve_ended_recovery=ended_binding) == document,
                 "Recovery scope changed during backup")
         receipt = {"id": backup_id, "documentHash": confirm_hash, "document": document,
-                   "appliedAt": time.time(), "backupId": backup_id, "boundary": BOUNDARY}
+                   "appliedAt": time.time(), "backupId": backup_id, "boundary": copy.deepcopy(document["boundary"])}
         updated = {**data, "databaseIdentity": document["newIdentity"],
                    "identityRecoveries": [*history, receipt]}
         registry_db.execute("UPDATE workspaces SET data=? WHERE id=?", (canonical(updated), workspace_id))
