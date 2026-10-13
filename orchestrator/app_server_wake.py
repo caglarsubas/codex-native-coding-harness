@@ -193,6 +193,14 @@ class WakeProxy(ReadProxy):
         if self._watching:
             self._watch_tick()
         row = super()._line()
+        # The same already-owned stream, including events racing turn/start
+        # or owner permission waits. No extra connection, RPC or discovery.
+        capture = getattr(self, "_on_effect_event", None)
+        if capture is not None and isinstance(row, dict):
+            try:
+                capture(row)
+            except Exception:
+                self._effect_capture_error = True  # Never retry the native effect.
         if isinstance(row, dict) and row.get("method") == "thread/started":
             callback = getattr(self, "_on_thread_started", None)
             if callback is not None:
@@ -778,8 +786,19 @@ class AppServerWake:
                 "version": 1, "rootThreadId": brain_id, "streamStatus": "open",
                 "monitoringStartedAt": time.time(), "complete": False,
                 "gaps": [THREAD_STREAM_GAP], "events": []}
+            from . import effect_capture
+            marker = None
+            # Only new fully retained owned-host handoffs opt into the capture
+            # contract. Legacy sends stay unchanged and have no independent
+            # capture; never invent their absent original binding provenance.
+            if (command.get("kind") in effect_capture.CONTROL_KINDS and
+                    notification.get("hostInspectionTransport") == "owned_observer_v1"):
+                marker = effect_capture.begin(self.ledger, self.binding, command,
+                                             self.ledger.get(db, "meta", 1))
+                notification[effect_capture.FIELD] = marker
             command["notification"] = notification
             self.ledger.put(db, "commands", command_id, command)
+            return marker
 
     def _record_thread_started(self, command_id, brain_id, row):
         """Retain only IDs with a witnessed chain to this brain, never content."""
@@ -827,7 +846,7 @@ class AppServerWake:
             command["notification"] = notification
             self.ledger.put(db, "commands", command_id, command)
 
-    def _finish_thread_observation(self, command_id, brain_id, turn_id, status, *, event_error=False):
+    def _finish_thread_observation(self, command_id, brain_id, turn_id, status, *, event_error=False, capture_error=False):
         """Close the local stream fact; never promote it to complete inventory."""
         with self.ledger.tx() as db:
             command = self.ledger.get(db, "commands", command_id)
@@ -843,6 +862,9 @@ class AppServerWake:
                 observation["gaps"].append("stream_ended_without_confirmed_turn")
             if event_error:
                 observation["gaps"].append("thread_event_persist_failed")
+            from . import effect_capture
+            if notification.get(effect_capture.FIELD):
+                effect_capture.seal(self.ledger, command, turn_id, status, failed=capture_error)
             command["notification"] = notification
             self.ledger.put(db, "commands", command_id, command)
 
@@ -936,8 +958,11 @@ class AppServerWake:
             # Immediately before this boundary a concurrent native turn may start.
             # A rejection or lost response is uncertain, never permission to retry.
             stage = "observation_record"
-            self._begin_thread_observation(command_id, brain_id)
+            capture = self._begin_thread_observation(command_id, brain_id)
             proxy._on_thread_started = lambda row: self._record_thread_started(command_id, brain_id, row)
+            if capture is not None:
+                from .effect_capture import append
+                proxy._on_effect_event = lambda row: append(self.ledger, command_id, brain_id, row)
             stage = "turn_start"
             effect_started = True
             started = proxy._rpc("turn/start", {"threadId": brain_id,
@@ -987,7 +1012,8 @@ class AppServerWake:
                 if effect_started:
                     try:
                         self._finish_thread_observation(command_id, brain_id, confirmed_turn_id, "unconfirmed",
-                            event_error=bool(getattr(proxy, "_thread_event_error", False)))
+                            event_error=bool(getattr(proxy, "_thread_event_error", False)),
+                            capture_error=bool(getattr(proxy, "_effect_capture_error", False)))
                     except (OSError, Refusal):
                         pass
                 if proxy is not None:
@@ -1100,7 +1126,8 @@ class AppServerWake:
                         command["notification"] = notification
                         self.ledger.put(db, "commands", command_id, command)
                 self._finish_thread_observation(command_id, brain_id, turn_id, status,
-                    event_error=bool(getattr(proxy, "_thread_event_error", False)))
+                    event_error=bool(getattr(proxy, "_thread_event_error", False)),
+                    capture_error=bool(getattr(proxy, "_effect_capture_error", False)))
             except (OSError, Refusal):
                 # Shutdown or an unavailable ledger cannot turn a native fact
                 # into permission to retry the one-shot control.

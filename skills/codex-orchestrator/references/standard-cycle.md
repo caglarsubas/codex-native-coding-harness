@@ -388,6 +388,15 @@ work does not authorize installation, policy migration, live changes or activati
 
 ## Exhausted receipt recovery: no second wake
 
+For explicitly requested independent historical evidence, read source
+`docs/INDEPENDENT-HISTORICAL-EVIDENCE.md` completely. The separate operator
+plan/collect commands import only hash-only observations anchored in the
+original owned send before turn/start. They have no arbitrary evidence upload,
+capture creation/backfill, load, wake, native permission response or ledger-write
+path. Preserve the original primary gaps; positive results are not cleanup or
+disposition authority. Missing original captures cannot be restored by another
+confirmation, replay or new observer. Source delivery changes no live pilot.
+
 A device-number change can block reading an unchanged ledger before historical
 inspection. Only the separate operator-reviewed device-only path in source
 `docs/ENDED-RECOVERY-DEVICE-REVIEW.md` may preserve the exact consumed recovery

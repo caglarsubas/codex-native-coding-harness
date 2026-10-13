@@ -23,6 +23,11 @@ are unchanged. Strict managed/Harness activation remains separate; descriptions
 of internal kernels and unavailable strict Play below still apply to that mode.
 See the [completion checklist](docs/STANDARD-PROJECT-COMPLETION.md).
 
+[Independent original-effect evidence](docs/INDEPENDENT-HISTORICAL-EVIDENCE.md)
+adds hash-only capture for future fully bound owned turns and explicit read-only
+correlation with retained history. Missing old captures cannot be backfilled;
+positive results do not prove cleanup or authorize closeout, replay or Play.
+
 - Portfolio-neutral controller, with `standard` and stricter `harness` policies.
 - Versioned, immutable seeds and completion envelopes; digest-bound approvals.
 - Single-controller ownership, one worker per repository, and serialized managed

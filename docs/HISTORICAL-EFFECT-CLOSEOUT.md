@@ -163,6 +163,12 @@ source's coverage. It grants no executed-effect disposition and does not change
 this non-execution-only closeout gate. Missing historical lifecycle provenance
 cannot be manufactured by current terminal reads or another confirmation.
 
+The separate [original-effect capture path](INDEPENDENT-HISTORICAL-EVIDENCE.md)
+imports only event metadata anchored by the original owned send before turn/start.
+It can corroborate exact positive results without changing this report or its
+gaps. An old request without that original anchor remains unavailable. The path
+does not qualify a cleanup source or change executed-effect disposition/closeout.
+
 Reconciliation can record an unloaded brain as unknown without loading it. Closeout
 always requires repeated exact loaded-idle, latest-completed-recovery and complete
 known-empty current tracked-terminal observations. Loading acknowledgment alone
