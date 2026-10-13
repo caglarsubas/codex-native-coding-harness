@@ -1,5 +1,20 @@
 # Codex Orchestrator — personal tooling
 
+## Independent original-effect capture source (2026-10-13)
+
+Read docs/INDEPENDENT-HISTORICAL-EVIDENCE.md before using the separate read-only
+`historical-independent-plan` / `historical-independent-collect` path. Import
+only captures anchored by the original sending standard command before its
+turn boundary, with immutable request/brain/run/binding/source/file/chain pins.
+An old accepted request cannot obtain a new capture. No arbitrary evidence file,
+owner-authored cleanup assertion, historical observer reconnect, recovery
+migration, load, native write or replay is supported. Preserve primary gaps and
+unlisted captured effects; exact positive result agreement is not historical
+process/descendant cleanup or execution-disposition authority. Current and
+historical unknown terminal status remains unknown. This source qualifies no
+cleanup provider and changes no closeout gate, usage, expiry or pilot acceptance.
+Source delivery installs nothing and leaves the paused pilot/dashboard unchanged.
+
 ## Ended-recovery device review source (2026-10-13)
 
 The separate operator-only `--preserve-ended-recovery PRIVATE_ORIGINAL_BINDING`

@@ -379,6 +379,16 @@ another native request or qualify the pilot.
 
 ## Read-only cleanup qualification output
 
+The separate `independent_historical_effect_evidence_v1` operator report embeds
+the unchanged cleanup collection plus original capture availability and exact
+positive result linkage. `nativeEffectCapture` on future owned standard sends
+anchors an exclusive hash-only item journal before turn/start and seals its
+original file/chain/turn. It is not a brain receipt, complete inventory, process
+cleanup record or execution-disposition grant. Old absent/unsealed captures
+remain unavailable/incomplete; imports cannot backfill them. See
+[independent original-effect evidence](INDEPENDENT-HISTORICAL-EVIDENCE.md).
+
+
 `historical_cleanup_collection_v1` is private operator output, not a new ledger
 command, signed authority or settlement proof. Its closed read-scope plan pins
 original command/run/context, exact revision, scope, binding and host-chain hashes.

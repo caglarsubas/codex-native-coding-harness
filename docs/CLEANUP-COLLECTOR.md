@@ -92,6 +92,11 @@ The existing separately signed non-execution closeout remains unchanged.
 An empty replacement-host tracker, absent old host, ended turn or command exit
 never proves old cleanup. `executedEffectDispositionAvailable` stays false.
 
+The separate [independent original-effect path](INDEPENDENT-HISTORICAL-EVIDENCE.md)
+adds stable import/correlation of original hash-only owned-stream captures. Its
+operator report embeds this unchanged primary collection. It has no arbitrary
+upload or attestation override and cannot create a capture for an old effect.
+
 Bounds remain 64 turns, 512 items/effects, the existing exact configured rollout
 file limits and native response/deadline limits. Current terminals permit up to
 8 pages/512 rows per pass; total source observations permit 128 reads. Existing
