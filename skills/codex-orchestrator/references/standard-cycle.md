@@ -209,7 +209,15 @@ never request a second native send or infer a missing task did not exist.
    authority. A material plan change requires an owner checkpoint, not a larger
    seed. The seed may include up to ten exact-path `sourceReferences`; verify
    their versions before relying on them and pass only relevant citations, not
-   the graph or parent conversation. `issue` immediately before ONE native `create_thread` call. If scope or
+   the graph or parent conversation. For a future retained `nativeTaskContract`
+   selecting `public_app_server_tasks_v1`, read source
+   `docs/PUBLIC-NATIVE-TASK-ADAPTER.md` completely and use `standard-public-task
+   RUN_ID COMMAND_ID TASK_ID` instead of `issue`/desktop creation/manual bind.
+   Follow its permanent per-task progress; it grants no protected socket access.
+   Unknown delivery, unsupported worktrees or native permission requests remain
+   fenced without fallback. Only known ended public tasks can proceed through
+   the existing independent observation/preservation/result gates.
+   Otherwise, `issue` immediately before ONE native `create_thread` call. If scope or
    Pause changes between issue and call, do not call: retain uncertainty and
    reconcile explicitly. Never retry a creation after losing its response.
 5. For a saved native project, call `list_projects`, match the exact mapping, and

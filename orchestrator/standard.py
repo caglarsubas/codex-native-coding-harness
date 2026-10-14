@@ -96,7 +96,9 @@ def git_root(path):
 
 def eligible(ledger, db):
     meta = ledger.get(db, "meta", 1)
-    require((meta["schemaVersion"] == 1 or (meta["schemaVersion"] == 4 and meta.get("standardRun", {}).get("protocol") == PROTOCOL))
+    require((meta["schemaVersion"] == 1 or ((meta["schemaVersion"] == 4 or
+            meta["schemaVersion"] == 5 and meta.get("publicTaskLedgerVersion") == 1) and
+            meta.get("standardRun", {}).get("protocol") == PROTOCOL))
             and "admissionBinding" not in meta and not fence_exists(ledger.root),
             "Strict or enrolled workspaces cannot switch to cooperative mode")
     repos = ledger.all(db, "repos")
@@ -332,10 +334,13 @@ def read(ledger):
 
 
 def save(ledger, db, meta, run, operation):
+    require(meta["schemaVersion"] != 5 or (type(meta.get("publicTaskLedgerVersion")) is int and
+            meta["publicTaskLedgerVersion"] == 1), "Public task schema marker cannot be removed or downgraded")
     run["revision"] += 1
     run["updatedAt"] = time.time()
     meta["standardRun"] = run
-    meta["schemaVersion"] = 4  # Older helpers refuse this explicit, owner-selected protocol.
+    meta["schemaVersion"] = 5 if meta.get("publicTaskLedgerVersion") == 1 else 4
+    # Never downgrade a ledger after an explicitly consumed public task claim.
     ledger.put(db, "meta", 1, meta)
     record = {"operation": operation, "at": time.time(), "run": run}
     key = digest(record)
@@ -676,6 +681,8 @@ def brain(registry, ledger, token, request):
             run["tasks"].append(task)
         elif operation == "issue":
             exact(request, "operation runId taskId")
+            from .public_native_tasks import guard_legacy_issue
+            guard_legacy_issue(ledger, db, run)
             require(run["status"] == "running" and not current_blockers(ledger, db, run), "Run fenced before native effect")
             task = find_task(run, request)
             require(task["status"] == "claimed" and not task["effectIssued"], "Effect already issued; no resend")
@@ -684,6 +691,7 @@ def brain(registry, ledger, token, request):
             exact(request, "operation runId taskId threadId clientThreadId hostId")
             task = find_task(run, request)
             require(task["effectIssued"] and task["status"] in ("creating", "pending"), "No unresolved native creation")
+            require(not task.get("publicNative"), "Public native identities are retained by its one-shot adapter, not manual bind")
             require(bool(request["threadId"]) != bool(request["clientThreadId"]), "Record confirmed task OR pending client ID")
             for field in ("threadId", "clientThreadId"):
                 if request[field]:
@@ -783,6 +791,11 @@ def brain(registry, ledger, token, request):
             task = find_task(run, request)
             require(task["status"] not in TERMINAL, "Task already terminal")
             require(request["outcome"] in ("completed", "failed"), "Invalid terminal result")
+            if task.get("publicNative"):
+                proof = task["publicNative"]
+                require(proof.get("stage") == "ended" or (request["outcome"] == "failed" and
+                        proof.get("stage") == "pre_turn_blocked"),
+                        "Uncertain public creation/turn retains ownership; supplied idle cannot settle it")
             require(task.get("nativeStatus") in ("idle", "completed", "failed") and task.get("trackedTerminals") == "none"
                     and 0 <= time.time()-task.get("observedAt", 0) < 300, "Fresh finished-task and tracked-terminal observation required; not whole-tree proof")
             if task.get("nativeObservationHash"):

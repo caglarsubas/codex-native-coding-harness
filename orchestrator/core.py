@@ -19,7 +19,7 @@ import uuid
 from urllib.parse import urlsplit
 
 VERSION = 1
-LEDGER_VERSIONS = (1, 2, 3, 4)  # v2 declarations; v3 strict runs; v4 explicit cooperative runs.
+LEDGER_VERSIONS = (1, 2, 3, 4, 5)  # v5: explicitly consumed public-task transport; no read-time upgrade.
 AXES = ("source", "ci", "merge", "artifact", "deployment", "runtime", "assurance", "tenant")
 ACTIVE = ("reserved", "starting", "running", "awaiting_acceptance", "accepting", "verifying", "blocked")
 COMMANDS = {"approve", "hold", "prioritize", "pause", "resume", "reconcile", "checkpoint", "archive", "decision_response", "listening", "brain_stop", "brain_resume", "brain_checkpoint_continue", "brain_reply_recovery"}
@@ -44,6 +44,14 @@ def digest(value):
 def require(condition, message):
     if not condition:
         raise Refusal(message)
+
+
+def supported_ledger_metadata(meta):
+    version = meta.get("schemaVersion")
+    run = meta.get("standardRun")
+    return version in LEDGER_VERSIONS and (version != 5 or
+        type(meta.get("publicTaskLedgerVersion")) is int and meta["publicTaskLedgerVersion"] == 1 and
+        isinstance(run, dict) and run.get("protocol") == "standard_cooperative_v1")
 
 
 def safe_relative(value):
@@ -146,7 +154,7 @@ class Ledger:
                     "heartbeat": {"id": None, "status": "not_configured"}, "controller": None,
                     "runner": None, "lastReconciled": None, "checkpoint": "Not onboarded."})
             else:
-                require(self.get(db, "meta", 1).get("schemaVersion") in LEDGER_VERSIONS, "Unsupported ledger version; explicit migration required")
+                require(supported_ledger_metadata(self.get(db, "meta", 1)), "Unsupported ledger version; explicit migration required")
         os.chmod(self.db, 0o600)
 
     def connect(self):

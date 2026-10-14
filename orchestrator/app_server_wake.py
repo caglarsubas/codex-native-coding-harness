@@ -260,13 +260,16 @@ def load_binding(path):
     for brain, record in value["brains"].items():
         require(isinstance(brain, str) and UUID.fullmatch(brain) and
                 isinstance(record, dict) and
-                set(record) - {"catalogProjectId", "policyEvidence"} == {"cwd", "projectId", "workspaceId", "nativePolicy"} and
+                set(record) - {"catalogProjectId", "policyEvidence", "nativeTaskBackend"} == {"cwd", "projectId", "workspaceId", "nativePolicy"} and
                 isinstance(record["projectId"], str) and UUID.fullmatch(record["projectId"]),
                 "Invalid brain binding entry")
         policy = record["nativePolicy"]
         if "policyEvidence" in record:
             from .native_policy_evidence import validate_contract
             validate_contract(record["policyEvidence"])
+        if "nativeTaskBackend" in record:
+            from .public_native_tasks import validate_contract as task_contract
+            task_contract(record["nativeTaskBackend"], record.get("policyEvidence"))
         require(isinstance(policy, dict) and set(policy) == set(NATIVE_APPROVAL_POLICY) and
                 policy["sandbox"] == "workspace-write" and
                 policy["approvalPolicy"] == "on-request" and
@@ -1001,6 +1004,8 @@ class AppServerWake:
                     note["nativePolicyContract"] = copy.deepcopy(contract)
                     note["nativePolicyExecutableHash"] = self.binding["endpoint"]["sha256"]
                     note["nativeEffectivePolicy"] = evidence
+                    if self.binding["brains"][brain_id].get("nativeTaskBackend"):
+                        note["nativeTaskContract"] = copy.deepcopy(self.binding["brains"][brain_id]["nativeTaskBackend"])
                     self.ledger.put(db, "commands", command_id, command)
             if recovery:
                 # Resume changes native loading, not dispatch authority. Recheck
@@ -1098,6 +1103,8 @@ class AppServerWake:
                     # serviced by this already-owned observer, never by UI polling.
                     from .standard_host_inspection import service_request, _mailbox
                     try:
+                        from .public_native_tasks import service_pending
+                        service_pending(self, command_id, brain_id, turn_id)
                         if (getattr(proxy, "_host_inspection_worker", None) is None and
                                 _mailbox(self.ledger, command_id, "-request").exists()):
                             # Never block WebSocket heartbeat/approval handling on
