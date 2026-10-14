@@ -1,5 +1,23 @@
 # Codex Orchestrator — personal tooling
 
+## Public-protocol native task source (2026-10-14)
+
+The explicitly named `public_app_server_tasks_v1` source adapter is described in
+docs/PUBLIC-NATIVE-TASK-ADAPTER.md. It is not desktop tool impersonation, a trust
+bypass, a dispatcher or a fallback for an issued/uncertain effect. Only a future
+separately reviewed application-owned binding and its exact accepted notification
+may opt in. The designated brain submits a private seed-bound request; the
+existing owned observer commits creation and first-turn claims separately before
+one `thread/start` and one `turn/start`. Preserve controller, capacity, native
+policy, model/effort, repository, source-base, usage, expiry and Pause fences.
+No protected control socket is granted to the sandbox. Late facts do not settle
+uncertainty, terminals or results. This version refuses isolated worktrees and
+worker approval responses; it does not qualify a full desktop replacement.
+The read-only migration assessment cannot install a binding, clear an old Play
+profile, load a thread, fabricate cleanup/checkpoints or authorize Resume.
+Source delivery installs, launches, rebinds and confirms nothing; original
+Play/recovery bytes, usage/gaps and terminal unknowns remain intact.
+
 ## Native loaded-policy adapter source (2026-10-14)
 
 Read docs/NATIVE-POLICY-EVIDENCE-ADAPTER.md before using the optional

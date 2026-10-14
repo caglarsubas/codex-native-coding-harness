@@ -318,9 +318,13 @@ class BrainNotifier:
                 "The reviewed binding is already retained privately; do not ask the owner for paths, discover a host, "
                 "resume a native thread or change settings to inspect it. Reported policy, acknowledged Code Mode "
                 "configuration and unknown native-effect coverage are separate facts. "
-                "The v1 protocol cannot independently verify Code Mode off: native_code_mode_unverified blocks "
-                "worker claims, issue and Resume. A successful override or disk feature list cannot clear it. "
-                "Retain the checkpoint and release; do not retry Play or recovery to obtain missing policy evidence."
+                "An old v1 profile cannot independently verify Code Mode off: native_code_mode_unverified blocks "
+                "worker claims, issue and Resume. Only the separately retained effective-policy evidence on a "
+                "new reviewed binding can satisfy that prerequisite; never backfill an old profile. "
+                "If this control retains nativeTaskContract public_app_server_tasks_v1, use standard-public-task "
+                "RUN_ID COMMAND_ID TASK_ID after claim; do not issue or call desktop create_thread. "
+                "A successful override or disk feature list cannot clear unknown evidence. "
+                "Checkpoint and release when fenced; do not retry Play or recovery to obtain missing evidence."
             )
         if has_conversation and command["kind"] not in ("standard_recovery", "brain_reply_recovery", "standard_pause_receipt_recovery"):
             source = Path(__file__).resolve().parent.parent
