@@ -53,7 +53,8 @@ class StdioFixture:
 
     def _rpc(self,method,params):
         allowed={"initialize","project/create","project/read","thread/start","turn/start","thread/read",
-                 "thread/effectivePolicy/read","thread/backgroundTerminals/list","mcpServerStatus/list"}
+                 "thread/effectivePolicy/read","thread/backgroundTerminals/list","mcpServerStatus/list",
+                 "project/restoreMetadata","thread/resume","thread/metadata/update","project/list","thread/list"}
         require(method in allowed,"Fixture RPC is not allowlisted")
         self.methods.append(method);self.sequence+=1
         self.deadline=time.monotonic()+30

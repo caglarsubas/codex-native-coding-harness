@@ -114,6 +114,11 @@ the same checkout as the original. The existing public migration assessment
 still returns `migrationQualified: false`. No original Play profile is backfilled
 or old observer reconnected, and no same-run Resume permit is shipped here.
 
+The separate exact one-brain metadata/history transfer source is now described
+in [PUBLIC-IDENTITY-TRANSFER.md](PUBLIC-IDENTITY-TRANSFER.md). It needs another
+reviewed native build and already qualified endpoints; it does not make this
+empty-home launch review a transfer, binding or continuation permit.
+
 Source, merge, installation, launch review, actual host/binding qualification
 and same-run transition are separate. The fresh paused run's original Play,
 consumption/high-water/gaps, expiry and unknown current/historical terminals

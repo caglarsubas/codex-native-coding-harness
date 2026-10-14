@@ -462,3 +462,58 @@ results, not live native-tool trust, runtime installation or pilot acceptance.
 An exact new socket binding still requires actual reviewed launch provenance,
 socket epoch and initialization identity; a pre-launch scope packet is not a
 binding or activation approval. See [the adapter contract](NATIVE-POLICY-EVIDENCE-ADAPTER.md).
+
+## Exact public identity transfer — 2026-10-14
+
+The separate `public_identity_transfer_v1` operator contract snapshots one
+complete self-contained registered brain history from the unchanged original
+accepted Play's reviewed host. Require its received command, exact latest ended
+turn and closed owned observation; unconfirmed delivery/observers are not a
+transfer permit. A separately reviewed application-owned destination must keep
+the same workspace, checkout, brain and both project IDs, while independently
+reporting empty native catalogs and the fixed no-credential restricted config.
+
+The native source-build extension restores actual observed project metadata
+through the empty local store's transaction, not stock import or operator SQL.
+Public path resume inspection-loads only a complete copied history, then the
+native metadata assignment retains its original membership. Private source/file/
+context/build pins, until-scope-changes owner review and separately fsynced stage
+claims precede the three fixed native writes. A canonical original-run/Play-ID
+sidecar prevents another attempt through a new directory, review, late original
+metadata observation or replacement endpoint. Complete JSONL publication is
+atomic; no native reader sees its partially written prefix.
+
+The local result is metadata transfer, not a brain receipt, checkpoint, current
+health, historical cleanup, binding cutover, original policy-guard release, Resume
+or pilot acceptance. Original databases/commands/usage/gaps/expiry remain unchanged;
+source and historical terminal safety stays unknown. Partial/interrupted claims
+remain consumed and file-only status never reconnects, refreshes or retries.
+See [the transfer contract](PUBLIC-IDENTITY-TRANSFER.md) and
+[native source delivery](../native-runtime/README.md).
+
+## Safe shared-home single-brain export — 2026-10-14
+
+The separately named `shared_codex_exact_brain_export_v1` collector reads only
+one exact native-returned brain rollout from the current OS user's shared
+Codex home. It never enumerates/copies the home, reads credentials/plugins/native
+stores/sibling histories, changes original permissions or emits a native write.
+Repeated metadata, complete history/byte/file/directory pins and original paused
+run/Play context precede a disjoint private archive. Partial retention remains
+unknown and is never overwritten. Status is historical and file-only.
+
+Only an explicit new export-pinned version-2 transfer specification may use that
+archive, with fresh original source rereads at every unchanged native claim
+boundary. The v1 private-source gate, native build/owner review, original-run/Play
+permanent fence and separate restoration/load/membership claims remain intact.
+Export cannot grant a launch/binding, historical cleanup, policy proof, receipt,
+checkpoint, Resume, clock extension, usage reset or pilot acceptance.
+
+The source passed 2,583 Python tests (one optional skip), 31 new focused tests,
+36 JavaScript suites, syntax/AST/diff checks and disposable desktop/mobile checks.
+Actual compiled legacy/paginated shared fixtures used only loopback source receipts,
+with zero transfer turns/model requests and no live/cloud writes. Explicit owner
+qualification also retained the original pilot's exact single-brain archive,
+preserving both complete private databases and all original usage/expiry/receipts.
+The expired run, unverified original policy and terminal unknowns remain fenced.
+No runtime launch, native transfer, dashboard installation or live control follows
+this source delivery. See [SHARED-BRAIN-EXPORT.md](SHARED-BRAIN-EXPORT.md).

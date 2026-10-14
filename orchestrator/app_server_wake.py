@@ -260,7 +260,7 @@ def load_binding(path):
     for brain, record in value["brains"].items():
         require(isinstance(brain, str) and UUID.fullmatch(brain) and
                 isinstance(record, dict) and
-                set(record) - {"catalogProjectId", "policyEvidence", "nativeTaskBackend"} == {"cwd", "projectId", "workspaceId", "nativePolicy"} and
+                set(record) - {"catalogProjectId", "policyEvidence", "nativeTaskBackend", "identityTransferEvidence"} == {"cwd", "projectId", "workspaceId", "nativePolicy"} and
                 isinstance(record["projectId"], str) and UUID.fullmatch(record["projectId"]),
                 "Invalid brain binding entry")
         policy = record["nativePolicy"]
@@ -270,6 +270,9 @@ def load_binding(path):
         if "nativeTaskBackend" in record:
             from .public_native_tasks import validate_contract as task_contract
             task_contract(record["nativeTaskBackend"], record.get("policyEvidence"))
+        if "identityTransferEvidence" in record:
+            from .public_identity_transfer import validate_contract as transfer_contract
+            transfer_contract(record["identityTransferEvidence"], record.get("nativeTaskBackend"))
         require(isinstance(policy, dict) and set(policy) == set(NATIVE_APPROVAL_POLICY) and
                 policy["sandbox"] == "workspace-write" and
                 policy["approvalPolicy"] == "on-request" and

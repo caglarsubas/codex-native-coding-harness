@@ -130,6 +130,12 @@ still apply before finishing a known ended task.
 
 ## Migration assessment, not a continuation permit
 
+The separately reviewed [identity/history transfer](PUBLIC-IDENTITY-TRANSFER.md)
+can preserve one actual project/brain on an empty application-owned destination
+through a pinned native build extension and public path resume. Its metadata
+result is not cleanup, binding cutover or same-run transition authority; none of
+the following assessment gates is weakened by it.
+
 The explicit read-only operator command is:
 
 ```text
