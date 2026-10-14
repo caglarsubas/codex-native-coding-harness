@@ -1,0 +1,3047 @@
+diff --git a/codex-rs/Cargo.lock b/codex-rs/Cargo.lock
+index 95b790c..28a5751 100644
+--- a/codex-rs/Cargo.lock
++++ b/codex-rs/Cargo.lock
+@@ -276,7 +276,7 @@ checksum = "2a4385e2e34eb35d6b3efe798b9eb88096925d87726c0798709bf56d9ed84af3"
+ 
+ [[package]]
+ name = "app_test_support"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "base64 0.22.1",
+@@ -1895,7 +1895,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-agent-extension"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "codex-core",
+@@ -1907,7 +1907,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-agent-graph-store"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-protocol",
+  "codex-state",
+@@ -1922,7 +1922,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-agent-identity"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "base64 0.22.1",
+@@ -1942,7 +1942,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-agent-message-board-client"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "chrono",
+@@ -1965,7 +1965,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-agent-message-board-extension"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "base64 0.22.1",
+  "caseless",
+@@ -1988,7 +1988,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-agent-roles"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-config",
+  "codex-file-system",
+@@ -2001,7 +2001,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-analytics"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-app-server-protocol",
+  "codex-git-utils",
+@@ -2023,7 +2023,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-ansi-escape"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "ansi-to-tui",
+  "pretty_assertions",
+@@ -2034,7 +2034,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-api"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "assert_matches",
+@@ -2072,7 +2072,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-app-server"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "app_test_support",
+@@ -2185,7 +2185,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-app-server-client"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-app-server",
+  "codex-app-server-protocol",
+@@ -2212,7 +2212,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-app-server-daemon"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "blake3",
+@@ -2238,7 +2238,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-app-server-protocol"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "codex-app-server-protocol-noop-macros",
+@@ -2272,11 +2272,11 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-app-server-protocol-noop-macros"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ 
+ [[package]]
+ name = "codex-app-server-test-client"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "clap",
+@@ -2298,7 +2298,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-app-server-transport"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "axum",
+  "base64 0.22.1",
+@@ -2340,7 +2340,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-apply-patch"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "assert_cmd",
+@@ -2360,7 +2360,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-arg0"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "codex-apply-patch",
+@@ -2384,7 +2384,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-async-utils"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "pretty_assertions",
+  "rand 0.9.3",
+@@ -2394,7 +2394,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-attachment-store"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "pretty_assertions",
+  "serde",
+@@ -2404,7 +2404,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-aws-auth"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "aws-config",
+  "aws-credential-types",
+@@ -2430,7 +2430,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-backend-client"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "codex-api",
+@@ -2450,7 +2450,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-backend-openapi-models"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "serde",
+  "serde_json",
+@@ -2459,7 +2459,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-build-info"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-install-context",
+  "pretty_assertions",
+@@ -2472,7 +2472,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-bwrap"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "cc",
+  "libc",
+@@ -2481,7 +2481,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-chatgpt"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "clap",
+@@ -2503,7 +2503,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-cli"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "app_test_support",
+@@ -2605,7 +2605,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-client"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-http-client",
+  "eventsource-stream",
+@@ -2619,7 +2619,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-cloud-client"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "async-stream",
+@@ -2643,7 +2643,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-cloud-config"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "base64 0.22.1",
+  "chrono",
+@@ -2669,7 +2669,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-cloud-tasks"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "chrono",
+@@ -2702,7 +2702,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-cloud-tasks-client"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "chrono",
+@@ -2717,7 +2717,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-cloud-tasks-mock-client"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "chrono",
+  "codex-cloud-tasks-client",
+@@ -2726,7 +2726,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-code-mode"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-code-mode-protocol",
+  "codex-http-client",
+@@ -2749,7 +2749,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-code-mode-host"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "axum",
+@@ -2778,7 +2778,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-code-mode-protocol"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-protocol",
+  "glob",
+@@ -2796,7 +2796,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-code-mode-runtime"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "base64 0.22.1",
+  "codex-code-mode-protocol",
+@@ -2814,11 +2814,11 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-collaboration-mode-templates"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ 
+ [[package]]
+ name = "codex-config"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "base64 0.22.1",
+@@ -2868,7 +2868,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-config-schema"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "clap",
+@@ -2877,7 +2877,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-connectors"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "arc-swap",
+@@ -2899,7 +2899,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-connectors-extension"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-connectors",
+  "codex-core-plugins",
+@@ -2913,7 +2913,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-context-fragments"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-protocol",
+  "codex-utils-string",
+@@ -2923,7 +2923,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-core"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "arc-swap",
+@@ -3065,7 +3065,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-core-api"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-analytics",
+  "codex-app-server-protocol",
+@@ -3088,7 +3088,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-core-plugin-common"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-utils-absolute-path",
+  "semver",
+@@ -3099,7 +3099,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-core-plugins"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "chrono",
+@@ -3156,7 +3156,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-diagnostics"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "libc",
+  "pretty_assertions",
+@@ -3164,7 +3164,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-exec"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "assert_cmd",
+@@ -3216,7 +3216,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-exec-server"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "arc-swap",
+@@ -3285,7 +3285,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-exec-server-protocol"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "base64 0.22.1",
+  "codex-file-system",
+@@ -3302,7 +3302,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-exec-server-test-support"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "codex-exec-server",
+@@ -3317,7 +3317,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-execpolicy"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "clap",
+@@ -3335,7 +3335,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-experimental-api-macros"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "proc-macro2",
+  "quote",
+@@ -3344,7 +3344,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-extension-api"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-api",
+  "codex-config",
+@@ -3366,7 +3366,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-extension-items"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-utils-absolute-path",
+  "pretty_assertions",
+@@ -3378,7 +3378,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-external-agent-migration"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "chrono",
+  "codex-analytics",
+@@ -3408,7 +3408,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-features"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-network-proxy",
+  "codex-protocol",
+@@ -3422,7 +3422,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-feedback"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "bytes",
+@@ -3449,7 +3449,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-file-search"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "clap",
+@@ -3465,7 +3465,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-file-system"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "bytes",
+  "codex-protocol",
+@@ -3477,7 +3477,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-file-watcher"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "notify",
+  "pretty_assertions",
+@@ -3488,7 +3488,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-git-attribution"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-backend-client",
+  "codex-extension-api",
+@@ -3501,7 +3501,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-git-utils"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "chrono",
+@@ -3529,7 +3529,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-goal-extension"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "chrono",
+@@ -3554,7 +3554,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-guardian-context"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-context-fragments",
+  "codex-history",
+@@ -3565,7 +3565,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-guardian-reviewer"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "codex-analytics",
+@@ -3590,7 +3590,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-guardian-v2"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "codex-analytics",
+@@ -3627,7 +3627,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-history"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "codex-protocol",
+@@ -3639,7 +3639,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-history-notes-extension"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-analytics",
+  "codex-client",
+@@ -3664,7 +3664,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-home"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-extension-api",
+  "codex-utils-absolute-path",
+@@ -3676,7 +3676,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-hooks"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "async-channel",
+@@ -3704,7 +3704,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-http-client"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "bytes",
+  "codex-utils-cargo-bin",
+@@ -3740,7 +3740,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-image-generation-extension"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "base64 0.22.1",
+  "codex-api",
+@@ -3768,7 +3768,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-install-context"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-utils-absolute-path",
+  "codex-utils-home-dir",
+@@ -3781,7 +3781,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-keyring-store"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "keyring",
+  "pretty_assertions",
+@@ -3792,7 +3792,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-linux-sandbox"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "clap",
+  "codex-core",
+@@ -3821,7 +3821,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-lmstudio"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-core",
+  "codex-http-client",
+@@ -3835,7 +3835,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-login"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "base64 0.22.1",
+@@ -3881,7 +3881,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-mcp"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "arc-swap",
+@@ -3921,7 +3921,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-mcp-extension"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "axum",
+@@ -3954,7 +3954,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-memories-extension"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-core",
+  "codex-extension-api",
+@@ -3976,7 +3976,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-memories-read"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-protocol",
+  "codex-shell-command",
+@@ -3986,7 +3986,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-memories-write"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "chrono",
+@@ -4023,7 +4023,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-mermaid"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "insta",
+  "pretty_assertions",
+@@ -4032,7 +4032,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-message-history"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-config",
+  "memchr",
+@@ -4046,7 +4046,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-model-provider"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "base64 0.22.1",
+  "chrono",
+@@ -4080,7 +4080,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-model-provider-info"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-client",
+  "codex-protocol",
+@@ -4098,7 +4098,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-models-manager"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "chrono",
+  "codex-http-client",
+@@ -4117,7 +4117,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-mxc-sandbox"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "appcontainer_common",
+@@ -4139,7 +4139,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-network-proxy"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "base64 0.22.1",
+@@ -4188,7 +4188,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-ollama"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "assert_matches",
+  "async-stream",
+@@ -4208,7 +4208,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-otel"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "bytes",
+  "chrono",
+@@ -4245,7 +4245,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-otel-trace-websocket"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "axum",
+@@ -4256,7 +4256,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-plugin"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-config",
+  "codex-core-plugin-common",
+@@ -4271,7 +4271,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-process-hardening"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "libc",
+  "pretty_assertions",
+@@ -4279,7 +4279,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-prompts"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "codex-collaboration-mode-templates",
+@@ -4296,7 +4296,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-protocol"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "chardetng",
+@@ -4341,7 +4341,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-queue-extension"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "codex-core",
+@@ -4362,7 +4362,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-realtime-webrtc"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "codex-build-info",
+@@ -4381,7 +4381,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-response-debug-context"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "base64 0.22.1",
+  "codex-api",
+@@ -4392,7 +4392,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-responses-api-proxy"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "clap",
+@@ -4409,7 +4409,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-rmcp-client"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "axum",
+@@ -4460,7 +4460,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-rollout"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "chrono",
+@@ -4491,7 +4491,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-rollout-trace"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "codex-code-mode",
+@@ -4507,7 +4507,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-sandboxing"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "codex-mxc-sandbox",
+@@ -4535,7 +4535,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-secrets"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "age",
+  "anyhow",
+@@ -4556,7 +4556,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-shell-command"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "base64 0.22.1",
+@@ -4579,7 +4579,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-shell-escalation"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "clap",
+@@ -4599,7 +4599,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-skills"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-protocol",
+  "codex-shell-command",
+@@ -4616,7 +4616,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-skills-extension"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "assert_matches",
+  "blake3",
+@@ -4654,7 +4654,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-state"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "chrono",
+@@ -4681,7 +4681,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-stdio-to-uds"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "codex-uds",
+@@ -4693,7 +4693,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-tcp-tunnel"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "bytes",
+@@ -4714,7 +4714,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-terminal-detection"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "pretty_assertions",
+  "tracing",
+@@ -4722,7 +4722,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-test-binary-support"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-arg0",
+  "tempfile",
+@@ -4730,7 +4730,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-thread-manager-sample"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "clap",
+@@ -4741,7 +4741,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-thread-store"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "chrono",
+  "codex-app-server-protocol",
+@@ -4772,7 +4772,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-tools"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "bitflags 2.13.1",
+  "codex-code-mode",
+@@ -4798,7 +4798,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-tui"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "app_test_support",
+@@ -4924,7 +4924,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-uds"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "async-io",
+  "libc",
+@@ -4938,7 +4938,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-user-verification"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "base64 0.22.1",
+  "core-foundation 0.10.1",
+@@ -4958,7 +4958,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-absolute-path"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "dirs",
+  "dunce",
+@@ -4972,14 +4972,14 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-approval-presets"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-protocol",
+ ]
+ 
+ [[package]]
+ name = "codex-utils-audio"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "base64 0.22.1",
+  "codex-protocol",
+@@ -4993,7 +4993,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-cache"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "lru",
+  "sha1 0.10.6",
+@@ -5002,7 +5002,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-cargo-bin"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "assert_cmd",
+  "runfiles",
+@@ -5011,7 +5011,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-cli"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "clap",
+  "codex-protocol",
+@@ -5023,15 +5023,15 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-elapsed"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ 
+ [[package]]
+ name = "codex-utils-fuzzy-match"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ 
+ [[package]]
+ name = "codex-utils-git-discovery"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-git-utils",
+  "codex-utils-absolute-path",
+@@ -5044,7 +5044,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-home-dir"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-utils-absolute-path",
+  "dirs",
+@@ -5054,7 +5054,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-image"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "base64 0.22.1",
+  "codex-utils-cache",
+@@ -5068,7 +5068,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-json-to-toml"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "pretty_assertions",
+  "serde_json",
+@@ -5077,7 +5077,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-oss"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-core",
+  "codex-lmstudio",
+@@ -5087,7 +5087,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-output-truncation"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-protocol",
+  "codex-utils-string",
+@@ -5097,7 +5097,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-path"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-utils-absolute-path",
+  "dunce",
+@@ -5108,7 +5108,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-path-uri"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "base64 0.22.1",
+  "codex-utils-absolute-path",
+@@ -5124,7 +5124,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-plugins"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-exec-server",
+  "codex-exec-server-protocol",
+@@ -5138,7 +5138,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-process"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "pretty_assertions",
+  "tokio",
+@@ -5146,7 +5146,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-pty"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "codex-utils-cargo-bin",
+@@ -5165,7 +5165,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-readiness"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "assert_matches",
+  "thiserror 2.0.18",
+@@ -5175,7 +5175,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-redacted-string"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "schemars 0.8.22",
+  "serde",
+@@ -5183,14 +5183,14 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-rustls-provider"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "rustls",
+ ]
+ 
+ [[package]]
+ name = "codex-utils-sandbox-summary"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-protocol",
+  "codex-utils-absolute-path",
+@@ -5200,7 +5200,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-sleep-inhibitor"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "core-foundation 0.9.4",
+  "libc",
+@@ -5210,14 +5210,14 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-stream-parser"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "pretty_assertions",
+ ]
+ 
+ [[package]]
+ name = "codex-utils-string"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "pretty_assertions",
+  "regex-lite",
+@@ -5227,14 +5227,14 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-template"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "pretty_assertions",
+ ]
+ 
+ [[package]]
+ name = "codex-v8-poc"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "pretty_assertions",
+  "v8",
+@@ -5242,7 +5242,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-voice-host"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "codex-install-context",
+@@ -5269,7 +5269,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-web-search-extension"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-api",
+  "codex-core",
+@@ -5291,7 +5291,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-websocket-auth"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "base64 0.22.1",
+@@ -5310,7 +5310,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-websocket-client"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-http-client",
+  "codex-utils-rustls-provider",
+@@ -5326,7 +5326,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-windows-sandbox"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "base64 0.22.1",
+@@ -5356,7 +5356,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-windows-sandbox-service"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "codex-cloud-config",
+@@ -5373,14 +5373,14 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-windows-sandbox-test-support"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "dirs",
+ ]
+ 
+ [[package]]
+ name = "codex-workload-identity"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "codex-http-client",
+  "pretty_assertions",
+@@ -5395,7 +5395,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-worktree"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "codex-git-utils",
+@@ -5636,7 +5636,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "core_test_support"
+-version = "0.0.0"
++version = "0.162.0-alpha.17.2"
+ dependencies = [
+  "anyhow",
+  "assert_cmd",
+diff --git a/codex-rs/app-server-protocol/schema/json/ClientRequest.json b/codex-rs/app-server-protocol/schema/json/ClientRequest.json
+index 00752e3..493e8a9 100644
+--- a/codex-rs/app-server-protocol/schema/json/ClientRequest.json
++++ b/codex-rs/app-server-protocol/schema/json/ClientRequest.json
+@@ -2754,6 +2754,58 @@
+       ],
+       "type": "object"
+     },
++    "Project": {
++      "properties": {
++        "createdAt": {
++          "format": "int64",
++          "type": "integer"
++        },
++        "id": {
++          "type": "string"
++        },
++        "metadata": {
++          "additionalProperties": {
++            "type": "string"
++          },
++          "type": "object"
++        },
++        "name": {
++          "type": "string"
++        },
++        "position": {
++          "format": "int64",
++          "type": "integer"
++        },
++        "recencyAt": {
++          "description": "Newest non-archived member thread's recency, in Unix seconds; null when none exist.",
++          "format": "int64",
++          "type": [
++            "integer",
++            "null"
++          ]
++        },
++        "roots": {
++          "items": {
++            "$ref": "#/definitions/ProjectRoot"
++          },
++          "type": "array"
++        },
++        "updatedAt": {
++          "format": "int64",
++          "type": "integer"
++        }
++      },
++      "required": [
++        "createdAt",
++        "id",
++        "metadata",
++        "name",
++        "position",
++        "roots",
++        "updatedAt"
++      ],
++      "type": "object"
++    },
+     "ProjectRoot": {
+       "properties": {
+         "path": {
+diff --git a/codex-rs/app-server-protocol/schema/json/codex_app_server_protocol.schemas.json b/codex-rs/app-server-protocol/schema/json/codex_app_server_protocol.schemas.json
+index 6260a20..ac4f3da 100644
+--- a/codex-rs/app-server-protocol/schema/json/codex_app_server_protocol.schemas.json
++++ b/codex-rs/app-server-protocol/schema/json/codex_app_server_protocol.schemas.json
+@@ -21503,6 +21503,70 @@
+         "title": "ThreadDeletedNotification",
+         "type": "object"
+       },
++      "ThreadEffectivePolicy": {
++        "properties": {
++          "approvalPolicy": {
++            "$ref": "#/definitions/v2/AskForApproval"
++          },
++          "approvalsReviewer": {
++            "$ref": "#/definitions/v2/ApprovalsReviewer"
++          },
++          "codeModeOffEnforced": {
++            "description": "Derived from immutable loaded session policy and enforced at native registry construction and nested dispatch. Not a requested flag echo.",
++            "type": "boolean"
++          },
++          "cwd": {
++            "$ref": "#/definitions/v2/AbsolutePathBuf"
++          },
++          "effectiveToolMode": {
++            "anyOf": [
++              {
++                "$ref": "#/definitions/v2/ThreadEffectiveToolMode"
++              },
++              {
++                "type": "null"
++              }
++            ],
++            "description": "Known direct only when explicit off is enforced. Otherwise unknown: configuration flags alone cannot attest model-resolved Code Mode."
++          },
++          "model": {
++            "type": "string"
++          },
++          "sandbox": {
++            "$ref": "#/definitions/v2/SandboxPolicy"
++          },
++          "scope": {
++            "allOf": [
++              {
++                "$ref": "#/definitions/v2/ThreadEffectivePolicyScope"
++              }
++            ],
++            "description": "Thread-owned defaults, not an attestation of active-step permission grants, OS enforcement, terminal safety or historical cleanup."
++          }
++        },
++        "required": [
++          "approvalPolicy",
++          "approvalsReviewer",
++          "codeModeOffEnforced",
++          "cwd",
++          "model",
++          "sandbox",
++          "scope"
++        ],
++        "type": "object"
++      },
++      "ThreadEffectivePolicyScope": {
++        "enum": [
++          "loadedThreadDefaults"
++        ],
++        "type": "string"
++      },
++      "ThreadEffectiveToolMode": {
++        "enum": [
++          "direct"
++        ],
++        "type": "string"
++      },
+       "ThreadEnvironment": {
+         "description": "An environment selected by a loaded thread, independent of connection status.",
+         "properties": {
+diff --git a/codex-rs/app-server-protocol/schema/json/codex_app_server_protocol.v2.schemas.json b/codex-rs/app-server-protocol/schema/json/codex_app_server_protocol.v2.schemas.json
+index 637d715..8f40712 100644
+--- a/codex-rs/app-server-protocol/schema/json/codex_app_server_protocol.v2.schemas.json
++++ b/codex-rs/app-server-protocol/schema/json/codex_app_server_protocol.v2.schemas.json
+@@ -19217,6 +19217,70 @@
+       "title": "ThreadDeletedNotification",
+       "type": "object"
+     },
++    "ThreadEffectivePolicy": {
++      "properties": {
++        "approvalPolicy": {
++          "$ref": "#/definitions/AskForApproval"
++        },
++        "approvalsReviewer": {
++          "$ref": "#/definitions/ApprovalsReviewer"
++        },
++        "codeModeOffEnforced": {
++          "description": "Derived from immutable loaded session policy and enforced at native registry construction and nested dispatch. Not a requested flag echo.",
++          "type": "boolean"
++        },
++        "cwd": {
++          "$ref": "#/definitions/AbsolutePathBuf"
++        },
++        "effectiveToolMode": {
++          "anyOf": [
++            {
++              "$ref": "#/definitions/ThreadEffectiveToolMode"
++            },
++            {
++              "type": "null"
++            }
++          ],
++          "description": "Known direct only when explicit off is enforced. Otherwise unknown: configuration flags alone cannot attest model-resolved Code Mode."
++        },
++        "model": {
++          "type": "string"
++        },
++        "sandbox": {
++          "$ref": "#/definitions/SandboxPolicy"
++        },
++        "scope": {
++          "allOf": [
++            {
++              "$ref": "#/definitions/ThreadEffectivePolicyScope"
++            }
++          ],
++          "description": "Thread-owned defaults, not an attestation of active-step permission grants, OS enforcement, terminal safety or historical cleanup."
++        }
++      },
++      "required": [
++        "approvalPolicy",
++        "approvalsReviewer",
++        "codeModeOffEnforced",
++        "cwd",
++        "model",
++        "sandbox",
++        "scope"
++      ],
++      "type": "object"
++    },
++    "ThreadEffectivePolicyScope": {
++      "enum": [
++        "loadedThreadDefaults"
++      ],
++      "type": "string"
++    },
++    "ThreadEffectiveToolMode": {
++      "enum": [
++        "direct"
++      ],
++      "type": "string"
++    },
+     "ThreadEnvironment": {
+       "description": "An environment selected by a loaded thread, independent of connection status.",
+       "properties": {
+diff --git a/codex-rs/app-server-protocol/schema/typescript/v2/ThreadEffectivePolicy.ts b/codex-rs/app-server-protocol/schema/typescript/v2/ThreadEffectivePolicy.ts
+new file mode 100644
+index 0000000..6723c27
+--- /dev/null
++++ b/codex-rs/app-server-protocol/schema/typescript/v2/ThreadEffectivePolicy.ts
+@@ -0,0 +1,26 @@
++// GENERATED CODE! DO NOT MODIFY BY HAND!
++
++// This file was generated by [ts-rs](https://github.com/Aleph-Alpha/ts-rs). Do not edit this file manually.
++import type { AbsolutePathBuf } from "../AbsolutePathBuf";
++import type { ApprovalsReviewer } from "./ApprovalsReviewer";
++import type { AskForApproval } from "./AskForApproval";
++import type { SandboxPolicy } from "./SandboxPolicy";
++import type { ThreadEffectivePolicyScope } from "./ThreadEffectivePolicyScope";
++import type { ThreadEffectiveToolMode } from "./ThreadEffectiveToolMode";
++
++export type ThreadEffectivePolicy = {
++/**
++ * Thread-owned defaults, not an attestation of active-step permission
++ * grants, OS enforcement, terminal safety or historical cleanup.
++ */
++scope: ThreadEffectivePolicyScope, cwd: AbsolutePathBuf, model: string, approvalPolicy: AskForApproval, approvalsReviewer: ApprovalsReviewer, sandbox: SandboxPolicy,
++/**
++ * Derived from immutable loaded session policy and enforced at native
++ * registry construction and nested dispatch. Not a requested flag echo.
++ */
++codeModeOffEnforced: boolean,
++/**
++ * Known direct only when explicit off is enforced. Otherwise unknown:
++ * configuration flags alone cannot attest model-resolved Code Mode.
++ */
++effectiveToolMode: ThreadEffectiveToolMode | null, };
+diff --git a/codex-rs/app-server-protocol/schema/typescript/v2/ThreadEffectivePolicyScope.ts b/codex-rs/app-server-protocol/schema/typescript/v2/ThreadEffectivePolicyScope.ts
+new file mode 100644
+index 0000000..1703599
+--- /dev/null
++++ b/codex-rs/app-server-protocol/schema/typescript/v2/ThreadEffectivePolicyScope.ts
+@@ -0,0 +1,5 @@
++// GENERATED CODE! DO NOT MODIFY BY HAND!
++
++// This file was generated by [ts-rs](https://github.com/Aleph-Alpha/ts-rs). Do not edit this file manually.
++
++export type ThreadEffectivePolicyScope = "loadedThreadDefaults";
+diff --git a/codex-rs/app-server-protocol/schema/typescript/v2/ThreadEffectiveToolMode.ts b/codex-rs/app-server-protocol/schema/typescript/v2/ThreadEffectiveToolMode.ts
+new file mode 100644
+index 0000000..0c3933c
+--- /dev/null
++++ b/codex-rs/app-server-protocol/schema/typescript/v2/ThreadEffectiveToolMode.ts
+@@ -0,0 +1,5 @@
++// GENERATED CODE! DO NOT MODIFY BY HAND!
++
++// This file was generated by [ts-rs](https://github.com/Aleph-Alpha/ts-rs). Do not edit this file manually.
++
++export type ThreadEffectiveToolMode = "direct";
+diff --git a/codex-rs/app-server-protocol/schema/typescript/v2/index.ts b/codex-rs/app-server-protocol/schema/typescript/v2/index.ts
+index a90d054..1012e8a 100644
+--- a/codex-rs/app-server-protocol/schema/typescript/v2/index.ts
++++ b/codex-rs/app-server-protocol/schema/typescript/v2/index.ts
+@@ -501,6 +501,9 @@ export type { ThreadCompactStartResponse } from "./ThreadCompactStartResponse";
+ export type { ThreadDeleteParams } from "./ThreadDeleteParams";
+ export type { ThreadDeleteResponse } from "./ThreadDeleteResponse";
+ export type { ThreadDeletedNotification } from "./ThreadDeletedNotification";
++export type { ThreadEffectivePolicy } from "./ThreadEffectivePolicy";
++export type { ThreadEffectivePolicyScope } from "./ThreadEffectivePolicyScope";
++export type { ThreadEffectiveToolMode } from "./ThreadEffectiveToolMode";
+ export type { ThreadEnvironment } from "./ThreadEnvironment";
+ export type { ThreadExtra } from "./ThreadExtra";
+ export type { ThreadForkParams } from "./ThreadForkParams";
+diff --git a/codex-rs/app-server-protocol/src/protocol/common.rs b/codex-rs/app-server-protocol/src/protocol/common.rs
+index 3e73b44..84f8e23 100644
+--- a/codex-rs/app-server-protocol/src/protocol/common.rs
++++ b/codex-rs/app-server-protocol/src/protocol/common.rs
+@@ -799,6 +799,12 @@ client_request_definitions! {
+         serialization: global("projects"),
+         response: v2::ProjectImportResponse,
+     },
++    #[experimental("project/restoreMetadata")]
++    ProjectRestoreMetadata => "project/restoreMetadata" {
++        params: v2::ProjectRestoreMetadataParams,
++        serialization: global("projects"),
++        response: v2::ProjectRestoreMetadataResponse,
++    },
+     #[experimental("project/update")]
+     ProjectUpdate => "project/update" {
+         params: v2::ProjectUpdateParams,
+@@ -860,6 +866,13 @@ client_request_definitions! {
+         serialization: thread_id(params.thread_id),
+         response: v2::ThreadReadResponse,
+     },
++    #[experimental("thread/effectivePolicy/read")]
++    /// Read loaded native policy without loading, refreshing or starting work.
++    ThreadEffectivePolicyRead => "thread/effectivePolicy/read" {
++        params: v2::ThreadEffectivePolicyReadParams,
++        serialization: thread_id(params.thread_id),
++        response: v2::ThreadEffectivePolicyReadResponse,
++    },
+     ThreadTurnsList => "thread/turns/list" {
+         params: v2::ThreadTurnsListParams,
+         // Explicitly concurrent: this primarily reads append-only rollout storage.
+diff --git a/codex-rs/app-server-protocol/src/protocol/v2/effective_policy.rs b/codex-rs/app-server-protocol/src/protocol/v2/effective_policy.rs
+new file mode 100644
+index 0000000..251ce0f
+--- /dev/null
++++ b/codex-rs/app-server-protocol/src/protocol/v2/effective_policy.rs
+@@ -0,0 +1,61 @@
++use crate::JsonSchema;
++use crate::TS;
++use codex_utils_absolute_path::AbsolutePathBuf;
++use serde::Deserialize;
++use serde::Serialize;
++
++use super::ApprovalsReviewer;
++use super::AskForApproval;
++use super::SandboxPolicy;
++
++#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema, TS)]
++#[serde(rename_all = "camelCase", deny_unknown_fields)]
++#[ts(export_to = "v2/")]
++pub struct ThreadEffectivePolicyReadParams {
++    pub thread_id: String,
++}
++
++#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema, TS)]
++#[serde(rename_all = "camelCase")]
++#[ts(export_to = "v2/")]
++pub struct ThreadEffectivePolicy {
++    /// Thread-owned defaults, not an attestation of active-step permission
++    /// grants, OS enforcement, terminal safety or historical cleanup.
++    pub scope: ThreadEffectivePolicyScope,
++    pub cwd: AbsolutePathBuf,
++    pub model: String,
++    pub approval_policy: AskForApproval,
++    pub approvals_reviewer: ApprovalsReviewer,
++    pub sandbox: SandboxPolicy,
++    /// Derived from immutable loaded session policy and enforced at native
++    /// registry construction and nested dispatch. Not a requested flag echo.
++    pub code_mode_off_enforced: bool,
++    /// Known direct only when explicit off is enforced. Otherwise unknown:
++    /// configuration flags alone cannot attest model-resolved Code Mode.
++    pub effective_tool_mode: Option<ThreadEffectiveToolMode>,
++}
++
++#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema, TS)]
++#[serde(rename_all = "camelCase")]
++#[ts(export_to = "v2/")]
++pub enum ThreadEffectivePolicyScope {
++    LoadedThreadDefaults,
++}
++
++#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema, TS)]
++#[serde(rename_all = "camelCase")]
++#[ts(export_to = "v2/")]
++pub enum ThreadEffectiveToolMode {
++    Direct,
++}
++
++#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema, TS)]
++#[serde(rename_all = "camelCase")]
++#[ts(export_to = "v2/")]
++pub struct ThreadEffectivePolicyReadResponse {
++    pub version: u32,
++    pub thread_id: String,
++    /// Null for an unloaded, missing or otherwise unavailable runtime. No
++    /// persisted/disk configuration is substituted and this read never loads.
++    pub policy: Option<ThreadEffectivePolicy>,
++}
+diff --git a/codex-rs/app-server-protocol/src/protocol/v2/mod.rs b/codex-rs/app-server-protocol/src/protocol/v2/mod.rs
+index 1c1432d..605d9e6 100644
+--- a/codex-rs/app-server-protocol/src/protocol/v2/mod.rs
++++ b/codex-rs/app-server-protocol/src/protocol/v2/mod.rs
+@@ -12,6 +12,7 @@ mod computer_use_config;
+ mod config;
+ mod current_time;
+ mod diagnostics;
++mod effective_policy;
+ mod environment;
+ mod experimental_feature;
+ mod feedback;
+@@ -52,6 +53,7 @@ pub use computer_use_config::*;
+ pub use config::*;
+ pub use current_time::*;
+ pub use diagnostics::*;
++pub use effective_policy::*;
+ pub use environment::*;
+ pub use experimental_feature::*;
+ pub use feedback::*;
+diff --git a/codex-rs/app-server-protocol/src/protocol/v2/project.rs b/codex-rs/app-server-protocol/src/protocol/v2/project.rs
+index e7509a4..e44231d 100644
+--- a/codex-rs/app-server-protocol/src/protocol/v2/project.rs
++++ b/codex-rs/app-server-protocol/src/protocol/v2/project.rs
+@@ -119,6 +119,25 @@ pub struct ProjectImportResponse {
+     pub project: Project,
+ }
+ 
++/// Operator-reviewed-build extension, not part of stock project/import.
++/// Restores one observed project identity into an empty local store. Does not
++/// load a thread, transfer credentials, start work or attest historical cleanup.
++#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, JsonSchema, TS, ExperimentalApi)]
++#[serde(rename_all = "camelCase", deny_unknown_fields)]
++#[ts(export_to = "v2/")]
++pub struct ProjectRestoreMetadataParams {
++    pub version: u32,
++    pub project: Project,
++}
++
++#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, JsonSchema, TS)]
++#[serde(rename_all = "camelCase")]
++#[ts(export_to = "v2/")]
++pub struct ProjectRestoreMetadataResponse {
++    pub version: u32,
++    pub project: Project,
++}
++
+ #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, JsonSchema, TS, ExperimentalApi)]
+ #[serde(rename_all = "camelCase")]
+ #[ts(export_to = "v2/")]
+diff --git a/codex-rs/app-server/README.md b/codex-rs/app-server/README.md
+index a40c0c9..01a6e28 100644
+--- a/codex-rs/app-server/README.md
++++ b/codex-rs/app-server/README.md
+@@ -1,3 +1,10 @@
++# Loaded thread policy (local experimental repair)
++
++`thread/effectivePolicy/read` returns loaded-thread defaults and native explicit
++Code Mode-off enforcement without loading or waking the thread. Unloaded policy
++and unresolved tool mode remain unknown. See the [repair contract](../../docs/code-mode-policy-repair.md)
++for its scope, resume-refusal behavior and installation/qualification boundary.
++
+ # Guardian circuit-breaker errors
+ 
+ Set `auto_review.circuit_break_action = "strict"` to include `TooManyDenials` in
+diff --git a/codex-rs/app-server/src/message_processor.rs b/codex-rs/app-server/src/message_processor.rs
+index 6b705c5..0265cd1 100644
+--- a/codex-rs/app-server/src/message_processor.rs
++++ b/codex-rs/app-server/src/message_processor.rs
+@@ -1497,6 +1497,11 @@ impl MessageProcessor {
+             ClientRequest::ProjectImport { params, .. } => {
+                 self.project_processor.project_import(params).await
+             }
++            ClientRequest::ProjectRestoreMetadata { params, .. } => {
++                self.project_processor
++                    .project_restore_metadata(params)
++                    .await
++            }
+             ClientRequest::ProjectUpdate { params, .. } => {
+                 self.project_processor.project_update(params).await
+             }
+@@ -1520,6 +1525,11 @@ impl MessageProcessor {
+             ClientRequest::ThreadRead { params, .. } => {
+                 self.thread_processor.thread_read(&request_id, params).await
+             }
++            ClientRequest::ThreadEffectivePolicyRead { params, .. } => {
++                self.thread_processor
++                    .thread_effective_policy_read(params)
++                    .await
++            }
+             ClientRequest::ThreadTurnsList { params, .. } => {
+                 self.thread_processor.thread_turns_list(params).await
+             }
+diff --git a/codex-rs/app-server/src/request_processors/projects.rs b/codex-rs/app-server/src/request_processors/projects.rs
+index 4a04d6c..e183519 100644
+--- a/codex-rs/app-server/src/request_processors/projects.rs
++++ b/codex-rs/app-server/src/request_processors/projects.rs
+@@ -18,6 +18,8 @@ use codex_app_server_protocol::ProjectMoveParams;
+ use codex_app_server_protocol::ProjectMoveResponse;
+ use codex_app_server_protocol::ProjectReadParams;
+ use codex_app_server_protocol::ProjectReadResponse;
++use codex_app_server_protocol::ProjectRestoreMetadataParams;
++use codex_app_server_protocol::ProjectRestoreMetadataResponse;
+ use codex_app_server_protocol::ProjectRoot;
+ use codex_app_server_protocol::ProjectSortKey;
+ use codex_app_server_protocol::ProjectUpdateParams;
+@@ -200,6 +202,63 @@ impl ProjectRequestProcessor {
+         Ok(Some(ProjectUpdateResponse { project }.into()))
+     }
+ 
++    pub(crate) async fn project_restore_metadata(
++        &self,
++        params: ProjectRestoreMetadataParams,
++    ) -> Result<Option<ClientResponsePayload>, JSONRPCErrorError> {
++        if params.version != 1 {
++            return Err(invalid_params("unsupported exact project restore version"));
++        }
++        let project = params.project;
++        let name = validate_name(project.name.clone())?;
++        if name != project.name
++            || project.metadata.len() > 64
++            || project.name.len() > 512
++            || project
++                .metadata
++                .iter()
++                .any(|(k, v)| k.len() > 512 || v.len() > 4096)
++        {
++            return Err(invalid_params(
++                "unbounded or changed exact project metadata",
++            ));
++        }
++        let roots = validate_roots(project.roots)?;
++        let created_at_ms = project
++            .created_at
++            .checked_mul(1000)
++            .ok_or_else(|| invalid_params("project timestamp overflow"))?;
++        let updated_at_ms = project
++            .updated_at
++            .checked_mul(1000)
++            .ok_or_else(|| invalid_params("project timestamp overflow"))?;
++        let _permit = self.acquire_thread_list_state_permit().await?;
++        let restored = self
++            .thread_store
++            .restore_project_metadata(StoredProject {
++                id: project.id,
++                name,
++                roots,
++                metadata: project.metadata,
++                position: project.position,
++                created_at_ms,
++                updated_at_ms,
++                recency_at_ms: None,
++            })
++            .await
++            .map_err(|error| project_store_error("project/restoreMetadata", error))?;
++        let project = api_project(restored)?;
++        self.notify_project_changed(&project.id, ProjectChangeType::Created)
++            .await;
++        Ok(Some(
++            ProjectRestoreMetadataResponse {
++                version: 1,
++                project,
++            }
++            .into(),
++        ))
++    }
++
+     pub(crate) async fn project_move(
+         &self,
+         params: ProjectMoveParams,
+diff --git a/codex-rs/app-server/src/request_processors/thread_processor.rs b/codex-rs/app-server/src/request_processors/thread_processor.rs
+index df619c7..5b482f4 100644
+--- a/codex-rs/app-server/src/request_processors/thread_processor.rs
++++ b/codex-rs/app-server/src/request_processors/thread_processor.rs
+@@ -106,6 +106,31 @@ struct ThreadRevertRuntimeSnapshot {
+     client_mcp_extensions: ClientMcpExtensions,
+ }
+ 
++fn resume_requests_code_mode_off(request: &ThreadResumeParams) -> bool {
++    let Some(config) = request.config.as_ref() else {
++        return false;
++    };
++    // The public config override accepts nested and dotted feature keys.
++    // Detect only an explicit off; absence must not become a denial claim.
++    let value = config
++        .get("features.code_mode.enabled")
++        .or_else(|| config.get("features.code_mode"))
++        .or_else(|| {
++            config
++                .get("features")
++                .and_then(|features| features.get("code_mode"))
++        })
++        .or_else(|| {
++            config
++                .get("features")
++                .and_then(|features| features.get("code_mode.enabled"))
++        });
++    value.is_some_and(|value| {
++        value.as_bool() == Some(false)
++            || value.get("enabled").and_then(serde_json::Value::as_bool) == Some(false)
++    })
++}
++
+ fn collect_resume_override_mismatches(
+     request: &ThreadResumeParams,
+     config_snapshot: &ThreadConfigSnapshot,
+@@ -881,6 +906,47 @@ impl ThreadRequestProcessor {
+         Ok(Some(response.into()))
+     }
+ 
++    pub(crate) async fn thread_effective_policy_read(
++        &self,
++        params: codex_app_server_protocol::ThreadEffectivePolicyReadParams,
++    ) -> Result<Option<ClientResponsePayload>, JSONRPCErrorError> {
++        use codex_app_server_protocol::ThreadEffectivePolicy;
++        use codex_app_server_protocol::ThreadEffectivePolicyReadResponse;
++        use codex_app_server_protocol::ThreadEffectivePolicyScope;
++        use codex_app_server_protocol::ThreadEffectiveToolMode;
++
++        let thread_id = ThreadId::from_string(&params.thread_id)
++            .map_err(|err| invalid_request(format!("invalid thread id: {err}")))?;
++        // get_thread is an in-memory lookup, NOT load_thread/thread_resume.
++        let policy = match self.thread_manager.get_thread(thread_id).await {
++            Ok(thread) => {
++                let snapshot = thread.effective_policy_snapshot().await;
++                let settings = snapshot.settings;
++                Some(ThreadEffectivePolicy {
++                    scope: ThreadEffectivePolicyScope::LoadedThreadDefaults,
++                    cwd: settings.cwd().clone(),
++                    model: settings.model.clone(),
++                    approval_policy: settings.approval_policy.into(),
++                    approvals_reviewer: settings.approvals_reviewer.into(),
++                    sandbox: settings.sandbox_policy().into(),
++                    code_mode_off_enforced: snapshot.code_mode_off_enforced,
++                    effective_tool_mode: snapshot
++                        .code_mode_off_enforced
++                        .then_some(ThreadEffectiveToolMode::Direct),
++                })
++            }
++            Err(_) => None,
++        };
++        Ok(Some(
++            ThreadEffectivePolicyReadResponse {
++                version: 1,
++                thread_id: params.thread_id,
++                policy,
++            }
++            .into(),
++        ))
++    }
++
+     pub(crate) async fn thread_turns_list(
+         &self,
+         params: ThreadTurnsListParams,
+@@ -4346,6 +4412,16 @@ impl ThreadRequestProcessor {
+                 )));
+             }
+             let config_snapshot = existing_thread.config_snapshot().await;
++            if resume_requests_code_mode_off(params)
++                && !existing_thread
++                    .effective_policy_snapshot()
++                    .await
++                    .code_mode_off_enforced
++            {
++                return Err(invalid_request(
++                    "features.code_mode requested=off but the loaded session does not enforce off; resume cannot silently ignore this execution restriction",
++                ));
++            }
+             let mismatch_details = collect_resume_override_mismatches(params, &config_snapshot);
+             if !mismatch_details.is_empty() {
+                 let has_subscribers = !self
+diff --git a/codex-rs/app-server/tests/suite/v2/effective_policy.rs b/codex-rs/app-server/tests/suite/v2/effective_policy.rs
+new file mode 100644
+index 0000000..f2ae79e
+--- /dev/null
++++ b/codex-rs/app-server/tests/suite/v2/effective_policy.rs
+@@ -0,0 +1,254 @@
++use anyhow::Result;
++use app_test_support::MockResponsesConfig;
++use app_test_support::TestAppServer;
++use app_test_support::create_fake_rollout;
++use app_test_support::create_mock_responses_server_repeating_assistant;
++use codex_app_server_protocol::ApprovalsReviewer;
++use codex_app_server_protocol::AskForApproval;
++use codex_app_server_protocol::SandboxMode;
++use codex_app_server_protocol::SandboxPolicy;
++use codex_app_server_protocol::ThreadEffectivePolicyReadResponse;
++use codex_app_server_protocol::ThreadEffectivePolicyScope;
++use codex_app_server_protocol::ThreadEffectiveToolMode;
++use codex_app_server_protocol::ThreadLoadedListParams;
++use codex_app_server_protocol::ThreadStartParams;
++use serde_json::json;
++use tempfile::TempDir;
++use tokio::time::timeout;
++use uuid::Uuid;
++
++async fn read_policy(
++    mcp: &mut TestAppServer,
++    id: &str,
++) -> Result<ThreadEffectivePolicyReadResponse> {
++    let request = mcp
++        .send_request("thread/effectivePolicy/read", Some(json!({"threadId": id})))
++        .await?;
++    let value: serde_json::Value = timeout(
++        std::time::Duration::from_secs(10),
++        mcp.read_response(request),
++    )
++    .await??;
++    Ok(serde_json::from_value(value)?)
++}
++
++#[tokio::test]
++async fn native_policy_read_does_not_load_an_unavailable_thread() -> Result<()> {
++    let home = TempDir::new()?;
++    let mut mcp = TestAppServer::builder()
++        .with_codex_home(home.path())
++        .without_auto_env()
++        .build_initialized()
++        .await?;
++    let id = Uuid::new_v4().to_string();
++    for _ in 0..2 {
++        let report = read_policy(&mut mcp, &id).await?;
++        assert_eq!(report.version, 1);
++        assert_eq!(report.thread_id, id);
++        assert!(report.policy.is_none());
++    }
++    let request = mcp
++        .send_thread_loaded_list_request(ThreadLoadedListParams {
++            cursor: None,
++            limit: None,
++        })
++        .await?;
++    let value: serde_json::Value = timeout(
++        std::time::Duration::from_secs(10),
++        mcp.read_response(request),
++    )
++    .await??;
++    assert!(value["data"].as_array().unwrap().is_empty());
++    Ok(())
++}
++
++#[tokio::test]
++async fn cold_resume_enforces_off_and_policy_read_does_not_load_saved_history() -> Result<()> {
++    let server = create_mock_responses_server_repeating_assistant("unused").await;
++    let home = TempDir::new()?;
++    MockResponsesConfig::new(&server.uri()).write(home.path())?;
++    let id = create_fake_rollout(
++        home.path(),
++        "2026-10-14T00-00-00",
++        "2026-10-14T00:00:00Z",
++        "fixture only",
++        Some("mock_provider"),
++        None,
++    )?;
++    let mut mcp = TestAppServer::builder()
++        .with_codex_home(home.path())
++        .without_auto_env()
++        .build_initialized()
++        .await?;
++    assert!(read_policy(&mut mcp, &id).await?.policy.is_none());
++    let request = mcp.send_request("thread/resume", Some(json!({
++        "threadId": id, "excludeTurns": true,
++        "cwd": home.path().to_string_lossy(),
++        "approvalPolicy": "on-request", "approvalsReviewer": "user", "sandbox": "workspace-write",
++        "config": {"features": {"code_mode": {"enabled": false}}}
++    }))).await?;
++    let resumed: serde_json::Value = timeout(
++        std::time::Duration::from_secs(10),
++        mcp.read_response(request),
++    )
++    .await??;
++    assert!(resumed["thread"]["turns"].as_array().unwrap().is_empty());
++    for _ in 0..2 {
++        let policy = read_policy(&mut mcp, &id).await?.policy.unwrap();
++        assert!(policy.code_mode_off_enforced);
++        assert_eq!(
++            policy.effective_tool_mode,
++            Some(ThreadEffectiveToolMode::Direct)
++        );
++        assert_eq!(policy.approval_policy, AskForApproval::OnRequest);
++    }
++    assert!(
++        server
++            .received_requests()
++            .await
++            .unwrap()
++            .iter()
++            .all(|request| !request.url.path().ends_with("responses"))
++    );
++    Ok(())
++}
++
++#[tokio::test]
++async fn loaded_thread_reports_enforced_off_without_a_turn_or_provider_request() -> Result<()> {
++    let server = create_mock_responses_server_repeating_assistant("unused").await;
++    let home = TempDir::new()?;
++    MockResponsesConfig::new(&server.uri()).write(home.path())?;
++    let mut mcp = TestAppServer::builder()
++        .with_codex_home(home.path())
++        .build_initialized()
++        .await?;
++    let disabled = mcp
++        .start_thread(ThreadStartParams {
++            cwd: Some(home.path().to_string_lossy().into_owned()),
++            approval_policy: Some(AskForApproval::OnRequest),
++            approvals_reviewer: Some(ApprovalsReviewer::User),
++            sandbox: Some(SandboxMode::WorkspaceWrite),
++            config: Some(std::collections::HashMap::from([(
++                "features".into(),
++                json!({"code_mode": {"enabled": false}}),
++            )])),
++            ..Default::default()
++        })
++        .await?;
++    let report = read_policy(&mut mcp, &disabled.thread.id).await?;
++    let policy = report
++        .policy
++        .expect("a loaded thread must have native settings");
++    assert!(policy.code_mode_off_enforced);
++    assert_eq!(
++        policy.scope,
++        ThreadEffectivePolicyScope::LoadedThreadDefaults
++    );
++    assert_eq!(policy.approval_policy, AskForApproval::OnRequest);
++    assert_eq!(policy.approvals_reviewer, ApprovalsReviewer::User);
++    assert!(matches!(
++        policy.sandbox,
++        SandboxPolicy::WorkspaceWrite { .. }
++    ));
++    assert_eq!(
++        policy.effective_tool_mode,
++        Some(ThreadEffectiveToolMode::Direct)
++    );
++    assert_eq!(policy.cwd, disabled.cwd);
++    assert_eq!(policy.model, disabled.model);
++    let other = mcp.start_thread(ThreadStartParams::default()).await?;
++    let other_report = read_policy(&mut mcp, &other.thread.id).await?;
++    assert!(!other_report.policy.unwrap().code_mode_off_enforced);
++    assert!(
++        read_policy(&mut mcp, &disabled.thread.id)
++            .await?
++            .policy
++            .unwrap()
++            .code_mode_off_enforced
++    );
++    assert!(
++        server
++            .received_requests()
++            .await
++            .unwrap()
++            .iter()
++            .all(|request| !request.url.path().ends_with("responses"))
++    );
++    Ok(())
++}
++
++#[tokio::test]
++async fn loaded_resume_cannot_silently_ignore_explicit_off() -> Result<()> {
++    let server = create_mock_responses_server_repeating_assistant("unused").await;
++    let home = TempDir::new()?;
++    MockResponsesConfig::new(&server.uri()).write(home.path())?;
++    let id = create_fake_rollout(
++        home.path(),
++        "2026-10-14T00-00-00",
++        "2026-10-14T00:00:00Z",
++        "fixture only",
++        Some("mock_provider"),
++        None,
++    )?;
++    let mut mcp = TestAppServer::builder()
++        .with_codex_home(home.path())
++        .without_auto_env()
++        .build_initialized()
++        .await?;
++    let request = mcp
++        .send_request(
++            "thread/resume",
++            Some(json!({"threadId": id, "excludeTurns": true})),
++        )
++        .await?;
++    let _: serde_json::Value = timeout(
++        std::time::Duration::from_secs(10),
++        mcp.read_response(request),
++    )
++    .await??;
++    assert!(
++        !read_policy(&mut mcp, &id)
++            .await?
++            .policy
++            .unwrap()
++            .code_mode_off_enforced
++    );
++    for config in [
++        json!({"features": {"code_mode": {"enabled": false}}}),
++        json!({"features": {"code_mode": false}}),
++        json!({"features.code_mode": false}),
++        json!({"features.code_mode.enabled": false}),
++    ] {
++        let request = mcp
++            .send_request(
++                "thread/resume",
++                Some(json!({"threadId": id, "excludeTurns": true, "config": config})),
++            )
++            .await?;
++        let error = timeout(
++            std::time::Duration::from_secs(10),
++            mcp.read_stream_until_error_message(codex_app_server_protocol::RequestId::Integer(
++                request,
++            )),
++        )
++        .await??;
++        assert_eq!(error.error.code, -32600);
++        assert!(error.error.message.contains("features.code_mode"));
++        assert!(
++            !read_policy(&mut mcp, &id)
++                .await?
++                .policy
++                .unwrap()
++                .code_mode_off_enforced
++        );
++    }
++    assert!(
++        server
++            .received_requests()
++            .await
++            .unwrap()
++            .iter()
++            .all(|request| !request.url.path().ends_with("responses"))
++    );
++    Ok(())
++}
+diff --git a/codex-rs/app-server/tests/suite/v2/mod.rs b/codex-rs/app-server/tests/suite/v2/mod.rs
+index 75855aa..9b46a33 100644
+--- a/codex-rs/app-server/tests/suite/v2/mod.rs
++++ b/codex-rs/app-server/tests/suite/v2/mod.rs
+@@ -46,6 +46,7 @@ mod cyber_access_program;
+ mod daemon_update_recovery;
+ mod daybreak_access;
+ mod dynamic_tools;
++mod effective_policy;
+ mod environment_add;
+ mod environment_info;
+ mod environment_status;
+diff --git a/codex-rs/core/src/codex_thread.rs b/codex-rs/core/src/codex_thread.rs
+index e3beb6b..00c86cc 100644
+--- a/codex-rs/core/src/codex_thread.rs
++++ b/codex-rs/core/src/codex_thread.rs
+@@ -86,6 +86,14 @@ use codex_rollout::state_db::StateDbHandle;
+ 
+ static LIVE_THREADS: Gauge = Gauge::new("core.threads.live");
+ 
++/// One content-free snapshot of loaded thread settings and native enforcement.
++/// This is not terminal, historical-effect or OS sandbox attestation.
++#[derive(Clone, Debug)]
++pub struct ThreadEffectivePolicySnapshot {
++    pub settings: ThreadConfigSnapshot,
++    pub code_mode_off_enforced: bool,
++}
++
+ #[derive(Clone, Debug)]
+ pub struct ThreadConfigSnapshot {
+     /// Host data inherited by future turns; not included in persisted settings.
+@@ -950,6 +958,11 @@ impl CodexThread {
+         self.session.thread_config_snapshot().await
+     }
+ 
++    /// Does not load, refresh configuration, resolve models or create a turn.
++    pub async fn effective_policy_snapshot(&self) -> ThreadEffectivePolicySnapshot {
++        self.session.thread_effective_policy_snapshot().await
++    }
++
+     /// Returns the active turn's reviewer, including live updates, or the thread default.
+     pub async fn approvals_reviewer_for_turn(&self, turn_id: &str) -> ApprovalsReviewer {
+         if let Some((turn, settings, _, _)) = self
+diff --git a/codex-rs/core/src/config/runtime_refresh_tests.rs b/codex-rs/core/src/config/runtime_refresh_tests.rs
+index c52c893..26d8bd0 100644
+--- a/codex-rs/core/src/config/runtime_refresh_tests.rs
++++ b/codex-rs/core/src/config/runtime_refresh_tests.rs
+@@ -57,6 +57,30 @@ fn runtime_servers(config: &Config) -> HashMap<String, McpServerConfig> {
+     )
+ }
+ 
++#[tokio::test]
++async fn explicit_off_survives_runtime_refreshes() {
++    let (_home, base) = base_config().await;
++    let current = layered_config(&base, "", "", "", "[features]\ncode_mode = false").await;
++    let incoming = layered_config(
++        &base,
++        "[features]\ncode_mode = true\ncode_mode_only = true",
++        "",
++        "",
++        "",
++    )
++    .await;
++    for scope in [
++        RuntimeConfigRefresh::User,
++        RuntimeConfigRefresh::Mcp,
++        RuntimeConfigRefresh::UserFiles,
++    ] {
++        let refreshed = current.resolve_runtime_refresh(&incoming, scope).unwrap();
++        assert!(refreshed.features.code_mode_explicitly_disabled());
++        assert!(!refreshed.features.enabled(Feature::CodeMode));
++        assert!(!refreshed.features.enabled(Feature::CodeModeOnly));
++    }
++}
++
+ #[test_case::test_case(RuntimeConfigRefresh::User; "user refresh")]
+ #[test_case::test_case(RuntimeConfigRefresh::Mcp; "MCP refresh")]
+ #[tokio::test]
+diff --git a/codex-rs/core/src/lib.rs b/codex-rs/core/src/lib.rs
+index e7753db..edec674 100644
+--- a/codex-rs/core/src/lib.rs
++++ b/codex-rs/core/src/lib.rs
+@@ -54,6 +54,7 @@ pub use codex_thread::GuardianAuthorizationVersion;
+ pub use codex_thread::GuardianRootMessage;
+ pub use codex_thread::GuardianRootSnapshot;
+ pub use codex_thread::ThreadConfigSnapshot;
++pub use codex_thread::ThreadEffectivePolicySnapshot;
+ pub use session::turn_context::TurnContext;
+ pub use thread_startup_metadata::ThreadStartupMetadata;
+ mod agent;
+diff --git a/codex-rs/core/src/session/mod.rs b/codex-rs/core/src/session/mod.rs
+index dd70a76..ba18cf3 100644
+--- a/codex-rs/core/src/session/mod.rs
++++ b/codex-rs/core/src/session/mod.rs
+@@ -2003,6 +2003,24 @@ impl Session {
+             .thread_config_snapshot(state.session_configuration.environments.clone())
+     }
+ 
++    pub(crate) fn code_mode_off_enforced(&self) -> bool {
++        self.features.code_mode_explicitly_disabled()
++    }
++
++    pub(crate) async fn thread_effective_policy_snapshot(
++        &self,
++    ) -> crate::codex_thread::ThreadEffectivePolicySnapshot {
++        let state = self.state.lock().await;
++        crate::codex_thread::ThreadEffectivePolicySnapshot {
++            settings: state
++                .session_configuration
++                .thread_config_snapshot(state.session_configuration.environments.clone()),
++            // Session features are invariant. The same native predicate is
++            // enforced in tool-mode resolution AND at nested dispatch.
++            code_mode_off_enforced: self.code_mode_off_enforced(),
++        }
++    }
++
+     pub(crate) async fn configured_environment_selections(&self) -> Vec<TurnEnvironmentSelection> {
+         let state = self.state.lock().await;
+         state.session_configuration.environments.clone()
+diff --git a/codex-rs/core/src/tools/mod.rs b/codex-rs/core/src/tools/mod.rs
+index 41ed018..3f4668f 100644
+--- a/codex-rs/core/src/tools/mod.rs
++++ b/codex-rs/core/src/tools/mod.rs
+@@ -73,10 +73,20 @@ pub(crate) fn tool_user_shell_type(
+ }
+ 
+ pub(crate) fn requested_tool_mode(turn_context: &TurnContext, model_info: &ModelInfo) -> ToolMode {
+-    model_info.tool_mode.unwrap_or_else(|| {
+-        if turn_context.config.features.enabled(Feature::CodeModeOnly) {
++    requested_tool_mode_for_features(turn_context.config.features.get(), model_info.tool_mode)
++}
++
++pub(crate) fn requested_tool_mode_for_features(
++    features: &codex_features::Features,
++    model_tool_mode: Option<ToolMode>,
++) -> ToolMode {
++    if features.code_mode_explicitly_disabled() {
++        return ToolMode::Direct;
++    }
++    model_tool_mode.unwrap_or_else(|| {
++        if features.enabled(Feature::CodeModeOnly) {
+             ToolMode::CodeModeOnly
+-        } else if turn_context.config.features.enabled(Feature::CodeMode) {
++        } else if features.enabled(Feature::CodeMode) {
+             ToolMode::CodeMode
+         } else {
+             ToolMode::Direct
+@@ -84,6 +94,44 @@ pub(crate) fn requested_tool_mode(turn_context: &TurnContext, model_info: &Model
+     })
+ }
+ 
++#[cfg(test)]
++mod native_code_mode_policy_tests {
++    use super::*;
++    use codex_features::Features;
++
++    #[test]
++    fn explicit_off_wins_over_all_model_tool_modes() {
++        let mut features = Features::with_defaults();
++        features.disable(Feature::CodeMode);
++        features.enable(Feature::CodeModeOnly);
++        features.normalize_dependencies();
++        for model_mode in [
++            None,
++            Some(ToolMode::Direct),
++            Some(ToolMode::CodeMode),
++            Some(ToolMode::CodeModeOnly),
++        ] {
++            assert_eq!(
++                requested_tool_mode_for_features(&features, model_mode),
++                ToolMode::Direct
++            );
++        }
++    }
++
++    #[test]
++    fn an_unspecified_flag_preserves_model_defaults() {
++        let features = Features::with_defaults();
++        assert_eq!(
++            requested_tool_mode_for_features(&features, Some(ToolMode::CodeModeOnly)),
++            ToolMode::CodeModeOnly
++        );
++        assert_eq!(
++            requested_tool_mode_for_features(&features, None),
++            ToolMode::Direct
++        );
++    }
++}
++
+ pub(crate) fn effective_tool_mode(turn_context: &TurnContext, model_info: &ModelInfo) -> ToolMode {
+     let requested_tool_mode = requested_tool_mode(turn_context, model_info);
+     if !turn_context.code_mode_available
+diff --git a/codex-rs/core/src/tools/router.rs b/codex-rs/core/src/tools/router.rs
+index baf39f0..5e0bbf8 100644
+--- a/codex-rs/core/src/tools/router.rs
++++ b/codex-rs/core/src/tools/router.rs
+@@ -364,6 +364,15 @@ impl ToolRouter {
+ 
+         // Keep the legacy ToolInvocation.turn field tied to the same request state until handlers migrate.
+         let turn = Arc::clone(&step_context.turn);
++        if (session.code_mode_off_enforced()
++            || turn.config.features.code_mode_explicitly_disabled())
++            && (self.tool_mode != ToolMode::Direct
++                || matches!(&source, ToolCallSource::CodeMode { .. }))
++        {
++            return Err(FunctionCallError::Fatal(
++                "Code Mode execution is forbidden by this thread's explicit policy".to_string(),
++            ));
++        }
+         let invocation = ToolInvocation {
+             session,
+             turn,
+diff --git a/codex-rs/core/src/tools/router_tests.rs b/codex-rs/core/src/tools/router_tests.rs
+index 05a1e2e..15884c0 100644
+--- a/codex-rs/core/src/tools/router_tests.rs
++++ b/codex-rs/core/src/tools/router_tests.rs
+@@ -44,6 +44,99 @@ use super::tool_log_payload;
+ 
+ struct ExtensionEchoContributor;
+ 
++#[tokio::test]
++async fn explicit_off_rejects_a_nested_call_before_any_handler() {
++    let (session, mut turn) = make_session_and_context().await;
++    let mut config = (*turn.config).clone();
++    config
++        .features
++        .disable(codex_features::Feature::CodeMode)
++        .unwrap();
++    turn.config = Arc::new(config);
++    let step_context = StepContext::for_test(Arc::new(turn));
++    let router = test_tool_router(&step_context, Vec::new(), Vec::new(), &[]);
++    let result = router
++        .dispatch_tool_call_with_code_mode_result(
++            Arc::new(session),
++            step_context,
++            CancellationToken::new(),
++            Arc::new(tokio::sync::Mutex::new(TurnDiffTracker::new())),
++            ToolCall {
++                tool_name: ToolName::plain("no_such_handler"),
++                call_id: "blocked-nested".into(),
++                payload: ToolPayload::Function {
++                    arguments: "{}".into(),
++                },
++                encrypted_function_args: None,
++            },
++            ToolCallSource::CodeMode {
++                cell_id: "cell".into(),
++                runtime_tool_call_id: "nested".into(),
++            },
++        )
++        .await;
++    assert!(
++        matches!(result, Err(crate::function_tool::FunctionCallError::Fatal(message))
++        if message.contains("forbidden by this thread's explicit policy"))
++    );
++}
++
++#[tokio::test]
++async fn explicit_off_session_cannot_be_weakened_by_a_captured_turn() {
++    let (session, mut turn, _rx) =
++        crate::session::tests::make_session_and_context_with_auth_and_config_and_rx(
++            codex_login::CodexAuth::from_api_key("dummy"),
++            Vec::new(),
++            |config| {
++                config
++                    .features
++                    .disable(codex_features::Feature::CodeMode)
++                    .unwrap();
++            },
++        )
++        .await;
++    assert!(
++        session
++            .thread_effective_policy_snapshot()
++            .await
++            .code_mode_off_enforced
++    );
++    let mut config = (*turn.config).clone();
++    config
++        .features
++        .enable(codex_features::Feature::CodeMode)
++        .unwrap();
++    Arc::get_mut(&mut turn)
++        .expect("test turn is uniquely owned")
++        .config = Arc::new(config);
++    let step = StepContext::for_test(turn);
++    let router = test_tool_router(&step, Vec::new(), Vec::new(), &[]);
++    let result = router
++        .dispatch_tool_call_with_code_mode_result(
++            session,
++            step,
++            CancellationToken::new(),
++            Arc::new(tokio::sync::Mutex::new(TurnDiffTracker::new())),
++            ToolCall {
++                tool_name: ToolName::plain("no_such_handler"),
++                call_id: "blocked-captured-turn".into(),
++                payload: ToolPayload::Function {
++                    arguments: "{}".into(),
++                },
++                encrypted_function_args: None,
++            },
++            ToolCallSource::CodeMode {
++                cell_id: "cell".into(),
++                runtime_tool_call_id: "nested".into(),
++            },
++        )
++        .await;
++    assert!(
++        matches!(result, Err(crate::function_tool::FunctionCallError::Fatal(message))
++        if message.contains("forbidden by this thread's explicit policy"))
++    );
++}
++
+ #[test]
+ fn tool_log_payload_redacts_plaintext_multi_agent_messages() {
+     let payload = ToolPayload::Function {
+diff --git a/codex-rs/core/src/tools/spec_plan_tests.rs b/codex-rs/core/src/tools/spec_plan_tests.rs
+index 395cc95..fa44f21 100644
+--- a/codex-rs/core/src/tools/spec_plan_tests.rs
++++ b/codex-rs/core/src/tools/spec_plan_tests.rs
+@@ -253,6 +253,29 @@ async fn probe(configure_turn: impl FnOnce(&mut TurnContext)) -> ToolPlanProbe {
+     probe_with(configure_turn, ToolPlanInputs::default()).await
+ }
+ 
++#[tokio::test]
++async fn explicit_off_removes_native_code_mode_tools_despite_model_metadata() {
++    let (_session, mut turn) = make_session_and_context().await;
++    set_feature(&mut turn, Feature::CodeMode, false);
++    let mut model = (*turn.model_info().as_ref()).clone();
++    model.tool_mode = Some(ToolMode::CodeModeOnly);
++    let plan =
++        ToolPlanProbe::from_router(plan_with_model(&turn, &model, ToolPlanInputs::default()));
++    assert_eq!(plan.tool_mode, ToolMode::Direct);
++    assert!(!plan.requires_code_mode_worker);
++    assert!(plan.code_mode_tool_names.is_empty());
++    plan.assert_visible_lacks(&[
++        codex_code_mode::PUBLIC_TOOL_NAME,
++        codex_code_mode::WAIT_TOOL_NAME,
++    ]);
++    assert!(
++        !plan
++            .registered_names
++            .iter()
++            .any(|name| name == codex_code_mode::PUBLIC_TOOL_NAME)
++    );
++}
++
+ fn set_feature(turn: &mut TurnContext, feature: Feature, enabled: bool) {
+     let mut config = (*turn.config).clone();
+     if enabled {
+diff --git a/codex-rs/features/src/lib.rs b/codex-rs/features/src/lib.rs
+index 44d86eb..500965a 100644
+--- a/codex-rs/features/src/lib.rs
++++ b/codex-rs/features/src/lib.rs
+@@ -509,6 +509,9 @@ pub struct LegacyFeatureUsage {
+ pub struct Features {
+     enabled: BTreeSet<Feature>,
+     legacy_usages: BTreeSet<LegacyFeatureUsage>,
++    // An explicit off is a per-session execution policy, not an absent default.
++    // Model metadata and dependent feature normalization must not override it.
++    code_mode_override: Option<bool>,
+ }
+ 
+ #[derive(Debug, Clone, Default)]
+@@ -547,6 +550,7 @@ impl Features {
+         Self {
+             enabled: set,
+             legacy_usages: BTreeSet::new(),
++            code_mode_override: None,
+         }
+     }
+ 
+@@ -554,6 +558,10 @@ impl Features {
+         self.enabled.contains(&f)
+     }
+ 
++    pub fn code_mode_explicitly_disabled(&self) -> bool {
++        self.code_mode_override == Some(false)
++    }
++
+     /// Whether a routing tier is enabled, independently of model catalog support.
+     pub fn service_tier_enabled(&self, service_tier: &str) -> bool {
+         match service_tier {
+@@ -583,11 +591,17 @@ impl Features {
+     }
+ 
+     pub fn enable(&mut self, f: Feature) -> &mut Self {
++        if f == Feature::CodeMode {
++            self.code_mode_override = Some(true);
++        }
+         self.enabled.insert(f);
+         self
+     }
+ 
+     pub fn disable(&mut self, f: Feature) -> &mut Self {
++        if f == Feature::CodeMode {
++            self.code_mode_override = Some(false);
++        }
+         self.enabled.remove(&f);
+         self
+     }
+@@ -743,8 +757,14 @@ impl Features {
+     }
+ 
+     pub fn normalize_dependencies(&mut self) {
++        if self.code_mode_explicitly_disabled() {
++            self.enabled.remove(&Feature::CodeMode);
++            self.enabled.remove(&Feature::CodeModeOnly);
++            return;
++        }
+         if self.enabled(Feature::CodeModeOnly) && !self.enabled(Feature::CodeMode) {
+-            self.enable(Feature::CodeMode);
++            // Dependency normalization is not an explicit owner override.
++            self.enabled.insert(Feature::CodeMode);
+         }
+     }
+ }
+diff --git a/codex-rs/features/src/tests.rs b/codex-rs/features/src/tests.rs
+index f9b235d..a81445f 100644
+--- a/codex-rs/features/src/tests.rs
++++ b/codex-rs/features/src/tests.rs
+@@ -14,6 +14,50 @@ use std::collections::BTreeMap;
+ use toml::Table;
+ use toml::Value as TomlValue;
+ 
++#[test]
++fn explicit_code_mode_off_survives_dependent_features_and_clone() {
++    for text in [
++        "code_mode = false\ncode_mode_only = true",
++        "code_mode_only = true\n[code_mode]\nenabled = false",
++    ] {
++        let source: FeaturesToml = toml::from_str(text).unwrap();
++        let features = Features::from_sources(
++            FeatureConfigSource {
++                features: Some(&source),
++                ..Default::default()
++            },
++            FeatureConfigSource::default(),
++            FeatureOverrides::default(),
++        );
++        assert!(features.clone().code_mode_explicitly_disabled());
++        assert!(!features.enabled(Feature::CodeMode));
++        assert!(!features.enabled(Feature::CodeModeOnly));
++    }
++}
++
++#[test]
++fn explicit_code_mode_override_is_thread_local_and_last_layer_wins() {
++    let disabled: FeaturesToml = toml::from_str("code_mode = false").unwrap();
++    let enabled: FeaturesToml = toml::from_str("code_mode = true").unwrap();
++    let source = |features| FeatureConfigSource {
++        features: Some(features),
++        ..Default::default()
++    };
++    let a = Features::from_sources(
++        source(&disabled),
++        FeatureConfigSource::default(),
++        FeatureOverrides::default(),
++    );
++    let b = Features::from_sources(
++        source(&disabled),
++        source(&enabled),
++        FeatureOverrides::default(),
++    );
++    assert!(a.code_mode_explicitly_disabled());
++    assert!(!b.code_mode_explicitly_disabled());
++    assert!(!Features::with_defaults().code_mode_explicitly_disabled());
++}
++
+ #[test]
+ fn sleep_tool_config_rejects_unknown_mode() {
+     assert!(toml::from_str::<FeaturesToml>("[sleep_tool]\nmode = 'off'").is_err());
+diff --git a/codex-rs/state/src/runtime/projects.rs b/codex-rs/state/src/runtime/projects.rs
+index 8a94d2e..473fb69 100644
+--- a/codex-rs/state/src/runtime/projects.rs
++++ b/codex-rs/state/src/runtime/projects.rs
+@@ -283,6 +283,43 @@ impl StateRuntime {
+         )))
+     }
+ 
++    /// Restore only supplied, observed metadata, never substitute a new UUID.
++    /// The immediate transaction requires an empty project AND thread store,
++    /// rejects replay/conflicts and preserves public metadata timestamps.
++    /// Recency is derived from actual member threads, not a restored assertion.
++    pub async fn restore_project_metadata(&self, project: Project) -> anyhow::Result<Project> {
++        if Uuid::parse_str(&project.id)?.to_string() != project.id
++            || project.name.trim().is_empty()
++            || project.name != project.name.trim()
++            || project.roots.len() != 1
++            || !std::path::Path::new(&project.roots[0].path).is_absolute()
++            || project.position < 0
++            || project.created_at_ms < 0
++            || project.updated_at_ms < project.created_at_ms
++        {
++            anyhow::bail!("invalid exact project metadata");
++        }
++        let mut tx = self.pool.begin_with("BEGIN IMMEDIATE").await?;
++        let existing = sqlx::query_scalar::<_, i64>(
++            "SELECT (SELECT COUNT(*) FROM projects) + (SELECT COUNT(*) FROM threads) + (SELECT COUNT(*) FROM project_idempotency_keys)",
++        ).fetch_one(&mut *tx).await?;
++        if existing != 0 {
++            anyhow::bail!(
++                "exact project restore requires an empty local store; no replay or overwrite"
++            );
++        }
++        sqlx::query("INSERT INTO projects (id, name, metadata, position, created_at_ms, updated_at_ms) VALUES (?, ?, ?, ?, ?, ?)")
++            .bind(&project.id).bind(&project.name).bind(serde_json::to_string(&project.metadata)?)
++            .bind(project.position).bind(project.created_at_ms).bind(project.updated_at_ms)
++            .execute(&mut *tx).await?;
++        replace_roots(&mut tx, &project.id, &project.roots).await?;
++        tx.commit().await?;
++        Ok(Project {
++            recency_at_ms: None,
++            ..project
++        })
++    }
++
+     /// Move a project before another project, or append it when the anchor is absent.
+     ///
+     /// Returns None when the moved project does not exist and Some(false) for a no-op.
+diff --git a/codex-rs/state/src/runtime/projects_tests.rs b/codex-rs/state/src/runtime/projects_tests.rs
+index 2febaa3..e7659bc 100644
+--- a/codex-rs/state/src/runtime/projects_tests.rs
++++ b/codex-rs/state/src/runtime/projects_tests.rs
+@@ -11,6 +11,105 @@ use crate::SortDirection;
+ use crate::ThreadMetadataBuilder;
+ use crate::runtime::test_support::unique_temp_dir;
+ 
++#[tokio::test]
++async fn exact_project_restore_preserves_identity_and_refuses_replay() -> anyhow::Result<()> {
++    let home = unique_temp_dir();
++    let runtime = StateRuntime::init(
++        crate::SqliteConfig::new_for_testing(home.as_path().abs()),
++        "test".into(),
++    )
++    .await?;
++    let project = Project {
++        id: Uuid::now_v7().to_string(),
++        name: "Original".into(),
++        roots: vec![ProjectRoot {
++            path: "/private/tmp/original".into(),
++        }],
++        metadata: BTreeMap::from([("owner".into(), "observed".into())]),
++        position: 7,
++        created_at_ms: 1000,
++        updated_at_ms: 2000,
++        recency_at_ms: Some(3000),
++    };
++    let restored = runtime.restore_project_metadata(project.clone()).await?;
++    assert_eq!(
++        restored,
++        Project {
++            recency_at_ms: None,
++            ..project.clone()
++        }
++    );
++    assert_eq!(
++        runtime.get_project(&project.id).await?,
++        Some(restored.clone())
++    );
++    assert!(
++        runtime
++            .restore_project_metadata(project.clone())
++            .await
++            .is_err()
++    );
++    let mut conflict = project.clone();
++    conflict.name = "Changed".into();
++    assert!(runtime.restore_project_metadata(conflict).await.is_err());
++    assert_eq!(runtime.get_project(&project.id).await?, Some(restored));
++    Ok(())
++}
++
++#[tokio::test]
++async fn exact_project_restore_refuses_foreign_threads_and_invalid_scope() -> anyhow::Result<()> {
++    let home = unique_temp_dir();
++    let runtime = StateRuntime::init(
++        crate::SqliteConfig::new_for_testing(home.as_path().abs()),
++        "test".into(),
++    )
++    .await?;
++    let project = Project {
++        id: Uuid::now_v7().to_string(),
++        name: "Original".into(),
++        roots: vec![ProjectRoot {
++            path: "/private/tmp/original".into(),
++        }],
++        metadata: BTreeMap::new(),
++        position: 0,
++        created_at_ms: 1000,
++        updated_at_ms: 2000,
++        recency_at_ms: None,
++    };
++    for invalid in [
++        Project {
++            id: "not-an-id".into(),
++            ..project.clone()
++        },
++        Project {
++            updated_at_ms: 0,
++            ..project.clone()
++        },
++        Project {
++            roots: vec![],
++            ..project.clone()
++        },
++    ] {
++        assert!(runtime.restore_project_metadata(invalid).await.is_err());
++    }
++    let metadata = ThreadMetadataBuilder::new(
++        ThreadId::default(),
++        home.join("thread.jsonl"),
++        chrono::Utc::now(),
++        SessionSource::Cli,
++    )
++    .build("test");
++    runtime.upsert_thread(&metadata).await?;
++    assert!(
++        runtime
++            .restore_project_metadata(project.clone())
++            .await
++            .is_err()
++    );
++    assert!(runtime.get_project(&project.id).await?.is_none());
++    Ok(())
++}
++
+ #[tokio::test]
+ async fn project_lifecycle_preserves_order_and_clears_assignments() -> anyhow::Result<()> {
+     let home = unique_temp_dir();
+diff --git a/codex-rs/thread-store/src/local/mod.rs b/codex-rs/thread-store/src/local/mod.rs
+index 983a363..1a78b80 100644
+--- a/codex-rs/thread-store/src/local/mod.rs
++++ b/codex-rs/thread-store/src/local/mod.rs
+@@ -709,6 +709,13 @@ impl ThreadStore for LocalThreadStore {
+         Box::pin(async move { projects::create_project(self, params).await })
+     }
+ 
++    fn restore_project_metadata(
++        &self,
++        project: StoredProject,
++    ) -> ThreadStoreFuture<'_, StoredProject> {
++        Box::pin(async move { projects::restore_project_metadata(self, project).await })
++    }
++
+     fn update_project(
+         &self,
+         params: UpdateProjectParams,
+diff --git a/codex-rs/thread-store/src/local/projects.rs b/codex-rs/thread-store/src/local/projects.rs
+index c2fda89..d49af5a 100644
+--- a/codex-rs/thread-store/src/local/projects.rs
++++ b/codex-rs/thread-store/src/local/projects.rs
+@@ -100,6 +100,28 @@ pub(super) async fn update_project(
+         .map_err(internal)
+ }
+ 
++pub(super) async fn restore_project_metadata(
++    store: &LocalThreadStore,
++    project: StoredProject,
++) -> ThreadStoreResult<StoredProject> {
++    state(store)?
++        .restore_project_metadata(codex_state::Project {
++            id: project.id,
++            name: project.name,
++            roots: project.roots.into_iter().map(state_root).collect(),
++            metadata: project.metadata,
++            position: project.position,
++            created_at_ms: project.created_at_ms,
++            updated_at_ms: project.updated_at_ms,
++            recency_at_ms: None,
++        })
++        .await
++        .map(stored_project)
++        .map_err(|error| ThreadStoreError::InvalidRequest {
++            message: error.to_string(),
++        })
++}
++
+ pub(super) async fn move_project(
+     store: &LocalThreadStore,
+     params: MoveProjectParams,
+diff --git a/codex-rs/thread-store/src/store.rs b/codex-rs/thread-store/src/store.rs
+index d604f47..fd45eb6 100644
+--- a/codex-rs/thread-store/src/store.rs
++++ b/codex-rs/thread-store/src/store.rs
+@@ -429,6 +429,19 @@ pub trait ThreadStore: Any + Send + Sync {
+         })
+     }
+ 
++    /// Explicit operator-reviewed-build extension. Remote/custom stores stay
++    /// unsupported; never fall back to ordinary import with a different ID.
++    fn restore_project_metadata(
++        &self,
++        _project: StoredProject,
++    ) -> ThreadStoreFuture<'_, StoredProject> {
++        Box::pin(async {
++            Err(ThreadStoreError::Unsupported {
++                operation: "project/restoreMetadata",
++            })
++        })
++    }
++
+     fn move_project(
+         &self,
+         _params: MoveProjectParams,

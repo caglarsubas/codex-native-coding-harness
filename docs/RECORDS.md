@@ -462,3 +462,31 @@ results, not live native-tool trust, runtime installation or pilot acceptance.
 An exact new socket binding still requires actual reviewed launch provenance,
 socket epoch and initialization identity; a pre-launch scope packet is not a
 binding or activation approval. See [the adapter contract](NATIVE-POLICY-EVIDENCE-ADAPTER.md).
+
+## Exact public identity transfer — 2026-10-14
+
+The separate `public_identity_transfer_v1` operator contract snapshots one
+complete self-contained registered brain history from the unchanged original
+accepted Play's reviewed host. Require its received command, exact latest ended
+turn and closed owned observation; unconfirmed delivery/observers are not a
+transfer permit. A separately reviewed application-owned destination must keep
+the same workspace, checkout, brain and both project IDs, while independently
+reporting empty native catalogs and the fixed no-credential restricted config.
+
+The native source-build extension restores actual observed project metadata
+through the empty local store's transaction, not stock import or operator SQL.
+Public path resume inspection-loads only a complete copied history, then the
+native metadata assignment retains its original membership. Private source/file/
+context/build pins, until-scope-changes owner review and separately fsynced stage
+claims precede the three fixed native writes. A canonical original-run/Play-ID
+sidecar prevents another attempt through a new directory, review, late original
+metadata observation or replacement endpoint. Complete JSONL publication is
+atomic; no native reader sees its partially written prefix.
+
+The local result is metadata transfer, not a brain receipt, checkpoint, current
+health, historical cleanup, binding cutover, original policy-guard release, Resume
+or pilot acceptance. Original databases/commands/usage/gaps/expiry remain unchanged;
+source and historical terminal safety stays unknown. Partial/interrupted claims
+remain consumed and file-only status never reconnects, refreshes or retries.
+See [the transfer contract](PUBLIC-IDENTITY-TRANSFER.md) and
+[native source delivery](../native-runtime/README.md).

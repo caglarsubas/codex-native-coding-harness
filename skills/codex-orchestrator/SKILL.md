@@ -3,6 +3,14 @@ name: codex-orchestrator
 description: Coordinate explicitly approved development packets across repositories using native Codex tasks, a durable local ledger and an operations dashboard. Use for queue approval, dispatch, reconciliation, checkpointing and recovery in an onboarded portfolio; not for unrelated coding or blanket roadmap execution.
 ---
 
+For the separately reviewed operator-only `public_identity_transfer_v1` source,
+read `docs/PUBLIC-IDENTITY-TRANSFER.md` completely before using its prepare/apply/
+status helpers. A metadata transfer preserves one exact existing brain and both
+project IDs; it never grants dispatch, host launch/binding, old cleanup or Resume.
+Use the permanent claims and preserve all original usage/gaps/expiry. Do not
+replace it with stock project/import, shared-home copying or direct native-store
+edits. The live pilot requires separate qualification and continuation authority.
+
 # Codex Orchestrator
 
 The existing designated Codex brain is the only scheduler. The local helper is a
