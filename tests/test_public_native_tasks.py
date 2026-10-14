@@ -46,6 +46,7 @@ class AdapterTest(unittest.TestCase):
             self.ledger.put(db,"meta",1,meta)
         self.thread_id, self.turn_id = str(uuid.uuid4()), str(uuid.uuid4())
         self.calls, self.callback, self.stage = [], None, "ended"
+        self.account = {"account": {"type": "apiKey"}, "requiresOpenaiAuth": True}
         outer = self
         class Proxy:
             def __init__(self, endpoint, start, turn, brain_id=None):
@@ -57,6 +58,9 @@ class AdapterTest(unittest.TestCase):
             def call(self,method,params): return outer.fake.call(method,params)
             def _rpc(self,method,params):
                 outer.calls.append((method,copy.deepcopy(params)))
+                if method == "account/read":
+                    if outer.callback: outer.callback(method)
+                    return copy.deepcopy(outer.account)
                 response=policy_fixtures.response(params["threadId"], outer.binding["brains"][outer.brain]["cwd"])
                 if params["threadId"]==outer.thread_id:response["policy"]["model"]=outer.start["model"]
                 return response

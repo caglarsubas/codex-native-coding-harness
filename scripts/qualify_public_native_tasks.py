@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from orchestrator.core import require
 from orchestrator.native_read_client import decode, secure_path
 from orchestrator.native_policy_evidence import matches, reported
+from orchestrator.native_auth_readiness import require_ready as require_authentication
 from orchestrator.public_native_tasks import PublicTaskProxy, arguments, PROTOCOL
 
 
@@ -54,7 +55,7 @@ class StdioFixture:
     def _rpc(self,method,params):
         allowed={"initialize","project/create","project/read","thread/start","turn/start","thread/read",
                  "thread/effectivePolicy/read","thread/backgroundTerminals/list","mcpServerStatus/list",
-                 "project/restoreMetadata","thread/resume","thread/metadata/update","project/list","thread/list"}
+                 "project/restoreMetadata","thread/resume","thread/metadata/update","project/list","thread/list","account/read"}
         require(method in allowed,"Fixture RPC is not allowlisted")
         self.methods.append(method);self.sequence+=1
         self.deadline=time.monotonic()+30
@@ -75,7 +76,8 @@ class StdioFixture:
     def call(self,method,params): return self._rpc(method,params)
 
 
-def qualify(binary, expected_hash, exercise_tools=False, public_host_config=False):
+def qualify(binary, expected_hash, exercise_tools=False, public_host_config=False, missing_auth=False):
+    require(not missing_auth or not exercise_tools, "Missing-auth fixture cannot execute tools")
     path,_=secure_path(binary)
     with path.open("rb") as stream: actual_hash=hashlib.file_digest(stream,"sha256").hexdigest()
     require(actual_hash==expected_hash,"Reviewed compiled runtime changed")
@@ -149,6 +151,10 @@ request_max_retries = 0
 stream_max_retries = 0
 ''')
                 env=environment({"codexHome":str(home)})
+            if missing_auth:
+                from orchestrator.public_host_lifecycle import CONFIG, environment
+                (home/"config.toml").write_text('model = "gpt-6-astra"\ncli_auth_credentials_store = "file"\n'+CONFIG)
+                env=environment({"codexHome":str(home)})
             process=subprocess.Popen([binary,"app-server","--stdio"],cwd=cwd,env=env,
                 stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,start_new_session=True)
             try:
@@ -157,6 +163,23 @@ stream_max_retries = 0
                             "capabilities":{"experimentalApi":True}})
                 require(Path(result["codexHome"]).resolve()==home,"Disposable runtime isolation changed")
                 process.stdin.write(b'{"method":"initialized","params":{}}\n');process.stdin.flush()
+                if missing_auth:
+                    from orchestrator.core import Refusal
+                    from orchestrator.native_auth_readiness import inspect
+                    report=inspect(io)
+                    require(report["status"]=="authentication_required" and not report["ready"],
+                            "Disposable unauthenticated host did not report missing sign-in")
+                    try: require_authentication(io)
+                    except Refusal: pass
+                    else: raise ValueError("Unauthenticated native work was not fenced")
+                    require(io.methods==["initialize"]+["account/read"]*4 and not model_calls and
+                            not list(cwd.iterdir()) and not (home/"auth.json").exists(),
+                            "Missing-auth fixture unexpectedly performed work or authentication")
+                    return {"binarySha256":actual_hash,"nativeAuthentication":"authentication_required",
+                            "guardRefused":True,"disposableProjects":0,"disposableThreads":0,
+                            "disposableTurnStarts":0,"loopbackModelRequests":0,"cloudModelRequests":0,
+                            "liveHostConnections":0,"liveNativeWrites":0,"loginStarted":False,
+                            "modelAccessVerified":False,"terminalSafetyVerified":False,"pilotAccepted":False}
                 project=io._rpc("project/create",{"name":"Disposable public task fixture","roots":[{"path":str(cwd)}],
                                     "idempotencyKey":str(uuid.uuid4())})["project"]
                 contract={"protocol":PROTOCOL,"sourceCommit":"a"*40,"sourceTree":"b"*40,
@@ -174,11 +197,13 @@ stream_max_retries = 0
                 adapter=PublicTaskProxy({},start,turn)
                 adapter.proxy=io
                 adapter.public_environment()
+                require_authentication(adapter)
                 thread_id,_=adapter.create()
                 adapter.public_environment()
                 samples=[adapter._rpc("thread/effectivePolicy/read",{"threadId":thread_id}) for _ in range(2)]
                 require(samples[0]==samples[1] and all(matches(reported(s,thread_id,str(cwd))) for s in samples),
                         "Compiled worker effective policy differs from review")
+                require_authentication(adapter)
                 turn_id,_=adapter.begin()
                 require(adapter.ended(turn_id)=="ended","Disposable native task did not end")
                 thread=adapter.call("thread/read",{"threadId":thread_id,"includeTurns":False})["thread"]
@@ -221,5 +246,6 @@ if __name__=="__main__":
     parser.add_argument("--executable",required=True);parser.add_argument("--sha256",required=True)
     parser.add_argument("--exercise-tools",action="store_true",help="Additionally exercise native apply_patch and fixed pwd only inside the disposable checkout")
     parser.add_argument("--public-host-config",action="store_true",help="Exercise restricted public-host config/environment with fixture-only loopback provider; not a live launch review")
+    parser.add_argument("--missing-auth",action="store_true",help="Verify the unauthenticated default-provider guard with zero project/thread/turn creation or login")
     args=parser.parse_args()
-    print(json.dumps(qualify(args.executable,args.sha256,args.exercise_tools,args.public_host_config),indent=2))
+    print(json.dumps(qualify(args.executable,args.sha256,args.exercise_tools,args.public_host_config,args.missing_auth),indent=2))

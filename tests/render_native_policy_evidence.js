@@ -4,7 +4,8 @@
 const assert=require('node:assert/strict'),cp=require('node:child_process');
 const {chromium}=require('playwright');
 (async()=>{
-  const child=cp.spawn('python3',['tests/manual_policy_evidence_fixture.py'],{stdio:['ignore','pipe','pipe']});
+  const missingAuth=process.argv.includes('--authentication-required');
+  const child=cp.spawn('python3',['tests/manual_policy_evidence_fixture.py',...(missingAuth?['--authentication-required']:[])],{stdio:['ignore','pipe','pipe']});
   let browser,stderr='';child.stderr.on('data',x=>stderr+=x);
   try{
     const fixture=await new Promise((resolve,reject)=>{
@@ -29,11 +30,11 @@ const {chromium}=require('playwright');
       assert.equal(await check.isEnabled(),true);
       await check.click();
       await page.waitForTimeout(250);
-      await page.getByText('Unloaded native policy remains unknown. No Resume was sent.',{exact:true}).first().waitFor();
+      await page.getByText(missingAuth?'Loaded policy matches, but the native host needs sign-in. No login or Resume was sent.':'Unloaded native policy remains unknown. No Resume was sent.',{exact:true}).first().waitFor();
       assert.equal(await page.getByRole('button',{name:'Review Resume',exact:true}).count(),0);
       const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1);
       assert.equal(overflow,false,'No horizontal overflow at '+width);
-      runs.push({width,policyCheckVisible:true,unknownPreserved:true,noResume:true,noOverflow:true});
+      runs.push({width,policyCheckVisible:true,missingAuthenticationVisible:missingAuth,unknownPreserved:true,noResume:true,noOverflow:true});
     }
     const policyWrites=writes.filter(r=>r.url.endsWith('/native-policy/check'));
     assert.equal(policyWrites.length,2);for(const r of policyWrites)assert.deepEqual(r.body,{});

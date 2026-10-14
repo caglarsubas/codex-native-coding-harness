@@ -43,6 +43,13 @@ refuses. This is a bounded runtime check, not OS attestation. Host setup must no
 inherit desktop-pipe environment variables or the user's plugin/auth home.
 Do not disable packaged peer checks or use a signed forwarder to bypass them.
 
+Its isolated home also has no inherited credentials. The separate
+[authentication-readiness guard](PUBLIC-HOST-AUTHENTICATION.md) checks actual
+non-refreshing account metadata before future public-host brain loading/turn
+start and worker creation/first turn. A healthy transport, transferred history
+or matching loaded policy does not imply sign-in or model entitlement. No login,
+credential copying, provider substitution or replay is part of this guard.
+
 Only future already-confirmed notifications on this new binding retain
 `nativeTaskContract` with their independently read effective-policy evidence.
 An existing accepted Play keeps its original binding and unknown v1 profile.

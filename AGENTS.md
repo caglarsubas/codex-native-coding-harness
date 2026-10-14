@@ -1,5 +1,18 @@
 # Codex Orchestrator — personal tooling
 
+## Public-host authentication source (2026-10-15)
+
+Read docs/PUBLIC-HOST-AUTHENTICATION.md for the fixed non-refreshing account
+diagnostic and future public-task preflight guard. Missing, malformed, changing
+or unavailable authentication refuses before the next native boundary, never
+logs in, refreshes credentials, copies a shared auth store or substitutes a
+provider. Transport, membership, policy, sign-in and actual model access remain
+separate. Normal polls reuse only cached closed metadata; old bindings do not
+acquire account reads. Failed one-shot notifications/queries remain consumed;
+sign-in repair never replays them. Source delivery installs/authenticates/binds
+nothing, changes no old Play/recovery/usage/gaps/expiry and qualifies no terminal
+safety, expired-phase transition, Resume or pilot acceptance.
+
 ## Exact shared-home brain export source (2026-10-14)
 
 Read docs/SHARED-BRAIN-EXPORT.md before the explicit operator-only

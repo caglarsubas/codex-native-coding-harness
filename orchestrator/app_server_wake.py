@@ -46,6 +46,7 @@ WAKE_FAILURE_STAGES = {
     "thread_identity": "checking the brain, project and checkout",
     "request_check": "checking the saved request",
     "receipt_check": "checking the saved recovery request",
+    "authentication_check": "checking native host sign-in (no login or token refresh is sent)",
     "thread_resume": "loading the brain with its reviewed settings",
     "resumed_identity": "checking the loaded brain's identity",
     "effective_policy": "reading the loaded brain's effective policy",
@@ -323,6 +324,8 @@ class AppServerWake:
                 time.time() - result["checkedAt"] >= 300):
             result.update(status="stale", policyVerified=False,
                           detail="The saved policy check is out of date. Check explicitly; nothing is replayed.")
+            if "authentication" in result:
+                result["authentication"].update(status="stale", ready=False)
         return result
 
     def check_policy(self, registry):
@@ -963,6 +966,11 @@ class AppServerWake:
                 stage = "receipt_check"
                 send_check(self.ledger, self.binding, command_id, proxy)
             policy = self.binding["brains"][brain_id]["nativePolicy"]
+            public_backend = self.binding["brains"][brain_id].get("nativeTaskBackend")
+            if public_backend:
+                from .native_auth_readiness import require_ready
+                stage = "authentication_check"
+                require_ready(proxy)
             stage = "thread_resume"
             resume_attempted = True
             resumed = proxy._rpc("thread/resume", {"threadId": brain_id,
@@ -1024,6 +1032,9 @@ class AppServerWake:
                     send_check(self.ledger, self.binding, command_id, proxy)
             # Immediately before this boundary a concurrent native turn may start.
             # A rejection or lost response is uncertain, never permission to retry.
+            if public_backend:
+                stage = "authentication_check"
+                require_ready(proxy)
             stage = "observation_record"
             capture = self._begin_thread_observation(command_id, brain_id)
             proxy._on_thread_started = lambda row: self._record_thread_started(command_id, brain_id, row)
