@@ -1,5 +1,23 @@
 # Codex Orchestrator — personal tooling
 
+## Exact public-host identity transfer source (2026-10-14)
+
+Read docs/PUBLIC-IDENTITY-TRANSFER.md before the separately reviewed
+`public_identity_transfer_v1` operator path. Stock project/import creates a new
+ID and is never a fallback. Only the explicitly pinned source-build extension
+may restore actual observed project metadata through its native local-store API;
+never edit a native database or copy a shared home to manufacture membership.
+Retain one complete self-contained brain rollout and both unchanged project IDs,
+with repeated original exact ended-turn/source/context checks. The destination
+must be an already reviewed empty isolated public host; source delivery launches
+or binds nothing. A new exact until-scope-changes review and private permanent
+intent precede separate one-shot restore, inspection-load and assignment claims.
+Any interruption/drift/Pause consumes the attempt; no resend, native permission
+response, fallback or automatic collection follows. Preserve original Play/run/
+receipts/usage/gaps/expiry and source/current/historical terminal unknowns.
+Metadata transfer is not a checkpoint, policy-guard release, Resume, migration
+qualification or pilot acceptance. Same-run transition remains separate work.
+
 ## Application-owned public host source (2026-10-14)
 
 Read docs/PUBLIC-HOST-RUNTIME.md before using the separately named

@@ -85,6 +85,12 @@ def main():
     p.add_argument("--seconds",type=int,default=30)
     p = sub.add_parser("standard-public-migration-check", help="Read-only original/candidate migration assessment; never bind, load or Resume")
     p.add_argument("run_id"); p.add_argument("binding", type=Path); p.add_argument("original_binding", type=Path)
+    p = sub.add_parser("standard-public-transfer-prepare", help="Operator-only exact one-brain identity/history snapshot and non-executing review; no host or turn start")
+    p.add_argument("source_binding", type=Path); p.add_argument("destination_binding", type=Path); p.add_argument("directory", type=Path)
+    p = sub.add_parser("standard-public-transfer-apply", help="Exact-owner one-shot native metadata restore/inspection load/assignment; never Play, run Resume or bind")
+    p.add_argument("spec", type=Path); p.add_argument("--confirm-hash", required=True)
+    p = sub.add_parser("standard-public-transfer-status", help="Historical file-only transfer progress; never reconnect, retry or infer terminal safety")
+    p.add_argument("directory", type=Path)
     p = sub.add_parser("standard-usage-refresh", help="Collect local counters for the exact registered standard run")
     p.add_argument("run_id")
     p = sub.add_parser("standard-native-plan", help="Brain-only registered-task observation plan; no native call")
@@ -491,6 +497,15 @@ def main():
     elif action == "standard-public-migration-check":
         from .public_task_migration import assess
         out = assess(registry, ledger, args.run_id, args.binding, args.original_binding)
+    elif action.startswith("standard-public-transfer-"):
+        if not registry or not args.workspace: raise Refusal("Exact registered standard workspace required")
+        from . import public_identity_transfer as transfer
+        if action == "standard-public-transfer-prepare":
+            out = transfer.prepare(registry, ledger, args.source_binding, args.destination_binding, args.directory)
+        elif action == "standard-public-transfer-apply":
+            out = transfer.apply(registry, ledger, transfer.load_spec(args.spec), args.confirm_hash)
+        else:
+            out = transfer.status(args.directory)
     elif action in ("standard-native-plan", "standard-native-collect"):
         if not registry or not args.workspace:
             raise Refusal("Explicit registered standard workspace required")
