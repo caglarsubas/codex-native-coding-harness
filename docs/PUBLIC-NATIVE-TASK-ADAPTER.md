@@ -179,3 +179,23 @@ silently reconnect an ended observer. Public app-server is the documented native
 integration surface; Unix WebSocket transport remains experimental, not a
 production-support claim. No dependency download, hosted fallback or Actions
 workflow is introduced.
+
+## Source qualification record — 2026-10-14
+
+The full v5-source regression ran 2,481 Python tests with one optional skip and
+no failures. The subsequent bounded private-wait addition passed all 39 focused
+public task/migration/schema/wait tests; all 36 JavaScript suites, 31 web syntax
+checks, 117 Python AST checks and diff checks passed. No remote CI pass is claimed.
+
+The exact compiled native candidate passed both receipt-only and tool fixtures:
+one disposable project/thread/turn, matching actual policy, native patch artifact,
+fixed command checkout/zero-exit result and complete current fixture terminals.
+The tool fixture used three loopback responses, no cloud model request and no
+desktop pipe configured/advertised. This is source/protocol fixture qualification,
+not an installed runtime, approval relay, migration or pilot qualification.
+
+The fresh pilot's read-only audit remained paused with its sole original Play,
+1,049,625 recorded local tokens, unchanged original expiry, receipts and gaps,
+zero worker attempts and unknown terminal safety. No Play/recovery replay,
+usage reset, launch, rebind, load, Resume or acceptance occurred. PR #150 is
+stacked on the still-open #149; neither source change is installed by this record.
