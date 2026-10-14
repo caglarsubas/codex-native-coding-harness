@@ -46,6 +46,18 @@ prove Code Mode-off enforcement, not terminal cleanup or continuation authority.
 Old v1 profiles remain unknown; dashboard policy checks never load, wake,
 backfill a receipt, replay a control or qualify a paused pilot.
 
+For a future owner-reviewed `public_app_server_tasks_v1` binding, read source
+`docs/PUBLIC-NATIVE-TASK-ADAPTER.md` completely. Use the explicit brain-only
+owned-observer task request, not desktop `issue`/creation/manual bind or a
+protected socket. Its two permanent claims never replay. Worktree support,
+worker approvals and live same-run migration remain separately unqualified.
+
+The separate operator-only public host package/launch source is in
+`docs/PUBLIC-HOST-RUNTIME.md`. It is not vendor desktop authorization, a brain
+operation, installed runtime or same-run continuation permit. Never reuse a
+vendor launch approval, inherit its protected pipe/auth home, start a host from
+a brain sandbox, or treat a preview/exec record as a healthy bound host.
+
 For an owner-confirmed `standard_pause_recovery`, read source
 `docs/FAILED-PAUSE-RECOVERY.md` completely. This empty-run checkpoint exception
 receives only the exact proved pre-turn failed Pause using

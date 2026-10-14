@@ -5,6 +5,30 @@ Canonical JSON is UTF-8, sorted keys, compact separators, no NaN. Its SHA-256 is
 the record identity; this encoding is local to this tool, not RFC 8785 signing.
 SQLite uses WAL, synchronous FULL and BEGIN IMMEDIATE for serialized transitions.
 
+## Public native standard task transport
+
+See [PUBLIC-NATIVE-TASK-ADAPTER.md](PUBLIC-NATIVE-TASK-ADAPTER.md). A future exact
+notification may retain `nativeTaskContract` for the separately reviewed public
+backend. A task's closed `publicNative` record binds its immutable seed, command,
+host binding and source-base commit/tree/layout to separate permanent creation
+and first-turn claims. Returned native UUIDs, reply hashes, stage and original
+observation time remain distinct from task completion and tracked terminals.
+Private request/collector/reply sidecars never include a socket, prompt or token.
+Unknown delivery cannot use desktop fallback or supplied idle to settle ownership.
+Migration assessments grant no new authority and change no old records.
+
+## Application-owned public host
+
+See [PUBLIC-HOST-RUNTIME.md](PUBLIC-HOST-RUNTIME.md). The separate schema-1
+`public_app_server_host_v1` manifest pins the closed monolithic package and
+source bundle, exact checkout/home/socket-directory identities, fixed config
+file epoch, restricted native policy and unconfigured credential mode. Its
+owner review hash binds profile, exec mode and the manifest hash. An exclusive
+private intent and exec claim permanently consume that launch attempt.
+Historical status permits only issued/failed/unknown exec, with host-ready,
+native qualification, binding and restart false and terminal safety unknown.
+No ledger schema, original Play, usage, native observer or run is migrated.
+
 ## Portfolio
 
 `schemaVersion: 1`, `brainId`, `repositories[]`. Each repository has exactly:
