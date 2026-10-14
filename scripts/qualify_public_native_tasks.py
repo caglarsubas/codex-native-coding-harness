@@ -74,7 +74,7 @@ class StdioFixture:
     def call(self,method,params): return self._rpc(method,params)
 
 
-def qualify(binary, expected_hash, exercise_tools=False):
+def qualify(binary, expected_hash, exercise_tools=False, public_host_config=False):
     path,_=secure_path(binary)
     with path.open("rb") as stream: actual_hash=hashlib.file_digest(stream,"sha256").hexdigest()
     require(actual_hash==expected_hash,"Reviewed compiled runtime changed")
@@ -134,6 +134,20 @@ enabled = false
 ''')
             env={k:os.environ[k] for k in ("HOME","USER","LOGNAME","TMPDIR","PATH") if k in os.environ}
             env["CODEX_HOME"]=str(home)
+            if public_host_config:
+                from orchestrator.public_host_lifecycle import CONFIG, environment
+                # Fixture-only provider overlay. The live launch profile still
+                # requires byte-exact CONFIG and an unconfigured credential home.
+                (home/"config.toml").write_text('model = "gpt-6-astra"\nmodel_provider = "public_task_fixture"\n'+CONFIG+
+                    f'''\n[model_providers.public_task_fixture]
+name = "Loopback fixture"
+base_url = "http://127.0.0.1:{server.server_port}/v1"
+wire_api = "responses"
+requires_openai_auth = false
+request_max_retries = 0
+stream_max_retries = 0
+''')
+                env=environment({"codexHome":str(home)})
             process=subprocess.Popen([binary,"app-server","--stdio"],cwd=cwd,env=env,
                 stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,start_new_session=True)
             try:
@@ -190,6 +204,7 @@ enabled = false
                         "desktopToolsAdvertised":False,
                         "workerPolicyVerified":True,"fixtureCurrentTerminals":"none",
                         "disposableFileEditVerified":exercise_tools,"readonlyCommandVerified":exercise_tools,
+                        "publicHostConfigFixture":public_host_config,"launchLifecycleQualified":False,
                         "liveHostConnections":0,"liveNativeWrites":0,"migrationQualified":False,"pilotAccepted":False}
             finally:
                 process.stdin.close()
@@ -204,5 +219,6 @@ if __name__=="__main__":
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--executable",required=True);parser.add_argument("--sha256",required=True)
     parser.add_argument("--exercise-tools",action="store_true",help="Additionally exercise native apply_patch and fixed pwd only inside the disposable checkout")
+    parser.add_argument("--public-host-config",action="store_true",help="Exercise restricted public-host config/environment with fixture-only loopback provider; not a live launch review")
     args=parser.parse_args()
-    print(json.dumps(qualify(args.executable,args.sha256,args.exercise_tools),indent=2))
+    print(json.dumps(qualify(args.executable,args.sha256,args.exercise_tools,args.public_host_config),indent=2))

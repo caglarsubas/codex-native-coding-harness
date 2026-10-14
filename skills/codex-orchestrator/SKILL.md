@@ -52,6 +52,12 @@ owned-observer task request, not desktop `issue`/creation/manual bind or a
 protected socket. Its two permanent claims never replay. Worktree support,
 worker approvals and live same-run migration remain separately unqualified.
 
+The separate operator-only public host package/launch source is in
+`docs/PUBLIC-HOST-RUNTIME.md`. It is not vendor desktop authorization, a brain
+operation, installed runtime or same-run continuation permit. Never reuse a
+vendor launch approval, inherit its protected pipe/auth home, start a host from
+a brain sandbox, or treat a preview/exec record as a healthy bound host.
+
 For an owner-confirmed `standard_pause_recovery`, read source
 `docs/FAILED-PAUSE-RECOVERY.md` completely. This empty-run checkpoint exception
 receives only the exact proved pre-turn failed Pause using

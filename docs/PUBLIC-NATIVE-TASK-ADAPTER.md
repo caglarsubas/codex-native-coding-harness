@@ -8,6 +8,11 @@ signature and peer authorization checks remain unchanged.
 
 ## Separate runtime and binding review
 
+The separate source-built macOS package and launch-only profile is described in
+[PUBLIC-HOST-RUNTIME.md](PUBLIC-HOST-RUNTIME.md). Its explicit staging and owner
+review do not install a binding or qualify migration; existing vendor trust,
+historical evidence and same-run transition gates remain unchanged.
+
 A newly reviewed private brain entry may contain this closed opt-in in addition
 to its `policyEvidence` contract:
 

@@ -17,6 +17,18 @@ Private request/collector/reply sidecars never include a socket, prompt or token
 Unknown delivery cannot use desktop fallback or supplied idle to settle ownership.
 Migration assessments grant no new authority and change no old records.
 
+## Application-owned public host
+
+See [PUBLIC-HOST-RUNTIME.md](PUBLIC-HOST-RUNTIME.md). The separate schema-1
+`public_app_server_host_v1` manifest pins the closed monolithic package and
+source bundle, exact checkout/home/socket-directory identities, fixed config
+file epoch, restricted native policy and unconfigured credential mode. Its
+owner review hash binds profile, exec mode and the manifest hash. An exclusive
+private intent and exec claim permanently consume that launch attempt.
+Historical status permits only issued/failed/unknown exec, with host-ready,
+native qualification, binding and restart false and terminal safety unknown.
+No ledger schema, original Play, usage, native observer or run is migrated.
+
 ## Portfolio
 
 `schemaVersion: 1`, `brainId`, `repositories[]`. Each repository has exactly:

@@ -1,5 +1,23 @@
 # Codex Orchestrator — personal tooling
 
+## Application-owned public host source (2026-10-14)
+
+Read docs/PUBLIC-HOST-RUNTIME.md before using the separately named
+`public_app_server_host_v1` package/setup/launch source. It is not the vendor
+desktop profile, a signing/peer-check bypass or interchangeable owner approval.
+The first profile accepts only a pinned macOS ARM64 monolithic source-built
+package, an empty isolated no-credential home with fixed restricted config,
+and an empty private socket directory. New exact owner review and a permanent
+intent/exec claim precede one fixed clean-environment foreground exec. No
+inherited desktop pipe, plugin/auth home, provider key, proxy or preload is
+forwarded; no detached/automatic restart or fallback exists. Staging, previews
+and status establish no runtime/binding, historical cleanup or continuation
+authority. Source delivery installs/launches/rebinds/confirms nothing. Preserve
+the original shared host, Play/recovery, usage/gaps/expiry and terminal unknowns.
+Public task approval relaying, supported same-identity state transfer and a
+signed same-run transition remain separate work; never copy a shared native home
+or modify native stores to manufacture membership or terminal evidence.
+
 ## Public-protocol native task source (2026-10-14)
 
 The explicitly named `public_app_server_tasks_v1` source adapter is described in
