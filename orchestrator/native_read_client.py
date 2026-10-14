@@ -271,6 +271,8 @@ class ReadProxy:
         if method == "thread/read":
             exact(params, {"threadId", "includeTurns"}); identifier(params["threadId"])
             require(params["includeTurns"] is False, "Metadata-only native reads required")
+        elif method == "thread/effectivePolicy/read":
+            exact(params, {"threadId"}); identifier(params["threadId"])
         elif method == "thread/list":
             exact(params, {"ancestorThreadId", "archived", "cursor", "limit", "sourceKinds", "modelProviders", "useStateDbOnly"})
             identifier(params["ancestorThreadId"])

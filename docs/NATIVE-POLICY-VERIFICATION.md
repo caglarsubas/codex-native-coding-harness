@@ -1,5 +1,10 @@
 # Owned standard Code Mode policy verification
 
+The opt-in [loaded-policy evidence adapter](NATIVE-POLICY-EVIDENCE-ADAPTER.md)
+consumes actual repaired-runtime reports for **future** reviewed bindings and
+one-shot deliveries. Existing v1 profiles and the current paused run are not
+backfilled; dashboard diagnostics grant no continuation or terminal assurance.
+
 ## What failed
 
 The reviewed binding requires workspace-write, on-request and Code Mode off.

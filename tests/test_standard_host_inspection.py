@@ -161,6 +161,33 @@ class HostInspectionTest(unittest.TestCase):
         self.assertEqual([m for m, _ in self.fixture.fake.calls], ["project/read", "thread/read"] * 4)
         with read_db(self.ledger.db) as db: self.assertEqual(fingerprint(db), before)
 
+    def test_supported_owned_observer_reads_actual_policy_without_clearing_effect_inventory_gap(self):
+        from orchestrator import native_policy_evidence as evidence
+        import test_native_policy_evidence as fixtures
+        self.binding["endpoint"]["sha256"] = "c" * 64
+        self.binding["brains"][self.fixture.brain_id]["policyEvidence"] = fixtures.CONTRACT.copy()
+        self.key = inspection.retain_binding(self.ledger, self.binding)
+        raw = fixtures.response(self.fixture.brain_id, str(self.fixture.repo))
+        policy_calls = []
+        def rpc(method, params):
+            policy_calls.append((method, params)); return copy.deepcopy(raw)
+        self.fixture.fake._rpc = rpc
+        effective = evidence.collect(self.fixture.fake, self.binding, self.fixture.brain_id, self.command_id)
+        effective["nativeTurnId"] = "owned-turn-1"
+        self.note["nativeResumeProfile"]["bindingHash"] = self.key
+        self.update(hostBindingHash=self.key, nativeEffectivePolicy=effective,
+                    nativePolicyContract=fixtures.CONTRACT.copy(), nativePolicyExecutableHash="c" * 64)
+        self.update(hostInspectionTransport=inspection.BROKER)
+        self.broker_request()
+        with patch.object(evidence, "PolicyReadProxy", return_value=self.fixture.fake):
+            self.service()
+            report = self.inspect()
+        self.assertNotIn("native_code_mode_unverified", report["issues"])
+        self.assertEqual(report["gaps"], ["native_effect_inventory_not_complete"])
+        self.assertFalse(report["boundary"]["executionAuthorized"])
+        self.assertIsNone(report["resumeProfile"]["reported"]["codeMode"])
+        self.assertEqual(len(policy_calls), 4)
+
     def test_private_copy_never_overwrites_or_renews_review(self):
         path = inspection.binding_file(self.ledger, self.key)
         before = path.stat()

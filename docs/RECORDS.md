@@ -412,3 +412,29 @@ No original ledger bytes/records, usage/gaps, expiry, ownership or native effect
 claim is rewritten. Receipt replay returns the original immutable result without
 repinning a later device. Default and pending-Play repair documents remain separate.
 See [the device-only contract](ENDED-RECOVERY-DEVICE-REVIEW.md).
+
+## Loaded-policy evidence adapter (2026-10-14)
+
+The opt-in `loaded_thread_policy_v1` binding identifies the exact reviewed native
+source/build contract. An explicit workspace-authenticated dashboard check
+repeats project/thread metadata and native effective-policy reads without loading,
+waking, writing ledger proof or authorizing continuation. Only cached closed
+diagnostics enter state polling; unloaded/unsupported/contrary/drifting evidence
+stays unknown. A later failure cannot fall back to an older positive check.
+
+Future one-shot owned deliveries retain actual policy evidence separately from
+the original v1 resume acknowledgement, before turn start. The record binds the
+exact brain/command/turn, binding, executable/source hashes and observation time.
+Only supported matching future evidence satisfies the policy prerequisite; an
+old v1 Play is never backfilled. The existing sandbox-safe brain handoff repeats
+the fixed read and preserves the native-effect inventory gap and all authority,
+terminal-cleanup, usage and ownership boundaries.
+
+The repaired compiled CLI passed the adapter's isolated four-read fixture, with
+no model turn, live connection or live native write. Rendered 1440px and 320px
+disposable checks kept unknown policy visible, exposed no Resume and produced
+no phase-control submission or horizontal overflow. These are source/fixture
+results, not live native-tool trust, runtime installation or pilot acceptance.
+An exact new socket binding still requires actual reviewed launch provenance,
+socket epoch and initialization identity; a pre-launch scope packet is not a
+binding or activation approval. See [the adapter contract](NATIVE-POLICY-EVIDENCE-ADAPTER.md).

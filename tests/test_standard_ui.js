@@ -70,6 +70,16 @@ function all(root){return [root,...root.children.flatMap(x=>x instanceof Element
   assert.ok(policyNodes.some(n=>n.tag==='table'&&n.text.includes('Unknown; required off')));
   await policyNodes.find(n=>n.text==='Inspect policy evidence').click();
   assert.equal(routes.at(-1),'operations');assert.equal(sent.length,policyCalls,'Policy inspection sends no command');
+  const savedPolicy=JSON.stringify(box.state.standard.nativePolicyVerification);
+  await policyNodes.find(n=>n.text==='Check native policy evidence').click();
+  assert.equal(sent.at(-1).path,'/api/native-policy/check');
+  assert.deepEqual(sent.at(-1).body,{},'The browser cannot supply policy proof or choose a target');
+  assert.equal(JSON.stringify(box.state.standard.nativePolicyVerification),savedPolicy,'A diagnostic cannot backfill the original Play');
+  box.state.nativePolicyCheck={status:'unknown',checkedAt:1,policyVerified:false,detail:'Unloaded stays unknown; no Resume.'};
+  assert.ok(all(render()).some(n=>String(n.text).includes('Unloaded stays unknown')));
+  box.state.standard.nativePolicyVerification.policyVerified=true;
+  box.state.standard.nativePolicyVerification.codeMode='native_reported_off';
+  assert.ok(all(render()).some(n=>String(n.text).includes('not active-step grants, terminal cleanup or permission to resume')));
   delete box.state.standard.nativePolicyVerification;
   box.state.standard.run.usageGuardVersion=1;
   box.state.standard.measuredUsage={tokens:{input_tokens:100,cached_input_tokens:50,output_tokens:20,reasoning_output_tokens:5,total_tokens:120},

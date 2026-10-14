@@ -1,10 +1,11 @@
 """Policy verification uses retained metadata, never synthetic runtime proof."""
 import copy
+import math
 import time
 import unittest
 
 from orchestrator import standard, standard_native_policy as policy
-from orchestrator.core import Refusal, canonical
+from orchestrator.core import Refusal, canonical, digest
 from orchestrator.workspaces import fingerprint
 import test_standard as fixtures
 
@@ -123,3 +124,59 @@ class NativePolicyTest(unittest.TestCase):
         self.assertFalse(view["resumeAcknowledged"])
         self.assertIsNone(view["observedAt"])
         self.assertFalse(view["policyVerified"])
+
+    def bind_supported(self):
+        from orchestrator.native_policy_evidence import collect
+        import test_native_policy_evidence as fixtures
+        from types import SimpleNamespace
+        self.bind()
+        binding = {"endpoint": {"sha256": "c" * 64}, "brains": {self.run["brainId"]: {
+            "cwd": "/fixture/brain", "policyEvidence": fixtures.CONTRACT}}}
+        binding_hash = digest(binding)
+        item = collect(SimpleNamespace(_rpc=lambda *args: fixtures.response(self.run["brainId"])),
+                       binding, self.run["brainId"], self.command["id"])
+        item["nativeTurnId"] = "turn"
+        with self.ledger.tx() as db:
+            command = self.ledger.get(db, "commands", self.command["id"])
+            note = command["notification"]
+            note["hostBindingHash"] = binding_hash
+            note["nativeResumeProfile"]["bindingHash"] = binding_hash
+            note["nativePolicyContract"] = fixtures.CONTRACT.copy()
+            note["nativePolicyExecutableHash"] = "c" * 64
+            note["nativeEffectivePolicy"] = item
+            self.ledger.put(db, "commands", command["id"], command)
+        return item
+
+    def test_future_supported_capture_qualifies_only_policy_prerequisite(self):
+        self.bind_supported()
+        result = standard.read(self.ledger)["nativePolicyVerification"]
+        self.assertTrue(result["policyVerified"])
+        self.assertEqual(result["codeMode"], "native_reported_off")
+        self.assertIsNone(result["blocker"])
+        self.assertNotIn(policy.BLOCKER, standard.read(self.ledger)["blockers"])
+        self.assertEqual(standard.read(self.ledger)["run"], self.run)
+        self.assertNotIn("terminalSafetyVerified", result)
+
+    def test_changed_or_unbound_supported_capture_cannot_clear_gate(self):
+        for edit in (lambda e: e.update(version=True), lambda e: e.update(sourceTree="d" * 40),
+                     lambda e: e.update(executableHash="d" * 64), lambda e: e.update(brainId="other"),
+                     lambda e: e.update(commandId="other"), lambda e: e.update(nativeTurnId="other"),
+                     lambda e: e.update(bindingHash="d" * 64), lambda e: e.update(observedAt=float("nan")),
+                     lambda e: e["reported"].update(codeModeOffEnforced=1),
+                     lambda e: e["reported"].update(scope="activeStep"),
+                     lambda e: e["reported"].update(effectiveToolMode=None),
+                     lambda e: e.update(policyVerified=True)):
+            self.bind_supported()
+            with self.ledger.tx() as db:
+                command = self.ledger.get(db, "commands", self.command["id"])
+                edit(command["notification"]["nativeEffectivePolicy"])
+                # JSON serialization rejects non-finite values, so test its
+                # projection directly rather than inserting invalid JSON.
+                if not math.isfinite(command["notification"]["nativeEffectivePolicy"]["observedAt"]):
+                    from orchestrator.native_policy_evidence import valid_retained
+                    self.assertFalse(valid_retained(command["notification"]["nativeEffectivePolicy"],
+                         command["notification"], command["notification"]["nativeResumeProfile"],
+                         command["id"], self.run["brainId"]))
+                    continue
+                self.ledger.put(db, "commands", command["id"], command)
+            self.assertFalse(standard.read(self.ledger)["nativePolicyVerification"]["policyVerified"])

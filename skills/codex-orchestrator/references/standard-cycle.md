@@ -108,6 +108,19 @@ merge and Resume. Current v1 runtime evidence cannot clear that gate. Do not
 use a disk feature list, unsolicited field or promise to avoid `functions.exec`
 as proof. Retain the checkpoint and release; another Play or recovery wake
 cannot repair runtime policy. Read docs/NATIVE-POLICY-VERIFICATION.md.
+
+Only a **newly reviewed** repaired host opting into `loaded_thread_policy_v1`
+can retain a separate actual native enforcement observation before a future
+owned turn. Read docs/NATIVE-POLICY-EVIDENCE-ADAPTER.md. Its versioned fixed read
+must match the exact command/turn/binding/build and repeated loaded defaults;
+the original resume acknowledgement still reports Code Mode null. An explicit
+owned-observer inspection can verify that future proof without granting the
+sandbox socket access. It removes only the reporting gap, never historical
+effect, terminal, usage, authority or pilot requirements. Unloaded/unsupported
+or changing reports stay unknown. The dashboard's current policy diagnostic
+cannot clear the old accepted Play guard or authorize Resume; do not send a
+new Play/recovery to obtain this future evidence. No installation follows.
+
 Missing/contrary fields and `issues` stop effects; do not copy
 requested values into reported ones. An empty recorded approval list never
 proves complete native-effect absence. Honor the explicit `gaps` and mission's

@@ -1,8 +1,8 @@
 """Closed, non-collecting policy diagnostics for an owned standard turn.
 
-The v1 resume protocol has no effective Code Mode/tool-surface field. Neither
-configuration acknowledgement nor an unsolicited field can attest that it is
-disabled. Keep that prerequisite unknown and fence new effects, not safety reads.
+The v1 resume acknowledgement cannot attest Code Mode off. Only a separate
+supported future native observation bound to its exact owned command and turn
+can satisfy the policy prerequisite. Legacy and unsolicited fields stay unknown.
 """
 import math
 
@@ -41,15 +41,20 @@ def projection(ledger, db, run):
     observed_at = profile.get("observedAt") if bound else None
     if type(observed_at) not in (int, float) or not math.isfinite(observed_at) or observed_at <= 0:
         observed_at = None
+    from .native_policy_evidence import valid_retained
+    effective = note.get("nativeEffectivePolicy")
+    verified = bool(bound and configured and observed_at and
+                    valid_retained(effective, note, profile, command["id"], run["brainId"]))
     return {"commandId": command["id"], "observedAt": observed_at,
             "resumeAcknowledged": bool(bound), "configurationMatches": configured,
             "sandbox": "reported_matching" if reported.get("sandbox") == "workspaceWrite" else "unverified",
             "approvalPolicy": "reported_matching" if reported.get("approvalPolicy") == "on-request" else "unverified",
             "approvalsReviewer": "reported_matching" if reported.get("approvalsReviewer") == "user" else "unverified",
-            "codeMode": "unverified", "policyVerified": False,
-            "blocker": BLOCKER,
+            "codeMode": "native_reported_off" if verified else "unverified", "policyVerified": verified,
+            "blocker": None if verified else BLOCKER,
             "boundary": "Saved policy metadata, not current activity, terminal safety or execution authority."}
 
 
 def blockers(ledger, db, run):
-    return [BLOCKER] if projection(ledger, db, run) else []
+    result = projection(ledger, db, run)
+    return [BLOCKER] if result and not result["policyVerified"] else []

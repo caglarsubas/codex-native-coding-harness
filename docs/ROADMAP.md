@@ -7,6 +7,9 @@ acceptance authority. Items change through reviewed repository edits.
 
 ## Reliable brain wake — source and rollout
 
+- [x] Consume the repaired runtime's versioned loaded-policy report through an explicit dashboard diagnostic and future one-shot owned-turn evidence, preserving old v1 profiles and unknown terminal/effect coverage (source, synthetic tests and isolated compiled-CLI fixture; no installation, host rebind, Resume or pilot acceptance; [contract](NATIVE-POLICY-EVIDENCE-ADAPTER.md))
+- [ ] Qualify a complete repaired runtime package, actual new host endpoint and separately reviewed continuation evidence before resuming the already paused fresh pilot; no Play/recovery replay or usage/expiry reset
+
 - [x] Remove the native metadata-assignment confirmation timer for unchanged exact scope, retaining fresh revalidation and a separately explicit same-hash legacy-expiry path (source/local fixtures only; [contract](NATIVE-PROJECT-ASSIGNMENT-REVIEW.md))
 
 - [x] Add an opt-in, exact-bound, documented app-server wake path for registered standard projects, preserving one-shot ledger claims and independent brain receipts

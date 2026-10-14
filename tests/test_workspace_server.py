@@ -64,6 +64,7 @@ class WorkspaceServerTest(unittest.TestCase):
         host = Mock()
         host.configured.return_value = True
         host.connection_status.return_value = {"status": "unchecked", "checkedAt": None}
+        host.policy_status.return_value = {"status": "unchecked", "checkedAt": None, "policyVerified": False}
         host.check_connection.return_value = {"status": "disconnected", "checkedAt": 1, "detail": "Host offline"}
         self.server.runtime_for("a").notifier.app_server = host
         with self.ledgers["a"].tx() as db:
@@ -90,6 +91,34 @@ class WorkspaceServerTest(unittest.TestCase):
             self.ledgers["a"].put(db, "repos", "app", repo)
         self.assertEqual(self.request(route, {}, auth_a)[0], 409)
         self.assertEqual(host.check_connection.call_count, 1)
+
+    def test_policy_evidence_route_is_explicit_owner_scoped_and_never_poll_collected(self):
+        from unittest.mock import Mock
+        host = Mock()
+        host.configured.return_value = True
+        host.connection_status.return_value = {"status": "unchecked", "checkedAt": None}
+        host.policy_status.return_value = {"status": "unchecked", "checkedAt": None, "policyVerified": False}
+        host.check_policy.return_value = {"status": "unknown", "policyVerified": False, "detail": "Unloaded stays unknown"}
+        self.server.runtime_for("a").notifier.app_server = host
+        with self.ledgers["a"].tx() as db:
+            self.ledgers["a"].put(db, "repos", "app", {"id": "app", "path": "/fixture/app", "projectId": "project-a",
+                                                       "ref": "main", "mergePolicy": "manual", "policyProfile": "standard"})
+        route = "/api/workspaces/a/native-policy/check"
+        self.assertEqual(self.request(route, {})[0], 403)
+        auth_a = self.auth("a"); auth_b = self.auth("b", auth_a)
+        self.assertEqual(self.request(route, {}, auth_b)[0], 403)
+        for path, body in ((route + "?target=other", {}), (route, {"policyVerified": True}),
+                           (route, {"threadId": "other"}), (route, {"load": True})):
+            self.assertEqual(self.request(path, body, auth_a)[0], 409)
+        self.assertEqual(self.request("/api/workspaces/a/state", headers=auth_a)[0], 200)
+        host.check_policy.assert_not_called()
+        self.assertEqual(self.request(route, {}, auth_a)[0], 200)
+        host.check_policy.assert_called_once_with(self.registry)
+        with self.ledgers["a"].tx() as db:
+            repo = self.ledgers["a"].get(db, "repos", "app"); repo["policyProfile"] = "harness"
+            self.ledgers["a"].put(db, "repos", "app", repo)
+        self.assertEqual(self.request(route, {}, auth_a)[0], 409)
+        self.assertEqual(host.check_policy.call_count, 1)
 
     def test_conversation_auth_csrf_scope_and_recipient(self):
         import uuid

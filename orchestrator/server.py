@@ -127,6 +127,13 @@ class WorkspaceRuntime:
             from .projects import display_name
             from .brain_handoff import status as handoff_status
             state["standard"] = standard_read(self.ledger)
+            host = self.notifier.app_server
+            run = state["standard"].get("run")
+            policy_status = getattr(host, "policy_status", None)
+            policy_check = (policy_status(state["meta"]["brainId"], run["id"] if run else None,
+                            state["meta"]["revision"]) if callable(policy_status) else None)
+            state["nativePolicyCheck"] = policy_check if isinstance(policy_check, dict) else {
+                "status": "unconfigured", "checkedAt": None, "policyVerified": False}
             from .recovery import describe as recovery_description
             state["recovery"] = recovery_description(state)
             state["brainHandoff"] = handoff_status(self.ledger, self.registry)
@@ -565,6 +572,16 @@ class Handler(BaseHTTPRequestHandler):
                 if host is None:
                     raise Refusal("No reviewed owned host is configured; no host was started")
                 return self.respond(200, host.check_connection(snapshot["meta"]["brainId"]))
+            if path == "/api/native-policy/check" and workspace_id:
+                if urlsplit(self.path).query or body != {}:
+                    raise Refusal("Policy check accepts no targets, settings, evidence or commands")
+                snapshot = runtime.ledger.snapshot()
+                if not snapshot["repositories"] or any(r.get("policyProfile") != "standard" for r in snapshot["repositories"]):
+                    raise Refusal("Effective-policy inspection is for registered standard projects only")
+                host = runtime.notifier.app_server
+                if host is None:
+                    raise Refusal("No reviewed owned host is configured; no host was started")
+                return self.respond(200, host.check_policy(self.server.registry))
             if path in ("/api/native-permission/preview", "/api/native-permission/confirm") and workspace_id:
                 if urlsplit(self.path).query:
                     raise Refusal("Native permission controls accept no query parameters")

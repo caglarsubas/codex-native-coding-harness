@@ -121,6 +121,10 @@ def _context(registry, ledger, token, run_id, command_id):
         return {"revision": meta["revision"], "runHash": digest(run), "runStatus": run["status"],
                 "brainId": meta["brainId"], "bindingHash": note["hostBindingHash"],
                 "nativeTurnId": note["nativeTurnId"], "profile": copy.deepcopy(profile),
+                "effectivePolicy": copy.deepcopy(note.get("nativeEffectivePolicy")),
+                "policyContract": copy.deepcopy(note.get("nativePolicyContract")),
+                "policyExecutableHash": note.get("nativePolicyExecutableHash"),
+                "attemptedAt": note.get("attemptedAt"),
                 "transport": note.get("hostInspectionTransport", "direct_v1"),
                 "approvals": copy.deepcopy(note.get("nativeApprovals", []))}
 
@@ -142,8 +146,15 @@ def _collect(registry, ledger, token, run_id, command_id, context, binding=None)
     require(digest(binding) == context["bindingHash"], "Reviewed owned host binding changed")
     scope = _scope(registry, ledger.workspace_id, binding)
     started = time.time()
-    with TaskReadProxy(binding["endpoint"], scope["projectId"], [scope["brainId"]]) as proxy:
+    from .native_policy_evidence import PolicyReadProxy, collect, matches, valid_retained
+    supported = binding["brains"][scope["brainId"]].get("policyEvidence") is not None
+    proxy_client = (PolicyReadProxy(binding["endpoint"], scope["projectId"], scope["brainId"]) if supported else
+                    TaskReadProxy(binding["endpoint"], scope["projectId"], [scope["brainId"]]))
+    effective = None
+    with proxy_client as proxy:
         before = _brain_identity(proxy, scope, include_flags=True)
+        if supported:
+            effective = collect(proxy, binding, scope["brainId"], command_id)
         after = _brain_identity(proxy, scope, include_flags=True)
     require(before == after and after["nativeStatus"] == "active",
             "Current native brain activity or membership is unknown or changed")
@@ -162,10 +173,17 @@ def _collect(registry, ledger, token, run_id, command_id, context, binding=None)
         issues.append("native_approval_policy_unavailable_or_different")
     if reported.get("approvalsReviewer") != "user":
         issues.append("native_approval_reviewer_unavailable_or_different")
-    # The installed public protocol does not report effective tool mode. A
-    # successful override, disk feature list or caller-supplied field is not
-    # proof that the model-visible Code Mode entrypoints are unavailable.
-    issues.append("native_code_mode_unverified")
+    # Legacy acknowledgements never attest off. A supported future handoff
+    # additionally needs the actual repeated current native report.
+    note = {"status": "accepted", "nativeDelivery": "owned_turn_start",
+            "nativePolicyContract": context["policyContract"],
+            "nativePolicyExecutableHash": context["policyExecutableHash"],
+            "hostBindingHash": context["bindingHash"], "nativeTurnId": context["nativeTurnId"],
+            "attemptedAt": context["attemptedAt"]}
+    verified = (effective is not None and matches(effective["reported"]) and
+                valid_retained(context["effectivePolicy"], note, context["profile"], command_id, context["brainId"]))
+    if not verified:
+        issues.append("native_code_mode_unverified")
     if any(a.get("status") not in ("resolved", "resolved_without_response") for a in context["approvals"]):
         issues.append("unresolved_recorded_native_approval")
     return {"version": VERSION, "workspaceId": ledger.workspace_id, "runId": run_id,
@@ -174,7 +192,8 @@ def _collect(registry, ledger, token, run_id, command_id, context, binding=None)
             "catalogProjectId": scope["catalogProjectId"], "ownedProjectId": scope["projectId"],
             "startedAt": started, "observedAt": time.time(), "brain": after,
             "resumeProfile": context["profile"], "issues": issues,
-            "gaps": GAPS.copy(), "boundary": BOUNDARY.copy()}
+            "gaps": [gap for gap in GAPS if not (verified and gap == "code_mode_not_independently_reported")],
+            "boundary": BOUNDARY.copy()}
 
 
 def _mailbox(ledger, command_id, suffix):
@@ -256,14 +275,23 @@ def _request_inspection(registry, ledger, token, run_id, command_id, context):
                 report.get("resumeProfile") == context["profile"],
                 "Host inspection reply is stale or changed")
         brain = report["brain"]
+        from .native_policy_evidence import valid_retained
+        policy_note = {"status": "accepted", "nativeDelivery": "owned_turn_start",
+                      "hostBindingHash": context["bindingHash"], "nativeTurnId": context["nativeTurnId"],
+                      "nativePolicyContract": context["policyContract"], "attemptedAt": context["attemptedAt"],
+                      "nativePolicyExecutableHash": context["policyExecutableHash"]}
+        supported_off = valid_retained(context["effectivePolicy"], policy_note, context["profile"], command_id, context["brainId"])
+        expected_gaps = (["native_effect_inventory_not_complete"] if supported_off and
+                         isinstance(report["issues"], list) and
+                         "native_code_mode_unverified" not in report["issues"] else GAPS)
         require(isinstance(brain, dict) and set(brain) == {"nativeStatus", "sourceHash", "activeFlags"} and
                 brain["nativeStatus"] == "active" and (brain["activeFlags"] is None or
                 isinstance(brain["activeFlags"], list) and len(brain["activeFlags"]) <= 2 and
                 all(f in ("waitingOnApproval", "waitingOnUserInput") for f in brain["activeFlags"])) and
                 isinstance(report["issues"], list) and len(report["issues"]) <= len(ISSUES) and
                 all(isinstance(i, str) and i in ISSUES for i in report["issues"]) and
-                "native_code_mode_unverified" in report["issues"] and
-                report["gaps"] == GAPS and type(report["startedAt"]) in (int, float) and
+                (supported_off or "native_code_mode_unverified" in report["issues"]) and
+                report["gaps"] == expected_gaps and type(report["startedAt"]) in (int, float) and
                 saved["requestedAt"] <= report["startedAt"] <= report["observedAt"],
                 "Host inspection metadata shape changed")
         from .admission import sha, identifier

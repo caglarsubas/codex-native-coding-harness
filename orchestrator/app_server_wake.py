@@ -48,6 +48,7 @@ WAKE_FAILURE_STAGES = {
     "receipt_check": "checking the saved recovery request",
     "thread_resume": "loading the brain with its reviewed settings",
     "resumed_identity": "checking the loaded brain's identity",
+    "effective_policy": "reading the loaded brain's effective policy",
     "observation_record": "saving the one-shot observation marker",
     "turn_start": "starting the brain turn",
     "subscription": "retaining the turn observer",
@@ -259,11 +260,13 @@ def load_binding(path):
     for brain, record in value["brains"].items():
         require(isinstance(brain, str) and UUID.fullmatch(brain) and
                 isinstance(record, dict) and
-                set(record) in ({"cwd", "projectId", "workspaceId", "nativePolicy"},
-                                {"cwd", "projectId", "catalogProjectId", "workspaceId", "nativePolicy"}) and
+                set(record) - {"catalogProjectId", "policyEvidence"} == {"cwd", "projectId", "workspaceId", "nativePolicy"} and
                 isinstance(record["projectId"], str) and UUID.fullmatch(record["projectId"]),
                 "Invalid brain binding entry")
         policy = record["nativePolicy"]
+        if "policyEvidence" in record:
+            from .native_policy_evidence import validate_contract
+            validate_contract(record["policyEvidence"])
         require(isinstance(policy, dict) and set(policy) == set(NATIVE_APPROVAL_POLICY) and
                 policy["sandbox"] == "workspace-write" and
                 policy["approvalPolicy"] == "on-request" and
@@ -299,6 +302,43 @@ class AppServerWake:
         self._closed = False
         self._connection_lock = threading.Lock()
         self._connection = {}
+        self._policy = {}
+        self._policy_bindings = {}
+
+    def policy_status(self, brain_id, run_id, revision):
+        """Cached diagnostics only; polling neither collects nor grants permission."""
+        with self._lock:
+            result = copy.deepcopy(self._policy.get(brain_id))
+            binding_hash = self._policy_bindings.get(brain_id)
+        if result is None:
+            return {"status": "unchecked", "checkedAt": None, "policyVerified": False}
+        if (self._closed or binding_hash != digest(self.binding) or
+                result.get("runId") != run_id or result.get("revision") != revision or
+                time.time() - result["checkedAt"] >= 300):
+            result.update(status="stale", policyVerified=False,
+                          detail="The saved policy check is out of date. Check explicitly; nothing is replayed.")
+        return result
+
+    def check_policy(self, registry):
+        from .native_policy_evidence import inspect, BOUNDARY
+        require(self._connection_lock.acquire(blocking=False), "Host inspection is already in progress")
+        try:
+            snapshot = self.ledger.snapshot()
+            meta = snapshot["meta"]
+            brain_id = meta["brainId"]
+            try:
+                result = inspect(registry, self.ledger, self)
+            except (Refusal, OSError, ValueError, KeyError, TypeError):
+                result = {"status": "unavailable", "checkedAt": time.time(), "policyVerified": False,
+                          "runId": (meta.get("standardRun") or {}).get("id"), "revision": meta["revision"],
+                          "detail": "Exact native policy could not be verified. No load, wake, replay or Resume was sent.",
+                          "boundary": copy.deepcopy(BOUNDARY)}
+            with self._lock:
+                self._policy[brain_id] = copy.deepcopy(result)
+                self._policy_bindings[brain_id] = digest(self.binding)
+            return result
+        finally:
+            self._connection_lock.release()
 
     def connection_status(self, brain_id):
         """Cached handshake fact only. State polling never opens a connection."""
@@ -943,6 +983,25 @@ class AppServerWake:
                 note["nativeResumeProfile"] = resume_profile(self.binding, brain_id, command_id, resumed)
                 command["notification"] = note
                 self.ledger.put(db, "commands", command_id, command)
+            # Opt-in future host contract only. Never reinterpret or backfill an
+            # old profile. A failed read consumes this notification, not a retry.
+            contract = self.binding["brains"][brain_id].get("policyEvidence")
+            if contract is not None:
+                from .native_policy_evidence import collect, matches
+                stage = "effective_policy"
+                evidence = collect(proxy, self.binding, brain_id, command_id)
+                require(matches(evidence["reported"]), "Loaded native policy is not verified before turn start")
+                validate_endpoint(self.binding["endpoint"])
+                require(self.configured(brain_id), "Reviewed policy endpoint changed before turn start")
+                with self.ledger.tx() as db:
+                    command = self.ledger.get(db, "commands", command_id)
+                    note = command.get("notification") or {}
+                    require(note.get("status") == "sending" and "nativeEffectivePolicy" not in note,
+                            "Owned effective-policy claim changed")
+                    note["nativePolicyContract"] = copy.deepcopy(contract)
+                    note["nativePolicyExecutableHash"] = self.binding["endpoint"]["sha256"]
+                    note["nativeEffectivePolicy"] = evidence
+                    self.ledger.put(db, "commands", command_id, command)
             if recovery:
                 # Resume changes native loading, not dispatch authority. Recheck
                 # a racing Stop and exact original immediately before turn/start.
@@ -977,6 +1036,9 @@ class AppServerWake:
                 require(profile and profile.get("commandId") == command_id and
                         "nativeTurnId" not in profile, "Owned turn profile changed")
                 profile["nativeTurnId"] = confirmed_turn_id
+                effective = (command.get("notification") or {}).get("nativeEffectivePolicy")
+                if effective is not None:
+                    effective["nativeTurnId"] = confirmed_turn_id
                 self.ledger.put(db, "commands", command_id, command)
             stage = "subscription"
             thread = threading.Thread(target=self._observe_turn,
