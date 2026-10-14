@@ -13,6 +13,13 @@ edits. The live pilot requires separate qualification and continuation authority
 
 # Codex Orchestrator
 
+For the explicitly requested operator-only exact export from shared ~/.codex,
+read `docs/SHARED-BRAIN-EXPORT.md` completely. Export one bound native-returned
+brain rollout to a new disjoint private archive, never the shared home, credentials
+or sibling sessions. Do not chmod/load/wake/rebind/replay. Export-pinned v2
+transfer still requires fresh original reads and its separate exact native review.
+Unknown terminals, old policy/usage/expiry and original permanent claims remain.
+
 The existing designated Codex brain is the only scheduler. The local helper is a
 transactional ledger and dashboard, not an agent or private desktop API client.
 An explicitly enabled bridge may send fixed notifications of saved dashboard

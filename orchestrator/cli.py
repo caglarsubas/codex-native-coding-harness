@@ -87,6 +87,11 @@ def main():
     p.add_argument("run_id"); p.add_argument("binding", type=Path); p.add_argument("original_binding", type=Path)
     p = sub.add_parser("standard-public-transfer-prepare", help="Operator-only exact one-brain identity/history snapshot and non-executing review; no host or turn start")
     p.add_argument("source_binding", type=Path); p.add_argument("destination_binding", type=Path); p.add_argument("directory", type=Path)
+    p.add_argument("--source-export", type=Path, help="Explicit private shared-home single-brain export; fresh original reads remain mandatory")
+    p = sub.add_parser("standard-public-brain-export", help="Explicit read-only export of only the exact bound brain from shared ~/.codex; no load or transfer")
+    p.add_argument("source_binding", type=Path); p.add_argument("directory", type=Path)
+    p = sub.add_parser("standard-public-brain-export-status", help="File-only historical export status; no native read, freshness renewal or authority")
+    p.add_argument("directory", type=Path)
     p = sub.add_parser("standard-public-transfer-apply", help="Exact-owner one-shot native metadata restore/inspection load/assignment; never Play, run Resume or bind")
     p.add_argument("spec", type=Path); p.add_argument("--confirm-hash", required=True)
     p = sub.add_parser("standard-public-transfer-status", help="Historical file-only transfer progress; never reconnect, retry or infer terminal safety")
@@ -497,11 +502,19 @@ def main():
     elif action == "standard-public-migration-check":
         from .public_task_migration import assess
         out = assess(registry, ledger, args.run_id, args.binding, args.original_binding)
+    elif action in ("standard-public-brain-export", "standard-public-brain-export-status"):
+        if not registry or not args.workspace: raise Refusal("Exact registered standard workspace required")
+        from . import public_brain_export as export
+        if action == "standard-public-brain-export":
+            out = export.export(registry, ledger, args.source_binding, args.directory)
+        else:
+            out = export.status(args.directory)
     elif action.startswith("standard-public-transfer-"):
         if not registry or not args.workspace: raise Refusal("Exact registered standard workspace required")
         from . import public_identity_transfer as transfer
         if action == "standard-public-transfer-prepare":
-            out = transfer.prepare(registry, ledger, args.source_binding, args.destination_binding, args.directory)
+            out = transfer.prepare(registry, ledger, args.source_binding, args.destination_binding, args.directory,
+                                   source_export=args.source_export)
         elif action == "standard-public-transfer-apply":
             out = transfer.apply(registry, ledger, transfer.load_spec(args.spec), args.confirm_hash)
         else:

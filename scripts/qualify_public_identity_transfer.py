@@ -15,6 +15,7 @@ import sys
 import tempfile
 import threading
 import uuid
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from orchestrator.core import require
@@ -22,10 +23,11 @@ from orchestrator.native_read_client import secure_path
 from orchestrator.native_policy_evidence import matches, reported
 from orchestrator.public_host_lifecycle import CONFIG, environment
 from orchestrator.public_identity_transfer import source_snapshot, rollout
+from orchestrator import public_brain_export as shared_export
 from qualify_public_native_tasks import StdioFixture
 
 
-def qualify(binary, expected_hash, history_mode="paginated"):
+def qualify(binary, expected_hash, history_mode="paginated", shared_source=False):
     path, _ = secure_path(binary)
     with path.open("rb") as stream: actual_hash = hashlib.file_digest(stream, "sha256").hexdigest()
     require(actual_hash == expected_hash, "Reviewed transfer runtime changed")
@@ -94,8 +96,19 @@ stream_max_retries = 0
             scope = {"brainId": brain, "projectId": project["id"], "cwd": str(cwd)}
             initial_meta = json.loads(Path(source._rpc("thread/read", {"threadId": brain, "includeTurns": False})["thread"]["path"]).read_bytes().splitlines()[0])["payload"]
             require(initial_meta.get("history_mode", "legacy") == history_mode, "Fixture native history mode changed")
-            first, raw = source_snapshot(source, scope)
-            second, _ = source_snapshot(source, scope)
+            if shared_source:
+                # Explicit fixture-only OS-home substitution. No real shared
+                # home is accessed, and production cannot nominate this root.
+                homes[0].chmod(0o755)
+                original_path = Path(source._rpc("thread/read", {"threadId": brain, "includeTurns": False})["thread"]["path"])
+                original_path.chmod(0o644)
+                (homes[0] / "other-project.fixture").write_text("Foreign fixture state; never exported.")
+                with patch.object(shared_export, "shared_home", return_value=homes[0]):
+                    first, raw = shared_export.shared_snapshot(source, scope)
+                    second, _ = shared_export.shared_snapshot(source, scope)
+            else:
+                first, raw = source_snapshot(source, scope)
+                second, _ = source_snapshot(source, scope)
             require(first == second and first["latestTurnId"] == turn["id"], "Source fixture snapshot changed")
             require(len(requests) == 1, "Unexpected source model request")
             empty = destination._rpc("project/list", {"limit": 100})
@@ -117,12 +130,20 @@ stream_max_retries = 0
                     source._rpc("thread/read", {"threadId": brain, "includeTurns": True})["thread"]["turns"], "Native transferred history differs")
             policies = [destination._rpc("thread/effectivePolicy/read", {"threadId": brain}) for _ in range(2)]
             require(policies[0] == policies[1] and matches(reported(policies[0], brain, str(cwd))), "Loaded destination policy differs")
-            require(target.read_bytes().startswith(raw) and
-                    rollout(first["rollout"]["path"], first["sourceHome"], brain, str(cwd))[0] == raw, "Original history bytes changed")
+            if shared_source:
+                with patch.object(shared_export, "shared_home", return_value=homes[0]):
+                    preserved = shared_export.read_shared_rollout(first["rollout"]["path"], first["sourceHome"], brain, str(cwd))[0]
+                require(homes[0].stat().st_mode & 0o777 == 0o755 and original_path.stat().st_mode & 0o777 == 0o644,
+                        "Shared fixture source permissions changed")
+            else:
+                preserved = rollout(first["rollout"]["path"], first["sourceHome"], brain, str(cwd))[0]
+            require(target.read_bytes().startswith(raw) and preserved == raw, "Original history bytes changed")
             require(len(requests) == 1 and "turn/start" not in destination.methods and not list(cwd.iterdir()), "Transfer executed or replayed work")
             require(not any((home / "auth.json").exists() for home in homes), "Fixture inherited credentials")
             return {"binarySha256": actual_hash, "nativeIdentityFixtureQualified": True,
                     "historyMode": history_mode,
+                    "sharedSourceSnapshotQualified": shared_source,
+                    "sharedSourceRootIsFixtureOnly": shared_source,
                     "sameProjectId": True, "sameBrainId": True, "sameHistoryPrefix": True, "sameTurnProjection": True,
                     "sourceLoopbackReceiptTurns": 1, "transferTurnStarts": 0, "transferModelRequests": 0,
                     "cloudRequests": 0, "liveNativeWrites": 0, "liveHostConnections": 0,
@@ -140,5 +161,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--executable", required=True); parser.add_argument("--sha256", required=True)
     parser.add_argument("--history-mode", choices=("legacy", "paginated"), default="paginated")
+    parser.add_argument("--shared-source", action="store_true", help="Qualify shared-home read-only snapshot using only a substituted disposable OS-home fixture")
     args = parser.parse_args()
-    print(json.dumps(qualify(args.executable, args.sha256, args.history_mode), indent=2))
+    print(json.dumps(qualify(args.executable, args.sha256, args.history_mode, args.shared_source), indent=2))

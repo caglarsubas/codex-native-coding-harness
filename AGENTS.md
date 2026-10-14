@@ -1,5 +1,22 @@
 # Codex Orchestrator — personal tooling
 
+## Exact shared-home brain export source (2026-10-14)
+
+Read docs/SHARED-BRAIN-EXPORT.md before the explicit operator-only
+`shared_codex_exact_brain_export_v1` collector. Read only the exact original
+bound brain's native-returned rollout under the OS user's canonical shared
+~/.codex/sessions. Never enumerate/copy that home, open credentials/plugins/
+native stores/sibling histories, chmod the original or infer private isolation.
+Retain complete validated bytes in a new disjoint owner-private archive with
+original binding/context/turn/file/directory pins and repeated source checks.
+No native write/load, claim migration, host launch/rebind, policy proof, usage
+reset, expiry extension, checkpoint or acceptance follows. The v1 private-source
+transfer gate stays unchanged. Only an explicit export-pinned v2 specification
+may use shared source for separately exact-owner-reviewed native metadata
+transfer; its original run/Play permanent fence and every fresh source/effect
+gate remain mandatory. Interrupted exports stay partial/unknown, never overwrite
+or replay. Expired phases and current/historical terminal unknowns remain fenced.
+
 ## Exact public-host identity transfer source (2026-10-14)
 
 Read docs/PUBLIC-IDENTITY-TRANSFER.md before the separately reviewed

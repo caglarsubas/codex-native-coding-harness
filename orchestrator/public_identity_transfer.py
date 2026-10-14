@@ -167,12 +167,21 @@ def rollout(path, home, brain, cwd):
         require(file_identity(os.fstat(stream.fileno())) == file_identity(before), "Rollout changed")
         data = stream.read(MAX_ROLLOUT + 1)
         require(file_identity(os.fstat(stream.fileno())) == file_identity(before) == file_identity(path.stat()), "Rollout changed")
+    validate_rollout_data(data, brain, cwd)
+    pin = {"path": str(path), "identity": list(file_identity(before)), "sha256": hashlib.sha256(data).hexdigest(), "bytes": len(data)}
+    return data, pin
+
+
+def validate_rollout_data(data, brain, cwd):
+    """Unchanged history-format gates, shared by private and exact shared export."""
     require(len(data) <= MAX_ROLLOUT and data.endswith(b"\n"), "Incomplete rollout snapshot")
     lines = data.splitlines()
     require(len(lines) <= 100000 and all(0 < len(line) <= 1_000_000 for line in lines), "Rollout record bound exceeded")
     rows = [decode(line) for line in lines]
+    require(rows and all(isinstance(row, dict) for row in rows), "Native history records must be objects")
     require(rows[0].get("type") == "session_meta", "Native session metadata required")
     meta = rows[0].get("payload") or {}
+    require(isinstance(meta, dict), "Native session metadata must be an object")
     require(meta.get("id") == brain and meta.get("session_id", brain) == brain and meta.get("cwd") == cwd and
             meta.get("history_mode", "legacy") in {"legacy", "paginated"} and
             all(not meta.get(k) for k in ("parent_thread_id", "forked_from_id", "history_base", "dynamic_tools", "selected_capability_roots")) and
@@ -184,16 +193,15 @@ def rollout(path, home, brain, cwd):
             "Goal-bearing history needs a separately qualified path")
     settings = [r["payload"].get("thread_settings") or {} for r in rows if isinstance(r.get("payload"), dict) and
                 r["payload"].get("type") == "thread_settings_applied"]
+    require(all(isinstance(item, dict) for item in settings), "Native settings records must be objects")
     require(all(not item.get(k) for item in [meta, *settings] for k in
                 ("selected_capability_roots", "dynamic_tools", "plugins", "plugin_refs", "environment")),
             "Persisted capabilities need a separately qualified transfer path")
     require(all(item.get("runtime_workspace_roots") in (None, [], [cwd]) for item in [meta, *settings]),
             "Additional historical workspace roots refuse transfer")
-    pin = {"path": str(path), "identity": list(file_identity(before)), "sha256": hashlib.sha256(data).hexdigest(), "bytes": len(data)}
-    return data, pin
 
 
-def source_snapshot(proxy, scope):
+def source_projection(proxy, scope):
     project = proxy._rpc("project/read", {"projectId": scope["projectId"]})["project"]
     thread = proxy._rpc("thread/read", {"threadId": scope["brainId"], "includeTurns": True})["thread"]
     require(project["id"] == scope["projectId"] and project["roots"] == [{"path": scope["cwd"]}] and
@@ -204,10 +212,27 @@ def source_snapshot(proxy, scope):
     require(len(canonical(project).encode()) <= 24000, "Exact project metadata exceeds the fixed restore request bound")
     turns = thread.get("turns") or []
     require(turns and turns[-1].get("status") in ENDED and isinstance(turns[-1].get("id"), str), "Exact latest ended turn required")
+    return project, thread
+
+
+def snapshot_record(project, thread, home, pin):
+    turns = thread["turns"]
+    return {"project": project, "threadHash": digest(thread), "turnsHash": digest(turns), "rollout": pin, "sourceHome": home,
+            "latestTurnId": turns[-1]["id"], "latestTurnStatus": turns[-1]["status"]}
+
+
+def source_snapshot(proxy, scope):
+    project, thread = source_projection(proxy, scope)
     home = proxy.initialization["codexHome"]
     data, pin = rollout(thread["path"], home, scope["brainId"], scope["cwd"])
-    return {"project": project, "threadHash": digest(thread), "turnsHash": digest(turns), "rollout": pin, "sourceHome": home,
-            "latestTurnId": turns[-1]["id"], "latestTurnStatus": turns[-1]["status"]}, data
+    return snapshot_record(project, thread, home, pin), data
+
+
+def prepared_source(proxy, scope, export, source_path, source, saved):
+    if export is None:
+        return source_snapshot(proxy, scope)
+    from .public_brain_export import for_transfer
+    return for_transfer(proxy, scope, export, source_path, digest(source), saved)
 
 
 def empty_destination(proxy, source_home):
@@ -227,14 +252,18 @@ def empty_destination(proxy, source_home):
     return str(home)
 
 
-def prepare(registry, ledger, source_path, destination_path, directory):
+def prepare(registry, ledger, source_path, destination_path, directory, *, source_export=None):
     source, destination, scope, _ = bindings(registry, ledger, source_path, destination_path)
     saved = context(ledger, source)
     fence = fence_path(ledger, saved)
     require(not fence.exists(), "Original run/Play already consumed an identity transfer; no new preview or endpoint retry")
+    export = None
+    if source_export is not None:
+        from .public_brain_export import descriptor
+        export = descriptor(source_export)
     with TransferProxy(source["endpoint"]) as proxy:
-        first, data = source_snapshot(proxy, scope)
-        second, _ = source_snapshot(proxy, scope)
+        first, data = prepared_source(proxy, scope, export, source_path, source, saved)
+        second, _ = prepared_source(proxy, scope, export, source_path, source, saved)
         require(first == second and first["latestTurnId"] == saved["originalTurnId"] and
                 first["latestTurnStatus"] == saved["originalTurnStatus"], "Source original-turn view changed during snapshot")
     with TransferProxy(destination["endpoint"]) as proxy:
@@ -253,17 +282,24 @@ def prepare(registry, ledger, source_path, destination_path, directory):
     with os.fdopen(os.open(archive, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600), "wb") as stream:
         stream.write(data); stream.flush(); os.fsync(stream.fileno())
     os.chmod(archive, 0o400)
-    spec = {"version": 1, "kind": KIND, "sourceBindingPath": str(source_path), "destinationBindingPath": str(destination_path),
+    spec = {"version": 2 if export else 1, "kind": KIND, "sourceBindingPath": str(source_path), "destinationBindingPath": str(destination_path),
             "sourceBindingHash": digest(source), "destinationBindingHash": digest(destination), "context": saved,
             "brainId": scope["brainId"], "cwd": scope["cwd"], "catalogProjectId": scope["catalogProjectId"],
             "snapshot": first, "archivePath": str(archive), "archivePin": archive_pin(archive), "destinationHome": home, "fencePath": str(fence)}
+    if export:
+        spec["sourceExport"] = export
     write_record(directory / "transfer.json", spec)
     return preview(spec)
 
 
 def preview(spec):
-    require(isinstance(spec, dict) and set(spec) == SPEC_FIELDS and spec.get("kind") == KIND and type(spec.get("version")) is int and
-            spec["version"] == 1, "Closed identity transfer specification required")
+    require(isinstance(spec, dict) and type(spec.get("version")) is int and
+            ((spec["version"] == 1 and set(spec) == SPEC_FIELDS) or
+             (spec["version"] == 2 and set(spec) == SPEC_FIELDS | {"sourceExport"})) and
+            spec.get("kind") == KIND, "Closed identity transfer specification required")
+    if spec["version"] == 2:
+        from .public_brain_export import validate_descriptor
+        validate_descriptor(spec["sourceExport"])
     return {"kind": KIND, "reviewHash": digest({"kind": KIND, "spec": spec}), "validity": "until_scope_changes",
             "brainId": spec["brainId"], "projectId": spec["snapshot"]["project"]["id"], "catalogProjectId": spec["catalogProjectId"],
             "historySha256": spec["snapshot"]["rollout"]["sha256"], "historyBytes": spec["snapshot"]["rollout"]["bytes"],
@@ -282,7 +318,7 @@ def load_spec(path):
 
 def apply(registry, ledger, spec, confirm_hash):
     require(confirm_hash == preview(spec)["reviewHash"], "Exact identity-transfer owner hash required")
-    require(spec.get("version") == 1 and spec.get("kind") == KIND, "Exact transfer contract required")
+    require(spec.get("version") in (1, 2) and spec.get("kind") == KIND, "Exact transfer contract required")
     directory = safe_path(str(Path(spec["archivePath"]).parent), directory=True)
     attempt = directory / "attempt"
     fence = fence_path(ledger, spec["context"])
@@ -299,7 +335,7 @@ def apply(registry, ledger, spec, confirm_hash):
         require(read_archive(Path(spec["destinationHome"]) / "config.toml") == CONFIG.encode(), "Destination restricted configuration changed")
         with TransferProxy(source["endpoint"]) as proxy:
             for _ in range(2):
-                snapshot, _ = source_snapshot(proxy, scope)
+                snapshot, _ = prepared_source(proxy, scope, spec.get("sourceExport"), spec["sourceBindingPath"], source, spec["context"])
                 require(snapshot == spec["snapshot"], "Original native snapshot changed")
         raw = read_archive(spec["archivePath"])
         require(archive_pin(spec["archivePath"]) == spec["archivePin"] and

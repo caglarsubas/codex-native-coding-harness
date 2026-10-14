@@ -490,3 +490,30 @@ source and historical terminal safety stays unknown. Partial/interrupted claims
 remain consumed and file-only status never reconnects, refreshes or retries.
 See [the transfer contract](PUBLIC-IDENTITY-TRANSFER.md) and
 [native source delivery](../native-runtime/README.md).
+
+## Safe shared-home single-brain export — 2026-10-14
+
+The separately named `shared_codex_exact_brain_export_v1` collector reads only
+one exact native-returned brain rollout from the current OS user's shared
+Codex home. It never enumerates/copies the home, reads credentials/plugins/native
+stores/sibling histories, changes original permissions or emits a native write.
+Repeated metadata, complete history/byte/file/directory pins and original paused
+run/Play context precede a disjoint private archive. Partial retention remains
+unknown and is never overwritten. Status is historical and file-only.
+
+Only an explicit new export-pinned version-2 transfer specification may use that
+archive, with fresh original source rereads at every unchanged native claim
+boundary. The v1 private-source gate, native build/owner review, original-run/Play
+permanent fence and separate restoration/load/membership claims remain intact.
+Export cannot grant a launch/binding, historical cleanup, policy proof, receipt,
+checkpoint, Resume, clock extension, usage reset or pilot acceptance.
+
+The source passed 2,583 Python tests (one optional skip), 31 new focused tests,
+36 JavaScript suites, syntax/AST/diff checks and disposable desktop/mobile checks.
+Actual compiled legacy/paginated shared fixtures used only loopback source receipts,
+with zero transfer turns/model requests and no live/cloud writes. Explicit owner
+qualification also retained the original pilot's exact single-brain archive,
+preserving both complete private databases and all original usage/expiry/receipts.
+The expired run, unverified original policy and terminal unknowns remain fenced.
+No runtime launch, native transfer, dashboard installation or live control follows
+this source delivery. See [SHARED-BRAIN-EXPORT.md](SHARED-BRAIN-EXPORT.md).

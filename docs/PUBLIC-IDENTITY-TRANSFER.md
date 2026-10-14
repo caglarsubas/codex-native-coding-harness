@@ -52,9 +52,13 @@ signature/peer checks.
 An explicit preparation repeats source project/thread reads and checks the
 original receipted Play's latest exact ended turn. It copies only that brain's
 bounded, complete, self-contained JSONL, retaining byte hash and file epoch.
-The source home must be private. Native 0644 JSONL beneath that private ancestor
+The default source home must be private. Native 0644 JSONL beneath that private ancestor
 is readable without chmodding the original; writable aliases, hard links,
 symlinks, partial records and shared homes refuse. Exported archives are private.
+Only the explicit [shared-home single-brain export](SHARED-BRAIN-EXPORT.md) can
+opt into shared source through a new export-pinned version-2 private transfer
+specification. It keeps this default v1 gate unchanged, never copies the home or
+changes original permissions, and repeats original source bytes at every claim.
 Legacy root histories and complete zero-based contiguous paginated root histories
 are supported without conversion. Fork/base-linked, segmented/compressed,
 goal-bearing, dynamic-tool/plugin/capability-bearing, foreign-root and incomplete
