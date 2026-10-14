@@ -80,6 +80,9 @@ def main():
     p.add_argument("run_id"); p.add_argument("command_id")
     p = sub.add_parser("standard-public-task", help="Brain-only one-shot public task request via the owned observer; no desktop fallback")
     p.add_argument("run_id"); p.add_argument("command_id"); p.add_argument("task_id")
+    p = sub.add_parser("standard-public-task-wait", help="Brain-only bounded wait for an existing private task request; never send, recollect or renew")
+    p.add_argument("run_id"); p.add_argument("command_id"); p.add_argument("task_id")
+    p.add_argument("--seconds",type=int,default=30)
     p = sub.add_parser("standard-public-migration-check", help="Read-only original/candidate migration assessment; never bind, load or Resume")
     p.add_argument("run_id"); p.add_argument("binding", type=Path); p.add_argument("original_binding", type=Path)
     p = sub.add_parser("standard-usage-refresh", help="Collect local counters for the exact registered standard run")
@@ -481,6 +484,10 @@ def main():
         from .standard import private_token
         from .public_native_tasks import request
         out = request(registry, ledger, token or private_token(ledger), args.run_id, args.command_id, args.task_id)
+    elif action == "standard-public-task-wait":
+        from .standard import private_token
+        from .public_native_tasks import wait
+        out = wait(registry, ledger, token or private_token(ledger), args.run_id, args.command_id, args.task_id, args.seconds)
     elif action == "standard-public-migration-check":
         from .public_task_migration import assess
         out = assess(registry, ledger, args.run_id, args.binding, args.original_binding)

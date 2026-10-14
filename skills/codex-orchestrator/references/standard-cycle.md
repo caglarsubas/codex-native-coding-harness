@@ -232,6 +232,13 @@ never request a second native send or infer a missing task did not exist.
    `repositoryMode: isolated_worktrees` may use the separate producer/integration
    flow below. An existing or paused run remains repository-exclusive. Do not
    infer permission from a higher parallel limit.
+   This desktop branch and its native creation/wait/bind tools are not used by
+   the public backend. After its explicit request, use `standard-public-task-wait
+   RUN_ID COMMAND_ID TASK_ID --seconds 30` for bounded private progress; it
+   cannot prepare/send a missing request or read the socket. Read the latest
+   inbox between waits; Pause interrupts waiting. No independent scheduler or
+   desktop-tool fallback follows. Its owned observer retains current worker
+   observations; source/test/artifact verification still precedes result finish.
 6. `bind` the exact returned native task/client ID and host. Keep supervising
    with native `wait_threads`, using cursors and bounded waits. Read the ledger
    between waits. On Pause, tell active tasks to finish their current bounded

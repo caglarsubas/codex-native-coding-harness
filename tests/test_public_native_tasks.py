@@ -101,6 +101,27 @@ class AdapterTest(unittest.TestCase):
         self.assertFalse(self.calls);self.assertFalse(self.task()["effectIssued"])
         self.assertEqual(self.request(),result)
 
+    def test_wait_cannot_prepare_a_request_or_connect_a_socket(self):
+        with self.assertRaises(Refusal):tasks.wait(self.registry,self.ledger,self.token,self.run_id,self.command_id,"task-1",1)
+        self.assertFalse(tasks._paths(self.ledger,self.command_id,"task-1")["request"].exists())
+        self.assertFalse(self.calls)
+
+    def test_wait_follows_original_reply_without_renewing_or_reissuing(self):
+        self.request();paths=tasks._paths(self.ledger,self.command_id,"task-1")
+        saved=inspection._read_private(paths["request"])
+        with patch.object(tasks.time,"sleep",side_effect=lambda _:self.service()):
+            result=tasks.wait(self.registry,self.ledger,self.token,self.run_id,self.command_id,"task-1",1)
+        self.assertEqual(result["stage"],"ended")
+        calls=copy.deepcopy(self.calls)
+        self.assertEqual(tasks.wait(self.registry,self.ledger,self.token,self.run_id,self.command_id,"task-1",1),result)
+        self.assertEqual(self.calls,calls);self.assertEqual(inspection._read_private(paths["request"]),saved)
+
+    def test_pause_interrupts_progress_wait_without_native_effect(self):
+        self.request();self.pause()
+        with patch.object(tasks.time,"sleep",side_effect=AssertionError("No wait after Pause")):
+            result=tasks.wait(self.registry,self.ledger,self.token,self.run_id,self.command_id,"task-1",30)
+        self.assertEqual(result["stage"],"requested");self.assertFalse(self.calls)
+
     def test_exact_seed_two_claims_late_observation_no_success_or_usage_inference(self):
         before=standard.read(self.ledger)["run"]
         self.request();self.service()

@@ -60,6 +60,12 @@ same request/reply; they neither renew it nor send again. There is no polling
 dispatcher, host discovery or browser-authored RPC. A 30-second collector-start
 window is not a host lease, owner approval TTL or phase-duration extension.
 
+`standard-public-task-wait RUN_ID COMMAND_ID TASK_ID --seconds 30` provides a
+bounded private progress wait for an already existing request. It never creates
+a missing request, connects a socket, recollects evidence or renews a timestamp.
+Pause ends waiting immediately. Public brains use this and the retained ledger
+observations, not unavailable desktop `list_projects`/`wait_threads` tools.
+
 Only the existing subscribed owned brain observer services that explicit
 request. It permanently claims the query first, verifies retained source and
 both project identities, repeats current brain/policy reads, and rechecks

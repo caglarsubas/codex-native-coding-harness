@@ -231,7 +231,7 @@ class PublicTaskProxy:
         return "uncertain"
 
 
-def request(registry, ledger, token, run_id, command_id, task_id):
+def request(registry, ledger, token, run_id, command_id, task_id, *, read_existing_only=False):
     """Brain request. Never reads a protected binding/socket or starts a runtime."""
     paths = _paths(ledger, command_id, task_id)
     if paths["request"].exists():
@@ -245,6 +245,7 @@ def request(registry, ledger, token, run_id, command_id, task_id):
             task = standard.find_task(run, {"taskId": task_id})
             require(run.get("id") == run_id and task["seedHash"] == saved["seedHash"], "Public task ownership changed")
     else:
+        require(not read_existing_only, "Wait requires an existing explicit task request; it cannot prepare or send one")
         context = _context(registry, ledger, token, run_id, command_id, task_id)
         with standard.read_db(ledger.db) as db:
             note = ledger.get(db, "commands", command_id).get("notification") or {}
@@ -273,6 +274,22 @@ def request(registry, ledger, token, run_id, command_id, task_id):
                 "observedAt": proof["observedAt"], "terminalCoverage": proof["terminalCoverage"]}
     return {"taskId": task_id, "stage": "requested", "retryAllowed": False,
             "requestedAt": saved["requestedAt"], "detail": "Follow the registered task; do not submit another creation."}
+
+
+def wait(registry, ledger, token, run_id, command_id, task_id, seconds=30):
+    """Bounded private progress wait. No native read, collection, send or renewal."""
+    require(type(seconds) is int and 1 <= seconds <= 30, "Public progress wait must be 1–30 seconds")
+    deadline = time.monotonic()+seconds
+    while True:
+        result = request(registry, ledger, token, run_id, command_id, task_id, read_existing_only=True)
+        with standard.read_db(ledger.db) as db:
+            meta = authorize_brain(ledger, db, token)
+            run = meta.get("standardRun") or {}
+            require(run.get("id") == run_id, "Wait run changed")
+        if (result["stage"] in {"ended", "refused", "pre_turn_blocked", "uncertain", "native_attention_required"} or
+                run.get("status") != "running" or time.monotonic() >= deadline):
+            return result
+        time.sleep(0.1)
 
 
 def _claim(registry, ledger, token, request, binding, context):
