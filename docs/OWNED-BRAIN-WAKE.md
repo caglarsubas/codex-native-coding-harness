@@ -11,6 +11,12 @@ Binding configuration is not host health. Separate handshake checks, in-place
 review renewal and an opt-in operator supervisor are documented in
 [host lifetime and review recovery](HOST-LIFETIME-AND-REVIEW-RECOVERY.md).
 
+A separately repaired runtime can opt into the fixed
+[loaded-policy evidence adapter](NATIVE-POLICY-EVIDENCE-ADAPTER.md) in a new
+exact host review. Its diagnostic does not load/wake a brain or backfill old
+controls. Supported future deliveries verify actual Code Mode-off enforcement
+before turn start, preserving the original resume acknowledgement separately.
+
 Current standard-run notifications also carry a private, hash-bound
 [host-evidence handoff](STANDARD-HOST-EVIDENCE.md) for the designated brain.
 Its explicit inspector is read-only; requested settings, successful resume

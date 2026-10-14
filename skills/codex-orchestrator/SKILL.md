@@ -40,6 +40,12 @@ For a pending standard brain replacement, follow the separate handoff guidance
 in that reference; a replacement's final reply is not native project membership
 or owner rebinding, and rebinding does not activate a selected project.
 
+For the optional newly reviewed `loaded_thread_policy_v1` host, read source
+`docs/NATIVE-POLICY-EVIDENCE-ADAPTER.md`. Its exact future owned-turn report may
+prove Code Mode-off enforcement, not terminal cleanup or continuation authority.
+Old v1 profiles remain unknown; dashboard policy checks never load, wake,
+backfill a receipt, replay a control or qualify a paused pilot.
+
 For an owner-confirmed `standard_pause_recovery`, read source
 `docs/FAILED-PAUSE-RECOVERY.md` completely. This empty-run checkpoint exception
 receives only the exact proved pre-turn failed Pause using

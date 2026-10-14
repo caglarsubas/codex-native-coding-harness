@@ -1,5 +1,19 @@
 # Codex Orchestrator — personal tooling
 
+## Native loaded-policy adapter source (2026-10-14)
+
+Read docs/NATIVE-POLICY-EVIDENCE-ADAPTER.md before using the optional
+`loaded_thread_policy_v1` binding contract. Explicit dashboard policy checks
+repeat only exact project/thread/effective-policy reads; no load, wake, native
+write, ledger proof update or continuation grant occurs. Unloaded/unsupported,
+changing or contrary reports remain unknown. Old v1 profiles and current Play
+bytes are never backfilled. Only future one-shot deliveries on a newly reviewed
+repaired host retain separate command/turn/build-bound native enforcement proof
+before turn start. Sandbox-safe brain inspection keeps the historical-effect gap.
+Do not invent a future socket epoch or treat an ad-hoc-signed source build as
+native-tool/ancestry qualification. Source delivery installs/binds/launches
+nothing, confirms no live control, resets no usage/expiry and accepts no pilot.
+
 ## Owned Code Mode verification gate (2026-10-13)
 
 Read docs/NATIVE-POLICY-VERIFICATION.md before owned standard continuation.

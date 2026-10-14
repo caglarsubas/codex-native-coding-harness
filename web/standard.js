@@ -178,7 +178,8 @@ function standardPanel(root,mode='all'){
     if(['all','operations'].includes(mode)&&s.blockers?.length)panel.append(callout('Checkpoint required',s.blockers.join(' ')));
     if(['all','operations'].includes(mode)&&s.nativePolicyVerification){
       const policy=s.nativePolicyVerification;
-      panel.append(callout('Code Mode is not verified off',
+      panel.append(callout(policy.policyVerified?'Native loaded policy was reported matching':'Code Mode is not verified off',
+        policy.policyVerified?'The owned turn retained a supported native enforcement report. This is loaded-thread defaults, not active-step grants, terminal cleanup or permission to resume.':
         (policy.resumeAcknowledged?'The saved resume acknowledged the requested configuration. ':'The exact saved acknowledgement is missing or unverified. ')+
         'The native protocol did not report the effective Code Mode tool surface. Another message, Play or recovery cannot provide that missing proof.'));
       panel.append(table(['Saved policy evidence','Recorded fact'],[
@@ -188,9 +189,20 @@ function standardPanel(root,mode='all'){
         ['Sandbox',policy.sandbox==='reported_matching'?'Reported workspace-write':'Unverified'],
         ['Approval policy',policy.approvalPolicy==='reported_matching'?'Reported on-request':'Unverified'],
         ['Approval reviewer',policy.approvalsReviewer==='reported_matching'?'Reported user':'Unverified'],
-        ['Effective Code Mode', 'Unknown; required off'],
+        ['Effective Code Mode', policy.policyVerified?'Native explicit-off enforcement reported':'Unknown; required off'],
         ['Next step','Repair and qualify runtime policy, then refresh usage before separately reviewed Resume']
       ]),el('p',policy.boundary,'muted'));
+      const check=state.nativePolicyCheck;
+      panel.append(el('p',check?.detail||'A policy check reads the exact reviewed host. It does not load the brain, change the saved Play, clear historical gaps or resume work.','muted'));
+      if(check?.checkedAt)panel.append(el('p',`Policy check: ${check.status} · ${when(check.checkedAt)}. Saved Play evidence and current diagnostics are separate.`,'subline'));
+      const inspect=button('Check native policy evidence',async()=>{
+        inspect.disabled=true;
+        try{
+          const result=await api('/api/native-policy/check',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:'{}'});
+          showNotice(result.detail,result.status!=='matching');await refresh();
+        }catch(error){if(!error.workspaceChanged)showNotice(error.message,true);}
+        finally{inspect.disabled=!connected;}
+      });panel.append(inspect);
     }
     if(['all','tasks'].includes(mode)){
     if(s.nativeObservation){
