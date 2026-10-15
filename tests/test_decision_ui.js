@@ -11,6 +11,12 @@ const ownerRecord=context.commandPresentation({kind:'standard_ended_recovery_rec
 assert.equal(ownerRecord.label,'Owner inspection recorded · still blocked');assert.equal(ownerRecord.detail,'Still blocked');
 assert.ok(!ownerRecord.label.includes('brain'),'An owner record must not impersonate a brain receipt');
 const present=(notification,activity,now=100)=>context.commandPresentation({...command,notification},activity,now);
+for(const meta of [{schemaVersion:6},{standardQuarantine:'saved'}]){
+  const preserved=context.brainControlPresentation(meta);
+  assert.equal(preserved.phase,'quarantined');assert.match(preserved.label,/read-only/);
+  assert.match(preserved.detail,/terminal safety remain unknown/);
+}
+assert.equal(context.brainControlPresentation({},null,{status:'quarantine_incomplete_or_changed'}).phase,'quarantined');
 assert.equal(present().label,'Answer saved');
 assert.equal(present({status:'sending',attemptedAt:99}).label,'Notifying brain');
 assert.equal(present({status:'sending',attemptedAt:1}).label,'Delivery unconfirmed');

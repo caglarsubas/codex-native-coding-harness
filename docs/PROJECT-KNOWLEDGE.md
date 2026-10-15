@@ -1,5 +1,12 @@
 # Durable project knowledge and bounded brain context
 
+[QUARANTINE-DISPOSITION.md](QUARANTINE-DISPOSITION.md) defines a separate
+unqualified owner disposition that preserves an expired attempt and usage while
+retaining its repository hold and fencing writes. It is not historical cleanup,
+safe terminal settlement or successor authority. Future original-bound native
+item lifecycle capture is described in [PROSPECTIVE-LIFECYCLE.md](PROSPECTIVE-LIFECYCLE.md);
+item start/completion agreement does not supply OS process/descendant cleanup.
+
 Operator runtime ownership: `public_host_restart.py` and
 [PUBLIC-HOST-RESTART.md](PUBLIC-HOST-RESTART.md) define exact existing-home
 restart after a completed public transfer. Native-home byte preservation,

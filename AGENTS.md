@@ -1,5 +1,23 @@
 # Codex Orchestrator — personal tooling
 
+## Quarantine disposition and prospective lifecycle source (2026-10-15)
+
+Read docs/QUARANTINE-DISPOSITION.md before the operator-only
+`standard_quarantine_v1` review. Only an expired empty unowned paused schema-v4
+standard attempt with known original Play delivery/ended observer is covered.
+Preserve the old run, commands, usage/gaps/expiry and both native identities.
+Exclusive file claim plus schema-v6 disposition fences normal writes and keeps
+repository holds across workspaces. Missing/corrupt/partial claims never unfreeze,
+retry, release ownership or infer terminal safety. Quiesce older writers and back
+up private state before separate application. Quarantine is unqualified, not
+cleanup, safe closeout, policy backfill or a successor/Resume/Play permission.
+Read docs/PROSPECTIVE-LIFECYCLE.md for future original-bound **native item**
+lifecycle capture. No old request may acquire its marker; no extra connection,
+load, subscription or native action is added. Pairing recorded starts/completions
+does not establish complete inventory, process birth or descendant cleanup.
+OS process lifecycle remains unavailable and terminal safety unknown. Source
+delivery installs/applies nothing, reloads no live brain and accepts no pilot.
+
 ## Foreground subscription ownership source (2026-10-15)
 
 Read docs/PUBLIC-PILOT-INSPECTION.md before the separate future

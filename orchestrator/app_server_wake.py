@@ -845,6 +845,9 @@ class AppServerWake:
                 marker = effect_capture.begin(self.ledger, self.binding, command,
                                              self.ledger.get(db, "meta", 1))
                 notification[effect_capture.FIELD] = marker
+                from . import prospective_lifecycle
+                notification[prospective_lifecycle.FIELD] = prospective_lifecycle.bind(
+                    command, self.ledger.get(db, "meta", 1))
             command["notification"] = notification
             self.ledger.put(db, "commands", command_id, command)
             return marker

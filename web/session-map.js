@@ -515,7 +515,8 @@ function sessionBoard(root,model,prefs){
       row.append(edge,sessionNode(node,prefs));canvas.append(row);
     });canvas.prepend(svg);
   }else{
-    const blank=el('div',null,'session-map-empty');blank.append(el('h3',model.tasks.length?'No matching tasks':'Your brain is the starting point'),el('p',model.tasks.length?'Try another filter or search. The brain stays visible.':'Registered tasks will branch out here as the brain records them. Select the brain to read messages or review the next phase.'));if(model.tasks.length)blank.append(button('Reset filters',()=>sessionResetFilters(prefs)));canvas.append(blank);
+    const quarantined=!!state.standard?.quarantine;
+    const blank=el('div',null,'session-map-empty');blank.append(el('h3',model.tasks.length?'No matching tasks':quarantined?'Preserved attempt':'Your brain is the starting point'),el('p',model.tasks.length?'Try another filter or search. The brain stays visible.':quarantined?'No registered tasks. Select the brain to inspect saved history; this attempt cannot start new work.':'Registered tasks will branch out here as the brain records them. Select the brain to read messages or review the next phase.'));if(model.tasks.length)blank.append(button('Reset filters',()=>sessionResetFilters(prefs)));canvas.append(blank);
   }
   if(prefs.layout==='graph')sessionViewport(root,wrap,canvas,prefs,Math.max(360,visible.length*144+44));else{wrap.append(canvas);root.append(wrap);}
   const foot=el('div',null,'session-map-foot'),legend=el('div',null,'session-legend');

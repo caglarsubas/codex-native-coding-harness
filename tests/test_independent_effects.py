@@ -233,6 +233,8 @@ class IndependentEffectsTest(unittest.TestCase):
             command = next(row for row in self.ledger.all(db, 'commands') if row['kind'] == 'standard_play')
             command['notification'].update(status='sending', hostInspectionTransport='owned_observer_v1')
             command['notification'].pop('nativeThreadObservation')
+            command['notification'].pop('nativeTurnId')  # Future original send, not a historical re-arm.
+            command['notification'].pop('nativeTurnStatus', None)
             self.ledger.put(db, 'commands', command['id'], command)
         brain = command['notification']['brainId']
         wake = AppServerWake(self.wake.binding, self.ledger)
@@ -244,7 +246,7 @@ class IndependentEffectsTest(unittest.TestCase):
         wake._finish_thread_observation(command['id'], brain, 'play-turn', 'completed')
         with self.ledger.tx() as db:
             current = self.ledger.get(db, 'commands', command['id'])
-            current['notification'].update(status='accepted')
+            current['notification'].update(status='accepted', nativeTurnId='play-turn', nativeTurnStatus='completed')
             self.ledger.put(db, 'commands', current['id'], current)
         with contextlib.closing(self.ledger.connect()) as db: before = list(db.iterdump())
         result = self.collect()

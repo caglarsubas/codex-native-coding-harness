@@ -132,6 +132,13 @@ async function reviewStandardControl(s,operation,run){
 function standardPanel(root,mode='all'){
   const s=state.standard;if(!s)return;
   const panel=el('section',null,'mission-status'),run=s.run;
+  if(s.quarantine){
+    panel.append(el('p','PRESERVED ATTEMPT','eyebrow'),el('h2','Quarantined · unqualified'),
+      el('p','This attempt has not been declared safe, successful or complete. Its original run, usage, expiry and evidence gaps are preserved. Repository ownership remains held. No Resume, Play or recovery is available.','checkpoint'),
+      el('p',`Original recorded brain usage: ${run?.brainObservedTokens===undefined?'Unknown':num(run.brainObservedTokens)} tokens. Current and historical terminal safety: unknown.`,'muted'));
+    const details=el('details');details.append(el('summary','Details · preserved quarantine disposition'),el('pre',JSON.stringify(s.quarantine,null,2)));
+    panel.append(details);root.append(panel);return;
+  }
   const latestControl=[...(state.commands||[])].reverse().find(c=>run&&c.payload?.runId===run.id&&['standard_play','standard_pause','standard_resume'].includes(c.kind));
   const unresolved=['connection_lost','unconfirmed'].includes(latestControl?.notification?.nativeTurnStatus);
   panel.append(el('p','STANDARD PROJECT','eyebrow'),el('h2',run?`Phase ${run.phaseId} · ${unresolved?'recorded '+run.status+' · connection unresolved':run.status}`:'No phase has started'));

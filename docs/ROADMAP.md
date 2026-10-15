@@ -7,6 +7,10 @@ acceptance authority. Items change through reviewed repository edits.
 
 ## Reliable brain wake — source and rollout
 
+- [x] Implement separate owner-reviewed quarantine disposition preserving expired empty standard run/commands/usage, unknown safety and repository holds, with permanent write fencing (source and disposable fixtures; [contract](QUARANTINE-DISPOSITION.md)); no installation, safe closeout or successor authority
+- [x] Bind future native-item lifecycle capture before the original turn boundary, preserving incomplete start/completion coverage and explicit unavailable OS lifecycle (source/fixtures; [contract](PROSPECTIVE-LIFECYCLE.md)); no retroactive capture or historical cleanup qualification
+- [ ] Qualify a supported original process-birth/descendant-lifecycle source and a separately reviewed non-conflicting successor path; quarantine and item lifecycle pairing do not qualify these gates
+
 - [x] Implement separately reviewed one-shot current pilot inspection after exact public transfer/restart, preserving original effect claims, policy gap, usage/expiry and historical safety unknowns ([contract](PUBLIC-PILOT-INSPECTION.md)); source and disposable qualification are separate from live installation/application
 - [x] Add explicit bounded foreground subscription ownership for future v2 inspections, retaining the original load connection past native idle-unload grace without reconnect, keepalive turns, claim reuse or live changes ([contract](PUBLIC-PILOT-INSPECTION.md)); this is source/fixture work, not phase continuation or pilot acceptance
 - [ ] Qualify historical effects and a separately reviewed expired-phase transition; current loaded policy/empty trackers alone cannot authorize continuation or pilot acceptance
