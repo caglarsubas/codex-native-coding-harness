@@ -74,8 +74,8 @@ class InspectionTest(unittest.TestCase):
         with standard.read_db(self.ledger.db) as db: self.before = fingerprint(db)
         self.before_native_transfer = copy.deepcopy(self.f.f.calls)
 
-    def prepare(self):
-        result = inspection.prepare(self.registry, self.ledger, self.restart_path, self.binding_path, self.directory)
+    def prepare(self, **kwargs):
+        result = inspection.prepare(self.registry, self.ledger, self.restart_path, self.binding_path, self.directory, **kwargs)
         self.spec = inspection.load_spec(self.path); self.hash = result['reviewHash']
         return result
 
@@ -318,6 +318,156 @@ class InspectionTest(unittest.TestCase):
         with self.assertRaises(Refusal): proxy._rpc('thread/resume', wrong)
         proxy._rpc('thread/resume', inspection.load_params(self.spec['provenance']))
         with self.assertRaises(Refusal): proxy._rpc('thread/resume', inspection.load_params(self.spec['provenance']))
+
+    def owned_clock(self, callback=None):
+        from contextlib import ExitStack
+        stack = ExitStack(); elapsed = [0.0]
+        def sleep(seconds):
+            elapsed[0] += seconds
+            if callback: callback()
+        stack.enter_context(patch('orchestrator.native_subscription.time.monotonic', lambda: elapsed[0]))
+        stack.enter_context(patch('orchestrator.native_subscription.time.sleep', sleep))
+        return stack
+
+    def test_future_owned_window_keeps_same_connection_records_progress_then_closes(self):
+        preview = self.prepare(subscription_seconds=75)
+        self.assertEqual(self.spec['kind'], inspection.SUBSCRIPTION_KIND)
+        self.assertEqual(preview['subscription']['maximumSeconds'], 75)
+        with self.owned_clock(): result = self.apply()
+        self.assertEqual(result['subscription']['currentEvidence'], 'unknown_after_release')
+        self.assertEqual(sum(m == 'thread/resume' for m, _ in self.calls), 1)
+        opened = inspection.record(self.directory/'attempt/subscription-open.json')
+        closed = inspection.record(self.directory/'attempt/subscription-close.json')
+        self.assertEqual(opened['connectionId'], closed['connectionId'])
+        self.assertEqual(closed['status'], 'window_completed')
+        observations = [inspection.record(p) for p in (self.directory/'attempt').glob('observation-*.json')]
+        self.assertGreater(len(observations), 2)
+        self.assertTrue(all(row['subscriptionOwner'] == opened for row in observations))
+        self.assertFalse(result['boundary']['resumeAuthorized']); self.assert_conserved()
+
+    def test_v2_bounds_and_loaded_adoption_refuse_without_claim(self):
+        for seconds in (True, 0, 14, 301, 15.5, '75'):
+            with self.subTest(seconds=seconds), self.assertRaises(Refusal): self.prepare(subscription_seconds=seconds)
+        self.loaded = True
+        with self.assertRaises(Refusal): self.prepare(subscription_seconds=75)
+        self.assertFalse(self.directory.exists()); self.assert_conserved()
+
+    def test_owned_interruption_closes_without_retry_or_claim_migration(self):
+        self.prepare(subscription_seconds=75)
+        def interrupted(): raise KeyboardInterrupt()
+        with self.owned_clock(interrupted), self.assertRaises(KeyboardInterrupt): self.apply()
+        self.assertEqual(inspection.record(self.directory/'attempt/subscription-close.json')['status'], 'interrupted_or_failed')
+        with self.assertRaises(Refusal): self.apply()
+        calls = len(self.calls)
+        inspection.reconcile(self.registry, self.ledger, self.path)
+        self.assertFalse(any(m == 'thread/resume' for m, _ in self.calls[calls:])); self.assert_conserved()
+
+    def test_owned_lost_load_response_consumes_and_does_not_invent_ack_or_reconnect(self):
+        self.prepare(subscription_seconds=75); self.fail_load = True
+        with self.owned_clock(), self.assertRaises(Refusal): self.apply()
+        self.fail_load = False
+        self.assertFalse((self.directory/'attempt/load-ack.json').exists())
+        result = inspection.reconcile(self.registry, self.ledger, self.path)
+        self.assertEqual(result['loadDelivery'], 'unknown')
+        self.assertEqual(inspection.status(self.path)['subscription']['status'], 'interrupted_or_failed')
+        self.assertEqual(sum(m == 'thread/resume' for m, _ in self.calls), 1); self.assert_conserved()
+
+    def test_owned_policy_drift_or_unloading_closes_and_remains_consumed(self):
+        self.prepare(subscription_seconds=75)
+        with self.owned_clock(lambda: setattr(self, 'loaded', False)), self.assertRaises(Refusal): self.apply()
+        count = len(self.calls)
+        with self.assertRaises(Refusal): inspection.reconcile(self.registry, self.ledger, self.path)
+        self.assertFalse(any(m in {'thread/resume', 'thread/backgroundTerminals/list'} for m, _ in self.calls[count:]))
+        self.assertEqual(sum(m == 'thread/resume' for m, _ in self.calls), 1); self.assert_conserved()
+
+    def test_owned_new_controller_detected_before_another_native_read(self):
+        self.prepare(subscription_seconds=75); at_drift = []
+        def drift():
+            with self.ledger.tx() as db:
+                meta = self.ledger.get(db, 'meta', 1); meta['controller'] = {'owner': 'new-owner'}
+                self.ledger.put(db, 'meta', 1, meta)
+            at_drift.append(len(self.calls))
+        with self.owned_clock(drift), self.assertRaises(Refusal): self.apply()
+        self.assertEqual(len(self.calls), at_drift[0])
+        self.assertEqual(inspection.record(self.directory/'attempt/subscription-close.json')['status'], 'interrupted_or_failed')
+
+    def test_consumed_v1_cannot_become_v2_even_in_new_directory(self):
+        self.prepare(); self.apply(); self.directory = self.root/'new-v2-review'
+        with self.assertRaises(Refusal): self.prepare(subscription_seconds=75)
+        self.assertEqual(sum(m == 'thread/resume' for m, _ in self.calls), 1); self.assert_conserved()
+
+    def test_consumed_v2_cannot_become_v1_or_another_v2(self):
+        self.prepare(subscription_seconds=15)
+        with self.owned_clock(): self.apply()
+        self.directory = self.root/'new-review'
+        for kwargs in ({}, {'subscription_seconds': 75}):
+            with self.assertRaises(Refusal): self.prepare(**kwargs)
+        self.assert_conserved()
+
+    def test_v2_duration_edit_requires_new_exact_review(self):
+        self.prepare(subscription_seconds=75)
+        edited = copy.deepcopy(self.spec); edited['subscription']['maximumSeconds'] = 80
+        write_record(self.path, edited)
+        with self.assertRaises(Refusal): self.apply()
+        self.assertFalse((self.directory/'attempt').exists()); self.assert_conserved()
+
+    def test_owned_status_is_historical_not_a_liveness_probe_or_resume_permit(self):
+        self.prepare(subscription_seconds=15)
+        with self.owned_clock(): self.apply()
+        calls = copy.deepcopy(self.calls)
+        with patch.object(inspection, 'provenance', side_effect=AssertionError('No live checks')):
+            state = inspection.status(self.path)
+            self.assertEqual(state['subscription']['status'], 'window_completed')
+            self.assertEqual(state['subscription']['currentEvidence'], 'unknown')
+            (self.directory/'attempt/subscription-close.json').unlink()
+            self.assertEqual(inspection.status(self.path)['subscription']['status'], 'unknown_not_reconnectable')
+        self.assertEqual(self.calls, calls); self.assert_conserved()
+
+    def test_owned_connection_failure_records_no_private_error_body_and_never_reconnects(self):
+        from orchestrator.native_read_client import NativeReadFailure
+        self.prepare(subscription_seconds=75)
+        def disconnect():
+            self.callback = lambda *_: (_ for _ in ()).throw(NativeReadFailure('proxy_closed', 'PRIVATE_ERROR'))
+        with self.owned_clock(disconnect), self.assertRaises(NativeReadFailure): self.apply()
+        end = inspection.record(self.directory/'attempt/subscription-close.json')
+        self.assertNotIn('PRIVATE_ERROR', json.dumps(end))
+        self.assertEqual(end['status'], 'interrupted_or_failed')
+        self.callback = None
+        with self.assertRaises(Refusal): self.apply()
+        self.assertEqual(sum(m == 'thread/resume' for m, _ in self.calls), 1); self.assert_conserved()
+
+    def test_owned_ack_persistence_failure_never_backfills_or_reloads(self):
+        self.prepare(subscription_seconds=75); original = inspection.write_record
+        def failure(path, value):
+            if path.name == 'load-ack.json': raise OSError('fixture disk failure')
+            return original(path, value)
+        with patch.object(inspection, 'write_record', side_effect=failure), self.owned_clock(), self.assertRaises(OSError): self.apply()
+        self.assertEqual(inspection.reconcile(self.registry, self.ledger, self.path)['loadDelivery'], 'unknown')
+        self.assertEqual(sum(m == 'thread/resume' for m, _ in self.calls), 1); self.assert_conserved()
+
+    def test_owned_registration_failure_leaves_canonical_claim_consumed_without_load(self):
+        self.prepare(subscription_seconds=75); original = inspection.exclusive
+        def failure(path, value):
+            if path.name == 'subscription-open.json': raise OSError('fixture disk failure')
+            return original(path, value)
+        with patch.object(inspection, 'exclusive', side_effect=failure), self.owned_clock(), self.assertRaises(OSError): self.apply()
+        with self.assertRaises(Refusal): self.apply()
+        self.assertTrue(Path(self.spec['fencePath']).exists())
+        self.assertFalse(any(m == 'thread/resume' for m, _ in self.calls)); self.assert_conserved()
+
+    def test_owned_status_rejects_changed_owner_or_close_record(self):
+        self.prepare(subscription_seconds=15)
+        with self.owned_clock(): self.apply()
+        path = self.directory/'attempt/subscription-close.json'; end = inspection.record(path)
+        for field, value in (('status', 'active'), ('connectionId', 'other'), ('reconnectAllowed', True),
+                             ('terminalSafety', 'safe'), ('connectionClosed', False)):
+            write_record(path, dict(end, **{field: value}))
+            with self.subTest(field=field), self.assertRaises(Refusal): inspection.status(self.path)
+        write_record(path, end)
+        opened = self.directory/'attempt/subscription-open.json'; saved = inspection.record(opened)
+        write_record(opened, dict(saved, maximumSeconds=300))
+        with self.assertRaises(Refusal): inspection.status(self.path)
+        self.assert_conserved()
 
 
 if __name__ == '__main__': unittest.main()

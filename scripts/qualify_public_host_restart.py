@@ -26,7 +26,12 @@ from orchestrator.native_auth_readiness import inspect as authentication
 from qualify_public_native_tasks import StdioFixture
 
 
-def qualify(binary, expected_hash, *, inspection=False):
+def qualify(binary, expected_hash, *, inspection=False, subscription_seconds=None):
+    if subscription_seconds is not None:
+        from orchestrator.native_subscription import duration
+        duration(subscription_seconds)
+        require(inspection and subscription_seconds >= 75,
+                'Subscription fixture requires inspection and at least 75 seconds past the pinned 60-second grace')
     path, _ = secure_path(binary)
     require(hashlib.sha256(path.read_bytes()).hexdigest() == expected_hash, 'Exact reviewed native fixture binary required')
     requests, processes = [], []
@@ -130,11 +135,25 @@ def qualify(binary, expected_hash, *, inspection=False):
                     unloaded = repeated(proxy,scope)
                     require(unloaded['activity'] == 'notLoaded' and unloaded['policy'] is None and
                             unloaded['trackedTerminals'] is None, 'Unloaded state must stay unknown before inspection')
+                    owner = None
+                    if subscription_seconds is not None:
+                        from orchestrator.native_subscription import SubscriptionOwner
+                        owner = SubscriptionOwner(proxy, subscription_seconds, digest(scope))
+                        proxy.subscription_owner = owner; proxy.query_limit = 2048
                     proxy.load_permitted = True
                     reply = proxy._rpc('thread/resume',load_params(scope))
                     require(reply['thread']['id'] == brain and reply['thread']['cwd'] == str(cwd) and
                             reply['thread'].get('turns',[]) == [], 'Exact metadata-only load acknowledgment required')
                     loaded = repeated(proxy,scope)
+                    if owner is not None:
+                        checks = []
+                        def check():
+                            require(repeated(proxy,scope) == loaded and warm.poll() is None,
+                                    'Held original subscription lost loaded identity/policy/terminals')
+                            checks.append(time.monotonic()-owner.started)
+                        owner.hold(check)
+                        require(checks and checks[-1] > 60 and time.monotonic()-owner.started >= subscription_seconds,
+                                'Subscription must remain loaded beyond the actual pinned default grace')
                 require(loaded['activity'] == 'idle' and loaded['trackedTerminals'] == [] and
                         len(requests) == 1 and history.read_bytes().startswith(before),
                         'Inspection must not start a turn, request a model or change original history')
@@ -142,6 +161,30 @@ def qualify(binary, expected_hash, *, inspection=False):
                 # receives another load permit. This is current evidence only.
                 with InspectionProxy(scope) as proxy:
                     require(repeated(proxy,scope) == loaded, 'Read-only reconciliation changed native evidence')
+                if subscription_seconds is not None:
+                    # Read-only connections do not inherit ownership. Wait for
+                    # native unload, proving that neither reads nor release
+                    # secretly reloaded or retained an indefinite subscription.
+                    deadline = time.monotonic()+80
+                    while True:
+                        with InspectionProxy(scope) as reader: ended = repeated(reader,scope)
+                        if ended['activity'] == 'notLoaded': break
+                        require(warm.poll() is None and time.monotonic() < deadline,
+                                'Pinned fixture did not unload after owner release')
+                        time.sleep(2)
+                    require(ended['policy'] is None and ended['trackedTerminals'] is None and
+                            warm.poll() is None and len(requests) == 1 and history.read_bytes().startswith(before) and
+                            restricted_config(home,cwd) == config_before,
+                            'Release must preserve unknown evidence, same host, history/config and zero model requests')
+                    return {'status':'subscription_ownership_fixture_passed', 'sameHome':True,
+                        'reviewedObservationSeconds':subscription_seconds,'verifiedLoadedBeyondSeconds':60,
+                        'heldOriginalSubscription':True,'metadataCheckCount':len(checks),
+                        'releasedConnectionAllowsUnload':True,'readOnlyConnectionsDoNotAdoptOwnership':True,
+                        'hostStayedRunning':True,'coldReceiptModelRequests':1,'inspectionLoads':1,
+                        'inspectionTurns':0,'inspectionModelRequests':0,'reconciliationLoads':0,
+                        'currentActivity':'notLoaded','currentPolicy':None,'currentTrackedTerminals':None,
+                        'currentTerminalSafety':'unknown','historicalTerminalSafety':'unknown',
+                        'configAndHistoryPreserved':True,'liveNativeWrites':0,'livePilotQualified':False}
                 require(restricted_config(home,cwd) == config_before and len(requests) == 1,
                         'Inspection/reconciliation changed configuration or requested a model')
                 return {'status':'inspection_fixture_passed','sameHome':True,
@@ -166,5 +209,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--executable',required=True); parser.add_argument('--sha256',required=True)
     parser.add_argument('--inspection',action='store_true',help='Also qualify one metadata-only warm load and read-only reconciliation')
+    parser.add_argument('--subscription-seconds',type=int,
+                        help='Disposable only: hold the original subscription for 75–300 seconds, then verify unload')
     args = parser.parse_args()
-    print(canonical(qualify(args.executable,args.sha256,inspection=args.inspection)))
+    print(canonical(qualify(args.executable,args.sha256,inspection=args.inspection,
+                          subscription_seconds=args.subscription_seconds)))

@@ -18,10 +18,12 @@ from .host_lifecycle import private_file, sync_directory, write_record
 from .native_auth_readiness import require_ready
 from .native_policy_evidence import matches, reported
 from .native_read_client import ReadProxy, decode, inspect_endpoint
+from .native_subscription import SubscriptionOwner, duration
 from .public_host_lifecycle import directory_identity, isolated_directory
 from .standard_native_observation import _terminals
 
 KIND = 'public_pilot_inspection_v1'
+SUBSCRIPTION_KIND = 'public_pilot_inspection_subscription_v2'
 FIELDS = {'version', 'kind', 'reviewDirectory', 'sourceTree', 'restartPath',
           'bindingPath', 'provenance', 'before', 'action', 'fencePath'}
 BOUNDARY = {'turnStarts': 0, 'playOrRecoveryReplayed': False, 'bindingInstalled': False,
@@ -114,9 +116,12 @@ class InspectionProxy(ReadProxy):
     """One fixed optional resume; all other methods/parameters are metadata-only."""
     def __init__(self, scope):
         self.scope, self.load_permitted, self.load_used = scope, False, False
+        self.subscription_owner = None
         super().__init__(scope['binding']['endpoint'])
 
     def _rpc(self, method, params):
+        if self.subscription_owner is not None:
+            self.subscription_owner.before_rpc(self)
         brain = self.scope['brainId']
         allowed = {'initialize': {'clientInfo': {'name': 'codex_orchestrator_observer', 'version': '1'},
                                   'capabilities': {'experimentalApi': True}},
@@ -202,15 +207,17 @@ def fence_path(ledger, scope):
 
 
 def fence_record(spec):
-    return {'kind': KIND, 'specHash': digest(spec), 'reviewHash': review_hash(spec),
+    return {'kind': spec['kind'], 'specHash': digest(spec), 'reviewHash': review_hash(spec),
             'reviewDirectory': spec['reviewDirectory']}
 
 
 def review_hash(spec):
-    return digest({'kind': KIND, 'specHash': digest(spec), 'action': spec['action']})
+    return digest({'kind': spec['kind'], 'specHash': digest(spec), 'action': spec['action']})
 
 
-def prepare(registry, ledger, restart_path, binding_path, directory):
+def prepare(registry, ledger, restart_path, binding_path, directory, *, subscription_seconds=None):
+    if subscription_seconds is not None:
+        duration(subscription_seconds)
     tree = restart.source_tree()
     scope = provenance(registry, ledger, restart_path, binding_path)
     directory = Path(directory); isolated_directory(directory.parent)
@@ -227,12 +234,17 @@ def prepare(registry, ledger, restart_path, binding_path, directory):
     with InspectionProxy(scope) as proxy:
         before = repeated(proxy, scope)
     require(before['trackedTerminals'] in (None, []), 'Existing tracked terminals require separate supervision')
+    require(subscription_seconds is None or before['activity'] == 'notLoaded',
+            'Subscription ownership requires its own future claimed load; never adopt or resume an already loaded brain')
     require(provenance(registry, ledger, restart_path, binding_path) == scope and restart.source_tree() == tree,
             'Protected state changed during preparation')
     spec = {'version': 1, 'kind': KIND, 'reviewDirectory': str(directory), 'sourceTree': tree,
             'restartPath': str(restart_path), 'bindingPath': str(binding_path), 'provenance': scope,
             'before': before, 'action': 'load_for_inspection' if before['activity'] == 'notLoaded' else 'observe_only',
             'fencePath': str(fence)}
+    if subscription_seconds is not None:
+        spec.update(version=2, kind=SUBSCRIPTION_KIND,
+                    subscription={'protocol': 'foreground_connection_v1', 'maximumSeconds': subscription_seconds})
     directory.mkdir(mode=0o700); sync_directory(directory.parent)
     write_record(directory/'inspection.json', spec)
     return preview(registry, ledger, directory/'inspection.json')
@@ -240,11 +252,19 @@ def prepare(registry, ledger, restart_path, binding_path, directory):
 
 def load_spec(path):
     spec = record(path)
-    require(isinstance(spec, dict) and set(spec) == FIELDS and type(spec['version']) is int and spec['version'] == 1 and
-            spec['kind'] == KIND and Path(path) == Path(spec['reviewDirectory'])/'inspection.json' and
+    require(isinstance(spec, dict) and type(spec.get('version')) is int and
+            ((spec['version'] == 1 and spec.get('kind') == KIND and set(spec) == FIELDS) or
+             (spec['version'] == 2 and spec.get('kind') == SUBSCRIPTION_KIND and set(spec) == FIELDS | {'subscription'})) and
+            Path(path) == Path(spec['reviewDirectory'])/'inspection.json' and
             spec['action'] in {'load_for_inspection', 'observe_only'} and
             spec['action'] == ('load_for_inspection' if spec['before']['activity'] == 'notLoaded' else 'observe_only'),
             'Closed exact pilot inspection specification required')
+    if spec['version'] == 2:
+        lease = spec['subscription']
+        require(isinstance(lease, dict) and set(lease) == {'protocol', 'maximumSeconds'} and
+                lease['protocol'] == 'foreground_connection_v1' and spec['action'] == 'load_for_inspection',
+                'Closed future foreground subscription ownership required')
+        duration(lease['maximumSeconds'])
     isolated_directory(spec['reviewDirectory'])
     return spec
 
@@ -273,11 +293,15 @@ def preview(registry, ledger, path):
     with InspectionProxy(spec['provenance']) as proxy:
         require(repeated(proxy, spec['provenance']) == spec['before'], 'Reviewed native state changed')
     require(validate(registry, ledger, path) == spec, 'Scope changed during preview')
-    return {'kind': KIND, 'reviewHash': review_hash(spec), 'validity': 'until_scope_changes',
+    result = {'kind': spec['kind'], 'reviewHash': review_hash(spec), 'validity': 'until_scope_changes',
             'action': spec['action'], 'brainId': spec['provenance']['brainId'],
             'runId': spec['provenance']['scope']['context']['runId'],
             'maximumInspectionLoads': 1 if spec['action'] == 'load_for_inspection' else 0,
             'loadsMade': 0, 'boundary': BOUNDARY}
+    if spec['version'] == 2:
+        result['subscription'] = dict(spec['subscription'], automaticReconnect=False, deadlineRenewable=False,
+                                      owner='foreground_apply_connection', phaseAuthority=False)
+    return result
 
 
 def exclusive(path, value):
@@ -298,11 +322,13 @@ def retain(registry, ledger, path, spec, proxy, *, reconciled):
         ack = record(ack_path)
         require(ack == {'specHash': digest(spec), 'acknowledged': True}, 'Inspection acknowledgment changed')
         acknowledged = True
-    result = {'kind': KIND, 'specHash': digest(spec), 'checkedAt': time.time(),
+    result = {'kind': spec['kind'], 'specHash': digest(spec), 'checkedAt': time.time(),
               'status': 'current_inspection_retained', 'reconciledReadOnly': reconciled,
               'loadDelivery': 'not_requested' if spec['action'] == 'observe_only' else
                               'acknowledged' if acknowledged else 'unknown',
               'currentObservation': observation, 'boundary': BOUNDARY}
+    if proxy.subscription_owner is not None:
+        result['subscriptionOwner'] = proxy.subscription_owner.record()
     # Append new observations, never overwrite a failure/unknown outcome or
     # pretend a later read acknowledged an uncertain load response.
     write_record(attempt/('observation-'+str(uuid.uuid4())+'.json'), result)
@@ -312,6 +338,47 @@ def retain(registry, ledger, path, spec, proxy, *, reconciled):
 def apply(registry, ledger, path, confirm_hash):
     spec = validate(registry, ledger, path)
     require(confirm_hash == review_hash(spec), 'Exact new inspection-only review required')
+    if spec['version'] == 2:
+        return _apply_owned(registry, ledger, path, spec)
+    return _apply(registry, ledger, path, spec, None)
+
+
+def _own(proxy, spec):
+    owner = SubscriptionOwner(proxy, spec['subscription']['maximumSeconds'], digest(spec))
+    proxy.subscription_owner = owner
+    # At most 60 repeated samples (22 RPCs each) plus preflight; totals/frames
+    # remain bounded. No change to ordinary read-only clients' 128-query bound.
+    proxy.query_limit = 2048
+    return owner
+
+
+def _apply_owned(registry, ledger, path, spec):
+    owner = None
+    completed = False
+    def own(proxy):
+        nonlocal owner
+        owner = _own(proxy, spec)
+        exclusive(Path(spec['reviewDirectory'])/'attempt/subscription-open.json', owner.record())
+    try:
+        result = _apply(registry, ledger, path, spec, own)
+        require(owner is not None and owner.proxy.process is None,
+                'Original subscription closure is unconfirmed; never reconnect')
+        completed = True
+    finally:
+        # _apply's context has closed the original connection before this file.
+        # A killed process may leave no close file: that is unknown, not active.
+        if owner is not None:
+            exclusive(Path(spec['reviewDirectory'])/'attempt/subscription-close.json',
+                      {'specHash': digest(spec), 'connectionId': owner.connection_id, 'closedAt': time.time(),
+                       'status': 'window_completed' if completed else 'interrupted_or_failed',
+                       'connectionClosed': owner.proxy.process is None, 'currentEvidence': 'unknown_after_release',
+                       'reconnectAllowed': False, 'terminalSafety': 'unknown'})
+    result['subscription'] = {'status': 'window_completed', 'connectionClosed': True,
+                              'currentEvidence': 'unknown_after_release', 'reconnectAllowed': False}
+    return result
+
+
+def _apply(registry, ledger, path, spec, own):
     with InspectionProxy(spec['provenance']) as proxy:
         require(repeated(proxy, spec['provenance']) == spec['before'], 'Reviewed native state changed before claim')
         require(validate(registry, ledger, path) == spec, 'Inspection scope changed before claim')
@@ -323,6 +390,8 @@ def apply(registry, ledger, path, confirm_hash):
             exclusive(attempt/'inspection-load.claim', {'specHash': digest(spec)})
         require(validate(registry, ledger, path, claimed=True) == spec, 'Scope drift after claim; attempt remains consumed')
         require(repeated(proxy, spec['provenance']) == spec['before'], 'Native drift after claim; attempt remains consumed')
+        if spec['version'] == 2:
+            own(proxy)
         if spec['action'] == 'load_for_inspection':
             proxy.load_permitted = True
             reply = proxy._rpc('thread/resume', load_params(spec['provenance']))
@@ -331,7 +400,15 @@ def apply(registry, ledger, path, confirm_hash):
                     thread.get('cwd') == spec['provenance']['cwd'] and thread.get('turns', []) == [],
                     'Inspection load acknowledgment is incomplete; do not retry')
             write_record(attempt/'load-ack.json', {'specHash': digest(spec), 'acknowledged': True})
-        return retain(registry, ledger, path, spec, proxy, reconciled=False)
+        result = retain(registry, ledger, path, spec, proxy, reconciled=False)
+        if spec['version'] == 2:
+            def check():
+                nonlocal result
+                require(validate(registry, ledger, path, claimed=True) == spec, 'Subscription scope changed; no reload')
+                result = retain(registry, ledger, path, spec, proxy, reconciled=False)
+            proxy.subscription_owner.hold(check)
+            require(validate(registry, ledger, path, claimed=True) == spec, 'Scope changed at subscription release')
+        return result
 
 
 def reconcile(registry, ledger, path):
@@ -350,9 +427,39 @@ def status(path):
     claimed = (attempt/'intent.json').exists()
     if claimed:
         require(record(attempt/'intent.json') == fence_record(spec), 'Saved inspection intent changed')
-    return {'kind': KIND, 'specHash': digest(spec), 'historical': True,
+    result = {'kind': spec['kind'], 'specHash': digest(spec), 'historical': True,
             'status': 'consumed_outcome_not_inferred' if claimed else 'prepared_not_submitted',
             'claimRetained': claimed, 'boundary': BOUNDARY}
+    if spec['version'] == 2:
+        opened, closed = attempt/'subscription-open.json', attempt/'subscription-close.json'
+        result['subscription'] = {'status': 'not_started', 'currentEvidence': 'unknown', 'reconnectAllowed': False}
+        if opened.exists():
+            saved = record(opened)
+            require(isinstance(saved, dict) and set(saved) == {'specHash', 'connectionId', 'ownerPid', 'startedAt',
+                    'maximumSeconds', 'source', 'automaticReconnect', 'deadlineRenewable', 'controllerAuthority', 'terminalSafety'} and
+                    saved['specHash'] == digest(spec) and isinstance(saved['connectionId'], str) and
+                    str(uuid.UUID(saved['connectionId'])) == saved['connectionId'] and
+                    type(saved['ownerPid']) is int and saved['ownerPid'] > 0 and
+                    type(saved['startedAt']) in (float, int) and saved['startedAt'] > 0 and
+                    saved['maximumSeconds'] == spec['subscription']['maximumSeconds'] and
+                    saved['source'] == 'original_claimed_resume_connection' and
+                    all(saved[k] is False for k in ('automaticReconnect', 'deadlineRenewable', 'controllerAuthority')) and
+                    saved['terminalSafety'] == 'unknown', 'Saved subscription owner changed')
+            result['subscription']['status'] = 'unknown_not_reconnectable'
+            if closed.exists():
+                end = record(closed)
+                require(isinstance(end, dict) and set(end) == {'specHash', 'connectionId', 'closedAt', 'status',
+                        'connectionClosed', 'currentEvidence', 'reconnectAllowed', 'terminalSafety'} and
+                        end['specHash'] == digest(spec) and end['connectionId'] == saved['connectionId'] and
+                        type(end['closedAt']) in (float, int) and end['closedAt'] > 0 and
+                        end['status'] in {'window_completed', 'interrupted_or_failed'} and
+                        type(end['connectionClosed']) is bool and
+                        (end['status'] != 'window_completed' or end['connectionClosed'] is True) and
+                        end['currentEvidence'] == 'unknown_after_release' and end['reconnectAllowed'] is False and
+                        end['terminalSafety'] == 'unknown',
+                        'Saved subscription close changed')
+                result['subscription']['status'] = end['status']
+    return result
 
 
 def main():
@@ -362,6 +469,8 @@ def main():
     sub = parser.add_subparsers(dest='operation', required=True)
     setup = sub.add_parser('prepare')
     for name in ('restart_manifest', 'binding', 'review_directory'): setup.add_argument(name, type=Path)
+    setup.add_argument('--subscription-seconds', type=int,
+                       help='Future v2 review only: hold the original claimed load connection for 15–300 seconds')
     for operation in ('preview', 'apply', 'reconcile', 'status'):
         item = sub.add_parser(operation); item.add_argument('manifest', type=Path)
         if operation == 'apply': item.add_argument('--confirm-hash', required=True)
@@ -371,7 +480,8 @@ def main():
         if args.operation == 'status': value = status(args.manifest)
         else:
             registry = Registry(args.platform); ledger = registry.ledger(args.workspace)
-            if args.operation == 'prepare': value = prepare(registry, ledger, args.restart_manifest, args.binding, args.review_directory)
+            if args.operation == 'prepare': value = prepare(registry, ledger, args.restart_manifest, args.binding, args.review_directory,
+                                                          subscription_seconds=args.subscription_seconds)
             elif args.operation == 'apply': value = apply(registry, ledger, args.manifest, args.confirm_hash)
             elif args.operation == 'reconcile': value = reconcile(registry, ledger, args.manifest)
             else: value = preview(registry, ledger, args.manifest)

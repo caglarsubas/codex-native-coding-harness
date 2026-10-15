@@ -79,6 +79,59 @@ again or migrate a claim. A later loaded view does not acknowledge an uncertain
 load response: `loadDelivery` stays `unknown` unless the original acknowledgment
 was durably retained. If unloaded or unavailable again, refuse without loading.
 
+## Future foreground subscription ownership (v2)
+
+The v1 context closes its original native connection after saving evidence.
+Metadata-only readers do not subscribe, so an idle brain may later unload even
+while its host remains healthy. Current official OpenAI documentation describes
+this [subscriber-based lifecycle](https://learn.chatgpt.com/docs/app-server).
+The pinned native build independently used for qualification defaults to a
+60-second no-subscriber grace; newer documentation's 30-minute default is not a
+claim about that build. This is not a host crash or expired owner approval.
+
+A **future** new inspection may explicitly select
+`public_pilot_inspection_subscription_v2`:
+
+```text
+python3 -m orchestrator.public_pilot_inspection --platform PRIVATE_PLATFORM --workspace WORKSPACE prepare ISSUED_RESTART_MANIFEST CURRENT_REVIEWED_BINDING NEW_PRIVATE_REVIEW_DIRECTORY --subscription-seconds 120
+```
+
+The exact preview includes a 15–300 whole-second observation window. It is not
+an approval TTL: the review remains valid until scope changes. The original
+load connection stays open in the foreground until that fixed window ends,
+scope/native drift is observed, the operator interrupts, or the connection
+fails. It retains repeated bounded metadata observations at five-second-or-longer
+intervals. Per-RPC deadlines cannot extend the monotonic overall window. No
+native timer/config setting changes, model keepalive, detached worker, scheduler,
+automatic reconnect, second resume, or connection-ownership transfer is added.
+The strict original method/parameter allowlist stays unchanged. Ordinary read
+clients retain their original query bounds; this session permits at most 2,048
+RPCs and the same response/frame/aggregate-byte bounds.
+
+Only the connection performing that separately claimed future load owns the
+subscription. An already loaded brain is not adopted or resumed to manufacture
+ownership. Existing v1 manifests, review hashes and behavior are unchanged, and
+both versions share the **same canonical original-run/Play fence**. A consumed
+v1 or v2 inspection can never become a new v2 load, even in another directory or
+on another endpoint. Changing the duration invalidates the exact review.
+
+`subscription-open.json` precedes the optional load boundary and pins the
+specification, foreground PID, connection UUID and non-renewable maximum.
+Observations carry that original connection UUID. After closing the proxy,
+`subscription-close.json` records completed versus failed/interrupted release,
+without claiming native unload, historical cleanup or terminal safety. An abrupt
+process death may leave no close record: status then says
+`unknown_not_reconnectable`, never "active" based on a timestamp or PID. Status
+is file-only and all saved observations remain historical after release.
+Reconcile opens a read-only connection, never adopts the subscription, reloads,
+renews the window, or fabricates a lost load acknowledgment.
+
+This owns only a metadata connection, not a brain controller, phase authority or
+execution workflow. No new continuation/expired-phase transition is implemented
+or authorized. In particular the already consumed PR156 live inspection remains
+closed, the live brain remains unloaded, and source delivery installs or applies
+nothing. Historical policy/effect/terminal gaps and the expired phase stay fenced.
+
 ## Non-goals and next genuine gates
 
 The result records **current** observed policy and tracked terminals, not OS
@@ -110,6 +163,15 @@ reads across a new read-only connection. Inspection/reconciliation must make
 zero turns and zero model requests, preserving the original brain/project/ended
 turn/history prefix and restricted config. It never touches a live host, home,
 ledger, auth store, dashboard or pilot. No external provider or download is used.
+
+Adding `--subscription-seconds 75` to that disposable qualifier holds the original
+connection beyond the actual pinned 60-second default grace, then closes it and
+verifies that later read-only connections do not prevent native unloading. The
+host must stay alive; unloaded policy and tracked terminals must return to
+unknown. No fixture timer override is used. Unit tests separately cover both
+version fences, invalid/changed durations, deadline renewal refusal, connection
+replacement, interrupted/lost acknowledgments, scope/native drift, file-only
+status, append-only ownership/progress records and original-ledger conservation.
 
 Source, local qualification, merge, installation, exact live inspection review,
 current inspection, historical evidence and pilot acceptance remain separate.

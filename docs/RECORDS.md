@@ -49,6 +49,17 @@ current policy and tracked terminals; an uncertain load remains unacknowledged
 after later read-only reconciliation. Historical safety, migration, Resume,
 closeout and pilot acceptance remain unknown/false respectively.
 
+Future `public_pilot_inspection_subscription_v2` manifests add only the closed
+`subscription: {protocol: foreground_connection_v1, maximumSeconds: 15..300}`
+field. The original-run/Play canonical fence is identical across versions; no
+v1 claim is migrated or renewed. Exclusive `subscription-open.json` and
+`subscription-close.json` sidecars bind the same spec/connection UUID and record
+foreground ownership, maximum lifetime and historical closure outcome.
+Append-only observations retain that owner identity. A missing close record is
+`unknown_not_reconnectable`, not evidence of an active subscriber. No ledger
+schema, run/control, usage, expiry or current/historical terminal assertion is
+rewritten; ending a connection is not native process cleanup.
+
 ## Portfolio
 
 `schemaVersion: 1`, `brainId`, `repositories[]`. Each repository has exactly:
