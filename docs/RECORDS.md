@@ -39,6 +39,16 @@ unknown. Read-only connectivity records remain separate from candidate binding
 installation, authentication/model access, receipts and phase authority. No
 database schema or old control bytes are changed.
 
+The separate [public pilot inspection](PUBLIC-PILOT-INSPECTION.md) specification
+pins its clean implementation, original transfer/run/Play, issued live process,
+current binding/socket, native pre-observation and a fixed load-or-observe action.
+Its exact owner review is valid until scope drift. Exclusive intent, canonical
+original-run/Play fence and optional inspection-load claim are private sidecars,
+not a new ledger schema or old receipt. Append-only observations retain actual
+current policy and tracked terminals; an uncertain load remains unacknowledged
+after later read-only reconciliation. Historical safety, migration, Resume,
+closeout and pilot acceptance remain unknown/false respectively.
+
 ## Portfolio
 
 `schemaVersion: 1`, `brainId`, `repositories[]`. Each repository has exactly:

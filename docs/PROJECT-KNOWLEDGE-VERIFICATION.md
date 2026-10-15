@@ -34,6 +34,21 @@ navigation destination.
 
 ## Local regression record
 
+- Public pilot current inspection (2026-10-15): 26 focused tests cover exact
+  until-scope-changes review, claimed/interrupted delivery, competing canonical
+  fences, Pause/controller/usage races, process/socket/config identity, native
+  policy/authentication/activity gaps, file-only status, credential non-access
+  and original-ledger conservation. Full local discovery completed 2,664 Python
+  tests (2,663 passed; one optional Graphify check skipped). All 36 JavaScript suites, 31 web syntax
+  checks, 127 Python AST checks and diff checks passed. The exact previously
+  reviewed compiled binary passed the disposable Unix inspection fixture with
+  one inspection load and zero inspection/reconciliation turns or model
+  requests; the unchanged read-only restart fixture passed separately. Explicit
+  live metadata-only precondition checks found the same authenticated unloaded
+  brain and unchanged private databases, with no load/turn/control submission.
+  This is source/fixture evidence, not installed inspection authority, historical
+  cleanup, expired-phase transition, Resume, closeout or pilot acceptance.
+
 - Existing-home public host restart (2026-10-15): focused source tests cover
   private opaque backups, config/identity drift, interrupted one-shot claims,
   legitimate process-epoch succession, closed native reads and preserved usage/

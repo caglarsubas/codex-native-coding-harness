@@ -8,6 +8,13 @@ phase authority are separate evidence axes. Do not infer restored execution,
 historical cleanup or pilot acceptance from source implementation or a connected
 replacement host.
 
+[PUBLIC-PILOT-INSPECTION.md](PUBLIC-PILOT-INSPECTION.md) separates a new exact
+one-shot current inspection load from replaying a transferred/ended native effect.
+Unloaded policy/terminals stay unknown until actual loaded observations exist;
+even then, historical cleanup, the original policy guard, expired-phase transition
+and pilot acceptance remain separate and unqualified. No ordinary poll or Help
+action can consume this operator path.
+
 The operational ledger, reviewed mission, repository revisions and preserved
 artifacts remain authoritative. The knowledge index is a private, rebuildable
 search aid. Search results carry project/repository, source path, revision or

@@ -7,6 +7,9 @@ acceptance authority. Items change through reviewed repository edits.
 
 ## Reliable brain wake — source and rollout
 
+- [x] Implement separately reviewed one-shot current pilot inspection after exact public transfer/restart, preserving original effect claims, policy gap, usage/expiry and historical safety unknowns ([contract](PUBLIC-PILOT-INSPECTION.md)); source and disposable qualification are separate from live installation/application
+- [ ] Qualify historical effects and a separately reviewed expired-phase transition; current loaded policy/empty trackers alone cannot authorize continuation or pilot acceptance
+
 - [x] Consume the repaired runtime's versioned loaded-policy report through an explicit dashboard diagnostic and future one-shot owned-turn evidence, preserving old v1 profiles and unknown terminal/effect coverage (source, synthetic tests and isolated compiled-CLI fixture; no installation, host rebind, Resume or pilot acceptance; [contract](NATIVE-POLICY-EVIDENCE-ADAPTER.md))
 - [ ] Qualify a complete repaired runtime package, actual new host endpoint and separately reviewed continuation evidence before resuming the already paused fresh pilot; no Play/recovery replay or usage/expiry reset
 

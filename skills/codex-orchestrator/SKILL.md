@@ -13,6 +13,15 @@ edits. The live pilot requires separate qualification and continuation authority
 
 # Codex Orchestrator
 
+For explicitly requested operator-only current pilot inspection, read source
+`docs/PUBLIC-PILOT-INSPECTION.md` completely. Only its new exact review can permit
+one fixed inspection-only load after a completed transfer and issued live restart.
+Preserve the canonical original-run/Play fence. Reconcile only reads the same
+reviewed host; it never reloads, acknowledges a lost response or migrates a claim.
+Actual current policy/empty trackers do not clear the old policy gap, establish
+historical cleanup, extend expiry, release ownership or authorize continuation.
+Source delivery installs/loads/confirms nothing and does not qualify the pilot.
+
 For explicitly requested operator-only existing-home public host restart, read
 source `docs/PUBLIC-HOST-RESTART.md` completely. Require a completed exact transfer,
 verified private backup and new exact host-only review before its permanent
