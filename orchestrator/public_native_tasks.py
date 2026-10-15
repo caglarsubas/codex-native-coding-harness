@@ -14,6 +14,7 @@ from . import standard
 from .core import ACTIVE, Refusal, canonical, digest, require
 from .decisions import authorize_brain
 from .native_policy_evidence import collect, matches, reported, validate_contract as policy_contract
+from .native_auth_readiness import require_ready as require_authentication
 from .native_project_assignment import _scope
 from .standard_host_inspection import (_context as owned_context, _read_private,
                                        _write_once, binding_file, _mailbox)
@@ -168,7 +169,10 @@ class PublicTaskProxy:
         return self.proxy.call(method, params)
 
     def _rpc(self, method, params):
-        # The policy collector's only access, not a generic write API.
+        # Fixed policy/authentication reads, never a generic write API.
+        if method == "account/read":
+            require(params == {"refreshToken": False}, "Non-refreshing public authentication read only")
+            return self.proxy._rpc(method, params)
         require(method == "thread/effectivePolicy/read" and set(params) == {"threadId"} and
                 params["threadId"] in {self.brain_id, self.thread_id} - {None}, "Exact public policy reads only")
         return self.proxy._rpc(method, params)
@@ -462,6 +466,7 @@ def service_request(ledger, binding, command_id, brain_id, turn_id, task_id):
         start, turn = arguments(context["seed"], record)
         with PublicTaskProxy(binding["endpoint"], start, turn, brain_id) as proxy:
             proxy.public_environment()
+            require_authentication(proxy)
             first = _brain_identity(proxy, scope, include_flags=True)
             effective = collect(proxy, binding, brain_id, command_id)
             second = _brain_identity(proxy, scope, include_flags=True)
@@ -481,6 +486,7 @@ def service_request(ledger, binding, command_id, brain_id, turn_id, task_id):
             require(samples[0] == samples[1] and all(matches(reported(s, thread_id, record["cwd"])) and
                     s["policy"]["model"] == context["task"]["model"] for s in samples),
                     "Worker effective policy is unknown or differs from review")
+            require_authentication(proxy)
             _before_turn(registry, ledger, token, saved, binding, scope, proxy)
             turn_claimed = True
             worker_turn, response_hash = proxy.begin()

@@ -1,5 +1,6 @@
 """Rendered disposable policy diagnostic; never connects a real native host."""
 import json
+import argparse
 from pathlib import Path
 import sys
 
@@ -9,6 +10,9 @@ from test_standard_native_policy import NativePolicyTest
 
 
 if __name__ == "__main__":
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--authentication-required',action='store_true')
+    args=parser.parse_args()
     fixture = NativePolicyTest(methodName="runTest")
     fixture.setUp()
     fixture.bind()
@@ -17,8 +21,13 @@ if __name__ == "__main__":
     class Host:
         def configured(self, *_): return True
         def connection_status(self, *_): return {"status": "unchecked", "checkedAt": None}
-        def policy_status(self, *_): return {"status": "unknown", "checkedAt": 1, "policyVerified": False,
-                                             "detail": "Unloaded native policy remains unknown. No Resume was sent."}
+        def policy_status(self, *_):
+            if args.authentication_required:
+                return {"status":"matching","checkedAt":1,"policyVerified":True,
+                        "authentication":{"status":"authentication_required","ready":False},
+                        "detail":"Loaded policy matches, but the native host needs sign-in. No login or Resume was sent."}
+            return {"status": "unknown", "checkedAt": 1, "policyVerified": False,
+                    "detail": "Unloaded native policy remains unknown. No Resume was sent."}
         def check_policy(self, *_): return self.policy_status()
         def pending_approval(self, *_): return None
         def orphan_recovery_idle(self): return False

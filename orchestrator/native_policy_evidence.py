@@ -119,6 +119,9 @@ class PolicyReadProxy(ReadProxy):
         self.project_id, self.brain_id = project_id, brain_id
 
     def call(self, method, params):
+        if method == "account/read":
+            require(params == {"refreshToken": False}, "Non-refreshing native account read only")
+            return self._rpc(method, params)
         if method == "project/read":
             require(params == {"projectId": self.project_id}, "Exact bound project required")
             return self._rpc(method, params)
@@ -156,9 +159,13 @@ def inspect(registry, ledger, host):
     if contract is None:
         return {**base, "status": "unsupported", "detail": "This reviewed host has no effective-policy contract. A newly reviewed repaired host is required; no native request was sent."}
     validate_contract(contract)
+    authentication = None
     with PolicyReadProxy(binding["endpoint"], scope["projectId"], scope["brainId"]) as proxy:
         before = _brain_identity(proxy, scope, include_flags=True)
         evidence = collect(proxy, binding, scope["brainId"], None)
+        if binding["brains"][scope["brainId"]].get("nativeTaskBackend"):
+            from .native_auth_readiness import inspect as inspect_authentication
+            authentication = inspect_authentication(proxy)
         after = _brain_identity(proxy, scope, include_flags=True)
     with read_db(ledger.db) as db:
         require(digest(ledger.get(db, "meta", 1)) == context_hash, "Run, Pause or controller changed during policy inspection")
@@ -171,9 +178,14 @@ def inspect(registry, ledger, host):
     value = evidence["reported"]
     # A loaded report must not coexist with an unloaded/unknown activity read.
     verified = matches(value) and after["nativeStatus"] in ("active", "idle")
-    return {**base, "checkedAt": evidence["observedAt"],
+    result = {**base, "checkedAt": evidence["observedAt"],
             "status": "matching" if verified else "unknown" if value is None else "mismatch",
             "policyVerified": verified, "reported": value, "sourceCommit": contract["sourceCommit"],
             "sourceTree": contract["sourceTree"], "executableHash": evidence["executableHash"],
             "detail": ("Loaded-thread defaults match the reviewed policy. Terminal safety, historical effects and Resume remain separate." if verified else
                        "Loaded native policy is unknown or differs from review. No load, turn, replay or Resume was sent.")}
+    if authentication is not None:
+        result["authentication"] = authentication
+        if not authentication["ready"]:
+            result["detail"] += " The native host also needs sign-in before new work. No login, credential copy or token refresh was sent."
+    return result

@@ -46,6 +46,11 @@ the adapter repeats exact project/thread metadata around two fixed policy reads,
 then rechecks endpoint, catalog and ledger context. A Pause, identity change or
 contrary sample prevents a verified result. Strict Harness remains unsupported.
 
+On an explicitly selected public-task binding, this same explicit check includes
+the separate [native authentication diagnostic](PUBLIC-HOST-AUTHENTICATION.md).
+Matching loaded policy is not sign-in or model access. An unloaded thread can
+still report missing sign-in without being loaded; polling never collects it.
+
 Only closed diagnostics are cached in the running dashboard. Polls never collect,
 renew observations, write ledger evidence, connect a replacement or confirm a
 control. Restart discards the cache; elapsed five-minute freshness, a changed run

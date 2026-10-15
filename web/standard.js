@@ -199,7 +199,7 @@ function standardPanel(root,mode='all'){
         inspect.disabled=true;
         try{
           const result=await api('/api/native-policy/check',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:'{}'});
-          showNotice(result.detail,result.status!=='matching');await refresh();
+          showNotice(result.detail,result.status!=='matching'||result.authentication?.ready===false);await refresh();
         }catch(error){if(!error.workspaceChanged)showNotice(error.message,true);}
         finally{inspect.disabled=!connected;}
       });panel.append(inspect);

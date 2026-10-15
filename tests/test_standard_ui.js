@@ -6,14 +6,14 @@ class Element{
   setAttribute(name,value){this[name]=value;}
   addEventListener(name,callback){this['on'+name]=callback;}
 }
-const messages=[],sent=[],routes=[];
+const messages=[],sent=[],routes=[],noticeWarnings=[];
 const box={Map,Set,JSON,Math,String,crypto:{randomUUID:()=>`request-${sent.length}`},setTimeout:()=>1,workspaceId:'alpha',busy:false,connected:true,csrf:'fixture',selected:null,
   document:{getElementById:()=>null},
   state:{standard:{available:true,contextHash:'h',boundary:'Partial observations',catalog:{models:[{model:'native',efforts:['low']}]},run:null},mission:null},
   el:(tag,text)=>new Element(tag,text),button:(text,callback)=>Object.assign(new Element('button',text),{click:callback}),
   section:(text)=>new Element('h2',text),table:(heads,rows)=>new Element('table',JSON.stringify(rows)),
   callout:(a,b)=>new Element('p',a+' '+b),num:String,when:String,textCell:(a,b)=>a+' '+b,
-  missionDocument(){},render(){},updateWorkspaceSelector(){},refresh:async()=>{},showNotice:(message)=>messages.push(message),navigateView:(route)=>routes.push(route),
+  missionDocument(){},render(){},updateWorkspaceSelector(){},refresh:async()=>{},showNotice:(message,warning)=>{messages.push(message);noticeWarnings.push(warning);},navigateView:(route)=>routes.push(route),
   api:async(path,opts)=>{sent.push({path,body:JSON.parse(opts.body)});if(path.endsWith('preview'))return {preview:{operation:'play',contextHash:'h',brainAllowance:1,durationHours:8,expiresAt:Date.now()/1000+300},signature:'signed'};return {result:'Recorded'};}};
 vm.createContext(box);vm.runInContext(fs.readFileSync('web/journey.js','utf8'),box);vm.runInContext(fs.readFileSync('web/summaries.js','utf8'),box);vm.runInContext(fs.readFileSync('web/standard.js','utf8'),box);
 box.commandPresentation=()=>({label:'Connection lost · request unresolved',detail:'Do not repeat Play.'});
@@ -75,6 +75,13 @@ function all(root){return [root,...root.children.flatMap(x=>x instanceof Element
   assert.equal(sent.at(-1).path,'/api/native-policy/check');
   assert.deepEqual(sent.at(-1).body,{},'The browser cannot supply policy proof or choose a target');
   assert.equal(JSON.stringify(box.state.standard.nativePolicyVerification),savedPolicy,'A diagnostic cannot backfill the original Play');
+  const authPriorApi=box.api;
+  box.api=async()=>({status:'matching',policyVerified:true,authentication:{status:'authentication_required',ready:false},detail:'Native host needs sign-in; no login was sent.'});
+  await policyNodes.find(n=>n.text==='Check native policy evidence').click();
+  assert.equal(noticeWarnings.at(-1),true,'Matching policy with missing sign-in is a warning, not a successful readiness notice');
+  assert.equal(messages.at(-1),'Native host needs sign-in; no login was sent.');
+  assert.equal(JSON.stringify(box.state.standard.nativePolicyVerification),savedPolicy,'Authentication never rewrites saved policy');
+  box.api=authPriorApi;
   box.state.nativePolicyCheck={status:'unknown',checkedAt:1,policyVerified:false,detail:'Unloaded stays unknown; no Resume.'};
   assert.ok(all(render()).some(n=>String(n.text).includes('Unloaded stays unknown')));
   box.state.standard.nativePolicyVerification.policyVerified=true;
