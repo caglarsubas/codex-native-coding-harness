@@ -119,6 +119,12 @@ in [PUBLIC-IDENTITY-TRANSFER.md](PUBLIC-IDENTITY-TRANSFER.md). It needs another
 reviewed native build and already qualified endpoints; it does not make this
 empty-home launch review a transfer, binding or continuation permit.
 
+For a completed exact transfer whose host exited, the separate
+[existing-home restart](PUBLIC-HOST-RESTART.md) preserves its native files and
+claims under a new owner-reviewed maintenance profile. It does not weaken this
+empty-home gate or reuse its consumed launch review. It grants no load, turn,
+same-run Resume, historical cleanup or pilot acceptance.
+
 Source, merge, installation, launch review, actual host/binding qualification
 and same-run transition are separate. The fresh paused run's original Play,
 consumption/high-water/gaps, expiry and unknown current/historical terminals

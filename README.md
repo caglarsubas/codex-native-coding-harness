@@ -28,6 +28,12 @@ adds hash-only capture for future fully bound owned turns and explicit read-only
 correlation with retained history. Missing old captures cannot be backfilled;
 positive results do not prove cleanup or authorize closeout, replay or Play.
 
+The separate [safe existing-home host restart](docs/PUBLIC-HOST-RESTART.md)
+preserves a completed public brain transfer and its native home after host exit.
+It needs a new exact launch-only review, verified private backup and one-shot
+process-epoch claim. Connectivity inspection never loads a brain, replays Play
+or recovery, changes usage, or promotes unknown terminals to safe.
+
 - Portfolio-neutral controller, with `standard` and stricter `harness` policies.
 - Versioned, immutable seeds and completion envelopes; digest-bound approvals.
 - Single-controller ownership, one worker per repository, and serialized managed

@@ -1,5 +1,13 @@
 # Durable project knowledge and bounded brain context
 
+Operator runtime ownership: `public_host_restart.py` and
+[PUBLIC-HOST-RESTART.md](PUBLIC-HOST-RESTART.md) define exact existing-home
+restart after a completed public transfer. Native-home byte preservation,
+process-epoch lineage, transport/membership/policy/sign-in observations and
+phase authority are separate evidence axes. Do not infer restored execution,
+historical cleanup or pilot acceptance from source implementation or a connected
+replacement host.
+
 The operational ledger, reviewed mission, repository revisions and preserved
 artifacts remain authoritative. The knowledge index is a private, rebuildable
 search aid. Search results carry project/repository, source path, revision or

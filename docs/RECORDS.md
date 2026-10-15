@@ -29,6 +29,16 @@ Historical status permits only issued/failed/unknown exec, with host-ready,
 native qualification, binding and restart false and terminal safety unknown.
 No ledger schema, original Play, usage, native observer or run is migrated.
 
+The separately named [existing-home restart](PUBLIC-HOST-RESTART.md) pins the
+completed transfer/predecessor chain, full private native-home snapshot,
+verified opaque backup, current implementation tree, new socket-directory
+identity and unchanged registered standard scope. A canonical per-predecessor
+sidecar fences all review-directory alternatives before one exec. Its issued
+record includes PID/birth epoch, with readiness false and terminal safety
+unknown. Read-only connectivity records remain separate from candidate binding
+installation, authentication/model access, receipts and phase authority. No
+database schema or old control bytes are changed.
+
 ## Portfolio
 
 `schemaVersion: 1`, `brainId`, `repositories[]`. Each repository has exactly:
