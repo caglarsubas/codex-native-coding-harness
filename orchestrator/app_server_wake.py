@@ -957,6 +957,8 @@ class AppServerWake:
             with self.ledger.tx() as db:
                 recovery_kind = self.ledger.get(db, "commands", command_id).get("kind")
                 recovery = recovery_kind in ("brain_reply_recovery", "standard_pause_recovery", "standard_pause_receipt_recovery")
+                successor = self.ledger.get(db, 'meta', 1).get('schemaVersion') == 7
+                require(not successor or not recovery, 'Successor delivery never loads or replays a recovery')
             if recovery:
                 if recovery_kind == "standard_pause_receipt_recovery":
                     from .pause_receipt_recovery import send_check
@@ -974,39 +976,50 @@ class AppServerWake:
                 from .native_auth_readiness import require_ready
                 stage = "authentication_check"
                 require_ready(proxy)
-            stage = "thread_resume"
-            resume_attempted = True
-            resumed = proxy._rpc("thread/resume", {"threadId": brain_id,
-                                                    # The public protocol supports paginated threads
-                                                    # without hydrating private conversation history.
-                                                    "excludeTurns": True,
-                                                    "config": {"features": {"code_mode": {"enabled": policy["codeMode"]}}},
-                                                    "sandbox": policy["sandbox"],
-                                                    "approvalPolicy": policy["approvalPolicy"]})
-            stage = "resumed_identity"
-            resumed_thread = resumed.get("thread") if isinstance(resumed, dict) else None
-            self._identity(resumed_thread, brain_id)
-            turns = resumed_thread.get("turns", [])
-            require(isinstance(turns, list) and not turns,
-                    "Native resume did not return metadata only")
-            # Keep the original metadata-only response tied to this one-shot
-            # notification. A binding alone is not an observed native policy.
-            from .standard_host_inspection import resume_profile
-            with self.ledger.tx() as db:
-                command = self.ledger.get(db, "commands", command_id)
-                note = command.get("notification") or {}
-                require(note.get("brainId") == brain_id and note.get("status") == "sending" and
-                        "nativeResumeProfile" not in note, "Owned resume profile claim changed")
-                note["nativeResumeProfile"] = resume_profile(self.binding, brain_id, command_id, resumed)
-                command["notification"] = note
-                self.ledger.put(db, "commands", command_id, command)
+            if successor:
+                stage = 'effective_policy'
+                from .standard_successor import loaded_profile
+                loaded, successor_evidence = loaded_profile(self, proxy, command_id, brain_id)
+                with self.ledger.tx() as db:
+                    command = self.ledger.get(db, 'commands', command_id)
+                    note = command.get('notification') or {}
+                    require(note.get('status') == 'sending' and 'nativeLoadedProfile' not in note and
+                            'nativeResumeProfile' not in note, 'Successor loaded-only profile already claimed')
+                    note['nativeLoadedProfile'] = loaded
+                    self.ledger.put(db, 'commands', command_id, command)
+            else:
+                stage = "thread_resume"
+                resume_attempted = True
+                resumed = proxy._rpc("thread/resume", {"threadId": brain_id,
+                                                        # Metadata only; successor delivery never takes this branch.
+                                                        "excludeTurns": True,
+                                                        "config": {"features": {"code_mode": {"enabled": policy["codeMode"]}}},
+                                                        "sandbox": policy["sandbox"],
+                                                        "approvalPolicy": policy["approvalPolicy"]})
+                stage = "resumed_identity"
+                resumed_thread = resumed.get("thread") if isinstance(resumed, dict) else None
+                self._identity(resumed_thread, brain_id)
+                turns = resumed_thread.get("turns", [])
+                require(isinstance(turns, list) and not turns,
+                        "Native resume did not return metadata only")
+                # Keep the original metadata-only response tied to this one-shot
+                # notification. A binding alone is not an observed native policy.
+                from .standard_host_inspection import resume_profile
+                with self.ledger.tx() as db:
+                    command = self.ledger.get(db, "commands", command_id)
+                    note = command.get("notification") or {}
+                    require(note.get("brainId") == brain_id and note.get("status") == "sending" and
+                            "nativeResumeProfile" not in note, "Owned resume profile claim changed")
+                    note["nativeResumeProfile"] = resume_profile(self.binding, brain_id, command_id, resumed)
+                    command["notification"] = note
+                    self.ledger.put(db, "commands", command_id, command)
             # Opt-in future host contract only. Never reinterpret or backfill an
             # old profile. A failed read consumes this notification, not a retry.
             contract = self.binding["brains"][brain_id].get("policyEvidence")
             if contract is not None:
                 from .native_policy_evidence import collect, matches
                 stage = "effective_policy"
-                evidence = collect(proxy, self.binding, brain_id, command_id)
+                evidence = successor_evidence if successor else collect(proxy, self.binding, brain_id, command_id)
                 require(matches(evidence["reported"]), "Loaded native policy is not verified before turn start")
                 validate_endpoint(self.binding["endpoint"])
                 require(self.configured(brain_id), "Reviewed policy endpoint changed before turn start")
@@ -1038,6 +1051,11 @@ class AppServerWake:
             if public_backend:
                 stage = "authentication_check"
                 require_ready(proxy)
+            if successor:
+                # Never fall back to resume when the existing loaded target was
+                # lost, paused or changed while retaining the observation.
+                stage = 'effective_policy'
+                loaded_profile(self, proxy, command_id, brain_id)
             stage = "observation_record"
             capture = self._begin_thread_observation(command_id, brain_id)
             proxy._on_thread_started = lambda row: self._record_thread_started(command_id, brain_id, row)
@@ -1054,7 +1072,7 @@ class AppServerWake:
             confirmed_turn_id = turn["id"]
             with self.ledger.tx() as db:
                 command = self.ledger.get(db, "commands", command_id)
-                profile = (command.get("notification") or {}).get("nativeResumeProfile")
+                profile = (command.get("notification") or {}).get('nativeLoadedProfile' if successor else "nativeResumeProfile")
                 require(profile and profile.get("commandId") == command_id and
                         "nativeTurnId" not in profile, "Owned turn profile changed")
                 profile["nativeTurnId"] = confirmed_turn_id

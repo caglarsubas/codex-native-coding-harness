@@ -55,6 +55,10 @@ def _context(registry, ledger, token, run_id, command_id, task_id, *, sending=Fa
     require(context["transport"] == "owned_observer_v1", "Public task effects require the owned observer")
     with registry.tx() as registry_db, standard.read_db(ledger.db) as db:
         meta, run, _ = _base_in(registry, ledger, token, registry_db, db, run_id)
+        if run.get('successorHash'):
+            from .standard_successor import retained_in, other_owners
+            successor = retained_in(ledger, db, meta)
+            other_owners(registry, ledger, successor['request']['target']['repositories'])
         require(run["status"] == "running" and not standard.current_blockers(ledger, db, run),
                 "Run, policy, usage, Pause or duration fences new public native effects")
         require(standard.worktrees.repository_mode(run) == "repo_exclusive",

@@ -34,6 +34,23 @@ navigation destination.
 
 ## Local regression record
 
+- Disjoint successor (2026-10-15): full discovery completed 2,730 Python tests
+  (2,729 passed; the optional Graphify executable check skipped), including 23
+  successor tests. All 36 JavaScript suites, 31 web syntax checks, 287 Python AST
+  checks and diff checks passed. The disposable ledger journey covers separate
+  lineage admission, fresh Play, no-resume send, version-2 broker inspection,
+  synthetic task result and completed checkpoint with an unchanged source DB
+  fingerprint. A pinned compiled-native fixture separately exercised one bounded
+  disposable turn, apply_patch and fixed pwd, prospective item capture and
+  repeated already-loaded metadata/policy/empty-current-tracker reads, with zero
+  thread resumes, cloud requests or live-host connections. It is not an integrated
+  real-model live successor run, OS cleanup proof or pilot acceptance. Rendered
+  disposable desktop/320px checks passed with prior usage/unknown safety visible,
+  keyboard details, no overflow, no page errors and no control writes. Read-only
+  live assessment found the original protected baseline unchanged, 1,049,625
+  observed/high-water tokens with partial coverage, no applied quarantine and no
+  separate registered successor target. No live load, binding, run or usage changed.
+
 - Public pilot current inspection (2026-10-15): 26 focused tests cover exact
   until-scope-changes review, claimed/interrupted delivery, competing canonical
   fences, Pause/controller/usage races, process/socket/config identity, native

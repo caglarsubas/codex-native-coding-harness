@@ -155,6 +155,8 @@ class BrainNotifier:
                 try:
                     notification["hostBindingHash"] = retain_binding(ledger, self.app_server.binding)
                     notification["hostRunId"] = standard_run["id"]
+                    if standard_run.get('successorHash'):
+                        notification['successorHash'] = standard_run['successorHash']
                     notification["hostInspectionTransport"] = "owned_observer_v1"
                 except (OSError, ValueError, Refusal):
                     notification.update(status="unavailable", finishedAt=time.time(),
@@ -311,10 +313,19 @@ class BrainNotifier:
                 "Keep supervising registered tasks with native waits until the reviewed phase checkpoint or stop."
             )
         if notification.get("hostBindingHash") and command["kind"] != "standard_pause_receipt_recovery":
+            if notification.get('successorHash'):
+                source = Path(__file__).resolve().parent.parent
+                message += (
+                    f" This is a separately reviewed disjoint successor. Read {json.dumps(str(source / 'docs/SAFE-SUCCESSOR.md'))} completely. "
+                    "The old attempt, usage and repository holds remain unchanged and historical safety is unknown. "
+                    "This control used an already-loaded target, never thread/resume. standard-host-inspect returns "
+                    "version 2 with loadedProfile, not a resume receipt; require its independent effective-policy evidence. "
+                    "Never load/reload a brain or use recovery as a fallback."
+                )
             message += (
                 f" Owned host handoff for command {json.dumps(command_id)}, run {json.dumps(notification['hostRunId'])}: "
                 "after receiving the control, use standard-host-inspect RUN_ID COMMAND_ID under this controller "
-                "for fresh read-only project/brain metadata and the exact resume-profile receipt. "
+                "for fresh read-only project/brain metadata and the exact retained startup profile. "
                 "The reviewed binding is already retained privately; do not ask the owner for paths, discover a host, "
                 "resume a native thread or change settings to inspect it. Reported policy, acknowledged Code Mode "
                 "configuration and unknown native-effect coverage are separate facts. "

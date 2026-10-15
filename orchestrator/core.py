@@ -19,7 +19,7 @@ import uuid
 from urllib.parse import urlsplit
 
 VERSION = 1
-LEDGER_VERSIONS = (1, 2, 3, 4, 5, 6)  # v6: explicit quarantine disposition; no read-time upgrade.
+LEDGER_VERSIONS = (1, 2, 3, 4, 5, 6, 7)  # v7: separately admitted disjoint successor; no read-time upgrade.
 AXES = ("source", "ci", "merge", "artifact", "deployment", "runtime", "assurance", "tenant")
 ACTIVE = ("reserved", "starting", "running", "awaiting_acceptance", "accepting", "verifying", "blocked")
 COMMANDS = {"approve", "hold", "prioritize", "pause", "resume", "reconcile", "checkpoint", "archive", "decision_response", "listening", "brain_stop", "brain_resume", "brain_checkpoint_continue", "brain_reply_recovery"}
@@ -49,7 +49,10 @@ def require(condition, message):
 def supported_ledger_metadata(meta):
     version = meta.get("schemaVersion")
     run = meta.get("standardRun")
-    return version in LEDGER_VERSIONS and (version != 6 or
+    return version in LEDGER_VERSIONS and (version != 7 or
+        type(meta.get("successorLedgerVersion")) is int and meta['successorLedgerVersion'] == 1 and
+        isinstance(meta.get('standardSuccessor'), str) and bool(SHA.fullmatch(meta['standardSuccessor'])) and
+        (run is None or isinstance(run, dict) and run.get('protocol') == 'standard_cooperative_v1')) and (version != 6 or
         type(meta.get("quarantineLedgerVersion")) is int and meta["quarantineLedgerVersion"] == 1 and
         isinstance(meta.get("standardQuarantine"), str) and bool(SHA.fullmatch(meta["standardQuarantine"])) and
         isinstance(run, dict) and run.get("protocol") == "standard_cooperative_v1") and (version != 5 or
@@ -177,7 +180,14 @@ class Ledger:
             require(not os.path.lexists(self.root / "standard-quarantine.json") and
                     meta.get("schemaVersion") != 6 and "standardQuarantine" not in meta,
                     "Quarantined or partially quarantined workspace is read-only; no authority or resource release")
+            successor = meta.get('schemaVersion') == 7 or os.path.lexists(self.root/'standard-successor.json')
+            if successor:
+                from .standard_successor import retained_in
+                retained_in(self, db, meta)
             yield db
+            if successor or os.path.lexists(self.root/'standard-successor.json'):
+                from .standard_successor import retained_in
+                retained_in(self, db)
             db.commit()
         except BaseException:
             db.rollback()

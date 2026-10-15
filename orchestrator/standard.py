@@ -96,11 +96,15 @@ def git_root(path):
 
 def eligible(ledger, db):
     meta = ledger.get(db, "meta", 1)
-    require((meta["schemaVersion"] == 1 or ((meta["schemaVersion"] == 4 or
+    require((meta['schemaVersion'] == 7 and meta.get('successorLedgerVersion') == 1 or
+            meta["schemaVersion"] == 1 or ((meta["schemaVersion"] == 4 or
             meta["schemaVersion"] == 5 and meta.get("publicTaskLedgerVersion") == 1) and
             meta.get("standardRun", {}).get("protocol") == PROTOCOL))
             and "admissionBinding" not in meta and not fence_exists(ledger.root),
             "Strict or enrolled workspaces cannot switch to cooperative mode")
+    if meta['schemaVersion'] == 7:
+        from .standard_successor import retained_in
+        retained_in(ledger, db, meta)
     repos = ledger.all(db, "repos")
     require(repos and all(r["policyProfile"] == "standard" for r in repos), "Only all-standard workspaces qualify; Harness is unchanged")
     require(not any(w["status"] in ACTIVE for w in ledger.all(db, "workers")), "Reconcile existing workers first")
@@ -166,6 +170,15 @@ def projection(ledger, db):
                                            "currentlyEligible": 0, "active": 0,
                                            "reason": "Quarantine retains repository ownership"})
         return result
+    if meta.get('schemaVersion') == 7 or os.path.lexists(ledger.root/'standard-successor.json'):
+        from .standard_successor import retained_in, public
+        try:
+            result['successor'] = public(retained_in(ledger, db, meta))
+        except (Refusal, OSError, ValueError, KeyError, TypeError):
+            result.update(successor={'status': 'incomplete_or_changed', 'playAuthorized': False},
+                          blocker='Successor admission is incomplete or changed; no native action or retry',
+                          blockers=['Inspect the exact retained successor claim'], contextHash=digest(meta))
+            return result
     try:
         eligible(ledger, db)
         catalog = result["catalog"]
@@ -351,7 +364,7 @@ def save(ledger, db, meta, run, operation):
     run["revision"] += 1
     run["updatedAt"] = time.time()
     meta["standardRun"] = run
-    meta["schemaVersion"] = 5 if meta.get("publicTaskLedgerVersion") == 1 else 4
+    meta["schemaVersion"] = 7 if meta.get('successorLedgerVersion') == 1 else 5 if meta.get("publicTaskLedgerVersion") == 1 else 4
     # Never downgrade a ledger after an explicitly consumed public task claim.
     ledger.put(db, "meta", 1, meta)
     record = {"operation": operation, "at": time.time(), "run": run}
@@ -388,6 +401,10 @@ class Controls:
         doc = {**request, "workspaceId": missions.workspace(ledger), "session": digest(session),
                "id": str(uuid.uuid4()), "runId": state["run"]["id"] if state["run"] else None,
                "expiresAt": time.time()+300, "boundary": BOUNDARY}
+        if state.get('successor'):
+            require(state['successor'].get('recordHash'), 'Incomplete successor admission cannot be reviewed for Play')
+            doc['successorHash'] = state['successor']['recordHash']
+            doc['successorBoundary'] = state['successor']
         return {"preview": doc, "signature": self.sign(doc)}
 
     def confirm(self, registry, ledger, body, session):
@@ -425,6 +442,9 @@ class Controls:
                 run["status"] = "running"
             else:
                 require(projection(ledger, db)["available"], "Standard Play prerequisites are missing")
+                if meta.get('schemaVersion') == 7:
+                    require(doc.get('successorHash') == meta['standardSuccessor'] and
+                            meta.get('standardRun') is None, 'A successor has one separately confirmed fresh Play, never a phase replay')
                 require(not run or not run.get("recovery") or run["recovery"].get("status") == "replied",
                         "Recovery preparation still needs its exact reply")
                 if doc.get("measureUsage"):
@@ -450,9 +470,13 @@ class Controls:
                        "brainAllowance": doc["brainAllowance"], "brainObservedTokens": 0, "brainUsageCoverage": "not_observed",
                        "usageGuardVersion": 1 if doc.get("measureUsage") else None,
                        "tasks": [], "checkpoint": None, "ownerReceipt": doc}
+                if meta.get('schemaVersion') == 7:
+                    run['successorHash'] = meta['standardSuccessor']
             save(ledger, db, meta, run, op)
             command = {"id": doc["id"], "kind": "standard_"+op, "actor": "dashboard", "status": "queued",
                        "createdAt": time.time(), "payload": {"runId": run["id"]}, "result": "Saved; waiting for native brain receipt"}
+            if meta.get('schemaVersion') == 7:
+                command['payload']['successorHash'] = meta['standardSuccessor']
             ledger.put(db, "commands", command["id"], command)
             return command
 
@@ -472,6 +496,10 @@ def brain(registry, ledger, token, request):
     with registry.tx() as registry_db, ledger.tx() as db:
         meta = authorize_brain(ledger, db, token)
         require(record_in(registry_db) is None, "Strict platform enrollment blocks cooperative effects")
+        if meta.get('standardSuccessor') and operation in ('claim', 'issue'):
+            from .standard_successor import retained_in, other_owners
+            successor = retained_in(ledger, db, meta)
+            other_owners(registry, ledger, successor['request']['target']['repositories'])
         from .pause_recovery import guard
         from .pause_receipt_recovery import guard as receipt_guard
         from .historical_effects import closed_run

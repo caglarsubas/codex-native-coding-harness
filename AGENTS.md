@@ -1,5 +1,24 @@
 # Codex Orchestrator — personal tooling
 
+## Disjoint successor source (2026-10-15)
+
+Read docs/SAFE-SUCCESSOR.md before the operator-only `standard_successor_v1`
+review. Only an already owner-quarantined immutable source and an existing
+different registered, empty unowned standard target with its own reviewed
+mission and unchanged single-brain binding qualify. Verify canonical local and
+normalized remote disjointness; retain old repository holds, all original
+run/command/usage/gap/expiry bytes and unknown terminal safety. New exact
+until-scope-changes owner review records lineage only. Exclusive claims plus
+schema-v7 receipt fence partial/drifting state; no retry, downgrade or implicit
+target creation/registration/rebind is supported. Quiesce old writers and back
+up private state before separate application. Separate fresh target Play is
+mandatory; original Play/recovery cannot migrate. Delivery requires repeated
+already-loaded-idle, known-empty current trackers and matching independent
+policy evidence, never thread/resume or a recovery fallback. Use v2
+standard-host-inspect loadedProfile, not a fabricated resume receipt. Current
+emptiness is not historical cleanup. Source/disposable qualification installs
+or confirms nothing, reloads no live brain and grants no pilot acceptance.
+
 ## Quarantine disposition and prospective lifecycle source (2026-10-15)
 
 Read docs/QUARANTINE-DISPOSITION.md before the operator-only

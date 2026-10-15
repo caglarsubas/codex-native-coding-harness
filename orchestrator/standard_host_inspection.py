@@ -97,6 +97,11 @@ def _context(registry, ledger, token, run_id, command_id):
         require(command["status"] in ("processing", "completed"), "Receive this exact control before host inspection")
         note = command.get("notification") or {}
         profile = note.get("nativeResumeProfile")
+        loaded = False
+        if run.get('successorHash'):
+            from .standard_successor import valid_profile
+            loaded = valid_profile(note.get('nativeLoadedProfile'), note, run, command_id)
+            profile = note.get('nativeLoadedProfile') if loaded else None
         stream = note.get("nativeThreadObservation") or {}
         require(note.get("brainId") == meta["brainId"] and note.get("status") == "accepted" and
                 note.get("nativeDelivery") == "owned_turn_start" and
@@ -108,7 +113,7 @@ def _context(registry, ledger, token, run_id, command_id):
                 profile.get("brainId") == meta["brainId"] and
                 profile.get("commandId") == command_id and profile.get("nativeTurnId") == note["nativeTurnId"] and
                 profile.get("bindingHash") == note.get("hostBindingHash") and
-                profile.get("requested") == NATIVE_APPROVAL_POLICY and profile.get("resumeAcknowledged") is True,
+                (loaded or profile.get("requested") == NATIVE_APPROVAL_POLICY and profile.get("resumeAcknowledged") is True),
                 "Current owned resume profile is unavailable or changed")
         owned = [c for c in commands if (c.get("notification") or {}).get("brainId") == meta["brainId"]]
         require(max(owned, key=lambda c: c["notification"].get("attemptedAt", 0))["id"] == command_id,
@@ -126,7 +131,8 @@ def _context(registry, ledger, token, run_id, command_id):
                 "policyExecutableHash": note.get("nativePolicyExecutableHash"),
                 "attemptedAt": note.get("attemptedAt"),
                 "transport": note.get("hostInspectionTransport", "direct_v1"),
-                "approvals": copy.deepcopy(note.get("nativeApprovals", []))}
+                "approvals": copy.deepcopy(note.get("nativeApprovals", [])),
+                **({'profileKind': 'loaded_only'} if loaded else {})}
 
 
 def inspect(registry, ledger, token, run_id, command_id):
@@ -161,7 +167,8 @@ def _collect(registry, ledger, token, run_id, command_id, context, binding=None)
     require(load_binding(path) == binding and _scope(registry, ledger.workspace_id, binding) == scope and
             _context(registry, ledger, token, run_id, command_id) == context,
             "Host, catalog, Pause, run or approval context changed during inspection")
-    reported = context["profile"]["reported"]
+    loaded = context.get('profileKind') == 'loaded_only'
+    reported = (context.get('effectivePolicy') or {}).get('reported', {}) if loaded else context["profile"]["reported"]
     issues = []
     if after["activeFlags"] is None:
         issues.append("native_active_flags_unavailable")
@@ -186,12 +193,12 @@ def _collect(registry, ledger, token, run_id, command_id, context, binding=None)
         issues.append("native_code_mode_unverified")
     if any(a.get("status") not in ("resolved", "resolved_without_response") for a in context["approvals"]):
         issues.append("unresolved_recorded_native_approval")
-    return {"version": VERSION, "workspaceId": ledger.workspace_id, "runId": run_id,
+    return {"version": 2 if loaded else VERSION, "workspaceId": ledger.workspace_id, "runId": run_id,
             "commandId": command_id, "brainId": context["brainId"], "nativeTurnId": context["nativeTurnId"],
             "bindingHash": context["bindingHash"], "endpointHash": scope["endpointHash"],
             "catalogProjectId": scope["catalogProjectId"], "ownedProjectId": scope["projectId"],
             "startedAt": started, "observedAt": time.time(), "brain": after,
-            "resumeProfile": context["profile"], "issues": issues,
+            **({'loadedProfile': context['profile']} if loaded else {'resumeProfile': context['profile']}), "issues": issues,
             "gaps": [gap for gap in GAPS if not (verified and gap == "code_mode_not_independently_reported")],
             "boundary": BOUNDARY.copy()}
 
@@ -265,14 +272,17 @@ def _request_inspection(registry, ledger, token, run_id, command_id, context):
                 "Host inspection reply belongs to another query")
         require(reply.get("status") == "completed", "Owned host inspection unavailable; inspect the retained checkpoint")
         report = reply.get("report")
-        require(isinstance(report, dict) and set(report) == REPORT_FIELDS and report.get("version") == VERSION and
+        loaded = context.get('profileKind') == 'loaded_only'
+        profile_key = 'loadedProfile' if loaded else 'resumeProfile'
+        report_fields = REPORT_FIELDS-{'resumeProfile'}|{'loadedProfile'} if loaded else REPORT_FIELDS
+        require(isinstance(report, dict) and set(report) == report_fields and report.get("version") == (2 if loaded else VERSION) and
                 report.get("commandId") == command_id and
                 report.get("workspaceId") == ledger.workspace_id and report.get("brainId") == context["brainId"] and
                 report.get("runId") == run_id and report.get("nativeTurnId") == context["nativeTurnId"] and
                 report.get("bindingHash") == context["bindingHash"] and report.get("boundary") == BOUNDARY and
                 type(report.get("observedAt")) in (int, float) and
                 saved["requestedAt"] <= report["observedAt"] <= time.time() and
-                report.get("resumeProfile") == context["profile"],
+                report.get(profile_key) == context["profile"],
                 "Host inspection reply is stale or changed")
         brain = report["brain"]
         from .native_policy_evidence import valid_retained
