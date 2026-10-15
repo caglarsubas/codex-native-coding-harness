@@ -101,6 +101,7 @@ class ReadProxy:
     response_limit = MAX_RESPONSE
     total_limit = MAX_TOTAL
     control_frame_limit = 16
+    query_limit = 128
 
     def __init__(self, endpoint, *, timeout=15):
         self.endpoint = endpoint
@@ -247,7 +248,7 @@ class ReadProxy:
 
     def _rpc(self, method, params):
         self.sequence += 1
-        require(self.sequence <= 128, "Native query count exceeds its bound")
+        require(self.sequence <= self.query_limit, "Native query count exceeds its bound")
         self.query_attempted = True
         self._write({"id": self.sequence, "method": method, "params": params})
         for _ in range(65):

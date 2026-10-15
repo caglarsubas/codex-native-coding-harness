@@ -1,5 +1,20 @@
 # Codex Orchestrator — personal tooling
 
+## Foreground subscription ownership source (2026-10-15)
+
+Read docs/PUBLIC-PILOT-INSPECTION.md before the separate future
+`public_pilot_inspection_subscription_v2` review. Pin an explicit 15–300-second
+observation window to the exact specification. Only the original claimed load's
+foreground connection owns its subscription; no adoption, reconnect, transfer,
+renewal, background keeper or model keepalive is supported. Close on completion,
+scope/native drift, failure or interruption. Missing close records are unknown,
+not active ownership or a retry permit. Reconciliation/status never subscribe.
+The canonical original-run/Play fence is shared with v1: a consumed inspection
+cannot upgrade into another load. All original usage/gaps/expiry, binding and
+current/historical terminal unknowns stay intact. This observation window is not
+an approval TTL, phase extension, controller, continuation or pilot acceptance.
+Source delivery installs nothing and must not reload the live paused brain.
+
 ## Public pilot current inspection source (2026-10-15)
 
 Read docs/PUBLIC-PILOT-INSPECTION.md before the operator-only
