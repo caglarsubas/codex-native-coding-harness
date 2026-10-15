@@ -1,5 +1,25 @@
 # Codex Orchestrator — personal tooling
 
+## Existing-home public host restart source (2026-10-15)
+
+Read docs/PUBLIC-HOST-RESTART.md before the operator-only
+`public_existing_home_restart_v1` path. Require the same completed one-brain
+transfer, original issued public exec/claim, exact package and unchanged empty
+unowned paused standard scope. Repeat predecessor-PID absence and bounded
+process/home-handle checks; retain a verified private opaque byte backup without
+SQL editing or shared credential copying. Preserve original claims, history,
+usage/gaps and expiry. New exact until-scope-changes review and canonical
+per-predecessor fence precede one fixed closed-environment exec. Later genuine
+exits require their own issued process-epoch predecessor, never ancestor replay;
+failed/unknown exec cannot become successor authority. Preserve only the fixed
+restricted base and an already saved exact-checkout native trust entry; never
+add trust or accept arbitrary config. Native inspection loads/starts nothing,
+uses only the new actual socket, and retains candidate/evidence records without
+installing a binding. Unloaded policy and all current/historical terminal safety
+remain unknown. No Play/recovery replay, usage reset, ownership release, phase
+transition, model/login request or pilot acceptance follows. Source delivery
+installs/launches/binds/confirms nothing; the initial empty-home gate is unchanged.
+
 ## Public-host authentication source (2026-10-15)
 
 Read docs/PUBLIC-HOST-AUTHENTICATION.md for the fixed non-refreshing account

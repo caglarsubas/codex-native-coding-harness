@@ -34,6 +34,16 @@ navigation destination.
 
 ## Local regression record
 
+- Existing-home public host restart (2026-10-15): focused source tests cover
+  private opaque backups, config/identity drift, interrupted one-shot claims,
+  legitimate process-epoch succession, closed native reads and preserved usage/
+  expiry/terminal unknowns. The exact previously reviewed binary passed a
+  disposable same-home reopen over actual Unix proxy transport with one cold
+  loopback receipt and zero warm loads, turns, write RPCs or model requests.
+  Native same-checkout trust metadata is preserved, not added by the adapter.
+  This is fixture/source evidence only; installation, exact new owner launch,
+  live connectivity, binding, sign-in and pilot acceptance remain separate.
+
 - Native permission continuity (2026-10-10): full local Python discovery
   completed 2,165 tests (2,164 passed; the optional Graphify executable check
   skipped), and all 34 JavaScript suites passed. The 56 focused native wake,

@@ -13,6 +13,15 @@ edits. The live pilot requires separate qualification and continuation authority
 
 # Codex Orchestrator
 
+For explicitly requested operator-only existing-home public host restart, read
+source `docs/PUBLIC-HOST-RESTART.md` completely. Require a completed exact transfer,
+verified private backup and new exact host-only review before its permanent
+per-predecessor exec claim. Never reuse launch/Play/recovery approvals, load a
+brain to manufacture evidence, or treat an unloaded tracker/ended process as
+safe. Connectivity reads and candidate binding stay separate from installed
+binding and phase authority. Source delivery launches or installs nothing and
+does not qualify the pilot.
+
 For the explicitly requested operator-only exact export from shared ~/.codex,
 read `docs/SHARED-BRAIN-EXPORT.md` completely. Export one bound native-returned
 brain rollout to a new disjoint private archive, never the shared home, credentials
