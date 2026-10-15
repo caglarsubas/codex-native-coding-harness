@@ -5,6 +5,25 @@ Canonical JSON is UTF-8, sorted keys, compact separators, no NaN. Its SHA-256 is
 the record identity; this encoding is local to this tool, not RFC 8785 signing.
 SQLite uses WAL, synchronous FULL and BEGIN IMMEDIATE for serialized transitions.
 
+## Disjoint successor lineage
+
+See [SAFE-SUCCESSOR.md](SAFE-SUCCESSOR.md). A separately owner-reviewed
+`standard_successor_v1` request pins a valid immutable quarantined predecessor,
+its preserved run/usage/expiry and repository identities, and one existing
+disjoint target's metadata/DB/registry/mission/binding file epoch. It has no timer
+expiry and no Play/native/release authority. Exclusive target and registry
+outgoing claims precede one target snapshot and schema-v7 pointer; incomplete
+claims remain fenced, never auto-repaired or replayed. No source ledger changes.
+
+The target's separate signed fresh Play includes `successorHash` and the closed
+`successorBoundary`; the new run and owner receipt retain that same lineage.
+Already-loaded-only delivery records `nativeLoadedProfile` using
+`successor_loaded_only_v1`, then independently reported native policy tied to the
+one new command/turn. It records no resume acknowledgment. Explicit owned-host
+inspection returns version 2 with `loadedProfile`; older resume/report schemas
+stay unchanged. Current loaded metadata and item lifecycle evidence never
+establish historical cleanup, terminal safety or pilot acceptance.
+
 ## Public native standard task transport
 
 See [PUBLIC-NATIVE-TASK-ADAPTER.md](PUBLIC-NATIVE-TASK-ADAPTER.md). A future exact

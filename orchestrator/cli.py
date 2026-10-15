@@ -82,6 +82,11 @@ def main():
     p.add_argument("review", type=Path); p.add_argument("--confirm-hash", required=True)
     p = sub.add_parser("standard-lifecycle-capture", help="Read original prospective native-item lifecycle; never collect, load or infer OS cleanup")
     p.add_argument("command_id")
+    p = sub.add_parser('standard-successor-preview', help='Operator-only disjoint existing-target review; no native calls or Play')
+    p.add_argument('target_workspace'); p.add_argument('binding', type=Path)
+    p = sub.add_parser('standard-successor-confirm', help='Record exact owner-reviewed lineage; never confirm Play or change bindings')
+    p.add_argument('review', type=Path); p.add_argument('--confirm-hash', required=True)
+    sub.add_parser('standard-successor-status', help='Read retained target lineage only; never load or collect')
     p = sub.add_parser("standard-host-inspect", help="Brain-only current owned-host metadata and resume-profile inspection; no wake or write")
     p.add_argument("run_id"); p.add_argument("command_id")
     p = sub.add_parser("standard-public-task", help="Brain-only one-shot public task request via the owned observer; no desktop fallback")
@@ -486,6 +491,15 @@ def main():
     elif action == "standard-state":
         from .standard import read as standard_read
         out = standard_read(ledger)
+    elif action.startswith('standard-successor-'):
+        if not registry or not args.workspace: raise Refusal('Exact registered workspace required')
+        from . import standard_successor as successor
+        if action == 'standard-successor-preview': out = successor.prepare(registry, ledger, args.target_workspace, args.binding)
+        elif action == 'standard-successor-confirm': out = successor.confirm(registry, ledger, successor.read_request(args.review), args.confirm_hash)
+        else:
+            from .standard import read_db
+            with read_db(ledger.db) as db: retained = successor.retained_in(ledger, db)
+            out = successor.public(retained) if retained else {'status': 'not_a_successor'}
     elif action.startswith("standard-quarantine-"):
         if not registry or not args.workspace: raise Refusal("Exact registered standard workspace required")
         from . import standard_quarantine as quarantine

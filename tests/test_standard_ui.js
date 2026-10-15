@@ -20,6 +20,12 @@ box.commandPresentation=()=>({label:'Connection lost · request unresolved',deta
 const render=(mode)=>{const root=new Element('root');box.standardPanel(root,mode);return root;};
 function all(root){return [root,...root.children.flatMap(x=>x instanceof Element?all(x):[])];}
 (async()=>{
+  box.state.standard.successor={recordHash:'lineage',priorObservedTokens:1049625,priorUsageCoverage:'observed_partial'};
+  let successorNodes=all(render());
+  assert.ok(successorNodes.some(n=>String(n.text).includes('1049625')&&String(n.text).includes('Old repository ownership remains held')));
+  assert.ok(successorNodes.some(n=>n.text==='Details · preserved predecessor and successor boundary'));
+  assert.equal(sent.length,0,'Lineage rendering sends no native request or control');
+  delete box.state.standard.successor;
   let nodes=all(render());await nodes.find(n=>n.text==='Review Play').click();
   assert.equal(routes.at(-1),'roadmap','A signed Play preview opens its visible inspector section');
   assert.equal(sent[0].body.durationHours,24,'New Play suggests a 24-hour window');
@@ -87,6 +93,8 @@ function all(root){return [root,...root.children.flatMap(x=>x instanceof Element
   box.state.standard.nativePolicyVerification.policyVerified=true;
   box.state.standard.nativePolicyVerification.codeMode='native_reported_off';
   assert.ok(all(render()).some(n=>String(n.text).includes('not active-step grants, terminal cleanup or permission to resume')));
+  box.state.standard.nativePolicyVerification.loadedWithoutResume=true;
+  assert.ok(all(render()).some(n=>n.tag==='table'&&n.text.includes('Already-loaded startup')&&n.text.includes('Verified without loading or resuming')));
   delete box.state.standard.nativePolicyVerification;
   box.state.standard.run.usageGuardVersion=1;
   box.state.standard.measuredUsage={tokens:{input_tokens:100,cached_input_tokens:50,output_tokens:20,reasoning_output_tokens:5,total_tokens:120},

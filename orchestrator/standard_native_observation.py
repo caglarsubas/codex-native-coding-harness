@@ -142,7 +142,7 @@ def _activity(thread):
     return "active" if kind == "active" else "unknown"
 
 
-def _brain_identity(client, scope, *, include_flags=False):
+def _brain_identity(client, scope, *, include_flags=False, idle_without_flags=False):
     project = client.call("project/read", {"projectId": scope["projectId"]}).get("project")
     require(isinstance(project, dict) and project.get("id") == scope["projectId"] and
             isinstance(project.get("roots"), list) and len(project["roots"]) == 1,
@@ -163,6 +163,10 @@ def _brain_identity(client, scope, *, include_flags=False):
     if include_flags:
         status = thread.get("status")
         flags = status.get("activeFlags") if isinstance(status, dict) else None
+        # The public protocol's Idle enum serializes as {"type":"idle"};
+        # only this explicit closed form can imply no active flags. Opt-in
+        # keeps existing historical/recovery evidence contracts unchanged.
+        if idle_without_flags and status == {"type": "idle"}: flags = []
         result["activeFlags"] = flags if isinstance(flags, list) and len(flags) <= 2 and \
             all(f in ("waitingOnApproval", "waitingOnUserInput") for f in flags) and \
             len(set(flags)) == len(flags) else None

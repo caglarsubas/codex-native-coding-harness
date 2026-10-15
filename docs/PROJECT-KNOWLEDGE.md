@@ -1,5 +1,12 @@
 # Durable project knowledge and bounded brain context
 
+[SAFE-SUCCESSOR.md](SAFE-SUCCESSOR.md) defines separate owner-reviewed lineage
+to an existing disjoint target, never reopening the predecessor. Old usage,
+gaps, expiry, repository holds and unknown safety remain immutable. Admission,
+fresh target Play, already-loaded policy verification, actual delivery, checkpoint
+and pilot acceptance are separate facts. No target creation, binding change,
+brain reload or live activation follows source/disposable qualification.
+
 [QUARANTINE-DISPOSITION.md](QUARANTINE-DISPOSITION.md) defines a separate
 unqualified owner disposition that preserves an expired attempt and usage while
 retaining its repository hold and fencing writes. It is not historical cleanup,

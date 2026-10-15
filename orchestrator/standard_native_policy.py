@@ -22,6 +22,11 @@ def projection(ledger, db, run):
     command = max(candidates, key=lambda c: (timestamp(c), c["id"]))
     note = command.get("notification") or {}
     profile = note.get("nativeResumeProfile")
+    loaded = False
+    if run.get('successorHash'):
+        from .standard_successor import valid_profile
+        loaded = valid_profile(note.get('nativeLoadedProfile'), note, run, command['id'])
+        profile = note.get('nativeLoadedProfile') if loaded else None
     bound = (isinstance(profile, dict) and profile.get("version") == 1 and
              note.get("brainId") == run["brainId"] and
              profile.get("brainId") == run["brainId"] and
@@ -30,11 +35,14 @@ def projection(ledger, db, run):
              profile.get("bindingHash") == note["hostBindingHash"] and
              isinstance(note.get("nativeTurnId"), str) and
              profile.get("nativeTurnId") == note["nativeTurnId"] and
-             profile.get("resumeAcknowledged") is True)
+             (profile.get("resumeAcknowledged") is True or loaded))
     reported = profile.get("reported") if bound else None
     reported = reported if isinstance(reported, dict) else {}
     requested = profile.get("requested") if bound else None
     expected = {"sandbox": "workspace-write", "approvalPolicy": "on-request", "codeMode": False}
+    if loaded:
+        reported = (note.get('nativeEffectivePolicy') or {}).get('reported') or {}
+        requested = expected  # Binding policy was checked, never applied or acknowledged by resume.
     # False compares equal to zero in Python: policy values must be exact types.
     configured = (isinstance(requested, dict) and requested == expected and
                   type(requested.get("codeMode")) is bool)
@@ -46,7 +54,7 @@ def projection(ledger, db, run):
     verified = bool(bound and configured and observed_at and
                     valid_retained(effective, note, profile, command["id"], run["brainId"]))
     return {"commandId": command["id"], "observedAt": observed_at,
-            "resumeAcknowledged": bool(bound), "configurationMatches": configured,
+            "resumeAcknowledged": bool(bound and not loaded), "loadedWithoutResume": loaded, "configurationMatches": configured,
             "sandbox": "reported_matching" if reported.get("sandbox") == "workspaceWrite" else "unverified",
             "approvalPolicy": "reported_matching" if reported.get("approvalPolicy") == "on-request" else "unverified",
             "approvalsReviewer": "reported_matching" if reported.get("approvalsReviewer") == "user" else "unverified",

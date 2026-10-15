@@ -80,9 +80,11 @@ class StdioFixture:
     def call(self,method,params): return self._rpc(method,params)
 
 
-def qualify(binary, expected_hash, exercise_tools=False, public_host_config=False, missing_auth=False, capture_lifecycles=False):
+def qualify(binary, expected_hash, exercise_tools=False, public_host_config=False, missing_auth=False,
+            capture_lifecycles=False, loaded_only_preflight=False):
     require(not missing_auth or not exercise_tools, "Missing-auth fixture cannot execute tools")
     require(not capture_lifecycles or exercise_tools, 'Lifecycle fixture requires the bounded disposable tool exercise')
+    require(not loaded_only_preflight or not missing_auth, 'Loaded-only fixture requires its disposable authenticated provider')
     path,_=secure_path(binary)
     with path.open("rb") as stream: actual_hash=hashlib.file_digest(stream,"sha256").hexdigest()
     require(actual_hash==expected_hash,"Reviewed compiled runtime changed")
@@ -223,6 +225,28 @@ stream_max_retries = 0
                     io.on_native_event = lambda row: capture.append(ledger, command['id'], thread_id, row)
                 turn_id,_=adapter.begin()
                 require(adapter.ended(turn_id)=="ended","Disposable native task did not end")
+                if loaded_only_preflight:
+                    # Exercise the exact read shape on an existing, still-loaded
+                    # disposable thread. No new turn follows this preflight;
+                    # the ledger/send journey is separately covered by tests.
+                    from orchestrator.standard_native_observation import _terminals
+                    observations=[]
+                    for _ in range(2):
+                        observed_project=adapter.call("project/read",{"projectId":project["id"]})["project"]
+                        observed=adapter.call("thread/read",{"threadId":thread_id,"includeTurns":False})["thread"]
+                        policy=adapter._rpc("thread/effectivePolicy/read",{"threadId":thread_id})
+                        terminals=_terminals(adapter,thread_id)
+                        require(observed_project["id"]==project["id"] and
+                                observed_project["roots"]==[{"path":str(cwd)}], 'Loaded-only fixture project differs')
+                        require(observed["id"]==thread_id and observed["projectId"]==project["id"] and
+                                observed["cwd"]==str(cwd), 'Loaded-only fixture thread identity differs')
+                        require(observed["status"]=={"type":"idle"}, 'Loaded-only fixture idle status differs')
+                        require(terminals==[] and matches(reported(policy,thread_id,str(cwd))),
+                                'Loaded-only fixture current terminals or policy differ')
+                        observations.append(digest({'identity':{k:observed[k] for k in
+                            ('id','projectId','cwd','status')},'policy':policy,'terminals':terminals}))
+                    require(observations[0]==observations[1] and "thread/resume" not in io.methods,
+                            'Loaded-only native preflight changed or loaded a thread')
                 lifecycle_result = None
                 if capture_lifecycles:
                     io.on_native_event = None
@@ -242,6 +266,8 @@ stream_max_retries = 0
                 require(model_calls==["gpt-6-astra"]*expected_calls,"Unexpected fixture provider/model request")
                 require(io.methods.count("thread/start")==1 and io.methods.count("turn/start")==1,
                         "Disposable task effects were repeated")
+                require(not loaded_only_preflight or "thread/resume" not in io.methods,
+                        'Loaded-only fixture attempted a reload')
                 if exercise_tools:
                     require([p.name for p in cwd.iterdir()]==["RESULT.md"] and
                             (cwd/"RESULT.md").read_text()=="Public native task fixture.\n",
@@ -259,6 +285,7 @@ stream_max_retries = 0
                         "disposableFileEditVerified":exercise_tools,"readonlyCommandVerified":exercise_tools,
                         "publicHostConfigFixture":public_host_config,"launchLifecycleQualified":False,
                         "prospectiveNativeItemLifecycleQualified":lifecycle_result is not None,
+                        "alreadyLoadedNoResumeFixtureQualified":loaded_only_preflight,
                         "capturedItemLifecycles":len(lifecycle_result['items']) if lifecycle_result else None,
                         "processLifecycleCleanupQualified":False,
                         "liveHostConnections":0,"liveNativeWrites":0,"migrationQualified":False,"pilotAccepted":False}
@@ -278,5 +305,6 @@ if __name__=="__main__":
     parser.add_argument("--public-host-config",action="store_true",help="Exercise restricted public-host config/environment with fixture-only loopback provider; not a live launch review")
     parser.add_argument("--missing-auth",action="store_true",help="Verify the unauthenticated default-provider guard with zero project/thread/turn creation or login")
     parser.add_argument("--capture-lifecycles",action="store_true",help="Qualify original-bound native item lifecycle only, never OS descendant cleanup")
+    parser.add_argument("--loaded-only-preflight",action="store_true",help="Repeatedly verify the already-loaded disposable thread before one fresh turn; never resume/load or connect to a live brain")
     args=parser.parse_args()
-    print(json.dumps(qualify(args.executable,args.sha256,args.exercise_tools,args.public_host_config,args.missing_auth,args.capture_lifecycles),indent=2))
+    print(json.dumps(qualify(args.executable,args.sha256,args.exercise_tools,args.public_host_config,args.missing_auth,args.capture_lifecycles,args.loaded_only_preflight),indent=2))

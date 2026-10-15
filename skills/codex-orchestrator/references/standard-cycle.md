@@ -1,5 +1,14 @@
 # Cooperative standard-project brain
 
+For a separately reviewed disjoint successor, read source
+`docs/SAFE-SUCCESSOR.md` fully. Admission never grants Play or releases the old
+quarantined repository/usage. Only the existing target's separately confirmed
+fresh phase may execute; do not load/reload a brain, rebind, migrate/replay old
+controls or infer historical safety. Its explicit `standard-host-inspect` reply
+is version 2 with `loadedProfile`, not an acknowledged resume. Keep independent
+policy verification and all task/usage/Pause gates; a malformed or unloaded
+target stops without a fallback. Source delivery installs/applies nothing.
+
 This protocol applies to the fixed pre-Play capability request and to an
 owner-activated `standard_cooperative_v1` run.
 Never use it for Harness or strict/enrolled workspaces. The owner authorizes you

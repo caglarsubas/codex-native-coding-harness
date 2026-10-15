@@ -132,6 +132,13 @@ async function reviewStandardControl(s,operation,run){
 function standardPanel(root,mode='all'){
   const s=state.standard;if(!s)return;
   const panel=el('section',null,'mission-status'),run=s.run;
+  if(s.successor){
+    const prior=s.successor;
+    panel.append(callout('Separate successor · old attempt preserved',
+      prior.recordHash?`Prior observed brain usage: ${prior.priorObservedTokens===null||prior.priorObservedTokens===undefined?'Unknown':num(prior.priorObservedTokens)} tokens; coverage: ${prior.priorUsageCoverage||'unknown'}. Old repository ownership remains held and terminal safety remains unknown. Only a separate fresh Play can start this target; its brain must already be loaded with verified policy.`:
+      'Successor admission is incomplete or changed. No retry, load or Play is available; inspect the retained claim.'));
+    const lineage=el('details');lineage.append(el('summary','Details · preserved predecessor and successor boundary'),el('pre',JSON.stringify(prior,null,2)));panel.append(lineage);
+  }
   if(s.quarantine){
     panel.append(el('p','PRESERVED ATTEMPT','eyebrow'),el('h2','Quarantined · unqualified'),
       el('p','This attempt has not been declared safe, successful or complete. Its original run, usage, expiry and evidence gaps are preserved. Repository ownership remains held. No Resume, Play or recovery is available.','checkpoint'),
@@ -192,12 +199,12 @@ function standardPanel(root,mode='all'){
       panel.append(table(['Saved policy evidence','Recorded fact'],[
         ['Original observation',when(policy.observedAt)],
         ['Requested configuration',policy.configurationMatches?'Matches the reviewed binding':'Unverified'],
-        ['Resume acknowledgement',policy.resumeAcknowledged?'Recorded':'Unverified'],
+        [policy.loadedWithoutResume?'Already-loaded startup':'Resume acknowledgement',policy.loadedWithoutResume?'Verified without loading or resuming':policy.resumeAcknowledged?'Recorded':'Unverified'],
         ['Sandbox',policy.sandbox==='reported_matching'?'Reported workspace-write':'Unverified'],
         ['Approval policy',policy.approvalPolicy==='reported_matching'?'Reported on-request':'Unverified'],
         ['Approval reviewer',policy.approvalsReviewer==='reported_matching'?'Reported user':'Unverified'],
         ['Effective Code Mode', policy.policyVerified?'Native explicit-off enforcement reported':'Unknown; required off'],
-        ['Next step','Repair and qualify runtime policy, then refresh usage before separately reviewed Resume']
+        ['Next step',policy.policyVerified?'Follow the current phase; independent usage, task evidence and Pause gates still apply':'Repair and qualify runtime policy, then refresh usage before separately reviewed Resume']
       ]),el('p',policy.boundary,'muted'));
       const check=state.nativePolicyCheck;
       panel.append(el('p',check?.detail||'A policy check reads the exact reviewed host. It does not load the brain, change the saved Play, clear historical gaps or resume work.','muted'));
