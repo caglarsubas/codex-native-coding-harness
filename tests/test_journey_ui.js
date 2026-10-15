@@ -25,6 +25,10 @@ const run=(status)=>({id:'run',status,phaseId:'phase-1',expiresAt:2000,limits:{t
 const all=root=>[root,...root.children.flatMap(all)],text=root=>all(root).map(n=>n.text).join('\n');
 const render=()=>{const root=new Element('main');box.roadmapJourney(root);return root;};
 let s=base();assert.equal(model(s).action,'play');assert.equal(model(s,false).action,'refresh');
+const quarantined=base();quarantined.standard.run=run('paused');quarantined.standard.quarantine={status:'quarantined_unqualified'};
+assert.equal(model(quarantined).action,'operations');assert.equal(model(quarantined).requiresOperator,true);
+assert.equal(model(quarantined).canPause,undefined);assert.match(model(quarantined).detail,/ownership remains held/);
+assert.match(box.projectPhaseStatus(quarantined),/QUARANTINED.*UNQUALIFIED.*safety unknown/);
 const budgetStop=base();budgetStop.standard.run=run('paused');budgetStop.standard.run.checkpoint.reasonCodes=['token_budget'];
 budgetStop.standard.brainBudget={available:true};assert.equal(model(budgetStop).action,'budget');
 box.journeyAction('budget');assert.deepEqual(calls.at(-1),['navigate','usage']);

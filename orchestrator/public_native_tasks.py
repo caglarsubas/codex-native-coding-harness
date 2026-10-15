@@ -106,6 +106,10 @@ def _capacity_in(registry_db, ledger, db, run, task):
     for row in registry_db.execute("SELECT id,root FROM workspaces WHERE id<>?", (ledger.workspace_id,)):
         with standard.read_db(Path(row["root"])/"ledger.sqlite3") as other:
             meta = ledger.get(other, "meta", 1)
+            from .standard_quarantine import fenced, repository_holds
+            if fenced(row["root"], meta):
+                require(task['repositoryIdentity'] not in repository_holds(row['root'], other, meta),
+                        'Repository remains held by a quarantined attempt before native creation/turn')
             require(not any(w["status"] in ACTIVE for w in ledger.all(other, "workers")), "Foreign legacy owner is unresolved")
             foreign_run = meta.get("standardRun") or {}
             foreign = [t for t in foreign_run.get("tasks", []) if t["status"] not in standard.TERMINAL]

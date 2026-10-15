@@ -77,6 +77,15 @@ async function render(){const root=new Element('root');box.conversationView(root
   assert.equal(sent.length,beforeFocus,'Inspecting a request never posts or notifies');
   assert.equal(vm.runInContext("brainRequestFocus.has('alpha')",box),false,'The focus request is consumed once');
   assert.equal(vm.runInContext("brainRequestFocus.get('beta')",box),'other-request','Other project focus remains isolated');
+  const sendsBeforeQuarantine=sent.length;
+  box.state.standard={quarantine:{status:'quarantined_unqualified'},run:{status:'paused'}};
+  nodes=await render();
+  assert.equal(nodes.find(n=>n.tag==='textarea').disabled,true);
+  assert.equal(nodes.find(n=>n.type==='submit').disabled,true);
+  assert(nodes.some(n=>n.text?.includes('terminal safety remains unknown')||n.text?.includes('Terminal safety remains unknown')));
+  await nodes.find(n=>n.tag==='form').onsubmit({preventDefault(){}});
+  assert.equal(sent.length,sendsBeforeQuarantine,'A quarantined conversation cannot send or replay a draft');
+  box.state.standard=null;
   messages=[];
   // Receipt recovery is a separate, exact preview/confirmation, never a read wake.
   box.state.replyRecovery={messageId:'original'};

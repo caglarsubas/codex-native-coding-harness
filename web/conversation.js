@@ -341,8 +341,10 @@ function conversationView(root){
   const head=el('section');head.append(el('p',(state.workspace?.name||'Current portfolio')+' · '+(state.brainActivity?.title||'Configured Codex brain'),'eyebrow'));
   head.append(el('p','This is the project brain in Codex, not the advisory inference assistant. Project outcomes, platform messages and retained replies appear here; this is not a full Codex transcript.','checkpoint'));
   const actions=el('div',null,'inline-actions');actions.append(button('Decision inbox',()=>navigateView('decisions')),button('Approved queue',()=>navigateView('queue')),button('Artifact library',()=>navigateView('artifacts')));head.append(actions);root.append(head);
+  const quarantined=!!state.standard?.quarantine;
   const stopping=['stop_requested','checkpointing','parked'].includes(state.meta.brainControl?.phase)||['stopping','paused'].includes(state.standard?.run?.status);
-  if(stopping)root.append(callout('Brain paused or stopping',state.standard?.run?.status==='paused'?'Messages stay saved. If the phase has blockers, review the recovery-only preparation wake; ordinary Resume cannot bypass them.':'Messages stay saved. Sending a message does not resume the phase.'));
+  if(quarantined)root.append(callout('Preserved conversation · read-only','This attempt is quarantined and unqualified. Its drafts and saved history remain available; no message, recovery, Resume or Play can be sent here. Terminal safety remains unknown.'));
+  else if(stopping)root.append(callout('Brain paused or stopping',state.standard?.run?.status==='paused'?'Messages stay saved. If the phase has blockers, review the recovery-only preparation wake; ordinary Resume cannot bypass them.':'Messages stay saved. Sending a message does not resume the phase.'));
   nativePermissionPanel(root);
   const history=el('section',null,'brain-history');history.setAttribute('aria-label','Project brain messages');history.append(el('p','Loading saved conversation…'));root.append(history);
   const form=el('form',null,'brain-composer'),label=el('label','Message your project brain'),input=el('textarea');input.id='brain-message';input.setAttribute('data-focus','brain-message');input.rows=5;input.maxLength=8000;input.required=true;input.value=draft.text;label.htmlFor=input.id;form.append(label,input);
@@ -350,7 +352,7 @@ function conversationView(root){
   const send=el('button',draft.request?'Retry same saved request':'Send to brain','primary');send.type='submit';
   const status=el('p','No secrets. Your message is retained locally and read by this Codex task. Sending may consume your existing Codex allowance.','muted');form.append(status,send);root.append(form);
   let awaiting=true;
-  function validate(){send.disabled=busy||!connected||awaiting||(!draft.request&&(!input.value.trim()||!check.checked));input.disabled=!!draft.request;check.disabled=!!draft.request;}
+  function validate(){send.disabled=quarantined||busy||!connected||awaiting||(!draft.request&&(!input.value.trim()||!check.checked));input.disabled=quarantined||!!draft.request;check.disabled=quarantined||!!draft.request;}
   input.oninput=()=>{draft.text=input.value;saveBrainDraft(key,draft);validate();};check.onchange=()=>{draft.confirmed=check.checked;saveBrainDraft(key,draft);validate();};validate();
   form.onsubmit=async event=>{event.preventDefault();if(send.disabled)return;
     draft.request=draft.request||{id:crypto.randomUUID(),kind:'reconcile',expectedRevision:state.meta.revision,payload:{message:draft.text,brainId:state.meta.brainId,confirmed:true}};
@@ -366,9 +368,10 @@ function conversationView(root){
   api('/api/brain-conversation?page='+page).then(data=>{
     if(!history.isConnected||key!==(workspaceId||'legacy'))return;awaiting=data.pending>0;validate();history.replaceChildren();
     conversationActivity(history,data.activity);
-    if(awaiting)status.textContent='A message is awaiting the brain’s reply. You can still use decisions, Pause and Resume; do not submit duplicate work.';
+    if(quarantined)status.textContent='Quarantined and read-only. Your draft is preserved; nothing will be sent.';
+    else if(awaiting)status.textContent='A message is awaiting the brain’s reply. You can still use decisions, Pause and Resume; do not submit duplicate work.';
     history.append(section('Conversation',data.total+' saved '+(data.total===1?'message':'messages')+' · original timestamps'));
-    if(!data.messages.length)history.append(empty('Start here','Ask what is happening or describe your next scoped request. The answer will appear here when the brain retains it.'));
+    if(!data.messages.length)history.append(quarantined?empty('No saved messages','This preserved conversation is read-only. No message or wake will be sent.'):empty('Start here','Ask what is happening or describe your next scoped request. The answer will appear here when the brain retains it.'));
     let requestTarget=null;
     for(const message of data.messages){
       const article=el('article',null,'brain-exchange'),delivery=brainMessageState(message);

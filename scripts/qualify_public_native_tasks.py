@@ -18,9 +18,10 @@ import tempfile
 import threading
 import time
 import uuid
+from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from orchestrator.core import require
+from orchestrator.core import digest, require
 from orchestrator.native_read_client import decode, secure_path
 from orchestrator.native_policy_evidence import matches, reported
 from orchestrator.native_auth_readiness import require_ready as require_authentication
@@ -50,7 +51,10 @@ class StdioFixture:
                 self.buffer += chunk
                 require(len(self.buffer)<=1_000_000,"Disposable native response exceeds bound")
         line,self.buffer=self.buffer.split(b"\n",1)
-        return decode(line)
+        row = decode(line)
+        if getattr(self, 'on_native_event', None) is not None:
+            self.on_native_event(row)
+        return row
 
     def _rpc(self,method,params):
         allowed={"initialize","project/create","project/read","thread/start","turn/start","thread/read",
@@ -76,8 +80,9 @@ class StdioFixture:
     def call(self,method,params): return self._rpc(method,params)
 
 
-def qualify(binary, expected_hash, exercise_tools=False, public_host_config=False, missing_auth=False):
+def qualify(binary, expected_hash, exercise_tools=False, public_host_config=False, missing_auth=False, capture_lifecycles=False):
     require(not missing_auth or not exercise_tools, "Missing-auth fixture cannot execute tools")
+    require(not capture_lifecycles or exercise_tools, 'Lifecycle fixture requires the bounded disposable tool exercise')
     path,_=secure_path(binary)
     with path.open("rb") as stream: actual_hash=hashlib.file_digest(stream,"sha256").hexdigest()
     require(actual_hash==expected_hash,"Reviewed compiled runtime changed")
@@ -204,8 +209,30 @@ stream_max_retries = 0
                 require(samples[0]==samples[1] and all(matches(reported(s,thread_id,str(cwd))) for s in samples),
                         "Compiled worker effective policy differs from review")
                 require_authentication(adapter)
+                if capture_lifecycles:
+                    from orchestrator import effect_capture as capture, prospective_lifecycle as lifecycle
+                    ledger = SimpleNamespace(root=root, workspace_id='disposable-lifecycle')
+                    fixture_binding = {'endpoint': {}, 'brains': {thread_id: {'workspaceId': ledger.workspace_id}}}
+                    fixture_run = {'id': str(uuid.uuid4()), 'brainId': thread_id, 'protocol': 'standard_cooperative_v1'}
+                    command = {'id': str(uuid.uuid4()), 'kind': 'standard_play', 'notification': {
+                        'status': 'sending', 'brainId': thread_id, 'hostRunId': fixture_run['id'],
+                        'hostInspectionTransport': 'owned_observer_v1', 'hostBindingHash': digest(fixture_binding)}}
+                    meta = {'brainId': thread_id, 'standardRun': fixture_run}
+                    command['notification'][capture.FIELD] = capture.begin(ledger, fixture_binding, command, meta)
+                    command['notification'][lifecycle.FIELD] = lifecycle.bind(command, meta)
+                    io.on_native_event = lambda row: capture.append(ledger, command['id'], thread_id, row)
                 turn_id,_=adapter.begin()
                 require(adapter.ended(turn_id)=="ended","Disposable native task did not end")
+                lifecycle_result = None
+                if capture_lifecycles:
+                    io.on_native_event = None
+                    command['notification']['nativeTurnId'] = turn_id
+                    capture.seal(ledger, command, turn_id, 'completed')
+                    lifecycle_result = lifecycle.retained(ledger, command)
+                    require(lifecycle_result['status'] == 'recorded_item_lifecycles_observed' and
+                            {row['itemType'] for row in lifecycle_result['items']} >= {'fileChange', 'commandExecution'} and
+                            not any(lifecycle_result['boundary'].values()) and
+                            lifecycle_result['terminalSafety'] == 'unknown', 'Disposable lifecycle capture did not qualify its bounded item evidence')
                 thread=adapter.call("thread/read",{"threadId":thread_id,"includeTurns":False})["thread"]
                 terminals=adapter.call("thread/backgroundTerminals/list",{"threadId":thread_id,"cursor":None,"limit":64})
                 require(thread["id"]==thread_id and thread["projectId"]==project["id"] and
@@ -231,6 +258,9 @@ stream_max_retries = 0
                         "workerPolicyVerified":True,"fixtureCurrentTerminals":"none",
                         "disposableFileEditVerified":exercise_tools,"readonlyCommandVerified":exercise_tools,
                         "publicHostConfigFixture":public_host_config,"launchLifecycleQualified":False,
+                        "prospectiveNativeItemLifecycleQualified":lifecycle_result is not None,
+                        "capturedItemLifecycles":len(lifecycle_result['items']) if lifecycle_result else None,
+                        "processLifecycleCleanupQualified":False,
                         "liveHostConnections":0,"liveNativeWrites":0,"migrationQualified":False,"pilotAccepted":False}
             finally:
                 process.stdin.close()
@@ -247,5 +277,6 @@ if __name__=="__main__":
     parser.add_argument("--exercise-tools",action="store_true",help="Additionally exercise native apply_patch and fixed pwd only inside the disposable checkout")
     parser.add_argument("--public-host-config",action="store_true",help="Exercise restricted public-host config/environment with fixture-only loopback provider; not a live launch review")
     parser.add_argument("--missing-auth",action="store_true",help="Verify the unauthenticated default-provider guard with zero project/thread/turn creation or login")
+    parser.add_argument("--capture-lifecycles",action="store_true",help="Qualify original-bound native item lifecycle only, never OS descendant cleanup")
     args=parser.parse_args()
-    print(json.dumps(qualify(args.executable,args.sha256,args.exercise_tools,args.public_host_config,args.missing_auth),indent=2))
+    print(json.dumps(qualify(args.executable,args.sha256,args.exercise_tools,args.public_host_config,args.missing_auth,args.capture_lifecycles),indent=2))

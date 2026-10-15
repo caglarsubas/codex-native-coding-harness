@@ -156,6 +156,16 @@ def projection(ledger, db):
             (1 if latest_refresh.get("notification") else 0),
         "maxDeliveryAttempts": CATALOG_REFRESH_MAX_DELIVERY_ATTEMPTS,
     }
+    from .standard_quarantine import fenced, status as quarantine_status
+    if fenced(ledger.root, meta):
+        result.update(quarantine=quarantine_status(ledger),
+                      blocker="Attempt quarantined and unqualified; original usage, evidence gaps and repository holds remain",
+                      blockers=["Quarantine grants no Resume, successor Play or terminal-safety assertion"],
+                      contextHash=digest(meta), observedTokens=(run or {}).get("brainObservedTokens"),
+                      parallelEligibility={"permitted": (run or {}).get("limits", {}).get("maxParallelTasks", 0),
+                                           "currentlyEligible": 0, "active": 0,
+                                           "reason": "Quarantine retains repository ownership"})
+        return result
     try:
         eligible(ledger, db)
         catalog = result["catalog"]
@@ -334,6 +344,8 @@ def read(ledger):
 
 
 def save(ledger, db, meta, run, operation):
+    require(meta.get('schemaVersion') != 6 and 'standardQuarantine' not in meta,
+            'Quarantine disposition cannot be downgraded or reopened')
     require(meta["schemaVersion"] != 5 or (type(meta.get("publicTaskLedgerVersion")) is int and
             meta["publicTaskLedgerVersion"] == 1), "Public task schema marker cannot be removed or downgraded")
     run["revision"] += 1
@@ -623,6 +635,10 @@ def brain(registry, ledger, token, request):
             for row in registry_db.execute("SELECT id,root FROM workspaces WHERE id<>?", (missions.workspace(ledger),)):
                 with read_db(Path(row["root"])/"ledger.sqlite3") as other:
                     other_meta = ledger.get(other, "meta", 1)
+                    from .standard_quarantine import fenced, repository_holds
+                    if fenced(row["root"], other_meta):
+                        require(identity not in repository_holds(row["root"], other, other_meta),
+                                "Repository remains held by a quarantined attempt in another workspace")
                     require(not any(w["status"] in ACTIVE for w in ledger.all(other, "workers")), "Another workspace has legacy/strict owners; use a separate standard registry")
                     foreign = [t for t in (other_meta.get("standardRun") or {}).get("tasks", []) if t["status"] not in TERMINAL]
                     require(not any(t["repositoryIdentity"] == identity for t in foreign),

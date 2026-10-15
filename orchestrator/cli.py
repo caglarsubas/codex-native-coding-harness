@@ -76,6 +76,12 @@ def main():
     p.add_argument("--confirm", action="store_true"); p.add_argument("--writers-stopped", action="store_true")
     sub.add_parser("mission-state", help="Read workspace mission configuration; not execution authority")
     sub.add_parser("standard-state", help="Read cooperative run, task journal and usage gaps")
+    sub.add_parser("standard-quarantine-preview", help="Operator-only file/local-state review; no cleanup, load or authority release")
+    sub.add_parser("standard-quarantine-status", help="Read-only quarantine disposition, never a safe-terminal assertion")
+    p = sub.add_parser("standard-quarantine-confirm", help="Owner confirms exact quarantine hash; preserves old run and fences writes")
+    p.add_argument("review", type=Path); p.add_argument("--confirm-hash", required=True)
+    p = sub.add_parser("standard-lifecycle-capture", help="Read original prospective native-item lifecycle; never collect, load or infer OS cleanup")
+    p.add_argument("command_id")
     p = sub.add_parser("standard-host-inspect", help="Brain-only current owned-host metadata and resume-profile inspection; no wake or write")
     p.add_argument("run_id"); p.add_argument("command_id")
     p = sub.add_parser("standard-public-task", help="Brain-only one-shot public task request via the owned observer; no desktop fallback")
@@ -480,6 +486,18 @@ def main():
     elif action == "standard-state":
         from .standard import read as standard_read
         out = standard_read(ledger)
+    elif action.startswith("standard-quarantine-"):
+        if not registry or not args.workspace: raise Refusal("Exact registered standard workspace required")
+        from . import standard_quarantine as quarantine
+        if action == "standard-quarantine-preview": out = quarantine.prepare(registry, ledger)
+        elif action == "standard-quarantine-status": out = quarantine.status(ledger)
+        else: out = quarantine.confirm(registry, ledger, quarantine.read_request(args.review), args.confirm_hash)
+    elif action == "standard-lifecycle-capture":
+        if not registry or not args.workspace: raise Refusal("Exact registered standard workspace required")
+        from .standard import read_db
+        from .prospective_lifecycle import retained
+        with read_db(ledger.db) as db:
+            out = retained(ledger, ledger.get(db, "commands", args.command_id))
     elif action == "standard-usage-refresh":
         if not registry or not args.workspace:
             raise Refusal("Explicit registered standard workspace required")

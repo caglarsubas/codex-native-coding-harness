@@ -4,7 +4,8 @@ function activityLabel(activity) {
   if (!activity?.fresh) return ({idle:"Last observed idle",running:"Last observed working"})[activity?.lastKnownStatus] || "Activity not observed";
   return ({running:"Active recently",idle:"Idle observed",interrupted:"Turn interrupted",failed:"Turn failed"})[activity.status] || "Activity unknown";
 }
-function brainControlPresentation(meta, activity) {
+function brainControlPresentation(meta, activity, quarantine=null) {
+  if(quarantine||meta.standardQuarantine||meta.schemaVersion===6)return {phase:'quarantined',stopped:true,label:'Preserved brain · read-only',detail:'This attempt is quarantined and unqualified. No brain wake, message, recovery, Resume or Play is available. Current and historical terminal safety remain unknown.'};
   const c=meta.brainControl || {desired:"running",phase:"ready"};
   const labels={stop_requested:"Stop requested",checkpointing:"Preparing safe checkpoint",parked:"Safe checkpoint saved",resume_requested:"Brain resume requested",ready:"Brain available"};
   const idleAfterCheckpoint=c.phase==='parked' && activity?.fresh && activity.status==='idle' && activity.observedAt>=c.checkpoint?.at;
@@ -38,6 +39,7 @@ function navigateView(next, identity=null, updateAddress=true, activateWorkspace
 }
 function brainActivity(root, history=false) {
   const a=state.brainActivity || {}, m=state.meta;
+  const quarantined=!!state.standard?.quarantine||!!m.standardQuarantine||m.schemaVersion===6;
   const panel=el("section",null,"brain-activity"); panel.setAttribute("aria-label","Brain activity");
   const heading=el("div",null,"brain-heading"), identity=el("div");
   identity.append(el("p","DESIGNATED BRAIN · CONTROL & OBSERVED ACTIVITY","eyebrow"),el("h2",a.title || "Brain activity"));
@@ -45,14 +47,14 @@ function brainActivity(root, history=false) {
   panel.append(el("p",a.fresh ? a.phase : "No fresh status. Last recorded step: "+(a.phase || "Not observed"),"brain-step"));
   const facts=el("dl",null,"brain-facts");
   [["Activity observed",when(a.observedAt)], ["Checkpoint saved",when(m.lastReconciled)], ["New worker dispatch",m.paused?"Paused":"Enabled"]].forEach(([label,value])=>{const row=el("div");row.append(el("dt",label),el("dd",value));facts.append(row);});
-  panel.append(facts,el("p",m.brainControl?.desired==='stopped'?"Brain stop and worker dispatch are separate. No new implementation tasks will start; existing ownership and unfinished work are preserved.":m.paused?"Dispatch is paused. The brain can still plan, reconcile and save results; no new implementation tasks will start.":"Dispatch is enabled for approved packets only. Brain activity does not authorize new work.","brain-note"));
-  const control=brainControlPresentation(m,a),controls=el("div",null,"inline-actions");
+  panel.append(facts,el("p",quarantined?"Saved activity is available for inspection only. Repository ownership and all usage remain held; no new work can start here.":m.brainControl?.desired==='stopped'?"Brain stop and worker dispatch are separate. No new implementation tasks will start; existing ownership and unfinished work are preserved.":m.paused?"Dispatch is paused. The brain can still plan, reconcile and save results; no new implementation tasks will start.":"Dispatch is enabled for approved packets only. Brain activity does not authorize new work.","brain-note"));
+  const control=brainControlPresentation(m,a,state.standard?.quarantine),controls=el("div",null,"inline-actions");
   panel.append(callout(control.label,control.detail));
   const resume=button(control.phase==='resume_requested'?"Brain resume requested":control.stopped?"Resume brain":"Wake brain now",()=>command("brain_resume"),"primary");
   resume.disabled=!connected||busy||control.phase==='resume_requested'||(state.workspacePause?.status==='pausing');
   const stop=button("Stop brain at safe checkpoint",()=>command("brain_stop"));
   stop.disabled=!connected||busy||control.stopped;
-  controls.append(resume,stop);if(!state.workspace)panel.append(controls);
+  controls.append(resume,stop);if(!state.workspace&&!quarantined)panel.append(controls);
   if(m.brainControl?.checkpoint) {
     const cp=m.brainControl.checkpoint;
     panel.append(narrative('Retained safe checkpoint · '+when(cp.at)+' · '+cp.summary,'Safe checkpoint'));

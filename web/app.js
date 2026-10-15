@@ -56,7 +56,7 @@ function operations(root) {
  const m=state.meta,active=state.workers.filter(w=>!['complete'].includes(w.status));
  journeyReturn(root,'Advanced controls');
  if(state.standard&&state.repositories.length&&state.repositories.every(repo=>repo.policyProfile==='standard')){
-   root.append(el('p','Use Roadmap & Play for the next phase. These controls help inspect saved history or recover the project brain.','muted'));
+   root.append(el('p',state.standard.quarantine?'Inspect this preserved attempt. Quarantine does not authorize recovery or another phase.':'Use Roadmap & Play for the next phase. These controls help inspect saved history or recover the project brain.','muted'));
    standardPanel(root,'operations');
    root.append(journeyDisclosure('project-introduction','Project introduction',body=>projectIntroduction(body)),journeyDisclosure('brain-controls','Brain activity & controls',body=>brainActivity(body)),journeyDisclosure('runtime','Runtime & local setup',body=>{runtimeSummary(body);readinessSummary(body);}),journeyDisclosure('executive-brief','Executive brief',body=>executiveSummary(body)));
    return;

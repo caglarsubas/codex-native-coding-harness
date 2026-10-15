@@ -46,6 +46,7 @@ function catalogReadinessDetails(root,refresh){
 }
 function projectPhaseStatus(snapshot){
   const run=snapshot.standard.run,m=snapshot.mission;
+  if(snapshot.standard.quarantine)return 'STANDARD · QUARANTINED · UNQUALIFIED · repository held · terminal safety unknown';
   const next=['completed','blocked'].includes(run.status)&&m?.document?.spec.phase.id!==run.phaseId&&m?.document;
   const attention=snapshot.recovery&&(snapshot.recovery.reconciliationRequired||['running','stopping'].includes(run.status));
   const latestControl=[...(snapshot.commands||[])].reverse().find(c=>c.payload?.runId===run.id&&['standard_play','standard_pause','standard_resume'].includes(c.kind));
@@ -144,6 +145,9 @@ function roadmapJourneyState(snapshot,isConnected=true,now=Date.now()/1000){
   const repos=snapshot.repositories;
   if(!snapshot.workspace||!Array.isArray(repos)||!repos.length||repos.some(r=>r.policyProfile!=='standard'))
     return result(0,'This project uses packet approvals','Review the approved queue and project readiness to continue this roadmap. Phase Play is available for configured standard projects.','Review approved queue','queue',{strict:true});
+  if(s?.quarantine)return result(3,'Attempt quarantined · not qualified',
+    'The original run, usage and evidence gaps are preserved. Repository ownership remains held; terminal safety is unknown. Quarantine does not allow Resume or another Play.',
+    'Inspect preserved disposition','operations',{requiresOperator:true});
   const pause=snapshot.workspacePause||{},control=snapshot.meta?.brainControl||{};
   if(control.desired==='stopped'&&pause.status==='pausing'&&control.phase==='checkpointing'){
     const missing=(pause.blockers||[]).some(item=>['inventory_missing','inventory_incomplete'].includes(item.code));
