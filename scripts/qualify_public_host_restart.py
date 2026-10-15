@@ -26,7 +26,7 @@ from orchestrator.native_auth_readiness import inspect as authentication
 from qualify_public_native_tasks import StdioFixture
 
 
-def qualify(binary, expected_hash):
+def qualify(binary, expected_hash, *, inspection=False):
     path, _ = secure_path(binary)
     require(hashlib.sha256(path.read_bytes()).hexdigest() == expected_hash, 'Exact reviewed native fixture binary required')
     requests, processes = [], []
@@ -122,6 +122,35 @@ def qualify(binary, expected_hash):
             require(samples[0] == samples[1] and history.read_bytes().startswith(before) and len(requests) == 1,
                     'Warm native read caused history drift or another model request')
             require(restricted_config(home,cwd) == config_before, 'Warm fixture modified reviewed restricted config')
+            if inspection:
+                from orchestrator.public_pilot_inspection import InspectionProxy, load_params, repeated
+                scope = {'brainId': brain, 'projectId': project['id'], 'cwd': str(cwd),
+                    'latestTurnId': turn['id'], 'latestTurnStatus': 'completed', 'binding': {'endpoint': endpoint}}
+                with InspectionProxy(scope) as proxy:
+                    unloaded = repeated(proxy,scope)
+                    require(unloaded['activity'] == 'notLoaded' and unloaded['policy'] is None and
+                            unloaded['trackedTerminals'] is None, 'Unloaded state must stay unknown before inspection')
+                    proxy.load_permitted = True
+                    reply = proxy._rpc('thread/resume',load_params(scope))
+                    require(reply['thread']['id'] == brain and reply['thread']['cwd'] == str(cwd) and
+                            reply['thread'].get('turns',[]) == [], 'Exact metadata-only load acknowledgment required')
+                    loaded = repeated(proxy,scope)
+                require(loaded['activity'] == 'idle' and loaded['trackedTerminals'] == [] and
+                        len(requests) == 1 and history.read_bytes().startswith(before),
+                        'Inspection must not start a turn, request a model or change original history')
+                # A new connection can inspect the same loaded brain, but never
+                # receives another load permit. This is current evidence only.
+                with InspectionProxy(scope) as proxy:
+                    require(repeated(proxy,scope) == loaded, 'Read-only reconciliation changed native evidence')
+                require(restricted_config(home,cwd) == config_before and len(requests) == 1,
+                        'Inspection/reconciliation changed configuration or requested a model')
+                return {'status':'inspection_fixture_passed','sameHome':True,
+                    'projectBrainAndEndedTurnPreserved':True,'actualRestrictedLoadedPolicy':True,
+                    'unixTransport':'actual_inspection_proxy','coldReceiptModelRequests':1,
+                    'inspectionLoads':1,'inspectionTurns':0,'inspectionModelRequests':0,
+                    'reconciliationLoads':0,'reconciliationTurns':0,'reconciliationModelRequests':0,
+                    'currentTrackedTerminals':'known_empty','currentTerminalSafety':'unknown',
+                    'historicalTerminalSafety':'unknown','livePilotQualified':False}
             return {'status':'fixture_passed','sameHome':True,'projectBrainAndEndedTurnPreserved':True,
                 'backupVerified':True,'preservedNativeProjectTrust':config_before['nativeProjectTrust'],
                 'unixTransport':'actual_read_proxy','coldReceiptModelRequests':1,
@@ -136,5 +165,6 @@ def qualify(binary, expected_hash):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--executable',required=True); parser.add_argument('--sha256',required=True)
+    parser.add_argument('--inspection',action='store_true',help='Also qualify one metadata-only warm load and read-only reconciliation')
     args = parser.parse_args()
-    print(canonical(qualify(args.executable,args.sha256)))
+    print(canonical(qualify(args.executable,args.sha256,inspection=args.inspection)))

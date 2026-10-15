@@ -1,5 +1,22 @@
 # Codex Orchestrator — personal tooling
 
+## Public pilot current inspection source (2026-10-15)
+
+Read docs/PUBLIC-PILOT-INSPECTION.md before the operator-only
+`public_pilot_inspection_v1` path. Require the completed exact public transfer,
+issued reviewed live restart and unchanged empty unowned paused standard scope.
+A new until-scope-changes review may permit one fixed metadata-only inspection
+load; already loaded-idle is observe-only. Canonical original-run/Play fencing,
+exclusive intent/load claims, exact live process/socket, original history pins
+and repeated native identity/ended-turn/policy/authentication/terminal reads are
+mandatory. Interrupted/unknown claims never reload or migrate. Reconcile only
+reads the same reviewed host; status is file-only. No turn, approval response,
+host/binding change, old policy backfill, usage/expiry change, ownership release,
+historical cleanup, phase transition, closeout or pilot acceptance follows.
+Current empty trackers do not prove historical cleanup or whole-terminal safety.
+Do not read/copy auth.json or reconnect original endpoints. Source delivery
+installs/loads/confirms nothing and leaves the paused pilot unchanged.
+
 ## Existing-home public host restart source (2026-10-15)
 
 Read docs/PUBLIC-HOST-RESTART.md before the operator-only
