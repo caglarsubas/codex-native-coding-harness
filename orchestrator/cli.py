@@ -83,6 +83,7 @@ def main():
     p = sub.add_parser("standard-lifecycle-capture", help="Read original prospective native-item lifecycle; never collect, load or infer OS cleanup")
     p.add_argument("command_id")
     p = sub.add_parser('standard-successor-preview', help='Operator-only disjoint existing-target review; no native calls or Play')
+    p.add_argument('--local-only', action='store_true', help='Explicit scoped Git history identity review; no global missing-origin fallback')
     p.add_argument('target_workspace'); p.add_argument('binding', type=Path)
     p = sub.add_parser('standard-successor-confirm', help='Record exact owner-reviewed lineage; never confirm Play or change bindings')
     p.add_argument('review', type=Path); p.add_argument('--confirm-hash', required=True)
@@ -494,7 +495,8 @@ def main():
     elif action.startswith('standard-successor-'):
         if not registry or not args.workspace: raise Refusal('Exact registered workspace required')
         from . import standard_successor as successor
-        if action == 'standard-successor-preview': out = successor.prepare(registry, ledger, args.target_workspace, args.binding)
+        if action == 'standard-successor-preview':
+            out = successor.prepare(registry, ledger, args.target_workspace, args.binding, local_only=args.local_only)
         elif action == 'standard-successor-confirm': out = successor.confirm(registry, ledger, successor.read_request(args.review), args.confirm_hash)
         else:
             from .standard import read_db
