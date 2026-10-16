@@ -23,6 +23,9 @@ assert.match(journey.detail,/nothing will be resent automatically/);
 for(let i=0;i<10;i++){box.scheduleCatalogFollowup(state.standard);box.roadmapJourneyState(state,true);}
 assert.equal(timers.length,0,'Rendering a disposed attempt must not schedule delivery or another check');
 assert.equal(calls.length,0);
+const publicRefresh={id:'public-original',status:'queued',notification:{status:'unavailable',preplayCatalog:{version:2}},deliveryAttempts:1,maxDeliveryAttempts:3};
+for(let i=0;i<5;i++)box.scheduleCatalogFollowup({catalogRefresh:publicRefresh});
+assert.equal(timers.length,0,'Public evidence/send claims are not automatically retried after pre-turn failure');
 (async()=>{
   await box.requestCatalogForPlay(state.standard);
   assert.equal(calls.length,1,'Only an explicit new request can submit');

@@ -212,6 +212,12 @@ def projection(ledger, db):
         eligible(ledger, db)
         catalog = result["catalog"]
         result["catalogRequired"] = not (catalog and time.time()-catalog["observedAt"] < 86400)
+        if latest_refresh and (latest_refresh.get('notification') or {}).get('preplayCatalog', {}).get('version') == 2:
+            from .public_readiness import retained_catalog
+            try:
+                retained_catalog(catalog, latest_refresh)
+            except (Refusal, KeyError, TypeError, ValueError):
+                result['catalogRequired'] = True
         if disposed:
             fresh_receipt = bool(latest_refresh and latest_refresh['id'] != disposed['request']['command']['id'] and
                     latest_refresh.get('status') == 'completed' and
@@ -356,6 +362,8 @@ def request_catalog_refresh(ledger, request):
                     command["payload"]["contextHash"] == request["contextHash"],
                     "Refresh request ID belongs to different content")
             notification = command.get("notification") or {}
+            if (notification.get('preplayCatalog') or {}).get('version') == 2:
+                return command  # Original public evidence/send claim is never re-armed, even pre-turn failure.
             history = command.get("notificationHistory", [])
             if (command["status"] == "queued" and notification.get("status") == "unavailable" and
                     len(history) + 1 < CATALOG_REFRESH_MAX_DELIVERY_ATTEMPTS):
@@ -523,7 +531,7 @@ class Controls:
             return command
 
 
-def catalog_in(ledger, db, meta, request):
+def catalog_in(ledger, db, meta, request, *, public_evidence=None):
     """Shared closed receipt implementation; caller must authorize the brain.
 
     Normal calls hold its controller. The prospective pre-Play observer relay
@@ -553,12 +561,27 @@ def catalog_in(ledger, db, meta, request):
             require(command["payload"]["brainId"] == meta["brainId"], "Catalog refresh belongs to another brain")
             require(projection(ledger, db)["contextHash"] == command["payload"]["contextHash"],
                     "Catalog refresh scope changed; record an error instead of stale capabilities")
+        public = bool(command and (command.get('notification') or {}).get('nativeTaskContract'))
+        require(not public or public_evidence is not None,
+                'Public task readiness requires its original backend evidence, not desktop schemas or a model list')
+        if public_evidence is not None:
+            from .public_readiness import validate
+            note = command['notification']
+            validate(public_evidence, note['nativeResumeProfile']['bindingHash'] if note.get('nativeResumeProfile') else
+                     note['nativePublicReadinessProfile']['bindingHash'], meta['brainId'], request_id,
+                     note['preplayCatalog']['handoffHash'])
+            require(digest(public_evidence) == note.get('nativePublicReadinessHash') and
+                    public_evidence['models'] == request['models'] and
+                    public_evidence['backend'] == note['nativeTaskContract'], 'Public catalog evidence differs')
         require(isinstance(request["models"], list) and 1 <= len(request["models"]) <= 30, "Native catalog required")
         for row in request["models"]:
             exact(row, "model efforts")
             missions.text(row["model"], "Model", 100)
             require(set(missions.strings(row["efforts"], "Efforts")) <= {"low", "medium", "high", "xhigh", "max", "ultra"}, "Unsupported effort")
-        meta["standardCatalog"] = {"models": request["models"], "source": missions.text(request["source"], "Catalog source", 500), "observedAt": time.time()}
+        meta["standardCatalog"] = {"models": request["models"], "source": missions.text(request["source"], "Catalog source", 500),
+                                   "observedAt": public_evidence['observedAt'] if public_evidence is not None else time.time()}
+        if public_evidence is not None:
+            meta['standardCatalog']['publicReadiness'] = public_evidence
         ledger.put(db, "meta", 1, meta)
         catalog_hash = digest(meta["standardCatalog"])
         ledger.event(db, "standard_catalog", {"catalogHash": catalog_hash})

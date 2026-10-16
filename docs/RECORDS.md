@@ -20,6 +20,17 @@ catalog readiness needs a separately requested distinct command and real receipt
 
 ## Pre-Play catalog observer receipt
 
+The separately documented [public-host variant](PUBLIC-HOST-READINESS.md) uses
+handoff version 2 with the same original-observer transport. It adds the backend
+contract hash and permanent `capabilities-claim`/`capabilities` sidecars before
+turn/start. `nativePublicReadinessProfile` records loaded-only identity rather
+than a resume acknowledgement; `nativePublicReadinessHash` protects the capture.
+The designated brain's closed `public_catalog_ack` names only its exact request
+and evidence hash. The existing atomic catalog receipt retains `publicReadiness`
+and the original native observation time. No desktop schema, arbitrary model
+list, late/backfilled capture or interrupted claim can substitute. These records
+establish neither model entitlement, execution, cleanup nor pilot acceptance.
+
 See [PREPLAY-READINESS.md](PREPLAY-READINESS.md). A future first-phase schema-1
 `standard_catalog_refresh` notification may retain `preplayCatalog` version 1,
 transport `preplay_catalog_observer_v1`, and `handoffHash` before turn/start.

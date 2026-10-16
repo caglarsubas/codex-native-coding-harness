@@ -67,6 +67,12 @@ def _context(registry, ledger, token, run_id, command_id, task_id, *, sending=Fa
         require(not context["approvals"] or all(a.get("status") in ("resolved", "resolved_without_response")
                 for a in context["approvals"]), "A native permission request retains ownership")
         task = standard.find_task(run, {"taskId": task_id})
+        if run.get('catalog', {}).get('publicReadiness'):
+            from .public_readiness import retained_catalog
+            from .app_server_wake import _read_binding
+            original = run['catalog']['publicReadiness']['commandId']
+            retained_catalog(run['catalog'], ledger.get(db, 'commands', original),
+                             _read_binding(binding_file(ledger, context['bindingHash'])))
         _capacity_in(registry_db, ledger, db, run, task)
         if sending:
             require(task["status"] == "creating" and task.get("publicNative"), "Exact public creation claim required")

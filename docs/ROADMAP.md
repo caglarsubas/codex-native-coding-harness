@@ -1,5 +1,14 @@
 # Codex-native orchestration roadmap
 
+- [x] Implement prospective backend-specific public-host readiness, combining
+  the reviewed binary's task schemas with repeated native catalog/policy/identity
+  evidence and an original loaded-only brain receipt; preserve old attempts and
+  prohibit automatic retry ([contract](PUBLIC-HOST-READINESS.md); source and
+  disposable qualification only).
+- [ ] Separately install and qualify a new explicit v3 public readiness request,
+  its native receipt and the fresh phase journey; no old request replay, brain
+  reload, binding change, usage reset or terminal-safety inference follows source.
+
 - [x] Add a forward-only local unqualified disposition for a resolved-Cancel,
   ended legacy readiness request, preserving its missing receipt and preventing
   replay; future distinct checks remain separately explicit

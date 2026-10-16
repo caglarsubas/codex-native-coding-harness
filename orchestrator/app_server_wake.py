@@ -955,7 +955,10 @@ class AppServerWake:
                         "The bound brain already has an active turn; native approval coverage for queued turns is unavailable. No message was sent."}
             stage = "request_check"
             with self.ledger.tx() as db:
-                recovery_kind = self.ledger.get(db, "commands", command_id).get("kind")
+                sending_command = self.ledger.get(db, "commands", command_id)
+                recovery_kind = sending_command.get("kind")
+                public_catalog = (recovery_kind == 'standard_catalog_refresh' and
+                    (sending_command.get('notification') or {}).get('preplayCatalog', {}).get('version') == 2)
                 recovery = recovery_kind in ("brain_reply_recovery", "standard_pause_recovery", "standard_pause_receipt_recovery")
                 successor = self.ledger.get(db, 'meta', 1).get('schemaVersion') == 7
                 require(not successor or not recovery, 'Successor delivery never loads or replays a recovery')
@@ -973,10 +976,30 @@ class AppServerWake:
             policy = self.binding["brains"][brain_id]["nativePolicy"]
             public_backend = self.binding["brains"][brain_id].get("nativeTaskBackend")
             if public_backend:
+                if recovery_kind in ('standard_play', 'standard_resume'):
+                    from .public_readiness import retained_catalog
+                    with self.ledger.tx() as db:
+                        current_run = self.ledger.get(db, 'meta', 1).get('standardRun') or {}
+                        catalog = current_run.get('catalog') or {}
+                        evidence_command = (catalog.get('publicReadiness') or {}).get('commandId')
+                        require(evidence_command, 'Public Play needs its original backend-specific readiness receipt')
+                        retained_catalog(catalog, self.ledger.get(db, 'commands', evidence_command), self.binding)
                 from .native_auth_readiness import require_ready
                 stage = "authentication_check"
                 require_ready(proxy)
-            if successor:
+            if public_catalog:
+                require(public_backend and status['type'] == 'idle',
+                        'Public readiness requires an already-loaded idle brain; no reload fallback')
+                with self.ledger.tx() as db:
+                    command = self.ledger.get(db, 'commands', command_id)
+                    note = command.get('notification') or {}
+                    require(note.get('status') == 'sending' and not note.get('nativePublicReadinessProfile') and
+                            not note.get('nativeResumeProfile'), 'Original loaded-only public profile required')
+                    note['nativePublicReadinessProfile'] = {'version': 1, 'brainId': brain_id,
+                        'commandId': command_id, 'bindingHash': digest(self.binding),
+                        'observedAt': time.time(), 'nativeLoadMade': False}
+                    self.ledger.put(db, 'commands', command_id, command)
+            elif successor:
                 stage = 'effective_policy'
                 from .standard_successor import loaded_profile
                 loaded, successor_evidence = loaded_profile(self, proxy, command_id, brain_id)
@@ -1046,6 +1069,17 @@ class AppServerWake:
                     send_check(self.ledger, self.binding, command_id, proxy, require_loaded=True)
                 else:
                     send_check(self.ledger, self.binding, command_id, proxy)
+            if public_catalog:
+                stage = 'effective_policy'
+                from .standard_preplay import capture_public
+                capture_public(self.ledger, self.binding, command_id, brain_id, proxy)
+                latest = proxy._rpc('thread/read', {'threadId': brain_id, 'includeTurns': False})
+                self._identity(latest.get('thread'), brain_id)
+                require(latest['thread'].get('status', {}).get('type') == 'idle',
+                        'Loaded public brain changed; never reload or send to an active turn')
+                from .native_policy_evidence import collect, matches
+                require(matches(collect(proxy, self.binding, brain_id, command_id)['reported']),
+                        'Public policy changed after capability capture')
             # Immediately before this boundary a concurrent native turn may start.
             # A rejection or lost response is uncertain, never permission to retry.
             if public_backend:
@@ -1056,6 +1090,9 @@ class AppServerWake:
                 # lost, paused or changed while retaining the observation.
                 stage = 'effective_policy'
                 loaded_profile(self, proxy, command_id, brain_id)
+            if public_catalog:
+                from .standard_preplay import public_send_check
+                public_send_check(self.ledger, self.binding, command_id, brain_id)
             stage = "observation_record"
             capture = self._begin_thread_observation(command_id, brain_id)
             proxy._on_thread_started = lambda row: self._record_thread_started(command_id, brain_id, row)
@@ -1072,7 +1109,8 @@ class AppServerWake:
             confirmed_turn_id = turn["id"]
             with self.ledger.tx() as db:
                 command = self.ledger.get(db, "commands", command_id)
-                profile = (command.get("notification") or {}).get('nativeLoadedProfile' if successor else "nativeResumeProfile")
+                profile = (command.get("notification") or {}).get('nativePublicReadinessProfile' if public_catalog else
+                    'nativeLoadedProfile' if successor else "nativeResumeProfile")
                 require(profile and profile.get("commandId") == command_id and
                         "nativeTurnId" not in profile, "Owned turn profile changed")
                 profile["nativeTurnId"] = confirmed_turn_id
