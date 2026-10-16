@@ -5,6 +5,19 @@ Canonical JSON is UTF-8, sorted keys, compact separators, no NaN. Its SHA-256 is
 the record identity; this encoding is local to this tool, not RFC 8785 signing.
 SQLite uses WAL, synchronous FULL and BEGIN IMMEDIATE for serialized transitions.
 
+## Pre-Play catalog observer receipt
+
+See [PREPLAY-READINESS.md](PREPLAY-READINESS.md). A future first-phase schema-1
+`standard_catalog_refresh` notification may retain `preplayCatalog` version 1,
+transport `preplay_catalog_observer_v1`, and `handoffHash` before turn/start.
+Private checkout-local request/claim/reply files pin the original handoff and
+closed brain-authored catalog/error. The existing observer atomically commits
+the normal catalog/error receipt plus `preplayReceipt` (request/handoff hashes,
+brain/turn IDs and binding hash). It grants no reusable controller, native
+permission, execution or terminal-safety authority. Legacy requests are never
+backfilled, interrupted claims never replayed, and reply files never authorize
+Play independently of the actual ledger receipt.
+
 ## Disjoint successor lineage
 
 See [SAFE-SUCCESSOR.md](SAFE-SUCCESSOR.md). A separately owner-reviewed

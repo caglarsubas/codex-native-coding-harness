@@ -18,7 +18,12 @@ def main():
     parser.add_argument("--state", type=Path)
     parser.add_argument("--platform", type=Path, help="Private workspace registry directory")
     parser.add_argument("--workspace", help="Exact registered workspace ID; never inferred from cwd")
+    parser.add_argument("--preplay-handoff", type=Path, help="Original checkout-local catalog handoff; no database/socket access")
     sub = parser.add_subparsers(dest="action", required=True)
+    sub.add_parser("standard-preplay-state", help="Read original pre-Play context, not live readiness")
+    sub.add_parser("standard-preplay-status", help="Follow the same immutable catalog receipt without resubmission")
+    p = sub.add_parser("standard-preplay-receipt", help="Submit only the exact designated brain's catalog or catalog_error")
+    p.add_argument("result", type=Path)
     for name in ("status", "inbox", "process", "scan", "export", "inference-check", "inference-status", "readiness", "doctor", "rehearse"):
         sub.add_parser(name)
     for name in ("workspace-list", "workspace-verify-backup", "workspace-profile"):
@@ -276,6 +281,18 @@ def main():
                    help="Separately reviewed multi-host historical provenance; read-only reconciliation only, never a native recovery or connection fallback")
     p.add_argument("--inference-env", type=Path, help="Existing private inference configuration; never a browser-selected path")
     args = parser.parse_args()
+    if args.preplay_handoff or args.action.startswith("standard-preplay-"):
+        if (not args.preplay_handoff or args.platform or args.workspace or args.state or
+                args.action not in ("standard-preplay-state", "standard-preplay-status", "standard-preplay-receipt")):
+            raise Refusal("Use only the original --preplay-handoff and a closed pre-Play helper")
+        # Deliberately before Registry/Ledger initialization. Even SQLite mode=ro
+        # can need writable sidecars on cold WAL databases outside the sandbox.
+        from . import standard_preplay
+        file = args.preplay_handoff
+        out = (standard_preplay.state(file) if args.action == "standard-preplay-state" else
+               standard_preplay.status(file) if args.action == "standard-preplay-status" else
+               standard_preplay.submit(file, args.result))
+        print(json.dumps(out, ensure_ascii=False, indent=2)); return
     if args.action == "serve" and args.notify_brain and args.brain_app_server_binding:
         raise Refusal("Choose one brain notification transport")
     if args.action == "serve" and args.desktop_brain_wake and not args.notify_brain:

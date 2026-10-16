@@ -139,6 +139,17 @@ Read `docs/STANDARD-HOST-EVIDENCE.md` for the exact boundaries and rollout.
 
 ## Pre-Play capability request
 
+If the original owned notification supplies `--preplay-handoff`, read source
+`docs/PREPLAY-READINESS.md` completely. Use only `standard-preplay-state`,
+`standard-preplay-receipt` and `standard-preplay-status` with that exact handoff,
+**instead of** the shared-registry/inbox/controller procedure above. The helper
+does not open SQLite or the protected socket; the existing original observer
+relays only the designated brain's explicit catalog/catalog_error receipt.
+There is no reusable controller to release, native approval exception or Play.
+Never add a handoff to an already delivered request, replace an interrupted
+claim, answer native permissions or retry readiness. Current/historical safety
+remains unknown; pending controls retain their original outcomes.
+
 When `standard-state.catalogRefresh.status` is `queued`, process that exact
 request before Play. Inspect only the current native creation/message tool schemas;
 do not infer a catalog from documentation, remembered availability or global

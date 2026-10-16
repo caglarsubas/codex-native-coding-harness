@@ -1,5 +1,12 @@
 # Codex-native orchestration roadmap
 
+- [x] Remove future pre-Play shared-registry sandbox deadlock with a closed
+  checkout-local capability receipt on the original owned observer; retain
+  existing approval gates and cold-WAL isolation ([contract](PREPLAY-READINESS.md)).
+- [ ] Separately resolve the live legacy pending readiness turn without replay,
+  install at a quiescent boundary, and qualify the v3 native phase journey;
+  source/disposable passes are not live pilot acceptance.
+
 - [x] Show retained cooperative phase outcomes, PR links and observed merge status in Brain conversation, separate from saved replies and deployment evidence.
 
 This is recorded implementation progress, not deployment, pilot, or product

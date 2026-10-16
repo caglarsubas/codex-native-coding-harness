@@ -1140,6 +1140,18 @@ class AppServerWake:
                     try:
                         from .public_native_tasks import service_pending
                         service_pending(self, command_id, brain_id, turn_id)
+                        from . import standard_preplay
+                        if ((control.get("notification") or {}).get("preplayCatalog", {}).get("transport") ==
+                                standard_preplay.TRANSPORT and getattr(proxy, "_preplay_receipt_worker", None) is None and
+                                standard_preplay.pending(self.ledger, command_id)):
+                            def relay_catalog():
+                                try:
+                                    standard_preplay.service(self.ledger, self.binding, command_id, brain_id, turn_id)
+                                except (OSError, Refusal, ValueError):
+                                    pass  # A consumed/uncertain receipt is never reapplied.
+                            worker = threading.Thread(target=relay_catalog, daemon=True)
+                            proxy._preplay_receipt_worker = worker
+                            worker.start()
                         if (getattr(proxy, "_host_inspection_worker", None) is None and
                                 _mailbox(self.ledger, command_id, "-request").exists()):
                             # Never block WebSocket heartbeat/approval handling on
@@ -1156,7 +1168,9 @@ class AppServerWake:
                         pass  # Missing/invalid evidence stays unknown; no effect retry.
                 with self.ledger.tx() as db:
                     control = self.ledger.get(db, "commands", command_id)
-                if (control.get("notification") or {}).get("hostInspectionTransport") == "owned_observer_v1":
+                if ((control.get("notification") or {}).get("hostInspectionTransport") == "owned_observer_v1" or
+                        (control.get("notification") or {}).get("preplayCatalog", {}).get("transport") ==
+                        "preplay_catalog_observer_v1"):
                     proxy._on_wait_tick = inspect_request
                 proxy.watch_connection()
             early_requests = list(getattr(proxy, "_early_requests", ()))

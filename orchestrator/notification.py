@@ -161,6 +161,15 @@ class BrainNotifier:
                 except (OSError, ValueError, Refusal):
                     notification.update(status="unavailable", finishedAt=time.time(),
                         detail="The private owned-host handoff is unavailable. No turn was sent; inspect this saved receipt before continuing.")
+            if (notification["status"] == "sending" and not standard_run and self.app_server and
+                    command["kind"] == "standard_catalog_refresh"):
+                from .standard_preplay import prepare
+                from .core import Refusal
+                try:
+                    notification["preplayCatalog"] = prepare(ledger, db, command, self.app_server.binding)
+                except (OSError, ValueError, Refusal):
+                    notification.update(status="unavailable", finishedAt=time.time(),
+                        detail="The checkout-local pre-Play handoff is unavailable. No turn was sent; the saved request remains retained.")
             command["notification"] = notification
             ledger.put(db, "commands", command_id, command)
             ledger.event(db, "brain_notification_claimed", {"commandId": command_id, "status": notification["status"]})
@@ -287,18 +296,37 @@ class BrainNotifier:
             )
         elif command["kind"] == "standard_catalog_refresh":
             source = Path(__file__).resolve().parent.parent
-            message = (
-                "A committed read-only standard-project capability refresh needs your receipt. "
-                f"Read {json.dumps(str(source / 'skills/codex-orchestrator/references/standard-cycle.md'))} completely. "
-                f"Use this source checkout {json.dumps(str(source))}, platform {json.dumps(str(ledger.platform_root))}, "
-                f"workspace {ledger.workspace_id}; read standard-state and verify this task is the designated brain. "
-                f"Process the exact pending catalog refresh {command['id']}: acquire the standard controller, inspect only the "
-                "model and reasoning-effort values actually exposed by the current native task tools, then record them with "
-                "standard-brain catalog using that requestId. If the observation cannot be completed, retain catalog_error for "
-                "the same requestId with a bounded explanation. Release the controller after the receipt. "
-                "Do not start Play, create a worker, change settings, resume dispatch, select a model, or infer capabilities "
-                "from documentation. Pause or a stopped/parked brain remains dominant; never bypass it for this request."
-            )
+            if notification.get("preplayCatalog"):
+                from .standard_preplay import path
+                handoff = path(ledger.root, command_id, "handoff")
+                message = (
+                    "A committed read-only standard-project capability refresh needs your receipt. "
+                    f"Read {json.dumps(str(source / 'docs/PREPLAY-READINESS.md'))} completely, then use source "
+                    f"{json.dumps(str(source))}. This exact native task must be brain {brain_id}. "
+                    f"Use python3 -m orchestrator.cli --preplay-handoff {json.dumps(str(handoff))} standard-preplay-state. "
+                    "Do NOT use --platform, inbox, standard-state, standard-acquire or shared SQLite: those need registry "
+                    "access outside this checkout and can trigger an unusable pre-Play approval. "
+                    "Inspect only current native creation/message model and reasoning-effort schemas. "
+                    f"Write one private JSON catalog or catalog_error result with requestId {command_id}, "
+                    f"then use python3 -m orchestrator.cli --preplay-handoff {json.dumps(str(handoff))} "
+                    "standard-preplay-receipt PRIVATE_RESULT_JSON. Follow only standard-preplay-status if pending. "
+                    "The existing original observer relays only this closed receipt; no reusable controller or socket is granted. "
+                    "Do not retry readiness, infer models from documentation, answer native permissions, change policy, "
+                    "start Play, create workers, Resume, change bindings or assume terminal safety. End after the receipt."
+                )
+            else:
+                message = (
+                    "A committed read-only standard-project capability refresh needs your receipt. "
+                    f"Read {json.dumps(str(source / 'skills/codex-orchestrator/references/standard-cycle.md'))} completely. "
+                    f"Use this source checkout {json.dumps(str(source))}, platform {json.dumps(str(ledger.platform_root))}, "
+                    f"workspace {ledger.workspace_id}; read standard-state and verify this task is the designated brain. "
+                    f"Process the exact pending catalog refresh {command['id']}: acquire the standard controller, inspect only the "
+                    "model and reasoning-effort values actually exposed by the current native task tools, then record them with "
+                    "standard-brain catalog using that requestId. If the observation cannot be completed, retain catalog_error for "
+                    "the same requestId with a bounded explanation. Release the controller after the receipt. "
+                    "Do not start Play, create a worker, change settings, resume dispatch, select a model, or infer capabilities "
+                    "from documentation. Pause or a stopped/parked brain remains dominant; never bypass it for this request."
+                )
         elif standard_run:
             source = Path(__file__).resolve().parent.parent
             message = (
