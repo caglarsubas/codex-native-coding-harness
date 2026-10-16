@@ -134,6 +134,13 @@ function standardPanel(root,mode='all'){
   const panel=el('section',null,'mission-status'),run=s.run;
   if(s.successor){
     const prior=s.successor;
+    if(prior.writesBlocked){
+      const recorded=prior.status==='partial_admission_disposed_unqualified';
+      panel.append(callout(recorded?'Failed admission · unqualified':'Failed admission · record unavailable',
+        'Both original claims and repository holds remain. No admission retry, brain load or Play is available. Old usage is preserved; terminal safety remains unknown.'));
+      const details=el('details');details.append(el('summary','Details · preserved partial admission'),el('pre',JSON.stringify(prior,null,2)));
+      panel.append(details);root.append(panel);return;
+    }
     panel.append(callout('Separate successor · old attempt preserved',
       prior.recordHash?`Prior observed brain usage: ${prior.priorObservedTokens===null||prior.priorObservedTokens===undefined?'Unknown':num(prior.priorObservedTokens)} tokens; coverage: ${prior.priorUsageCoverage||'unknown'}. Old repository ownership remains held and terminal safety remains unknown. Only a separate fresh Play can start this target; its brain must already be loaded with verified policy.`:
       'Successor admission is incomplete or changed. No retry, load or Play is available; inspect the retained claim.'));

@@ -71,6 +71,32 @@ class SuccessorTest(unittest.TestCase):
         with standard.read_db(self.target.db) as db: self.assertEqual(fingerprint(db), before)
         self.assertFalse(self.q.f.fixture.fake.calls)
 
+    def grow_registry(self):
+        profile = {'goal': 'g'*4000, 'architecture': 'a'*4000, 'roadmap': 'r'*4000,
+                   'successCriteria': ['Offline fixture'], 'techStack': ['Python'], 'references': []}
+        start = self.registry.profile('beta')['version']
+        for version in range(start, start+3):
+            profile['references'] = [str(version)]
+            self.registry.save_profile('beta', profile, version)
+        self.assertGreater(self.registry.db.stat().st_size, 65536)
+
+    def test_grown_registry_admission_and_later_lineage_reads(self):
+        self.grow_registry()
+        receipt = self.confirm()
+        self.grow_registry()
+        with standard.read_db(self.target.db) as db:
+            self.assertEqual(successor.public(successor.retained_in(self.target, db)), receipt)
+        self.play()
+        self.assert_source_unchanged()
+
+    def test_invalid_registry_is_rejected_before_either_claim(self):
+        self.registry.db.chmod(0o644)
+        try:
+            with self.assertRaises(Refusal): self.prepare()
+        finally: self.registry.db.chmod(0o600)
+        self.assertFalse((self.target.root/successor.FENCE).exists())
+        self.assertFalse(successor.source_claim(self.registry.root, self.source.workspace_id).exists())
+
     def test_admission_preserves_old_run_and_requires_separate_play(self):
         receipt = self.confirm(); meta = self.target.snapshot()['meta']
         self.assertEqual(meta['schemaVersion'], 7); self.assertIsNone(meta.get('standardRun'))

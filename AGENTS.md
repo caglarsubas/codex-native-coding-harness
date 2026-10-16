@@ -1,5 +1,19 @@
 # Codex Orchestrator — personal tooling
 
+## Partial-admission disposition source
+
+Read docs/PARTIAL-ADMISSION-DISPOSITION.md before its operator-only commands.
+Use database-specific private identity validation, never relax the small runtime
+record bound. A disposition requires both unchanged original claims, their exact
+request, unchanged empty pre-admission target and reviewed mission/binding/catalog,
+plus preserved quarantined source, usage/gaps/expiry and repository holds. Missing,
+committed, changed or ambiguous state stays fenced. A new exact until-scope-changes
+review and separately stopped writers/verified private backups may record only
+an unqualified failure in a new exclusive sidecar. Preserve both claims and every
+database; no missing success receipt, retry, unfence, resource release, native
+connection/load, Play/recovery, binding change, usage reset or safety inference.
+Source delivery installs/applies nothing. Preparing a live review confirms nothing.
+
 ## Empty-brain durability and scoped local identity source (2026-10-15)
 
 Read docs/EMPTY-BRAIN-AND-LOCAL-IDENTITY.md before qualification or rollout. The

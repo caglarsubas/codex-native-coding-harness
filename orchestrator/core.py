@@ -177,6 +177,8 @@ class Ledger:
         try:
             db.execute("BEGIN IMMEDIATE")
             meta = self.get(db, "meta", 1)
+            require(not os.path.lexists(self.root / 'standard-partial-admission-disposition.json'),
+                    'Partial admission disposition is read-only; both claims remain fenced')
             require(not os.path.lexists(self.root / "standard-quarantine.json") and
                     meta.get("schemaVersion") != 6 and "standardQuarantine" not in meta,
                     "Quarantined or partially quarantined workspace is read-only; no authority or resource release")

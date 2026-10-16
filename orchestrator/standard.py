@@ -96,6 +96,8 @@ def git_root(path):
 
 def eligible(ledger, db):
     meta = ledger.get(db, "meta", 1)
+    require(not os.path.lexists(ledger.root/'standard-partial-admission-disposition.json'),
+            'Partial admission disposed as unqualified; no Play or retry')
     require((meta['schemaVersion'] == 7 and meta.get('successorLedgerVersion') == 1 or
             meta["schemaVersion"] == 1 or ((meta["schemaVersion"] == 4 or
             meta["schemaVersion"] == 5 and meta.get("publicTaskLedgerVersion") == 1) and
@@ -160,6 +162,19 @@ def projection(ledger, db):
             (1 if latest_refresh.get("notification") else 0),
         "maxDeliveryAttempts": CATALOG_REFRESH_MAX_DELIVERY_ATTEMPTS,
     }
+    from .partial_admission import FENCE as partial_fence, status as partial_status
+    if os.path.lexists(ledger.root/partial_fence):
+        from types import SimpleNamespace
+        platform_root = getattr(ledger, 'platform_root', None)
+        root = Path(platform_root) if platform_root else None
+        disposition = (partial_status(SimpleNamespace(root=root, db=root/'platform.sqlite3'), ledger) if root else
+                       {'status': 'partial_disposition_unavailable_without_registry', 'writesBlocked': True,
+                        'playAuthorized': False, 'terminalSafety': 'unknown'})
+        result.update(successor=disposition, available=False,
+                      blocker='Failed admission recorded as unqualified; both claims and repository holds remain. No Play or retry.',
+                      blockers=['A disposition is not admission, cleanup or continuation authority'],
+                      contextHash=digest(meta))
+        return result
     from .standard_quarantine import fenced, status as quarantine_status
     if fenced(ledger.root, meta):
         result.update(quarantine=quarantine_status(ledger),

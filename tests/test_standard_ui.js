@@ -25,6 +25,14 @@ function all(root){return [root,...root.children.flatMap(x=>x instanceof Element
   assert.ok(successorNodes.some(n=>String(n.text).includes('1049625')&&String(n.text).includes('Old repository ownership remains held')));
   assert.ok(successorNodes.some(n=>n.text==='Details · preserved predecessor and successor boundary'));
   assert.equal(sent.length,0,'Lineage rendering sends no native request or control');
+  for(const status of ['partial_admission_disposed_unqualified','partial_disposition_incomplete_or_changed']){
+    box.state.standard.successor={status,recordHash:'not-a-successful-admission',writesBlocked:true};
+    const disposed=all(render());
+    assert.ok(disposed.some(n=>String(n.text).includes('Failed admission')&&String(n.text).includes('Both original claims')));
+    assert.ok(!disposed.some(n=>n.tag==='button'||String(n.text).includes('Only a separate fresh Play')),
+      'An unqualified or unavailable disposition cannot render an execution/review action');
+    assert.equal(sent.length,0,'Disposition rendering never submits a control');
+  }
   delete box.state.standard.successor;
   let nodes=all(render());await nodes.find(n=>n.text==='Review Play').click();
   assert.equal(routes.at(-1),'roadmap','A signed Play preview opens its visible inspector section');
