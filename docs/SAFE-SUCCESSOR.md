@@ -28,12 +28,43 @@ continuations, no Brain Stop and no strict enrollment or admission binding.
 Its exact standard phase-delegated mission must already have its own owner
 review. A consumed/uncertain attempt cannot be relabelled as this target.
 
-Both repositories need independently observed canonical Git common-directory
+By default both repositories need independently observed canonical Git common-directory
 and conventional normalized origin identity. Reject common roots, ancestry,
 linked worktrees and equal remotes. Recheck other registered held/active scopes
 at admission, native control delivery, worker claim/issue and public task
 creation/first-turn boundaries. This is bounded registered ownership accounting,
 not proof that unmanaged processes or global provider capacity are free.
+
+### Explicit local-only identity review
+
+An owner preparing this exact successor may explicitly select
+`standard-successor-preview TARGET BINDING --local-only`. The returned immutable
+request includes `identityPolicy: reviewed_local_git_v1` and each complete local
+proof. This is another exact until-scope-changes owner review, not a global
+fallback from missing/invalid origin and not an automatically applied policy.
+Without the flag, the conventional-origin gate is unchanged.
+
+The scoped observer requires a standalone canonical Git root, unchanged private
+local config/file epoch, known complete SHA-1 history and repeated bounded root
+commit sets. It verifies **absence of every remote**, rather than translating a
+missing origin into an invented remote or zero ownership. Shared history roots
+conflict across copies, clones, removed origins and forks even when inode/path
+identities differ. A conventional-origin foreign owner is also compared by its
+complete history, not only its URL. Nested/linked worktrees, symlink/config aliases,
+additional worktrees, shallow/partial or alternate object sources, grafts, replace
+refs, residual remote references and unsupported configuration refuse. Bounds,
+errors or drift remain unknown, never free capacity.
+
+The proof intentionally does not permanently pin target HEAD: separately scoped
+producer commits may advance it without changing its repository lineage. Exact
+task base/commit checks remain separate. New unrelated roots, configuration or
+remote changes invalidate the retained review at admission and every existing
+successor effect boundary. The helper's own source hash is included in the
+successor source pin. Ordinary resource audits still report absent origin as
+unknown; no legacy, Harness, global or unmanaged exclusion claim is widened.
+
+This review writes no repository metadata and releases no predecessor ownership.
+Quarantine, mission review, binding and fresh Play remain separate controls.
 
 The target's existing private reviewed binding must already name only that brain,
 exact app-catalog and native project IDs, registered checkout and pinned endpoint.

@@ -1,0 +1,129 @@
+diff --git a/codex-rs/app-server/src/request_processors/thread_processor.rs b/codex-rs/app-server/src/request_processors/thread_processor.rs
+index 5b482f4..855e4a5 100644
+--- a/codex-rs/app-server/src/request_processors/thread_processor.rs
++++ b/codex-rs/app-server/src/request_processors/thread_processor.rs
+@@ -1533,6 +1533,7 @@ impl ThreadRequestProcessor {
+         if !selected_capability_roots.is_empty() {
+             thread_extension_init.insert(selected_capability_roots);
+         }
++        let persist_project_metadata = project_id.is_some() && !config.ephemeral;
+         let mut start_options = StartThreadOptions::new(config);
+         let reserved_thread_id = if start_options.config.ephemeral {
+             None
+@@ -1607,6 +1608,14 @@ impl ThreadRequestProcessor {
+                 });
+             }
+         };
++        if persist_project_metadata {
++            // A project-scoped durable brain must be independently readable even
++            // if its creating client disconnects before any user/model turn.
++            // Do not acknowledge only an in-memory projectId or hide I/O failure.
++            thread.persist_initial_metadata().await.map_err(|err| {
++                internal_error(format!("failed to persist initial thread metadata: {err}"))
++            })?;
++        }
+         let session_telemetry = thread.session_telemetry();
+         session_telemetry.record_startup_phase(
+             "thread_start_create_thread",
+diff --git a/codex-rs/app-server/tests/suite/v2/projects.rs b/codex-rs/app-server/tests/suite/v2/projects.rs
+index cb22954..cc68834 100644
+--- a/codex-rs/app-server/tests/suite/v2/projects.rs
++++ b/codex-rs/app-server/tests/suite/v2/projects.rs
+@@ -52,6 +52,77 @@ use pretty_assertions::assert_eq;
+ use tempfile::TempDir;
+ use uuid::Uuid;
+
++#[tokio::test]
++async fn empty_project_thread_readback_survives_restart_without_turn() -> Result<()> {
++    let responses = create_mock_responses_server_repeating_assistant("Must not be requested").await;
++    let codex_home = TempDir::new()?;
++    MockResponsesConfig::new(&responses.uri())
++        .enable_feature(Feature::Sqlite)
++        .write(codex_home.path())?;
++    let mut server = TestAppServer::builder()
++        .with_codex_home(codex_home.path())
++        .build_initialized()
++        .await?;
++    let project: ProjectCreateResponse = server
++        .request(|request_id| ClientRequest::ProjectCreate {
++            request_id,
++            params: ProjectCreateParams {
++                name: "Empty durable brain".to_string(),
++                roots: Vec::new(),
++                metadata: None,
++                idempotency_key: Uuid::new_v4().to_string(),
++            },
++        })
++        .await?;
++    let mut ids = Vec::new();
++    for history_mode in [ThreadHistoryMode::Paginated, ThreadHistoryMode::Legacy] {
++        let created = server
++            .start_thread(ThreadStartParams {
++                project_id: Some(project.project.id.clone()),
++                history_mode: Some(history_mode),
++                ..Default::default()
++            })
++            .await?;
++        for _ in 0..2 {
++            let read: ThreadReadResponse = server
++                .request(|request_id| ClientRequest::ThreadRead {
++                    request_id,
++                    params: ThreadReadParams {
++                        thread_id: created.thread.id.clone(),
++                        include_turns: false,
++                    },
++                })
++                .await?;
++            assert_eq!(read.thread.project_id, Some(project.project.id.clone()));
++            assert!(read.thread.turns.is_empty());
++        }
++        ids.push(created.thread.id);
++    }
++    server.shutdown_gracefully().await?;
++    let mut restarted = TestAppServer::builder()
++        .with_codex_home(codex_home.path())
++        .build_initialized()
++        .await?;
++    for thread_id in ids {
++        let read: ThreadReadResponse = restarted
++            .request(|request_id| ClientRequest::ThreadRead {
++                request_id,
++                params: ThreadReadParams {
++                    thread_id,
++                    include_turns: false,
++                },
++            })
++            .await?;
++        assert_eq!(read.thread.project_id, Some(project.project.id.clone()));
++        assert!(read.thread.turns.is_empty());
++        assert_eq!(
++            serde_json::to_value(read.thread.status)?,
++            serde_json::json!({"type": "notLoaded"})
++        );
++    }
++    Ok(())
++}
++
+ #[tokio::test]
+ async fn projects_list_by_recency_and_preserve_metadata_timestamps() -> Result<()> {
+     let responses = create_mock_responses_server_repeating_assistant("Done").await;
+diff --git a/codex-rs/core/src/codex_thread.rs b/codex-rs/core/src/codex_thread.rs
+index 00c86cc..590a72d 100644
+--- a/codex-rs/core/src/codex_thread.rs
++++ b/codex-rs/core/src/codex_thread.rs
+@@ -384,6 +384,15 @@ impl CodexThread {
+             .await
+     }
+
++    /// Explicitly persist a newly created durable thread before acknowledging metadata.
++    /// This records initialization only: it submits no input and starts no turn.
++    pub async fn persist_initial_metadata(&self) -> std::io::Result<()> {
++        self.session
++            .try_ensure_rollout_materialized(PersistContext::Standard)
++            .await?;
++        self.session.flush_rollout().await
++    }
++
+     #[doc(hidden)]
+     pub async fn ensure_rollout_materialized(&self) {
+         self.session

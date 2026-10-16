@@ -109,6 +109,61 @@ class SuccessorTest(unittest.TestCase):
         self.git(self.new_repo, 'remote', 'remove', 'origin')
         with self.assertRaisesRegex(Refusal, 'Complete local'): self.prepare()
 
+    def localize(self):
+        for repo in (self.old_repo, self.new_repo):
+            self.git(repo, 'remote', 'remove', 'origin')
+            self.git(repo, '-c', 'user.name=Fixture', '-c', 'user.email=f@example.invalid',
+                     '-c', 'commit.gpgsign=false', 'commit', '--allow-empty', '-qm', 'independent genesis '+repo.name)
+
+    def test_explicit_local_identity_review_admits_without_releasing_old_scope(self):
+        self.localize()
+        with self.assertRaises(Refusal): self.prepare()
+        p = successor.prepare(self.registry, self.source, 'beta', self.binding_path, local_only=True)
+        self.assertEqual(p['request']['identityPolicy'], successor.LOCAL_POLICY)
+        self.assertEqual(p['request']['target']['repositories'][0]['localIdentity']['remotes'], 'observed_absent')
+        receipt = self.confirm(p)
+        self.assertEqual(receipt['priorObservedTokens'], 1049625)
+        self.assertFalse(receipt['boundary']['repositoryReleased'])
+        self.assert_source_unchanged()
+        self.git(self.new_repo, '-c', 'user.name=Fixture', '-c', 'user.email=f@example.invalid',
+                 '-c', 'commit.gpgsign=false', 'commit', '--allow-empty', '-qm', 'permitted later commit')
+        with standard.read_db(self.target.db) as db:
+            self.assertEqual(successor.retained_in(self.target, db)['reviewHash'], p['reviewHash'])
+        command = self.play()
+        with self.target.tx() as db:
+            command = self.target.get(db, 'commands', command['id'])
+            command['notification'] = {'status': 'sending', 'brainId': self.brain,
+                'hostRunId': command['payload']['runId'], 'hostBindingHash': digest(self.binding),
+                'successorHash': command['payload']['successorHash'], 'attemptedAt': time.time(),
+                'hostInspectionTransport': 'owned_observer_v1'}
+            self.target.put(db, 'commands', command['id'], command)
+        native = self.fake(); host = AppServerWake(self.binding, self.target)
+        with patch.object(host, 'configured', return_value=True), patch('orchestrator.app_server_wake.validate_endpoint'), \
+             patch('orchestrator.app_server_wake.WakeProxy', return_value=native), \
+             patch('orchestrator.app_server_wake.threading.Thread', FakeThread):
+            delivered = host.send(self.brain, 'Fixture local-only fixed pointer', command['id'])
+        self.assertEqual(delivered['status'], 'accepted', delivered)
+        self.assertEqual(native.calls.count('turn/start'), 1)
+        self.assertNotIn('thread/resume', native.calls)
+        self.assert_source_unchanged()
+
+    def test_local_identity_config_drift_refuses_before_permanent_claim(self):
+        self.localize()
+        p = successor.prepare(self.registry, self.source, 'beta', self.binding_path, local_only=True)
+        self.git(self.new_repo, 'remote', 'add', 'origin', 'https://github.com/fixture/new')
+        with self.assertRaises(Refusal): self.confirm(p)
+        self.assertFalse((self.target.root/successor.FENCE).exists())
+        self.assert_source_unchanged()
+
+    def test_local_identity_clone_and_foreign_hold_conflict(self):
+        self.localize()
+        p = successor.prepare(self.registry, self.source, 'beta', self.binding_path, local_only=True)
+        self.git(self.new_repo, 'fetch', '-q', str(self.old_repo), 'HEAD:refs/heads/old-copy')
+        with self.assertRaises(Refusal): self.confirm(p)
+        with self.assertRaisesRegex(Refusal, 'must not share'):
+            successor.prepare(self.registry, self.source, 'beta', self.binding_path, local_only=True)
+        self.assert_source_unchanged()
+
     def test_changed_target_or_binding_invalidates_exact_review(self):
         p = self.prepare()
         with self.target.tx() as db:

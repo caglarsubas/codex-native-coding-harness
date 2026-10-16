@@ -24,9 +24,13 @@ BOUNDARY = {'oldRunChanged': False, 'oldUsageReset': False, 'repositoryReleased'
             'historicalCleanupVerified': False, 'terminalSafetyVerified': False,
             'bindingChanged': False, 'nativeAction': False, 'playAuthorized': False, 'pilotAccepted': False}
 FIELDS = {'version', 'kind', 'sourceHash', 'source', 'target', 'bindingFile', 'bindingPin', 'boundary'}
+LOCAL_POLICY = 'reviewed_local_git_v1'
 
 
-def source_hash(): return hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+def source_hash():
+    from . import local_repository_identity
+    return digest([hashlib.sha256(path.read_bytes()).hexdigest() for path in
+                   (Path(__file__), Path(local_repository_identity.__file__))])
 
 
 def pin(path):
@@ -46,15 +50,22 @@ def source_claim(registry_root, workspace):
     return Path(registry_root)/('standard-successor-'+identity(workspace)+'.claim')
 
 
-def repositories(rows):
+def repositories(rows, *, local_only=False):
     result = []
     for row in sorted(rows, key=lambda r: r['id']):
         root = Path(row['path'])
         require(root.is_absolute() and str(root.resolve(strict=True)) == str(root), 'Canonical repository required')
-        value = resources.repository_identity(root)
-        require(value['status'] == 'observed' and len(value['keys']) == 2,
-                'Complete local and conventional remote identity required; unknown is not disjoint')
-        result.append({'id': row['id'], 'root': str(root), 'keys': value['keys'], 'recordHash': digest(row)})
+        if local_only:
+            from .local_repository_identity import inspect
+            proof = inspect(root, allow_origin=True)
+            value = {'keys': proof['keys']}
+        else:
+            proof = None
+            value = resources.repository_identity(root)
+            require(value['status'] == 'observed' and len(value['keys']) == 2,
+                    'Complete local and conventional remote identity required; unknown is not disjoint')
+        result.append({'id': row['id'], 'root': str(root), 'keys': value['keys'], 'recordHash': digest(row),
+                       **({'localIdentity': proof} if proof else {})})
     require(result, 'Registered repository scope required')
     return result
 
@@ -70,6 +81,7 @@ def disjoint(left, right):
 
 
 def other_owners(registry, target, scopes):
+    local_only = any('localIdentity' in scope for scope in scopes)
     with _read_registry(registry) as rd:
         rows = list(rd.execute('SELECT id,root FROM workspaces WHERE id<>?', (target.workspace_id,)))
     require(len(rows) <= 32, 'Successor registered ownership bound exceeded')
@@ -82,10 +94,10 @@ def other_owners(registry, target, scopes):
             active = (meta.get('runner') or Ledger.all(db, 'workers') or
                       any(t.get('status') not in standard.TERMINAL for t in run.get('tasks', [])) or
                       any(m.get('status') in {'prepared', 'issued', 'uncertain'} for m in run.get('merges', [])))
-            if held or active: disjoint(repositories(Ledger.all(db, 'repos')), scopes)
+            if held or active: disjoint(repositories(Ledger.all(db, 'repos'), local_only=local_only), scopes)
 
 
-def original(root, workspace):
+def original(root, workspace, *, local_only=False):
     root = Path(root)
     reader = SimpleNamespace(root=root, get=Ledger.get, all=Ledger.all)
     with standard.read_db(root/'ledger.sqlite3') as db:
@@ -99,10 +111,10 @@ def original(root, workspace):
             'observedTokens': run.get('brainObservedTokens'), 'usageHighWater': run.get('usageHighWater'),
             'usageCoverage': run.get('brainUsageCoverage'), 'usageReportHash': digest(run.get('usageReport')),
             'expiresAt': run['expiresAt'], 'historicalTerminalSafety': 'unknown',
-            'repositories': repositories(request['state']['repos'])}
+            'repositories': repositories(request['state']['repos'], local_only=local_only)}
 
 
-def context(registry, source, target, binding_path, db):
+def context(registry, source, target, binding_path, db, *, local_only=False):
     from .enrollment import record_in, fence_exists
     with _read_registry(registry) as rd:
         require(record_in(rd) is None, 'Strict enrollment cannot admit a standard successor')
@@ -112,7 +124,7 @@ def context(registry, source, target, binding_path, db):
             old_inspected['brainId'] != inspected['brainId'], 'Separate existing registered source and target required')
     require(not os.path.lexists(source_claim(registry.root, source.workspace_id)) and
             not os.path.lexists(target.root/FENCE), 'Successor already claimed; inspect its receipt, never retry')
-    old = original(source.root, source.workspace_id)
+    old = original(source.root, source.workspace_id, local_only=local_only)
     meta = target.get(db, 'meta', 1)
     require(meta['schemaVersion'] == 1 and not meta.get('standardRun') and meta.get('paused') is True and
             not meta.get('controller') and not meta.get('runner') and not meta.get('admissionBinding') and
@@ -123,7 +135,7 @@ def context(registry, source, target, binding_path, db):
             all(not target.all(db, table) for table in ('workers', 'queue', 'commands', 'decisions', 'continuations')),
             'Pending work, control, stop or prior attempts cannot be relabelled as a successor')
     _, mission = standard.eligible(target, db)
-    rows = target.all(db, 'repos'); new_repos = repositories(rows); disjoint(old['repositories'], new_repos)
+    rows = target.all(db, 'repos'); new_repos = repositories(rows, local_only=local_only); disjoint(old['repositories'], new_repos)
     other_owners(registry, target, new_repos)
     binding_path = private_file(binding_path); binding = _read_binding(binding_path)
     scope = _scope(registry, target.workspace_id, binding)
@@ -137,6 +149,7 @@ def context(registry, source, target, binding_path, db):
     validate_contract(brain.get('policyEvidence'))
     info, registry_info = target.db.stat(), registry.db.stat()
     return {'version': 1, 'kind': KIND, 'sourceHash': source_hash(), 'source': old,
+            **({'identityPolicy': LOCAL_POLICY} if local_only else {}),
             'target': {'workspaceId': target.workspace_id, 'root': str(target.root), 'brainId': meta['brainId'],
                 'ledgerIdentity': [info.st_dev, info.st_ino], 'registryIdentity': [registry_info.st_dev, registry_info.st_ino],
                 'metaHash': digest(meta), 'repositories': new_repos, 'missionHash': mission['documentHash'],
@@ -145,9 +158,10 @@ def context(registry, source, target, binding_path, db):
             'bindingFile': str(binding_path), 'bindingPin': pin(binding_path), 'boundary': copy.deepcopy(BOUNDARY)}
 
 
-def prepare(registry, source, target_id, binding_path):
+def prepare(registry, source, target_id, binding_path, *, local_only=False):
     target = registry.ledger(target_id)
-    with standard.read_db(target.db) as db: request = context(registry, source, target, binding_path, db)
+    with standard.read_db(target.db) as db:
+        request = context(registry, source, target, binding_path, db, local_only=local_only)
     require(len(canonical(request).encode()) <= 65536, 'Successor scope exceeds its closed bound')
     return {'request': request, 'reviewHash': digest(request), 'validUntil': 'scope_changes',
             'effect': 'Record disjoint successor lineage only; separate target mission Review and fresh Play remain required',
@@ -158,10 +172,15 @@ def read_request(path):
     path = private_file(path); before = pin(path); raw = path.read_bytes()
     from .native_read_client import decode
     value = decode(raw)
-    require(pin(path) == before and isinstance(value, dict) and set(value) == FIELDS and
+    require(pin(path) == before and isinstance(value, dict) and valid_fields(value) and
             type(value['version']) is int and value['version'] == 1 and value['kind'] == KIND and
             value['boundary'] == BOUNDARY, 'Exact closed private successor review required')
     return value
+
+
+def valid_fields(value):
+    return (set(value) == FIELDS or set(value) == FIELDS | {'identityPolicy'} and
+            value['identityPolicy'] == LOCAL_POLICY)
 
 
 def retained_in(ledger, db, meta=None):
@@ -178,13 +197,14 @@ def retained_in(ledger, db, meta=None):
             meta.get('standardSuccessor') == marker['recordHash'], 'Partial successor admission remains fenced')
     record = ledger.get(db, 'snapshots', marker['recordHash']); req = record['request']; target = req['target']
     require(digest(record) == marker['recordHash'] and record['reviewHash'] == marker['reviewHash'] == digest(req) and
-            set(req) == FIELDS and req['kind'] == KIND and req['sourceHash'] == source_hash() and
+            valid_fields(req) and req['kind'] == KIND and req['sourceHash'] == source_hash() and
             req['boundary'] == BOUNDARY, 'Successor receipt or source changed')
     require(ledger.workspace_id == target['workspaceId'] and str(ledger.root) == target['root'] and
             meta['brainId'] == target['brainId'], 'Successor target identity changed')
     info = ledger.db.stat()
     require([info.st_dev, info.st_ino] == target['ledgerIdentity'] and
-            repositories(ledger.all(db, 'repos')) == target['repositories'], 'Successor repository/ledger changed')
+            repositories(ledger.all(db, 'repos'), local_only=req.get('identityPolicy') == LOCAL_POLICY) ==
+            target['repositories'], 'Successor repository/ledger changed')
     registry_path = private_file(Path(ledger.platform_root)/'platform.sqlite3')
     registry = SimpleNamespace(root=Path(ledger.platform_root), db=registry_path)
     registry_info = registry_path.stat()
@@ -194,7 +214,9 @@ def retained_in(ledger, db, meta=None):
                             (target['workspaceId'], target['root'])):
         registered_root, _, _, _ = _registered(registry, workspace)
         require(str(registered_root) == root, 'Successor registered routing changed')
-    require(original(req['source']['root'], req['source']['workspaceId']) == req['source'], 'Original quarantined attempt changed')
+    require(original(req['source']['root'], req['source']['workspaceId'],
+                     local_only=req.get('identityPolicy') == LOCAL_POLICY) == req['source'],
+            'Original quarantined attempt changed')
     require(pin(req['bindingFile']) == req['bindingPin'] and digest(_read_binding(req['bindingFile'])) == target['bindingHash'],
             'Existing successor binding changed; no rebind or fallback')
     claim = source_claim(ledger.platform_root, req['source']['workspaceId'])
@@ -213,7 +235,7 @@ def retained_in(ledger, db, meta=None):
 
 
 def confirm(registry, source, request, confirmed_hash):
-    require(isinstance(request, dict) and set(request) == FIELDS and digest(request) == confirmed_hash and
+    require(isinstance(request, dict) and valid_fields(request) and digest(request) == confirmed_hash and
             request['boundary'] == BOUNDARY, 'Confirm the exact separately displayed successor review hash')
     require(source.workspace_id == request['source']['workspaceId'] and
             str(source.root) == request['source']['root'], 'Exact original registered successor route required')
@@ -224,7 +246,8 @@ def confirm(registry, source, request, confirmed_hash):
             require(previous['request'] == request, 'A different successor already owns this target')
             return public(previous)
     with registry.tx(), target.tx() as db:
-        require(context(registry, source, target, request['bindingFile'], db) == request, 'Successor scope changed')
+        require(context(registry, source, target, request['bindingFile'], db,
+                        local_only=request.get('identityPolicy') == LOCAL_POLICY) == request, 'Successor scope changed')
         record = {'kind': KIND, 'request': copy.deepcopy(request), 'reviewHash': confirmed_hash,
                   'recordedAt': time.time(), 'outcome': 'lineage_recorded_play_not_started'}
         key = digest(record)

@@ -42,3 +42,26 @@ The compiled-runtime identity fixture is described in
 `docs/PUBLIC-IDENTITY-TRANSFER.md`. Build/source tests and disposable protocol
 fixtures do not establish installed launch provenance, effective live policy,
 authentication, old terminal cleanup, same-run continuation or pilot acceptance.
+
+## Empty project-brain durability supplement
+
+`patches/empty-brain-durability.patch` applies to the exact qualified native source
+commit above. It persists and flushes initialization through the native ThreadStore
+before acknowledging a non-ephemeral project-scoped `thread/start`. Failure is an
+RPC error, not an acknowledged in-memory-only project ID. This creates no user
+input/model turn and leaves ordinary projectless/ephemeral behavior unchanged.
+It adds no protocol method, identity restore, native load or recovery fallback.
+
+The native regression covers independent repeated project membership reads and
+readback after process restart, for both paginated and legacy empty histories.
+`scripts/qualify_empty_brain_readback.py` additionally exercises the actual compiled
+binary in a new disposable home with a fake loopback provider: zero turns, zero
+loads, zero model requests and no live host connection. An unloaded record is
+`notLoaded`, never current/historical terminal safety.
+
+The source patch does not repair an already lost unmaterialized brain. Preserve
+its original creation claim/result; never resend creation, load it, backfill history
+or relabel another brain as that identity. A changed runtime and any replacement
+target setup need their own exact rollout/identity reviews. Never swap a binary
+under a live socket or infer that a fixture upgrades the running host. See
+[the repair and qualification contract](../docs/EMPTY-BRAIN-AND-LOCAL-IDENTITY.md).

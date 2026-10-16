@@ -1,5 +1,19 @@
 # Codex Orchestrator — personal tooling
 
+## Empty-brain durability and scoped local identity source (2026-10-15)
+
+Read docs/EMPTY-BRAIN-AND-LOCAL-IDENTITY.md before qualification or rollout. The
+native supplement persists initial durable project metadata before acknowledgement,
+with no turn/load or live repair. Preserve previously acknowledged unmaterialized
+creation claims; never resend, invent history or treat unavailable readback as safe.
+The explicit successor `--local-only` review pins observed remote absence, closed
+config/file epochs, canonical roots and complete history roots. Copies/clones/forks,
+partial/alternate/replaced history, aliases and drift refuse; ordinary origin-required
+and global unknown-identity gates remain unchanged. Revalidate the exact policy at
+all existing successor boundaries. Fixture success is not installation, launch,
+binding, quarantine, mission review, admission, Play or pilot acceptance. No old-brain
+reload, Play/recovery replay, usage/gap/expiry rewrite or assumed terminal safety.
+
 ## Disjoint successor source (2026-10-15)
 
 Read docs/SAFE-SUCCESSOR.md before the operator-only `standard_successor_v1`
