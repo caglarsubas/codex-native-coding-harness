@@ -115,6 +115,10 @@ claims and every database. It does not complete admission, unfreeze the target,
 remove the source's outgoing claim or grant a new successor/Play. Installing the
 registry-size validation repair never applies that disposition or retries a claim.
 
+The optional [forward-only contract](FORWARD-CONTINUATION.md) is a separately
+reviewed new record kind, not another invocation or receipt repair of this
+admission. It preserves both original claims and leaves this admission unqualified.
+
 Schema-v7 support does not make older running writers safe. Before separately
 authorized live admission, quiesce **all** writers, preserve verified private
 backups of both ledgers/registry/sidecars and confirm every launcher uses the

@@ -79,6 +79,12 @@ and outgoing claim; no new target or successor is implicitly authorized. Older
 helpers do not validate the new record, so rollout still requires quiesced
 writers and verified private backups; no mixed-version safety is promised.
 
+The separately reviewed [forward-only contract](FORWARD-CONTINUATION.md) may create
+new prospective lineage only after independently validating the complete new
+intent/snapshot and every preserved old claim. Its exact review can explicitly
+include recording this unqualified disposition. The disposition alone, old
+admission approval and installing either source never authorize that path or Play.
+
 ## Boundaries and qualification
 
 No admission retry, ownership/resource release, native connection/load/turn,

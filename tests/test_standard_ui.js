@@ -25,6 +25,11 @@ function all(root){return [root,...root.children.flatMap(x=>x instanceof Element
   assert.ok(successorNodes.some(n=>String(n.text).includes('1049625')&&String(n.text).includes('Old repository ownership remains held')));
   assert.ok(successorNodes.some(n=>n.text==='Details · preserved predecessor and successor boundary'));
   assert.equal(sent.length,0,'Lineage rendering sends no native request or control');
+  box.state.standard.successor={recordHash:'new-forward',lineageProtocol:'standard_forward_continuation_v1',priorObservedTokens:1049625};
+  const forwardNodes=all(render());
+  assert.ok(forwardNodes.some(n=>String(n.text).includes('New forward lineage')));
+  assert.ok(forwardNodes.some(n=>String(n.text).includes('not an admission retry')&&String(n.text).includes('unloaded brain remains blocked')));
+  assert.equal(sent.length,0,'Forward-lineage rendering never confirms a disposition or starts Play');
   for(const status of ['partial_admission_disposed_unqualified','partial_disposition_incomplete_or_changed']){
     box.state.standard.successor={status,recordHash:'not-a-successful-admission',writesBlocked:true};
     const disposed=all(render());

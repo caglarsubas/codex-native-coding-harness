@@ -1,5 +1,20 @@
 # Codex Orchestrator — personal tooling
 
+## Forward-only continuation source
+
+Read docs/FORWARD-CONTINUATION.md before its operator-only commands. A new exact
+review may retain/record the original unqualified partial disposition and create
+distinct prospective lineage for the unchanged empty target. This supersedes only
+the no-prospective-lineage fence for a completely validated new forward record;
+the old admission remains uncommitted and cannot be retried. Preserve both old
+claims, all old source/run/usage/gap/expiry bytes and repository holds. Require
+quiesced writers and verified private backups. Missing/partial/drifting new records
+stay fenced; never delete an intent or reconstruct the original success receipt.
+The existing separately confirmed fresh Play and already-loaded-only native path
+remain mandatory. No reload, old Play/recovery replay, binding change, ownership
+release or terminal-safety inference. Source/disposable qualification installs or
+confirms nothing; an unloaded live brain remains blocked.
+
 ## Partial-admission disposition source
 
 Read docs/PARTIAL-ADMISSION-DISPOSITION.md before its operator-only commands.
