@@ -164,6 +164,17 @@ def projection(ledger, db):
             (1 if latest_refresh.get("notification") else 0),
         "maxDeliveryAttempts": CATALOG_REFRESH_MAX_DELIVERY_ATTEMPTS,
     }
+    from . import readiness_disposition as disposition
+    try:
+        disposed = disposition.retained_in(ledger, db)
+        result['readinessDisposition'] = disposition.public(disposed) if disposed else None
+        if disposed and latest_refresh and latest_refresh['id'] == disposed['request']['command']['id']:
+            result['catalogRefresh']['disposition'] = result['readinessDisposition']
+    except (OSError, Refusal, ValueError, KeyError, TypeError, sqlite3.Error):
+        result.update(readinessDisposition={'status': 'incomplete_or_changed', 'writesBlocked': True},
+                      blocker='Readiness disposition is incomplete or changed; inspect its original claim, never retry',
+                      contextHash=digest(meta))
+        return result
     from .partial_admission import FENCE as partial_fence, status as partial_status
     if os.path.lexists(ledger.root/partial_fence) and not os.path.lexists(ledger.root/'standard-forward-continuation.json'):
         from types import SimpleNamespace
@@ -201,6 +212,14 @@ def projection(ledger, db):
         eligible(ledger, db)
         catalog = result["catalog"]
         result["catalogRequired"] = not (catalog and time.time()-catalog["observedAt"] < 86400)
+        if disposed:
+            fresh_receipt = bool(latest_refresh and latest_refresh['id'] != disposed['request']['command']['id'] and
+                    latest_refresh.get('status') == 'completed' and
+                    (latest_refresh.get('catalogReceipt') or {}).get('catalogHash') == digest(catalog) and
+                    latest_refresh.get('completedAt', 0) >= disposed['recordedAt'])
+            result['catalogRequired'] = result['catalogRequired'] or not fresh_receipt
+            require(fresh_receipt,
+                    'Canceled readiness was disposed as unqualified; a separately requested new catalog receipt is required')
         require(not result["catalogRequired"], "Brain must record the available native model/effort catalog (valid for 24 hours)")
         result["available"] = True
     except (Refusal, ValueError) as error:
@@ -318,7 +337,8 @@ def projection(ledger, db):
             "runId": doc["run"]["id"], "revision": doc["run"]["revision"], "status": doc["run"]["status"]})
     result["contextHash"] = digest({"workspace": missions.workspace(ledger), "brain": meta["brainId"],
         "mission": meta.get("missionConfiguration"), "run": run, "catalog": result["catalog"],
-        "database": str(ledger.db), "available": result["available"], "blocker": result["blocker"]})
+        "database": str(ledger.db), "available": result["available"], "blocker": result["blocker"],
+        **({'readinessDisposition': digest(disposed)} if disposed else {})})
     return result
 
 
@@ -330,6 +350,8 @@ def request_catalog_refresh(ledger, request):
         prior = db.execute("SELECT data FROM commands WHERE id=?", (request["id"],)).fetchone()
         if prior:
             command = json.loads(prior[0])
+            from .readiness_disposition import retired_in
+            require(not retired_in(ledger, db, command['id']), 'Disposed readiness request cannot be reused or resent')
             require(command["kind"] == CATALOG_REFRESH_KIND and
                     command["payload"]["contextHash"] == request["contextHash"],
                     "Refresh request ID belongs to different content")
@@ -350,7 +372,9 @@ def request_catalog_refresh(ledger, request):
         require(not state["run"] or state["run"]["status"] in ("completed", "blocked"),
                 "A running cooperative phase owns its catalog")
         require(not state["available"], "The native model/effort catalog is already current")
-        require(not any(c["kind"] == CATALOG_REFRESH_KIND and c["status"] in ("queued", "processing")
+        from .readiness_disposition import retired_in
+        require(not any(c["kind"] == CATALOG_REFRESH_KIND and c["status"] in ("queued", "processing") and
+                        not retired_in(ledger, db, c['id'])
                         for c in ledger.all(db, "commands")),
                 "A native capability refresh is already pending")
         mission = missions.state_in(ledger, db)
@@ -507,6 +531,9 @@ def catalog_in(ledger, db, meta, request):
     Never expose this internal function as an owner/model-output write route.
     """
     operation = request.get("operation")
+    from .readiness_disposition import retired_in
+    require(not request.get('requestId') or not retired_in(ledger, db, request['requestId']),
+            'Disposed readiness cannot acquire a late catalog or error receipt')
     if operation == "catalog":
         require(set(request) in ({"operation", "models", "source"},
                                  {"operation", "models", "source", "requestId"}),
@@ -514,7 +541,8 @@ def catalog_in(ledger, db, meta, request):
         eligible(ledger, db)
         require(not meta.get("standardRun") or meta["standardRun"]["status"] in ("completed", "blocked"), "Do not change a running catalog")
         pending_refreshes = [c for c in ledger.all(db, "commands")
-                             if c["kind"] == CATALOG_REFRESH_KIND and c["status"] in ("queued", "processing")]
+                             if c["kind"] == CATALOG_REFRESH_KIND and c["status"] in ("queued", "processing") and
+                             not retired_in(ledger, db, c['id'])]
         request_id = request.get("requestId")
         require(request_id or not pending_refreshes, "Pending automatic catalog refresh requires its exact request ID")
         command = None

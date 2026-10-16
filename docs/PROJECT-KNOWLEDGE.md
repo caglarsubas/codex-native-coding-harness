@@ -1,5 +1,12 @@
 # Durable project knowledge and bounded brain context
 
+[READINESS-DISPOSITION.md](READINESS-DISPOSITION.md) separates local owner
+disposition of a canceled legacy readiness attempt from its missing brain
+receipt. It preserves that original request and prevents replay/backfill. It
+does not record capabilities or permit Play. Only a separately explicit new
+request may obtain its own prospective catalog receipt; no brain reload,
+binding change, usage reset or terminal-safety inference is included.
+
 [SAFE-SUCCESSOR.md](SAFE-SUCCESSOR.md) defines separate owner-reviewed lineage
 to an existing disjoint target, never reopening the predecessor. Old usage,
 gaps, expiry, repository holds and unknown safety remain immutable. Admission,

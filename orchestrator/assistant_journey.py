@@ -185,7 +185,8 @@ def catalog(state):
         None if run else "Start a reviewed phase before measuring its usage.")
     add("codex_check", "Check Codex readiness", "Ask the brain to refresh available native models and efforts.",
         message_reason or ("The current phase owns its capability catalog." if active else
-        "A capability request is already pending." if (s.get("catalogRefresh") or {}).get("status") in ("queued", "processing") else
+        "A capability request is already pending." if (s.get("catalogRefresh") or {}).get("status") in ("queued", "processing") and
+            not (s.get("catalogRefresh") or {}).get('disposition') else
         None if s.get("catalogRequired") else "The native capability catalog is current."))
     return result
 

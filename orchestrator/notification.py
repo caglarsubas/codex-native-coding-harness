@@ -77,6 +77,9 @@ class BrainNotifier:
         ledger = self.ledger
         with ledger.tx() as db:
             command = ledger.get(db, "commands", command_id)
+            from .readiness_disposition import retired_in
+            if retired_in(ledger, db, command_id):
+                return command  # Local disposition never re-arms its preserved native claim.
             from .historical_effects import historical_ids
             if command_id in historical_ids(ledger, db):
                 return command  # Preserve the original claim; terminal closeout never arms another send.

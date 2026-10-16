@@ -1,11 +1,18 @@
 # Codex-native orchestration roadmap
 
+- [x] Add a forward-only local unqualified disposition for a resolved-Cancel,
+  ended legacy readiness request, preserving its missing receipt and preventing
+  replay; future distinct checks remain separately explicit
+  ([contract](READINESS-DISPOSITION.md); source/disposable qualification only).
+- [ ] Separately install/apply the exact reviewed v3 readiness disposition at a
+  quiescent boundary, then qualify prospective native readiness and the fresh
+  phase journey without replay or terminal-safety assumptions.
+
 - [x] Remove future pre-Play shared-registry sandbox deadlock with a closed
   checkout-local capability receipt on the original owned observer; retain
   existing approval gates and cold-WAL isolation ([contract](PREPLAY-READINESS.md)).
-- [ ] Separately resolve the live legacy pending readiness turn without replay,
-  install at a quiescent boundary, and qualify the v3 native phase journey;
-  source/disposable passes are not live pilot acceptance.
+- [ ] Qualify the v3 native phase journey; the owner's resolved Cancel and the
+  PR #163 installation are not a catalog receipt or live pilot acceptance.
 
 - [x] Show retained cooperative phase outcomes, PR links and observed merge status in Brain conversation, separate from saved replies and deployment evidence.
 

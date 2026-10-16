@@ -1,5 +1,20 @@
 # Codex Orchestrator — personal tooling
 
+## Forward-only readiness disposition source (2026-10-16)
+
+Read docs/READINESS-DISPOSITION.md before operator-only readiness-disposition
+commands. Only one exact canceled, interrupted, closed-observer, unreceived
+legacy pre-Play capability request in an otherwise empty unowned first-phase
+standard project qualifies. New until-scope-changes owner review, quiesced older
+writers and verified private backups precede a local unqualified disposition.
+Preserve original command/Cancel/observer/receipt-missing bytes, old runs,
+usage/gaps/expiry, claims and bindings. Never reconstruct a catalog/error receipt,
+reuse its ID, backfill its mailbox, reload a brain or send readiness/Play/recovery.
+Partial or drifting local claims stay fenced. A future distinct capability check
+requires its own explicit owner request and prospectively bound receipt; polling,
+Help and source delivery authorize none. Disposition is not cleanup, checkpoint,
+ownership release, Play or pilot acceptance; terminal safety remains unknown.
+
 ## Checkout-local pre-Play readiness source (2026-10-16)
 
 For a future first-phase schema-1 standard capability notification that originally

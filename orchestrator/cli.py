@@ -111,6 +111,15 @@ def main():
     p.add_argument('review', type=Path); p.add_argument('--confirm-hash', required=True)
     p.add_argument('--writers-stopped', action='store_true'); p.add_argument('--backup', type=Path, required=True)
     sub.add_parser('forward-continuation-status', help='Read-only prospective lineage status; never apply or collect')
+    p = sub.add_parser('readiness-disposition-preview', help='Review one canceled readiness attempt as unqualified; no native call')
+    p.add_argument('binding', type=Path); p.add_argument('command_id')
+    p = sub.add_parser('readiness-disposition-backup', help='Verified private backup for the exact readiness disposition')
+    p.add_argument('review', type=Path); p.add_argument('destination', type=Path)
+    p.add_argument('--writers-stopped', action='store_true')
+    p = sub.add_parser('readiness-disposition-confirm', help='Record local unqualified disposition only; preserve original request and missing receipt')
+    p.add_argument('review', type=Path); p.add_argument('--confirm-hash', required=True)
+    p.add_argument('--writers-stopped', action='store_true'); p.add_argument('--backup', type=Path, required=True)
+    sub.add_parser('readiness-disposition-status', help='Read original disposition; never apply, collect or resend')
     p = sub.add_parser("standard-host-inspect", help="Brain-only current owned-host metadata and resume-profile inspection; no wake or write")
     p.add_argument("run_id"); p.add_argument("command_id")
     p = sub.add_parser("standard-public-task", help="Brain-only one-shot public task request via the owned observer; no desktop fallback")
@@ -329,6 +338,23 @@ def main():
         raise Refusal("--workspace requires --platform")
     if args.state and (args.workspace or args.platform):
         raise Refusal("Choose a registered workspace or --state, not both")
+    if args.action.startswith('readiness-disposition-'):
+        if not (args.platform and args.workspace):
+            raise Refusal('Exact registered readiness disposition workspace required')
+        from . import partial_admission, readiness_disposition as api
+        registry, selected = partial_admission.routes(args.platform, args.workspace)
+        if args.action.endswith('-preview'):
+            out = api.prepare(registry, selected, args.binding, args.command_id)
+        elif args.action.endswith('-status'):
+            out = api.status(selected)
+        else:
+            review = api.read_request(args.review)
+            if args.action.endswith('-backup'):
+                out = api.create_backup(registry, selected, review, args.destination, writers_stopped=args.writers_stopped)
+            else:
+                out = api.confirm(registry, selected, review, args.confirm_hash,
+                                  writers_stopped=args.writers_stopped, backup_root=args.backup)
+        print(json.dumps(out, ensure_ascii=False, indent=2)); return
     if args.action.startswith(('partial-admission-', 'forward-continuation-')):
         if not (args.platform and args.workspace):
             raise Refusal('Exact registered disposition workspace required')

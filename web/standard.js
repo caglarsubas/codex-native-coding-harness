@@ -51,6 +51,7 @@ const standardCatalogRequests=new Map(),standardCatalogTimers=new Map(),standard
 function catalogMissing(s){return (!s.run||['completed','blocked'].includes(s.run.status))&&!s.available&&s.catalogRequired===true;}
 function catalogStatus(refresh){
   if(!refresh)return {title:'Codex readiness has not been checked',detail:'Choose Check Codex readiness to ask the designated brain for available models and efforts. This does not start development.'};
+  if(refresh.disposition?.status==='disposed_unqualified')return {title:'Readiness check ended without a result',detail:'Cancel resolved. This attempt is recorded as unqualified; its missing brain receipt is preserved. Nothing is waiting on this attempt. A new, separately requested check is required before Play; this attempt cannot be resent.'};
   if(refresh.status==='completed')return {title:'Native capabilities recorded',detail:refresh.result};
   if(refresh.status==='failed')return catalogReadinessIssue(refresh)||{title:'Codex readiness check failed',detail:'The brain recorded a capability error. Inspect the saved diagnostic before requesting another check. Play has not started.'};
   const notification=refresh.notification||{};
@@ -66,7 +67,7 @@ function catalogStatus(refresh){
   return {title:'Capability request saved',detail:'The request is retained but has not been sent. A stopped or parked brain must be explicitly resumed; this request never resumes it.'};
 }
 function scheduleCatalogFollowup(s){
-  const key=workspaceId,refresh=s.catalogRefresh;if(!refresh||refresh.status!=='queued'||standardCatalogTimers.has(key))return;
+  const key=workspaceId,refresh=s.catalogRefresh;if(!refresh||refresh.disposition||refresh.status!=='queued'||standardCatalogTimers.has(key))return;
   const notification=refresh.notification||{},safeRetry=notification.status==='unavailable'&&refresh.deliveryAttempts<refresh.maxDeliveryAttempts;
   const recent=Date.now()/1000-refresh.createdAt<90;
   if(!safeRetry&&!recent)return;
@@ -86,7 +87,7 @@ async function requestCatalogForPlay(s){
   const key=workspaceId;
   let request=standardCatalogRequests.get(key);
   const retained=s.catalogRefresh;
-  if(retained&&retained.status==='queued')request={id:retained.id,contextHash:s.contextHash};
+  if(retained&&retained.status==='queued'&&!retained.disposition)request={id:retained.id,contextHash:s.contextHash};
   else request={id:crypto.randomUUID(),contextHash:s.contextHash};
   standardCatalogRequests.set(key,request);
   if(standardCatalogInFlight.has(key))return;
@@ -284,7 +285,8 @@ function standardPanel(root,mode='all'){
     await reviewStandardControl(s,operation,run);
   },'primary');
   requestButton.disabled=busy||!connected||(operation==='play'&&!s.available&&!needsCatalog)||run?.status==='stopping';panel.append(requestButton);
-  if(needsCatalog&&s.catalogRefresh?.status==='queued'){requestButton.textContent='Waiting for native capabilities';requestButton.disabled=true;}
+  if(needsCatalog&&s.catalogRefresh?.status==='queued'&&!s.catalogRefresh.disposition){requestButton.textContent='Waiting for native capabilities';requestButton.disabled=true;}
+  if(needsCatalog&&s.catalogRefresh?.disposition)requestButton.textContent='Request a new readiness check';
   if(needsCatalog&&s.catalogRefresh?.status==='failed')requestButton.textContent=catalogReadinessIssue(s.catalogRefresh)?'Inspect Codex readiness':'Retry capability refresh';
   standardConfirmation(panel,s,run);
   root.append(panel);

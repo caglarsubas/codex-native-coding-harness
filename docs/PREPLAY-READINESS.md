@@ -90,3 +90,9 @@ reset usage or declare terminal safety. A separately authorized, forward-only
 resolution of that pending original turn is required before a new phase can
 proceed. Review, native capability receipt, Play and pilot acceptance remain
 separate evidence and authority states.
+
+The separate operator-only [readiness disposition](READINESS-DISPOSITION.md)
+can record one resolved-Cancel legacy attempt as unqualified without changing
+that request or reconstructing its missing receipt. It adds no mailbox or native
+action to the old turn. A new prospective check still needs a distinct explicit
+request; source delivery and disposition do not send it.
