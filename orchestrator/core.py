@@ -177,6 +177,8 @@ class Ledger:
         try:
             db.execute("BEGIN IMMEDIATE")
             meta = self.get(db, "meta", 1)
+            from .readiness_disposition import retained_in as readiness_retained
+            readiness_retained(self, db)
             forward = os.path.lexists(self.root/'standard-forward-continuation.json')
             require(not os.path.lexists(self.root / 'standard-partial-admission-disposition.json') or forward,
                     'Partial admission disposition is read-only; both claims remain fenced')
@@ -191,6 +193,7 @@ class Ledger:
             if successor or os.path.lexists(self.root/'standard-successor.json'):
                 from .standard_successor import retained_in
                 retained_in(self, db)
+            readiness_retained(self, db)
             db.commit()
         except BaseException:
             db.rollback()
@@ -746,6 +749,9 @@ class Ledger:
             from .continuation import project
             result["continuations"] = project(result, self.all(db, "continuations"))
             from .decisions import workflow
+            from .readiness_disposition import retained_in as readiness_retained, public as readiness_public
+            disposition = readiness_retained(self, db)
+            result['readinessDisposition'] = readiness_public(disposition) if disposition else None
             result["workflow"] = workflow(result)
             if getattr(self, "workspace_id", None):
                 from .missions import state_in

@@ -5,6 +5,19 @@ Canonical JSON is UTF-8, sorted keys, compact separators, no NaN. Its SHA-256 is
 the record identity; this encoding is local to this tool, not RFC 8785 signing.
 SQLite uses WAL, synchronous FULL and BEGIN IMMEDIATE for serialized transitions.
 
+## Canceled readiness disposition
+
+[READINESS-DISPOSITION.md](READINESS-DISPOSITION.md) defines the separate
+`standard_readiness_disposition_v1` owner snapshot, not a brain command receipt.
+It retains the complete original queued command and a hash-bound exact review,
+source/mission/catalog/binding/database pins, local exclusive claim pin and dated
+`canceled_readiness_unqualified` outcome. Original request and notification bytes
+are immutable; raw `queued` and effective `disposed_unqualified` are distinct.
+Core transaction guards validate the claim/snapshot/original command before and
+after writes. A partial or changed record fences writes; no automatic reapply,
+native effect, policy grant, terminal-safety assertion or Play follows. Future
+catalog readiness needs a separately requested distinct command and real receipt.
+
 ## Pre-Play catalog observer receipt
 
 See [PREPLAY-READINESS.md](PREPLAY-READINESS.md). A future first-phase schema-1

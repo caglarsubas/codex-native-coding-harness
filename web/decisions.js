@@ -5,6 +5,10 @@ const decisionDetailsOpen = new Set();
 const decisionLabels = {open:"Needs your decision", answered:"Answer recorded", received:"Received by brain", applied:"Applied to design", blocked:"Needs follow-up", superseded:"Superseded"};
 
 function commandPresentation(c, activity=state?.brainActivity, now=Date.now()/1000) {
+  if(c.kind==='standard_catalog_refresh'&&state?.readinessDisposition?.status==='disposed_unqualified'&&
+      state.readinessDisposition.commandId===c.id)return {
+    label:'Readiness check ended · unqualified',
+    detail:'Original saved status: '+c.status+' (historical). Cancel resolved; the brain receipt is still missing. Nothing is waiting on this unqualified attempt, and it cannot be resent. A new readiness check needs a separate request. Terminal safety remains unknown.'};
   if((state?.historicalCommandIds||[]).includes(c.id))return {label:'Historical request · owner-reconciled',detail:'The original missing brain receipt and native claim are preserved. Separate evidence closed the phase as blocked and unqualified; nothing was resent.'};
   if(c.kind==='standard_historical_effects'&&c.status==='completed')return {label:'Historical evidence recorded · no replay',detail:c.result};
   if(c.kind==='standard_terminal_closeout'&&c.status==='completed')return {label:'Stopped phase closed · unqualified',detail:c.result};

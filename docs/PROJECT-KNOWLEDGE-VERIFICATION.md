@@ -4,6 +4,30 @@ This separates source implementation from installation, merge and live
 qualification. None of these entries grants standard Play, a brain replacement
 or strict Harness execution authority.
 
+## Canceled pre-Play readiness disposition
+
+The [forward-only disposition](READINESS-DISPOSITION.md) has 24 disposable
+Python tests, including resolved-Cancel identity/order, strict/partial-admission
+fences, exact until-scope-changes review, verified backups, lost responses,
+interruption, concurrent confirmation, immutable original command, late-receipt
+rejection, distinct future-request and prospective mailbox checks. Socket/process
+launch mocks verify that the adapter has no native action. All 37 JavaScript
+suites and 31 browser-script syntax checks pass. Rendered disposable desktop and
+320px checks show the separate unqualified outcome and explicit new-check action;
+viewing and polling created no new capability request.
+
+The final complete local Python run completed **2,845 tests**, OK with one
+optional Graphify executable test skipped, in 597.725 seconds. The earlier log
+capture used umask 077, which made an existing fixture's requested public 0755
+directory private and invalidated that negative test's premise. The failed log
+was retained; the final complete run used the expected umask 022, without changing
+the test or weakening the application guard. No Actions or paid CI was invoked.
+
+These qualify source and disposable state only. Live v3 disposition, installation,
+new native capability receipt, exact Play, worker/checkpoint results and pilot
+acceptance remain separate. Old run/usage/claim/binding preservation is checked
+read-only; no source qualification reloads a brain or replays a native request.
+
 | Item | Implemented source | Local verification | Not yet qualified |
 | --- | --- | --- | --- |
 | KNW-01 | `brain_memory.py`, standard admission/projection, immutable usage and terminal closeout snapshots | Duplicate, prefix, reset, malformed, delayed closeout, new-brain baseline, concurrency/high-water and budget-gate tests | Provider billing completeness or a hard provider cap |

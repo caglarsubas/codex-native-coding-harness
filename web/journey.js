@@ -289,6 +289,9 @@ function roadmapJourneyState(snapshot,isConnected=true,now=Date.now()/1000){
   if(spec.authority.approvalMode!=='phase_delegated')return result(1,'Set phase approval authority','To use phase Play, review a plan that allows the brain to approve tasks inside this phase.','Edit phase plan','mission');
   if(s?.catalogRequired){
     const request=s.catalogRefresh;
+    if(request?.disposition?.status==='disposed_unqualified')return result(1,'Readiness check ended without a result',
+      'Cancel resolved and this attempt is recorded as unqualified. Its original request and missing receipt are preserved. A new check needs a separate request; nothing will be resent automatically.',
+      'Request a new readiness check','catalog',{catalog:true});
     if(request?.status==='queued')return result(1,request.notification?.status==='unavailable'?'Codex check needs delivery':'Waiting for Codex readiness',
       'A request to check available models and efforts is saved. Inspect delivery below before sending another request. Play still needs your confirmation.','Inspect request delivery','request',{catalog:true});
     const issue=catalogReadinessIssue(request);

@@ -60,8 +60,11 @@ def _eligible(ledger, db, command):
             command["payload"]["missionHash"] == mission["documentHash"] and
             command["payload"]["contextHash"] == standard.projection(ledger, db)["contextHash"],
             "Exact unchanged pending pre-Play request required")
+    from .readiness_disposition import retired_in
+    require(not retired_in(ledger, db, command['id']), 'Disposed readiness cannot acquire a handoff')
     require(not any(c["id"] != command["id"] and (c["status"] in ("queued", "processing") or
-                    c.get("needsBrainReceipt")) for c in ledger.all(db, "commands")),
+                    c.get("needsBrainReceipt")) and not retired_in(ledger, db, c['id'])
+                    for c in ledger.all(db, "commands")),
             "Another pending control fences the pre-Play receipt")
     require(not ledger.all(db, "workers") and not ledger.all(db, "queue"),
             "Pre-Play receipt requires no recorded tasks or packets")
