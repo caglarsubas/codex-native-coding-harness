@@ -603,6 +603,32 @@ class WakeTest(unittest.TestCase):
             finally:
                 release.set();proxy._host_inspection_worker.join(2)
 
+    def test_preplay_receipt_worker_uses_original_observer_once_without_blocking_heartbeat(self):
+        from types import SimpleNamespace
+        from orchestrator import standard_preplay as preplay, standard_host_inspection as inspection
+        ledger = MemoryLedger(); self.wake.ledger = ledger
+        ledger.command["notification"]["preplayCatalog"] = {"transport": preplay.TRANSPORT}
+        entered, release = threading.Event(), threading.Event()
+        class TickProxy(EventProxy):
+            def watch_connection(inner):
+                start = time.monotonic()
+                inner._on_wait_tick(); inner._on_wait_tick()
+                self.assertLess(time.monotonic() - start, 0.5)
+        proxy = TickProxy({"method": "turn/completed", "params": {
+            "threadId": BRAIN, "turn": {"id": TURN, "status": "completed"}}})
+        def relay(*args):
+            entered.set(); release.wait(2)
+        with patch.object(preplay, "pending", return_value=True), \
+             patch.object(preplay, "service", side_effect=relay) as service, \
+             patch.object(inspection, "_mailbox", return_value=SimpleNamespace(exists=lambda: False)):
+            try:
+                self.wake._observe_turn(proxy, "control", BRAIN, TURN)
+                self.assertTrue(entered.wait(1)); self.assertEqual(service.call_count, 1)
+                service.assert_called_once_with(ledger, self.wake.binding, "control", BRAIN, TURN)
+                self.assertEqual(ledger.command["notification"]["nativeTurnStatus"], "completed")
+            finally:
+                release.set(); proxy._preplay_receipt_worker.join(2)
+
     def test_command_approval_is_exact_owner_choice_and_same_socket_response(self):
         ledger = MemoryLedger()
         self.wake.ledger = ledger

@@ -1,5 +1,24 @@
 # Codex Orchestrator — personal tooling
 
+## Checkout-local pre-Play readiness source (2026-10-16)
+
+For a future first-phase schema-1 standard capability notification that originally
+retained `preplay_catalog_observer_v1`, read docs/PREPLAY-READINESS.md completely.
+Its closed --preplay-handoff helpers run before registry/ledger initialization
+and touch only private checkout-local IPC; never grant shared-registry writes or
+the protected socket to the sandbox. Only the original current owned observer
+may atomically relay that designated brain's explicit catalog/catalog_error
+through existing validation, with exact source/brain/workspace/request/mission/
+binding/ledger/turn pins and one pre-effect claim. No reusable controller grant,
+dispatcher, native load/write, permission response, Play or recovery is included.
+Stop, pending approval, changed context and unknown/ended observers stay fenced.
+An interrupted claim is never reapplied; status only follows its original result.
+No timer renewal or another approval is needed while the original context holds.
+Do not backfill this handoff on a delivered legacy request or restart its owning
+observer to install source. Preserve all pending outcomes, old runs, usage/gaps,
+claims, bindings and unknown safety. Source delivery installs/applies nothing;
+live forward continuation and pilot acceptance remain separate.
+
 ## Forward-only continuation source
 
 Read docs/FORWARD-CONTINUATION.md before its operator-only commands. A new exact
