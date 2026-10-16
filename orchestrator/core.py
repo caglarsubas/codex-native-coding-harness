@@ -177,12 +177,13 @@ class Ledger:
         try:
             db.execute("BEGIN IMMEDIATE")
             meta = self.get(db, "meta", 1)
-            require(not os.path.lexists(self.root / 'standard-partial-admission-disposition.json'),
+            forward = os.path.lexists(self.root/'standard-forward-continuation.json')
+            require(not os.path.lexists(self.root / 'standard-partial-admission-disposition.json') or forward,
                     'Partial admission disposition is read-only; both claims remain fenced')
             require(not os.path.lexists(self.root / "standard-quarantine.json") and
                     meta.get("schemaVersion") != 6 and "standardQuarantine" not in meta,
                     "Quarantined or partially quarantined workspace is read-only; no authority or resource release")
-            successor = meta.get('schemaVersion') == 7 or os.path.lexists(self.root/'standard-successor.json')
+            successor = forward or meta.get('forwardContinuationVersion') is not None or meta.get('schemaVersion') == 7 or os.path.lexists(self.root/'standard-successor.json')
             if successor:
                 from .standard_successor import retained_in
                 retained_in(self, db, meta)

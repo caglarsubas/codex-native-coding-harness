@@ -96,7 +96,8 @@ def git_root(path):
 
 def eligible(ledger, db):
     meta = ledger.get(db, "meta", 1)
-    require(not os.path.lexists(ledger.root/'standard-partial-admission-disposition.json'),
+    require(not os.path.lexists(ledger.root/'standard-partial-admission-disposition.json') or
+            os.path.lexists(ledger.root/'standard-forward-continuation.json'),
             'Partial admission disposed as unqualified; no Play or retry')
     require((meta['schemaVersion'] == 7 and meta.get('successorLedgerVersion') == 1 or
             meta["schemaVersion"] == 1 or ((meta["schemaVersion"] == 4 or
@@ -104,7 +105,8 @@ def eligible(ledger, db):
             meta.get("standardRun", {}).get("protocol") == PROTOCOL))
             and "admissionBinding" not in meta and not fence_exists(ledger.root),
             "Strict or enrolled workspaces cannot switch to cooperative mode")
-    if meta['schemaVersion'] == 7:
+    if (meta['schemaVersion'] == 7 or meta.get('forwardContinuationVersion') is not None or
+            os.path.lexists(ledger.root/'standard-forward-continuation.json')):
         from .standard_successor import retained_in
         retained_in(ledger, db, meta)
     repos = ledger.all(db, "repos")
@@ -163,7 +165,7 @@ def projection(ledger, db):
         "maxDeliveryAttempts": CATALOG_REFRESH_MAX_DELIVERY_ATTEMPTS,
     }
     from .partial_admission import FENCE as partial_fence, status as partial_status
-    if os.path.lexists(ledger.root/partial_fence):
+    if os.path.lexists(ledger.root/partial_fence) and not os.path.lexists(ledger.root/'standard-forward-continuation.json'):
         from types import SimpleNamespace
         platform_root = getattr(ledger, 'platform_root', None)
         root = Path(platform_root) if platform_root else None
@@ -185,7 +187,8 @@ def projection(ledger, db):
                                            "currentlyEligible": 0, "active": 0,
                                            "reason": "Quarantine retains repository ownership"})
         return result
-    if meta.get('schemaVersion') == 7 or os.path.lexists(ledger.root/'standard-successor.json'):
+    if (meta.get('schemaVersion') == 7 or meta.get('forwardContinuationVersion') is not None or
+            os.path.lexists(ledger.root/'standard-successor.json') or os.path.lexists(ledger.root/'standard-forward-continuation.json')):
         from .standard_successor import retained_in, public
         try:
             result['successor'] = public(retained_in(ledger, db, meta))

@@ -188,6 +188,9 @@ def valid_fields(value):
 
 def retained_in(ledger, db, meta=None):
     meta = meta or ledger.get(db, 'meta', 1)
+    if os.path.lexists(ledger.root/'standard-forward-continuation.json') or meta.get('forwardContinuationVersion') is not None:
+        from .forward_continuation import retained_in as forward_retained
+        return forward_retained(ledger, db, meta)
     path = ledger.root/FENCE
     if not os.path.lexists(path) and meta.get('schemaVersion') != 7 and 'standardSuccessor' not in meta:
         return None
@@ -268,12 +271,17 @@ def confirm(registry, source, request, confirmed_hash):
 
 def public(record):
     req = record['request']; old = req['source']
-    return {'recordHash': digest(record), 'outcome': record['outcome'], 'recordedAt': record['recordedAt'],
+    result = {'recordHash': digest(record), 'outcome': record['outcome'], 'recordedAt': record['recordedAt'],
             'sourceWorkspaceId': old['workspaceId'], 'sourceRunId': old['runId'],
             'priorObservedTokens': old['observedTokens'], 'priorUsageHighWater': old['usageHighWater'],
             'priorUsageCoverage': old['usageCoverage'], 'priorTerminalSafety': 'unknown',
             'targetWorkspaceId': req['target']['workspaceId'], 'nativeStartup': 'already_loaded_only',
             'boundary': copy.deepcopy(BOUNDARY)}
+    if record['kind'] == 'standard_forward_continuation_v1':
+        result.update(lineageProtocol=record['kind'], originalAdmission='unqualified_uncommitted',
+                      originalAdmissionRetried=False, bothOriginalClaimsPreserved=True,
+                      boundary=copy.deepcopy(record['request']['boundary']))
+    return result
 
 
 def loaded_profile(host, proxy, command_id, brain_id):

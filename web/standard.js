@@ -141,9 +141,11 @@ function standardPanel(root,mode='all'){
       const details=el('details');details.append(el('summary','Details · preserved partial admission'),el('pre',JSON.stringify(prior,null,2)));
       panel.append(details);root.append(panel);return;
     }
-    panel.append(callout('Separate successor · old attempt preserved',
+    const forward=prior.lineageProtocol==='standard_forward_continuation_v1';
+    panel.append(callout(forward?'New forward lineage · original admission failed':'Separate successor · old attempt preserved',
       prior.recordHash?`Prior observed brain usage: ${prior.priorObservedTokens===null||prior.priorObservedTokens===undefined?'Unknown':num(prior.priorObservedTokens)} tokens; coverage: ${prior.priorUsageCoverage||'unknown'}. Old repository ownership remains held and terminal safety remains unknown. Only a separate fresh Play can start this target; its brain must already be loaded with verified policy.`:
       'Successor admission is incomplete or changed. No retry, load or Play is available; inspect the retained claim.'));
+    if(forward)panel.append(el('p','Both original claims remain immutable. This is not an admission retry or a reconstructed success. Fresh Play is separate; an unloaded brain remains blocked.'));
     const lineage=el('details');lineage.append(el('summary','Details · preserved predecessor and successor boundary'),el('pre',JSON.stringify(prior,null,2)));panel.append(lineage);
   }
   if(s.quarantine){

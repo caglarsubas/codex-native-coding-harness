@@ -97,6 +97,15 @@ def main():
     p.add_argument('review', type=Path); p.add_argument('--confirm-hash', required=True)
     p.add_argument('--writers-stopped', action='store_true'); p.add_argument('--backup', type=Path, required=True)
     sub.add_parser('partial-admission-status', help='Read retained disposition; never repair or unfreeze')
+    p = sub.add_parser('forward-continuation-preview', help='New prospective lineage review; no old admission retry or native call')
+    p.add_argument('original_request', type=Path)
+    p = sub.add_parser('forward-continuation-backup', help='Verified private backup for one exact new forward review')
+    p.add_argument('review', type=Path); p.add_argument('destination', type=Path)
+    p.add_argument('--writers-stopped', action='store_true')
+    p = sub.add_parser('forward-continuation-confirm', help='Owner confirms NEW lineage only; no Play, load, replay or binding change')
+    p.add_argument('review', type=Path); p.add_argument('--confirm-hash', required=True)
+    p.add_argument('--writers-stopped', action='store_true'); p.add_argument('--backup', type=Path, required=True)
+    sub.add_parser('forward-continuation-status', help='Read-only prospective lineage status; never apply or collect')
     p = sub.add_parser("standard-host-inspect", help="Brain-only current owned-host metadata and resume-profile inspection; no wake or write")
     p.add_argument("run_id"); p.add_argument("command_id")
     p = sub.add_parser("standard-public-task", help="Brain-only one-shot public task request via the owned observer; no desktop fallback")
@@ -303,21 +312,24 @@ def main():
         raise Refusal("--workspace requires --platform")
     if args.state and (args.workspace or args.platform):
         raise Refusal("Choose a registered workspace or --state, not both")
-    if args.action.startswith('partial-admission-'):
+    if args.action.startswith(('partial-admission-', 'forward-continuation-')):
         if not (args.platform and args.workspace):
             raise Refusal('Exact registered disposition workspace required')
         from . import partial_admission as partial
+        api = partial
+        if args.action.startswith('forward-continuation-'):
+            from . import forward_continuation as api
         registry, selected = partial.routes(args.platform, args.workspace)
-        if args.action == 'partial-admission-preview':
-            out = partial.prepare(registry, selected, args.original_request)
-        elif args.action == 'partial-admission-status':
-            out = partial.status(registry, selected)
+        if args.action.endswith('-preview'):
+            out = api.prepare(registry, selected, args.original_request)
+        elif args.action.endswith('-status'):
+            out = api.status(registry, selected)
         else:
-            review = partial.read_request(args.review)
-            if args.action == 'partial-admission-backup':
-                out = partial.create_backup(registry, selected, review, args.destination, writers_stopped=args.writers_stopped)
+            review = api.read_request(args.review)
+            if args.action.endswith('-backup'):
+                out = api.create_backup(registry, selected, review, args.destination, writers_stopped=args.writers_stopped)
             else:
-                out = partial.confirm(registry, selected, review, args.confirm_hash,
+                out = api.confirm(registry, selected, review, args.confirm_hash,
                                       writers_stopped=args.writers_stopped, backup_root=args.backup)
         print(json.dumps(out, ensure_ascii=False, indent=2)); return
     if (args.action == "run-readiness" or args.action.startswith(("historical-cleanup-", "standard-native-", "standard-host-", "standard-public-", "task-contract-", "model-policy-", "native-evidence-", "brain-cycle-", "phase-checkpoint-", "native-create-", "native-task-", "native-account-", "phase-usage-", "runner-handoff-", "terminal-handoff-", "result-handoff-", "archive-handoff-", "correction-handoff-"))) and not (args.platform and args.workspace):

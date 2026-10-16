@@ -256,8 +256,9 @@ def verify_backup(request, root):
 def lock(path):
     private_database(path)
     with contextlib.closing(sqlite3.connect(path.as_uri()+'?mode=rw', uri=True)) as db:
+        db.row_factory = sqlite3.Row
         db.execute('BEGIN IMMEDIATE')
-        try: yield
+        try: yield db
         finally: db.rollback()  # No SQL mutation/commit in the disposition adapter.
 
 
@@ -272,10 +273,23 @@ def retained(registry, source, request):
     from .native_read_client import decode
     path = Path(request['target']['root'])/FENCE
     record = decode(private_file(path).read_bytes())
+    if os.path.lexists(Path(request['target']['root'])/'standard-forward-continuation.json'):
+        from .forward_continuation import disposition_record
+        return disposition_record(registry, source, request)
     require(isinstance(record, dict) and set(record) == {'kind', 'request', 'reviewHash', 'recordedAt', 'outcome'} and
             record['kind'] == KIND and record['request'] == request and record['reviewHash'] == digest(request) and
             record['outcome'] == OUTCOME and context(registry, source, request['originalRequestFile'], allow_record=True) == request,
             'Disposition is incomplete or changed; all original claims remain fenced')
+    return record
+
+
+def record_under_locks(registry, source, request):
+    """Only the exact disposition, called after caller-held locks/backup checks."""
+    require(context(registry, source, request['originalRequestFile']) == request, 'Disposition scope changed')
+    record = {'kind': KIND, 'request': request, 'reviewHash': digest(request),
+              'recordedAt': time.time(), 'outcome': OUTCOME}
+    from .standard_quarantine import exclusive
+    exclusive(Path(request['target']['root'])/FENCE, record)
     return record
 
 
@@ -290,10 +304,7 @@ def confirm(registry, source, request, confirmation_hash, *, writers_stopped=Fal
     with lock(registry.db), lock(Path(request['target']['root'])/'ledger.sqlite3'):
         require(context(registry, source, request['originalRequestFile']) == request, 'Disposition scope changed')
         verify_backup(request, backup_root)
-        record = {'kind': KIND, 'request': request, 'reviewHash': confirmation_hash,
-                  'recordedAt': time.time(), 'outcome': OUTCOME}
-        from .standard_quarantine import exclusive
-        exclusive(path, record)
+        record = record_under_locks(registry, source, request)
         # Never reconstruct the original admission, its missing timestamp or receipt.
         require(retained(registry, source, request) == record, 'Post-disposition state changed; no retry')
     return public(record)
