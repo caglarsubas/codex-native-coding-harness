@@ -109,6 +109,12 @@ Missing/corrupt markers, source/target/binding/mission/routing drift and source
 module changes fail closed. Keep the complete private state for investigation.
 Do not describe an interrupted admission as accepted or reconstruct its receipt.
 
+The separately reviewed [partial-admission disposition](PARTIAL-ADMISSION-DISPOSITION.md)
+may record an unchanged uncommitted attempt as unqualified while preserving both
+claims and every database. It does not complete admission, unfreeze the target,
+remove the source's outgoing claim or grant a new successor/Play. Installing the
+registry-size validation repair never applies that disposition or retries a claim.
+
 Schema-v7 support does not make older running writers safe. Before separately
 authorized live admission, quiesce **all** writers, preserve verified private
 backups of both ledgers/registry/sidecars and confirm every launcher uses the

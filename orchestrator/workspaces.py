@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import re
+import stat
 import sqlite3
 import time
 import uuid
@@ -30,6 +31,38 @@ def private_path(path, *, existing=False):
     if path.exists():
         require(path.is_dir() and path.stat().st_uid == os.getuid(), "State directory must belong to the local owner")
         require(path.stat().st_mode & 0o077 == 0, "State directory must be private (mode 700)")
+    return path
+
+
+def private_database(path):
+    """Validate an existing private SQLite file, not a 64KiB runtime record.
+
+    Read only the fixed header. Database growth is legitimate; callers validate
+    schema/rows through their bounded read-only transaction and pin the inode.
+    This does not initialize, checkpoint, repair or open a SQLite writer.
+    """
+    path = Path(path)
+    require(path.is_absolute() and path.resolve(strict=True) == path,
+            'Use a canonical private database path without symlinks')
+    for parent in path.parents:
+        info = parent.stat()
+        require(info.st_uid in (0, os.getuid()) and
+                (not info.st_mode & 0o022 or info.st_uid == 0 and info.st_mode & stat.S_ISVTX),
+                'Unsafe private database ancestor')
+    before = path.lstat()
+    require(stat.S_ISREG(before.st_mode) and before.st_uid == os.getuid() and
+            not before.st_mode & 0o077 and before.st_nlink == 1,
+            'Private regular database without write aliases required')
+    fields = ('st_dev', 'st_ino', 'st_uid', 'st_mode', 'st_nlink', 'st_size', 'st_mtime_ns', 'st_ctime_ns')
+    identity = lambda info: tuple(getattr(info, field) for field in fields)
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    try:
+        require(identity(os.fstat(fd)) == identity(before), 'Private database changed before read')
+        require(os.pread(fd, 16, 0) == b'SQLite format 3\x00', 'Existing SQLite database required')
+        require(identity(os.fstat(fd)) == identity(path.lstat()) == identity(before),
+                'Private database changed during inspection')
+    finally:
+        os.close(fd)
     return path
 
 

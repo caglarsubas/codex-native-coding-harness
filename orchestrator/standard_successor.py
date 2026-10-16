@@ -28,9 +28,9 @@ LOCAL_POLICY = 'reviewed_local_git_v1'
 
 
 def source_hash():
-    from . import local_repository_identity
+    from . import local_repository_identity, workspaces
     return digest([hashlib.sha256(path.read_bytes()).hexdigest() for path in
-                   (Path(__file__), Path(local_repository_identity.__file__))])
+                   (Path(__file__), Path(local_repository_identity.__file__), Path(workspaces.__file__))])
 
 
 def pin(path):
@@ -116,6 +116,9 @@ def original(root, workspace, *, local_only=False):
 
 def context(registry, source, target, binding_path, db, *, local_only=False):
     from .enrollment import record_in, fence_exists
+    from .workspaces import private_database
+    for path in (registry.db, source.db, target.db):
+        private_database(path)  # Same database checks before either permanent claim.
     with _read_registry(registry) as rd:
         require(record_in(rd) is None, 'Strict enrollment cannot admit a standard successor')
     old_root, old_inspected, _, _ = _registered(registry, source.workspace_id)
@@ -205,7 +208,9 @@ def retained_in(ledger, db, meta=None):
     require([info.st_dev, info.st_ino] == target['ledgerIdentity'] and
             repositories(ledger.all(db, 'repos'), local_only=req.get('identityPolicy') == LOCAL_POLICY) ==
             target['repositories'], 'Successor repository/ledger changed')
-    registry_path = private_file(Path(ledger.platform_root)/'platform.sqlite3')
+    from .workspaces import private_database
+    private_database(ledger.db)
+    registry_path = private_database(Path(ledger.platform_root)/'platform.sqlite3')
     registry = SimpleNamespace(root=Path(ledger.platform_root), db=registry_path)
     registry_info = registry_path.stat()
     require(registry_info.st_nlink == 1, 'Successor registry hard link refused')
