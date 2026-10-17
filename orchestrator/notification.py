@@ -54,6 +54,7 @@ class BrainNotifier:
                 return {"status": "unavailable", "detail": "The reviewed local Codex app-server binding is unavailable. No native send is attempted."}
             return {"status": "configured", "transport": "owned_app_server",
                     "publicReadinessSourceAvailable": bool(getattr(self.app_server, 'binding', {}).get('brains', {}).get(brain_id, {}).get('nativeTaskBackend')),
+                    "readinessOwnedSourceAvailable": bool(getattr(self.app_server, 'binding', {}).get('brains', {}).get(brain_id, {}).get('nativeTaskBackend')),
                     "connection": self.app_server.connection_status(brain_id),
                     # The wake socket can deliver and observe a turn, but its
                     # persisted/loaded thread reads do not qualify a complete
@@ -318,7 +319,7 @@ class BrainNotifier:
                     "Do not retry readiness, infer models from documentation, answer native permissions, change policy, "
                     "start Play, create workers, Resume, change bindings or assume terminal safety. End after the receipt."
                 )
-                if notification['preplayCatalog']['version'] == 2:
+                if notification['preplayCatalog']['version'] in (2,3):
                     message = (
                         "A committed public-backend readiness check needs your exact receipt. "
                         f"Read {json.dumps(str(source / 'docs/PUBLIC-HOST-READINESS.md'))} completely. "

@@ -26,4 +26,12 @@ box.state.standard.contextHash='current';box.state.brainNotification.publicReadi
 next.click();assert.equal(calls.length,1,'Source availability is rechecked');
 const old=new Element('main');box.catalogReadinessDetails(old,refresh);
 assert.ok(!all(old).some(e=>e.text==='Request a new public-host readiness check'));
+box.state.brainNotification.publicReadinessSourceAvailable=true;
+box.state.brainNotification.readinessOwnedSourceAvailable=true;
+box.assistantRequestStep=key=>calls.push(key);
+const owned=new Element('main');box.catalogReadinessDetails(owned,refresh);
+assert.ok(!all(owned).some(e=>e.text==='Request a new public-host readiness check'));
+const review=all(owned).find(e=>e.tag==='button'&&e.text==='Review readiness-owned startup');
+const before=calls.length;assert.ok(review);assert.equal(calls.length,before);
+review.click();assert.equal(calls.at(-1),'codex_readiness_start');
 console.log('Public readiness UI: explicit distinct source path, retained old error, no automatic request');

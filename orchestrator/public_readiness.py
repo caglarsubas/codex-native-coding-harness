@@ -260,7 +260,7 @@ def retained_catalog(catalog, command, binding=None):
     evidence = (catalog or {}).get('publicReadiness')
     note = (command or {}).get('notification') or {}
     require(evidence and command.get('status') == 'completed' and
-            note.get('preplayCatalog', {}).get('version') == 2 and
+            note.get('preplayCatalog', {}).get('version') in (2,3) and
             note.get('nativePublicReadinessHash') == digest(evidence) and
             note.get('nativeTaskContract') == evidence['backend'] and
             command.get('catalogReceipt', {}).get('catalogHash') == digest(catalog) and
@@ -268,7 +268,12 @@ def retained_catalog(catalog, command, binding=None):
     validate(evidence, evidence['bindingHash'], note['brainId'], command['id'], note['preplayCatalog']['handoffHash'])
     profile = note.get('nativePublicReadinessProfile') or {}
     receipt = command.get('preplayReceipt') or {}
-    require(profile.get('nativeLoadMade') is False and profile.get('bindingHash') == evidence['bindingHash'] and
+    owned = note.get('preplayCatalog',{}).get('version') == 3
+    if owned:
+        from .readiness_owned import catalog_proof
+        lifecycle = catalog_proof(command)
+        require(profile.get('nativeLoadMade') is lifecycle['nativeLoadMade'], 'Readiness load proof changed')
+    require((owned or profile.get('nativeLoadMade') is False) and profile.get('bindingHash') == evidence['bindingHash'] and
             profile.get('commandId') == evidence['commandId'] and profile.get('brainId') == evidence['brainId'] and
             receipt.get('brainId') == evidence['brainId'] and receipt.get('handoffHash') == evidence['handoffHash'] and
             isinstance(receipt.get('requestHash'), str) and re.fullmatch('[0-9a-f]{64}', receipt['requestHash']) and

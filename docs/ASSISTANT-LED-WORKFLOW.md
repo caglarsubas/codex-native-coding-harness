@@ -17,6 +17,13 @@ standard-project cycle stays in this workspace:
    Expand scope, success criteria and exclusions when needed. Type **confirm review**.
 4. If native capabilities need refreshing, confirm that request here and follow its
    receipt. When ready, request Play, then type **confirm play** for that exact preview.
+   For an empty first-phase public-backend project, **Review readiness-owned
+   startup** prepares the separate scope-bound review described in
+   [READINESS-OWNED-LIFECYCLE.md](READINESS-OWNED-LIFECYCLE.md). Type
+   **confirm readiness-owned startup** once for its displayed exact preview.
+   The original connection owns any permitted one-shot load, capability capture
+   and receipt turn; no manual timed inspection-to-readiness handoff is needed.
+   Unknown delivery never enables a retry, and this is not Review or Play.
    New standard drafts include `phase.durationHours` (1–24 whole hours, normally
    24). Play uses that reviewed value, not a second default. Changing the duration
    requires revising and reviewing the phase plan first. Brain allowance remains

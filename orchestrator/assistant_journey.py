@@ -12,6 +12,7 @@ from .recovery import describe
 
 KINDS = {"phase_help", "phase_prepare", "phase_reconcile", "phase_recovery", "phase_pause_recovery", "phase_pause_receipt_recovery", "phase_ended_recovery_record", "phase_close", "phase_review", "phase_play", "phase_pause", "phase_resume", "brain_budget", "usage_check", "codex_check", "brain_message"}
 KINDS.update({"phase_historical_effects", "phase_terminal_closeout"})
+KINDS.add('codex_readiness_start')
 PREPARE_MESSAGE = (
     "Review this project's configured roadmap sources and latest retained results. "
     "Prepare the next unfinished, bounded phase as a mission draft. Include goal, success criteria, "
@@ -188,6 +189,15 @@ def catalog(state):
         "A capability request is already pending." if (s.get("catalogRefresh") or {}).get("status") in ("queued", "processing") and
             not (s.get("catalogRefresh") or {}).get('disposition') else
         None if s.get("catalogRequired") else "The native capability catalog is current."))
+    if state.get('brainNotification',{}).get('publicReadinessSourceAvailable'):
+        from .readiness_owned import WORKFLOW, IMPACT
+        add(WORKFLOW,'Review readiness-owned startup',IMPACT,
+            message_reason or ('This readiness-owned allowance is consumed; inspect its original request.' if s.get('readinessOwned') else
+                'A new empty first-phase project is required.' if active or run or
+                state['meta'].get('schemaVersion') != 1 else
+                'A capability request is already pending.' if (s.get('catalogRefresh') or {}).get('status') in ('queued','processing') and
+                not (s.get('catalogRefresh') or {}).get('disposition') else
+                None if s.get('catalogRequired') else 'The native capability catalog is current.'))
     return result
 
 
@@ -279,6 +289,22 @@ class JourneyProposals(ActionProposals):
                 preview["retainedRun"] = {"expiresAt": run["expiresAt"], "brainAllowance": run["brainAllowance"]}
         elif kind == "codex_check":
             request = {"id": ident, "contextHash": standard["contextHash"]}
+        elif kind == 'codex_readiness_start':
+            from . import readiness_owned
+            host = self.runtime.notifier.app_server
+            require(host is not None,'Reviewed owned public host required')
+            review = readiness_owned.prepare(self.runtime.registry,self.runtime.ledger,host.binding,ident)
+            request = {'id':ident,'contextHash':standard['contextHash'],'readinessStart':review}
+            preview['summary'] = [readiness_owned.IMPACT,
+                'At most one load and one new readiness turn; a partial or unknown attempt cannot be retried.',
+                'One connection owns load, capture and receipt observation, up to 15 minutes after sending.',
+                'Review has no timer expiry; unchanged source, scope, identity and native state are rechecked.']
+            preview['details'] = {'before':review['before'],'bindingHash':review['bindingHash'],
+                'reviewHash':digest(review),'maximumSeconds':review['maximumSeconds'],'sourceHash':review['sourceHash'],
+                'brainId':review['brainId'],'projectId':host.binding['brains'][review['brainId']]['projectId'],
+                'catalogProjectId':host.binding['brains'][review['brainId']].get('catalogProjectId'),
+                'checkout':host.binding['brains'][review['brainId']]['cwd'],
+                'preservedRequestIds':sorted(review['local']['oldCommands'])}
         elif kind == "usage_check":
             request = {"id": ident, "runId": standard["run"]["id"], "contextHash": standard["contextHash"]}
         elif kind in ("phase_historical_effects", "phase_terminal_closeout"):
@@ -463,10 +489,12 @@ class JourneyProposals(ActionProposals):
                "workspaceId": state["workspace"]["id"], "ledger": digest(str(self.runtime.ledger.db)),
                "session": digest(session), "brainId": state["meta"]["brainId"],
                "createdAt": now, "expiresAt": expires}
-        if kind in ("phase_historical_effects", "phase_terminal_closeout"):
+        if kind == 'codex_readiness_start':
+            doc.update(expiresAt=None,validity='until_scope_changes')
+        if kind in ("phase_historical_effects", "phase_terminal_closeout", 'codex_readiness_start'):
             from .core import canonical
             require(len(canonical({"proposal": {"document": doc, "signature": "0"*64}, "confirmed": True}).encode()) <= 30000,
-                    "Historical review exceeds the authenticated request bound; nothing was truncated or submitted")
+                    "Exact review exceeds the authenticated request bound; nothing was truncated or submitted")
         return {"document": doc, "signature": self.sign(doc)}
 
     def confirm(self, ledger, body, session):
@@ -533,7 +561,8 @@ class JourneyProposals(ActionProposals):
                     retained(ledger, db, saved, request)
             return self.result(doc, json.loads(prior[0])), False
         if not mission_prior:
-            require(time.time() <= doc["expiresAt"], "Preview expired; request a fresh preview")
+            require(kind == 'codex_readiness_start' and doc.get('validity') == 'until_scope_changes' or
+                    time.time() <= doc["expiresAt"], "Preview expired; request a fresh preview")
             require(ledger.snapshot()["meta"]["brainId"] == doc["brainId"], "Project brain changed; request a fresh preview")
         if kind == "phase_review":
             result = missions.change(ledger, request)
@@ -658,6 +687,11 @@ class JourneyProposals(ActionProposals):
             result = self.runtime.standard_controls.confirm(self.runtime.registry, ledger, {**request, "confirmed": True}, session)
         elif kind == "codex_check":
             result = standard.request_catalog_refresh(ledger, request)
+        elif kind == 'codex_readiness_start':
+            from . import readiness_owned
+            host = self.runtime.notifier.app_server
+            require(host is not None,'Reviewed owned public host required')
+            result = readiness_owned.confirm(self.runtime.registry,ledger,host.binding,request['readinessStart'])
         else:
             require(kind in ("phase_help", "phase_prepare", "phase_reconcile", "brain_message"), "Unknown conversation action")
             result = ledger.submit(request, actor="dashboard")

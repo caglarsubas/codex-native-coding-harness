@@ -1,5 +1,14 @@
 # Codex-native orchestration roadmap
 
+- [x] Implement a separately owner-reviewed forward-only readiness-owned
+  load/subscription, keeping one original connection across restricted load,
+  capability capture and receipt-only turn; retain legacy loaded-only semantics
+  ([contract](READINESS-OWNED-LIFECYCLE.md); source/disposable qualification only).
+- [ ] Separately merge/install, prepare and confirm the exact new v3 readiness
+  control, then qualify its actual brain receipt and fresh phase journey.
+  No inspection reload, old-readiness/Play/recovery replay, usage reset, binding
+  change or terminal-safety inference follows source delivery.
+
 - [x] Implement a separately reviewed one-shot metadata-only load for an empty
   pre-Play public brain on its unchanged issued fresh host, preserving original
   requests/usage/claims/bindings and unknown safety

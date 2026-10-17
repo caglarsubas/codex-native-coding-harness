@@ -164,6 +164,8 @@ def projection(ledger, db):
             (1 if latest_refresh.get("notification") else 0),
         "maxDeliveryAttempts": CATALOG_REFRESH_MAX_DELIVERY_ATTEMPTS,
     }
+    if latest_refresh and latest_refresh.get('payload',{}).get('readinessStart'):
+        result['catalogRefresh']['readinessOwned'] = True
     from . import readiness_disposition as disposition
     try:
         disposed = disposition.retained_in(ledger, db)
@@ -176,6 +178,15 @@ def projection(ledger, db):
                       contextHash=digest(meta))
         return result
     from .partial_admission import FENCE as partial_fence, status as partial_status
+    from . import readiness_owned
+    if readiness_owned.claims(ledger):
+        try:
+            readiness_owned.retained_in(ledger,db)
+            result['readinessOwned'] = {'consumed':True,'reconnectAllowed':False,'terminalSafety':'unknown'}
+        except (OSError,Refusal,ValueError,KeyError,TypeError):
+            result.update(blocker='Readiness-owned intent is partial or changed; no replacement or replay',
+                          contextHash=digest(meta),readinessOwned={'consumed':True,'incomplete':True})
+            return result
     if os.path.lexists(ledger.root/partial_fence) and not os.path.lexists(ledger.root/'standard-forward-continuation.json'):
         from types import SimpleNamespace
         platform_root = getattr(ledger, 'platform_root', None)
@@ -348,7 +359,7 @@ def projection(ledger, db):
     return result
 
 
-def request_catalog_refresh(ledger, request):
+def request_catalog_refresh(ledger, request, *, readiness_start=None):
     """Retain one exact read-only capability request; retry only proven non-delivery."""
     exact(request, "id contextHash")
     require(isinstance(request["id"], str) and 8 <= len(request["id"]) <= 128, "Refresh request ID required")
@@ -362,7 +373,7 @@ def request_catalog_refresh(ledger, request):
                     command["payload"]["contextHash"] == request["contextHash"],
                     "Refresh request ID belongs to different content")
             notification = command.get("notification") or {}
-            if (notification.get('preplayCatalog') or {}).get('version') == 2:
+            if command['payload'].get('readinessStart') or (notification.get('preplayCatalog') or {}).get('version') in (2,3):
                 return command  # Original public evidence/send claim is never re-armed, even pre-turn failure.
             history = command.get("notificationHistory", [])
             if (command["status"] == "queued" and notification.get("status") == "unavailable" and
@@ -375,6 +386,8 @@ def request_catalog_refresh(ledger, request):
                     "id": command["id"], "attempt": len(command["notificationHistory"]) + 1})
             return command
         state = projection(ledger, db)
+        from .readiness_owned import claims as readiness_claims
+        require(not readiness_claims(ledger),'Readiness-owned allowance is consumed; no different request or legacy retry')
         require(state["contextHash"] == request["contextHash"], "Run readiness changed; refresh before requesting capabilities")
         eligible(ledger, db)
         require(not state["run"] or state["run"]["status"] in ("completed", "blocked"),
@@ -391,6 +404,10 @@ def request_catalog_refresh(ledger, request):
                    "payload": {"contextHash": request["contextHash"],
                                "missionHash": mission["documentHash"], "brainId": ledger.get(db, "meta", 1)["brainId"]},
                    "result": "Saved; waiting for the designated brain to observe native capabilities."}
+        if readiness_start is not None:
+            from .readiness_owned import authorize_in
+            authorize_in(ledger,db,readiness_start,request)
+            command['payload']['readinessStart'] = readiness_start['review']
         ledger.put(db, "commands", command["id"], command)
         ledger.event(db, "standard_catalog_refresh_requested", {"id": command["id"], "missionHash": mission["documentHash"]})
         return command

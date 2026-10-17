@@ -958,7 +958,8 @@ class AppServerWake:
                 sending_command = self.ledger.get(db, "commands", command_id)
                 recovery_kind = sending_command.get("kind")
                 public_catalog = (recovery_kind == 'standard_catalog_refresh' and
-                    (sending_command.get('notification') or {}).get('preplayCatalog', {}).get('version') == 2)
+                    (sending_command.get('notification') or {}).get('preplayCatalog', {}).get('version') in (2,3))
+                readiness_owned = public_catalog and (sending_command.get('notification') or {}).get('preplayCatalog',{}).get('version') == 3
                 recovery = recovery_kind in ("brain_reply_recovery", "standard_pause_recovery", "standard_pause_receipt_recovery")
                 successor = self.ledger.get(db, 'meta', 1).get('schemaVersion') == 7
                 require(not successor or not recovery, 'Successor delivery never loads or replays a recovery')
@@ -988,7 +989,18 @@ class AppServerWake:
                 stage = "authentication_check"
                 require_ready(proxy)
             if public_catalog:
-                require(public_backend and status['type'] == 'idle',
+                require(public_backend, 'Reviewed public backend required')
+                if readiness_owned:
+                    from .readiness_owned import start
+                    # A distinct prospective owner-confirmed readiness request,
+                    # never the inspection claim or an old readiness attempt.
+                    stage = 'thread_resume'
+                    lifecycle = start(self.ledger,self.binding,command_id,proxy)
+                    with self.ledger.tx() as db:
+                        command = self.ledger.get(db,'commands',command_id)
+                        command['notification']['nativeReadinessLifecycle'] = lifecycle
+                        self.ledger.put(db,'commands',command_id,command)
+                require(readiness_owned or status['type'] == 'idle',
                         'Public readiness requires an already-loaded idle brain; no reload fallback')
                 with self.ledger.tx() as db:
                     command = self.ledger.get(db, 'commands', command_id)
@@ -997,7 +1009,7 @@ class AppServerWake:
                             not note.get('nativeResumeProfile'), 'Original loaded-only public profile required')
                     note['nativePublicReadinessProfile'] = {'version': 1, 'brainId': brain_id,
                         'commandId': command_id, 'bindingHash': digest(self.binding),
-                        'observedAt': time.time(), 'nativeLoadMade': False}
+                        'observedAt': time.time(), 'nativeLoadMade': lifecycle['nativeLoadMade'] if readiness_owned else False}
                     self.ledger.put(db, 'commands', command_id, command)
             elif successor:
                 stage = 'effective_policy'
@@ -1093,6 +1105,9 @@ class AppServerWake:
             if public_catalog:
                 from .standard_preplay import public_send_check
                 public_send_check(self.ledger, self.binding, command_id, brain_id)
+                if readiness_owned:
+                    from .readiness_owned import send_ready
+                    send_ready(self.ledger,self.binding,command_id,proxy)
             stage = "observation_record"
             capture = self._begin_thread_observation(command_id, brain_id)
             proxy._on_thread_started = lambda row: self._record_thread_started(command_id, brain_id, row)
@@ -1130,6 +1145,7 @@ class AppServerWake:
             return {"status": "accepted", "nativeTurnId": turn["id"], "nativeDelivery": "owned_turn_start",
                     "detail": "Turn started on the bound Codex app-server. Waiting for the brain's ledger receipt; native turn completion is separate."}
         except (OSError, Refusal, ValueError, KeyError, RuntimeError) as error:
+            resume_attempted = resume_attempted or bool(getattr(proxy,'_readiness_resume_attempted',False))
             with self._lock:
                 self._subscriptions.discard(proxy)
             failure = {"version": 1, "stage": stage,
@@ -1158,6 +1174,16 @@ class AppServerWake:
                         pass
                 if proxy is not None:
                     proxy.__exit__(None, None, None)
+                    if hasattr(proxy,'_readiness_owned_deadline'):
+                        try:
+                            from .readiness_owned import journal, PROTOCOL
+                            from .public_pilot_inspection import exclusive
+                            exclusive(journal(self.ledger,command_id,'close'),{'protocol':PROTOCOL,
+                                'commandId':command_id,'nativeTurnId':confirmed_turn_id,
+                                'status':'unknown' if effect_started else 'no_turn_started',
+                                'connectionClosed':True,'reconnectAllowed':False,'terminalSafety':'unknown'})
+                        except (OSError,Refusal):
+                            pass
 
     def _observe_turn(self, proxy, command_id, brain_id, turn_id):
         """Keep the owned subscription alive; store only bounded lifecycle facts."""
@@ -1166,7 +1192,8 @@ class AppServerWake:
         attention_reason = None
         items = {}
         try:
-            proxy.deadline = time.monotonic() + OWNED_TURN_SECONDS
+            proxy.deadline = min(time.monotonic() + OWNED_TURN_SECONDS,
+                                 getattr(proxy,'_readiness_owned_deadline',float('inf')))
             early = getattr(proxy, "_early_completion", None)
             if isinstance(early, tuple) and len(early) == 3 and early[:2] == (brain_id, turn_id):
                 status = early[2] if early[2] in ("completed", "failed", "interrupted") else "unconfirmed"
@@ -1256,6 +1283,15 @@ class AppServerWake:
             attention_reason = "observer_read_failed"
         finally:
             proxy.__exit__(None, None, None)
+            if hasattr(proxy,'_readiness_owned_deadline'):
+                try:
+                    from .readiness_owned import journal, PROTOCOL
+                    from .public_pilot_inspection import exclusive
+                    exclusive(journal(self.ledger,command_id,'close'),{'protocol':PROTOCOL,
+                        'commandId':command_id,'nativeTurnId':turn_id,'status':status,
+                        'connectionClosed':True,'reconnectAllowed':False,'terminalSafety':'unknown'})
+                except (OSError,Refusal):
+                    pass  # Missing close stays unknown, never a reconnect grant.
             with self._lock:
                 self._subscriptions.discard(proxy)
                 if connection_loss:

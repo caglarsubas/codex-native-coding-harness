@@ -4,6 +4,20 @@ This separates source implementation from installation, merge and live
 qualification. None of these entries grants standard Play, a brain replacement
 or strict Harness execution authority.
 
+## Forward-only readiness-owned lifecycle
+
+[READINESS-OWNED-LIFECYCLE.md](READINESS-OWNED-LIFECYCLE.md) specifies the new
+signed control, not a reinterpretation of version-2 loaded-only readiness.
+Focused disposable tests cover unchanged old error receipts, exact canonical
+claims and backups, lost load acknowledgments, original connection ownership,
+policy/turn drift, Stop races, strict exclusion, duplicate confirmations and
+permanent no-retry fences. The opt-in `--readiness-owned` compiled-host fixture
+exercises one actual restricted load and one readiness turn on the same owned
+connection, using a loopback provider and explicitly synthetic brain mailbox
+acknowledgment. It does not qualify live model/tool compliance, entitlement,
+the live binding, terminal safety or pilot acceptance. Installation and an exact
+new live owner review remain separate from source qualification.
+
 ## One-shot pre-Play inspection load
 
 The [separate operator path](PREPLAY-INSPECTION-LOAD.md) is qualified with

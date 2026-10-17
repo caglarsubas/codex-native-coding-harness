@@ -91,6 +91,12 @@ def prepare(ledger, db, command, binding):
         from .public_native_tasks import validate_contract
         backend = validate_contract(record['nativeTaskBackend'], record.get('policyEvidence'))
         value.update(version=2, publicBackendHash=digest(backend))
+        if command['payload'].get('readinessStart') is not None:
+            from .readiness_owned import validate_review
+            review = validate_review(command['payload']['readinessStart'])
+            require(review['bindingHash'] == digest(binding) and review['commandId'] == command['id'],
+                    'Original readiness-owned command required')
+            value.update(version=3, readinessStartHash=digest(review))
     file = path(ledger.root, command["id"], "handoff")
     # No historical creation/backfill, even if a prior identical file exists.
     _write_once(file, value)
@@ -105,7 +111,8 @@ def handoff(file):
         "version", "transport", "workspaceId", "brainId", "commandId", "missionHash", "contextHash",
         "bindingHash", "ledgerIdentity", "source", "sourceHash", "boundary"}
     require(isinstance(value, dict) and type(value.get('version')) is int and ((value.get('version') == VERSION and set(value) == fields) or
-        (value.get('version') == 2 and set(value) == fields | {'publicBackendHash'})) and
+        (value.get('version') == 2 and set(value) == fields | {'publicBackendHash'}) or
+        (value.get('version') == 3 and set(value) == fields | {'publicBackendHash','readinessStartHash'})) and
         value["transport"] == TRANSPORT and value["boundary"] == BOUNDARY and
         value["source"] == str(SOURCE) and value["sourceHash"] == source_hash() and
         file == path(file.parent, value["commandId"], "handoff"), "Pre-Play handoff or source changed")
@@ -118,7 +125,7 @@ def state(file):
     result = {k: value[k] for k in ("workspaceId", "brainId", "commandId", "missionHash", "boundary")} | {
         "status": "original_request_at_capture", "liveStateObserved": False,
         "instruction": "Return only catalog or catalog_error for this exact request; no shared registry access."}
-    if value['version'] == 2:
+    if value['version'] in (2,3):
         evidence = public_capture(file, value)
         result.update(publicReadiness={'evidenceHash': digest(evidence), 'models': evidence['models'],
             'backend': evidence['backend']['protocol'], 'schema': evidence['schema'],
@@ -140,7 +147,7 @@ def capture_public(ledger, binding, command_id, brain_id, proxy):
     """Only the original sending command, before turn/start; never status/polling."""
     file = path(ledger.root, command_id, 'handoff')
     value = handoff(file)
-    require(value['version'] == 2, 'Prospective public handoff required; never backfill')
+    require(value['version'] in (2,3), 'Prospective public handoff required; never backfill')
     def check():
         from .standard import read_db
         with read_db(ledger.db) as db:
@@ -149,7 +156,7 @@ def capture_public(ledger, binding, command_id, brain_id, proxy):
             note = command.get('notification') or {}
             require(note.get('status') == 'sending' and note.get('brainId') == brain_id and
                     not note.get('nativeTurnId') and not note.get('nativePublicReadinessHash') and
-                    note.get('preplayCatalog') == {'version': 2, 'transport': TRANSPORT, 'handoffHash': digest(value)} and
+                    note.get('preplayCatalog') == {'version': value['version'], 'transport': TRANSPORT, 'handoffHash': digest(value)} and
                     digest(binding) == value['bindingHash'] and value['ledgerIdentity'] == _identity(ledger.db),
                     'Only original pre-turn sending scope can capture public readiness')
     check()
@@ -164,7 +171,7 @@ def capture_public(ledger, binding, command_id, brain_id, proxy):
         note = command.get('notification') or {}
         require(note.get('status') == 'sending' and not note.get('nativeTurnId') and
                 not note.get('nativePublicReadinessHash') and note.get('brainId') == brain_id and
-                note.get('preplayCatalog') == {'version': 2, 'transport': TRANSPORT, 'handoffHash': digest(value)} and
+                note.get('preplayCatalog') == {'version': value['version'], 'transport': TRANSPORT, 'handoffHash': digest(value)} and
                 value['ledgerIdentity'] == _identity(ledger.db) and digest(binding) == value['bindingHash'],
                 'Original public capture scope changed')
         note['nativePublicReadinessHash'] = digest(evidence)
@@ -175,6 +182,11 @@ def capture_public(ledger, binding, command_id, brain_id, proxy):
 def public_send_check(ledger, binding, command_id, brain_id):
     from .standard import read_db
     value = handoff(path(ledger.root, command_id, 'handoff'))
+    if value['version'] == 3:
+        from .readiness_owned import check, catalog_proof
+        review = check(ledger,binding,command_id)
+        require(value['readinessStartHash'] == digest(review),'Original readiness-owned handoff changed')
+        with read_db(ledger.db) as db: catalog_proof(ledger.get(db,'commands',command_id))
     evidence = public_capture(path(ledger.root, command_id, 'handoff'), value)
     with read_db(ledger.db) as db:
         command = ledger.get(db, 'commands', command_id)
@@ -210,7 +222,7 @@ def submit(file, result_file):
     file = Path(file)
     value = handoff(file)
     result = _read_private(Path(result_file))
-    allowed = ('public_catalog_ack', 'catalog_error') if value['version'] == 2 else ('catalog', 'catalog_error')
+    allowed = ('public_catalog_ack', 'catalog_error') if value['version'] in (2,3) else ('catalog', 'catalog_error')
     require(isinstance(result, dict) and result.get("operation") in allowed and
             result.get("requestId") == value["commandId"], "Only this exact pre-Play catalog receipt is supported")
     if result['operation'] == 'public_catalog_ack':
@@ -290,11 +302,15 @@ def service(ledger, binding, command_id, brain_id, turn_id):
             require(max(owned, key=lambda c: c["notification"].get("attemptedAt", 0))["id"] == command_id,
                     "A newer owned turn superseded this receipt")
             result = request["result"]
-            allowed = ('public_catalog_ack', 'catalog_error') if value['version'] == 2 else ('catalog', 'catalog_error')
+            allowed = ('public_catalog_ack', 'catalog_error') if value['version'] in (2,3) else ('catalog', 'catalog_error')
             require(isinstance(result, dict) and result.get("operation") in allowed and
                     result.get("requestId") == command_id, "Only the exact catalog receipt is permitted")
             public_evidence = None
             if result['operation'] == 'public_catalog_ack':
+                if value['version'] == 3:
+                    from .readiness_owned import catalog_proof
+                    proof = catalog_proof(command)
+                    require(proof['reviewHash'] == value['readinessStartHash'],'Readiness lifecycle receipt changed')
                 public_evidence = public_capture(path(ledger.root, command_id, 'handoff'), value)
                 require(set(result) == {'operation', 'requestId', 'evidenceHash'} and
                         result['evidenceHash'] == note.get('nativePublicReadinessHash') == digest(public_evidence) and

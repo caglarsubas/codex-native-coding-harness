@@ -13,6 +13,15 @@ edits. The live pilot requires separate qualification and continuation authority
 
 # Codex Orchestrator
 
+For a new signed `codex_readiness_start`, read source
+`docs/READINESS-OWNED-LIFECYCLE.md` fully. The owner control alone authorizes its
+prospective readiness-owned load/capture/receipt on one original connection.
+Never reuse the inspection or an old readiness claim. The designated brain only
+acknowledges its version-3 checkout-local evidence; no controller, socket, Play,
+worker, recovery, policy change, usage reset or terminal-safety authority follows.
+Partial/unknown delivery is consumed, never retried. Source upgrades confirm and
+install nothing; old v2 notifications remain loaded-only.
+
 For explicitly requested operator-only current pilot inspection, read source
 `docs/PUBLIC-PILOT-INSPECTION.md` completely. Only its new exact review can permit
 one fixed inspection-only load after a completed transfer and issued live restart.
