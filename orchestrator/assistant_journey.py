@@ -198,6 +198,9 @@ def catalog(state):
                 'A capability request is already pending.' if (s.get('catalogRefresh') or {}).get('status') in ('queued','processing') and
                 not (s.get('catalogRefresh') or {}).get('disposition') else
                 None if s.get('catalogRequired') else 'The native capability catalog is current.'))
+    if (s.get('canceledPlayDisposition') or {}).get('writesBlocked'):
+        for action in result.values():
+            action.update(available=False, unavailableReason='Canceled Play is preserved as unqualified; inspect its continuation requirements. No native action is authorized.')
     return result
 
 

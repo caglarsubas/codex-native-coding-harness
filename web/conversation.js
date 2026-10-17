@@ -341,9 +341,13 @@ function conversationView(root){
   const head=el('section');head.append(el('p',(state.workspace?.name||'Current portfolio')+' · '+(state.brainActivity?.title||'Configured Codex brain'),'eyebrow'));
   head.append(el('p','This is the project brain in Codex, not the advisory inference assistant. Project outcomes, platform messages and retained replies appear here; this is not a full Codex transcript.','checkpoint'));
   const actions=el('div',null,'inline-actions');actions.append(button('Decision inbox',()=>navigateView('decisions')),button('Approved queue',()=>navigateView('queue')),button('Artifact library',()=>navigateView('artifacts')));head.append(actions);root.append(head);
-  const quarantined=!!state.standard?.quarantine;
+  const quarantined=!!state.standard?.quarantine||!!state.standard?.canceledPlayDisposition;
   const stopping=['stop_requested','checkpointing','parked'].includes(state.meta.brainControl?.phase)||['stopping','paused'].includes(state.standard?.run?.status);
-  if(quarantined)root.append(callout('Preserved conversation · read-only','This attempt is quarantined and unqualified. Its drafts and saved history remain available; no message, recovery, Resume or Play can be sent here. Terminal safety remains unknown.'));
+  if(quarantined)root.append(callout('Preserved conversation · read-only',state.standard?.canceledPlayDisposition?
+    (state.standard.canceledPlayDisposition.status==='disposed_unqualified'?
+      'The canceled Play is preserved as unqualified. Cancel is already resolved; no more confirmation is needed. Inspect continuation requirements rather than sending another instruction. Drafts and history remain available; terminal safety is unknown.':
+      'The disposition is incomplete or changed. Preserve its original claim and history; no message, retry, reload or continuation is authorized. Terminal safety remains unknown.'):
+    'This attempt is quarantined and unqualified. Its drafts and saved history remain available; no message, recovery, Resume or Play can be sent here. Terminal safety remains unknown.'));
   else if(stopping)root.append(callout('Brain paused or stopping',state.standard?.run?.status==='paused'?'Messages stay saved. If the phase has blockers, review the recovery-only preparation wake; ordinary Resume cannot bypass them.':'Messages stay saved. Sending a message does not resume the phase.'));
   nativePermissionPanel(root);
   const history=el('section',null,'brain-history');history.setAttribute('aria-label','Project brain messages');history.append(el('p','Loading saved conversation…'));root.append(history);

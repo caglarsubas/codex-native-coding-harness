@@ -1,5 +1,21 @@
 # Codex Orchestrator — personal tooling
 
+## Canceled Play disposition source (2026-10-18)
+
+Read docs/CANCELED-PLAY-DISPOSITION.md before the operator-only canceled-play
+commands. Only the exact empty unowned running standard attempt with resolved
+owner Cancel, interrupted original Play, closed observer and missing brain
+receipt qualifies. Require a new scope-bound exact owner review, stopped older
+writers and verified private database/sidecar backups. Retain all original rows,
+run/usage/gaps/expiry, claims, captured effects and binding bytes/epochs. A permanent
+claim precedes one local unqualified snapshot; either side fences normal writes,
+including partial/corrupt records. No receipt, checkpoint, cleanup, closeout or
+ownership release is inferred. Continuation is a non-executing assessment: the
+current pinned protocol has no qualified no-reload owned-subscription adapter.
+Never rename a replay, call thread/resume, start an unobserved turn or change a
+binding to hide that gap. Source/fixtures install/apply/confirm nothing, reload
+no live brain and do not complete native continuation or pilot acceptance.
+
 ## Sandbox-safe standard run-control source (2026-10-17)
 
 Read docs/SANDBOX-SAFE-RUN-CONTROL.md before the prospective

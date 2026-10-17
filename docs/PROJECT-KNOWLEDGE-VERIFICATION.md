@@ -4,6 +4,36 @@ This separates source implementation from installation, merge and live
 qualification. None of these entries grants standard Play, a brain replacement
 or strict Harness execution authority.
 
+## Canceled Play disposition and continuation boundary — 2026-10-18
+
+The non-waking `canceled_play_disposition_v1` source qualifies the local
+unqualified record, not native continuation. Twenty new focused cases cover
+exact Cancel/turn/observer correlation, unchanged original rows/usage/claims,
+scope changes, private backups, concurrency, partial commits, lost replies,
+missing claims, unsupported sidecars, schema drift and normal-write fencing.
+The corrected assessment stops asking for another Cancel once its exact native
+resolution is retained. Desktop/320px reduced-motion checks pass keyboard
+Details, no horizontal page overflow and zero confirmation/wake submissions.
+
+Frozen-source full discovery passed **3,012 Python tests** in 579.474 seconds,
+with one optional Graphify executable check skipped; all **40 JavaScript
+suites**, **31 web syntax checks**, source/script AST and diff checks pass.
+There are no new Actions workflows, runtime downloads or paid service calls.
+
+A read-only applicability check prepared the closed exact v3 scope without
+applying it. All five database proofs, existing requests/run/usage/claims,
+binding and native host epoch remain unchanged. No native connection, brain
+load, permission response, replay or usage reset occurred during that check.
+Its development-source preview is not a live owner confirmation.
+
+The pinned native source requires `thread/resume` to establish an owning
+subscription; `turn/start` alone does not establish it. No qualified no-reload
+continuation transport is implemented or claimed. The new continuation path is
+non-executing assessment only; unknown current/historical terminal safety and
+the missing original receipt stay unknown. Source delivery installs/applies
+nothing and does not complete v3 or qualify the pilot. See
+[the contract](CANCELED-PLAY-DISPOSITION.md).
+
 ## Sandbox-safe standard run control
 
 `standard-state` no longer opens write-initializing Registry/Ledger objects.

@@ -1,5 +1,13 @@
 # Codex-native orchestration roadmap
 
+- [x] Implement non-waking exact canceled-Play disposition and a truthful
+  continuation assessment, preserving original rows/usage/claims/bindings and
+  fencing incomplete records ([contract](CANCELED-PLAY-DISPOSITION.md)).
+- [ ] Separately merge/install and review any live disposition. Qualify a
+  supported no-reload owned-subscription adapter and distinct continuation
+  authority before native development can proceed. The current assessment
+  starts nothing; no reload, renamed replay, usage reset or assumed safety.
+
 - [x] Implement read-only CLI opening and prospective original-observer run
   control for sandboxed public standard brains without shared database/socket
   access ([contract](SANDBOX-SAFE-RUN-CONTROL.md); source/disposable tests only).

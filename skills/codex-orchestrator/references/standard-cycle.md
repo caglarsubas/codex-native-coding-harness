@@ -1,5 +1,13 @@
 # Cooperative standard-project brain
 
+For a separately recorded canceled-Play disposition, read
+`docs/CANCELED-PLAY-DISPOSITION.md`. The original missing receipt is never
+received retroactively. This is an unqualified local owner record with a write
+fence; its continuation assessment starts nothing. The current public protocol
+does not provide a qualified no-reload owned subscription. Do not load, replay,
+send an unobserved turn or ask for another Cancel to disguise that boundary.
+Source delivery grants no live disposition, continuation or pilot acceptance.
+
 If the original notification carries `standard_run_observer_v1`, first read
 `docs/SANDBOX-SAFE-RUN-CONTROL.md` completely. Its checkout-local mailbox replaces
 the shared-registry/controller shell procedure for that exact turn only. Use

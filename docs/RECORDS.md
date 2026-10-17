@@ -5,6 +5,18 @@ Canonical JSON is UTF-8, sorted keys, compact separators, no NaN. Its SHA-256 is
 the record identity; this encoding is local to this tool, not RFC 8785 signing.
 SQLite uses WAL, synchronous FULL and BEGIN IMMEDIATE for serialized transitions.
 
+## Canceled Play owner disposition
+
+The separate [canceled-Play disposition](CANCELED-PLAY-DISPOSITION.md) uses
+`canceled_play_disposition_v1`, not a run-control receipt. Its closed exact owner
+review pins the original command/run, full database fingerprints, all sidecars,
+sealed original capture and original binding/dual identities. One exclusive
+claim precedes one immutable `canceled_play_unqualified` snapshot, changing no
+original row or timestamp. Either side fences normal writes even after partial
+commit, deletion or corruption. Scope-bound review has no timer expiry. The
+continuation assessment grants no native action, reload, replay, usage reset,
+binding change, terminal safety or pilot acceptance.
+
 ## Prospective sandbox-safe run mailbox
 
 [SANDBOX-SAFE-RUN-CONTROL.md](SANDBOX-SAFE-RUN-CONTROL.md) defines the closed
