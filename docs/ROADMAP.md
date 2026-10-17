@@ -1,5 +1,13 @@
 # Codex-native orchestration roadmap
 
+- [x] Implement a separately reviewed one-shot metadata-only load for an empty
+  pre-Play public brain on its unchanged issued fresh host, preserving original
+  requests/usage/claims/bindings and unknown safety
+  ([contract](PREPLAY-INSPECTION-LOAD.md); source/disposable qualification only).
+- [ ] Separately review/apply the exact v3 pre-Play load, then qualify a distinct
+  original-bound readiness receipt and owner Play. No replay or live load follows
+  source delivery or preparing its review.
+
 - [x] Implement prospective backend-specific public-host readiness, combining
   the reviewed binary's task schemas with repeated native catalog/policy/identity
   evidence and an original loaded-only brain receipt; preserve old attempts and

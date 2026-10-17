@@ -4,6 +4,25 @@ This separates source implementation from installation, merge and live
 qualification. None of these entries grants standard Play, a brain replacement
 or strict Harness execution authority.
 
+## One-shot pre-Play inspection load
+
+The [separate operator path](PREPLAY-INSPECTION-LOAD.md) is qualified with
+disposable fresh-host journals, exact original failed receipt correlation,
+immutable database/request/binding proofs, private verified backups, permanent
+cross-directory claims, partial persistence, lost acknowledgment, Pause races,
+unknown/unloaded trackers and historical file-only status. It reuses the closed
+restricted load proxy and original foreground subscription owner; neither model
+turns nor readiness writes are available through this path.
+
+The opt-in compiled fixture is
+`scripts/qualify_public_host_restart.py --inspection --preplay-load
+--subscription-seconds 75 --executable EXACT_BINARY --sha256 EXACT_HASH`.
+It exercises the new fixed native boundary and actual enforced loaded policy
+using disposable homes and a loopback fake provider, never a live host/brain.
+Synthetic source pins, fixtures and local tests do not qualify the live binding,
+model entitlement, terminal safety or pilot. Merge, installation, an exact live
+review and its application remain separate. Preparing that review loads nothing.
+
 ## Fresh signed-in pre-Play host repair
 
 The [separate maintenance profile](PUBLIC-PREPLAY-HOST-RESTART.md) passes 20
