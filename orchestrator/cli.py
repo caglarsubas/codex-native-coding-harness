@@ -127,6 +127,16 @@ def main():
     p.add_argument('review', type=Path); p.add_argument('--confirm-hash', required=True)
     p.add_argument('--writers-stopped', action='store_true'); p.add_argument('--backup', type=Path, required=True)
     sub.add_parser('readiness-disposition-status', help='Read original disposition; never apply, collect or resend')
+    p = sub.add_parser('canceled-play-preview', help='Operator-only unqualified disposition review; no native action')
+    p.add_argument('binding', type=Path); p.add_argument('command_id')
+    p = sub.add_parser('canceled-play-backup', help='Verified private backup; never confirm a disposition')
+    p.add_argument('review', type=Path); p.add_argument('destination', type=Path)
+    p.add_argument('--writers-stopped', action='store_true')
+    p = sub.add_parser('canceled-play-confirm', help='Exact owner disposition only; preserves the run and missing receipt')
+    p.add_argument('review', type=Path); p.add_argument('--confirm-hash', required=True)
+    p.add_argument('--writers-stopped', action='store_true'); p.add_argument('--backup', type=Path, required=True)
+    sub.add_parser('canceled-play-status', help='Read local disposition; never collect native evidence')
+    sub.add_parser('canceled-play-continuation', help='Non-executing forward assessment; no reload or renamed replay')
     p = sub.add_parser("standard-host-inspect", help="Brain-only current owned-host metadata and resume-profile inspection; no wake or write")
     p.add_argument("run_id"); p.add_argument("command_id")
     p = sub.add_parser("standard-public-task", help="Brain-only one-shot public task request via the owned observer; no desktop fallback")
@@ -353,6 +363,22 @@ def main():
         raise Refusal("--workspace requires --platform")
     if args.state and (args.workspace or args.platform):
         raise Refusal("Choose a registered workspace or --state, not both")
+    if args.action.startswith('canceled-play-'):
+        if not (args.platform and args.workspace):
+            raise Refusal('Exact registered canceled-Play workspace required')
+        from . import partial_admission, canceled_play as api
+        registry, selected = partial_admission.routes(args.platform, args.workspace)
+        if args.action == 'canceled-play-preview': out = api.prepare(registry, selected, args.binding, args.command_id)
+        elif args.action == 'canceled-play-status': out = api.status(selected)
+        elif args.action == 'canceled-play-continuation': out = api.continuation(selected)
+        else:
+            review = api.read_request(args.review)
+            if args.action == 'canceled-play-backup':
+                out = api.create_backup(registry, selected, review, args.destination, writers_stopped=args.writers_stopped)
+            else:
+                out = api.confirm(registry, selected, review, args.confirm_hash,
+                                  writers_stopped=args.writers_stopped, backup_root=args.backup)
+        print(json.dumps(out, ensure_ascii=False, indent=2)); return
     if args.action.startswith('readiness-disposition-'):
         if not (args.platform and args.workspace):
             raise Refusal('Exact registered readiness disposition workspace required')

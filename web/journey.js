@@ -65,6 +65,9 @@ function catalogReadinessDetails(root,refresh){
 function projectPhaseStatus(snapshot){
   const run=snapshot.standard.run,m=snapshot.mission;
   if(snapshot.standard.quarantine)return 'STANDARD · QUARANTINED · UNQUALIFIED · repository held · terminal safety unknown';
+  if(snapshot.standard.canceledPlayDisposition)return snapshot.standard.canceledPlayDisposition.status==='disposed_unqualified'?
+    'STANDARD · CANCELED PLAY · UNQUALIFIED · continuation blocked · terminal safety unknown':
+    'STANDARD · DISPOSITION INCOMPLETE · writes blocked · terminal safety unknown';
   const next=['completed','blocked'].includes(run.status)&&m?.document?.spec.phase.id!==run.phaseId&&m?.document;
   const attention=snapshot.recovery&&(snapshot.recovery.reconciliationRequired||['running','stopping'].includes(run.status));
   const latestControl=[...(snapshot.commands||[])].reverse().find(c=>c.payload?.runId===run.id&&['standard_play','standard_pause','standard_resume'].includes(c.kind));
@@ -166,6 +169,12 @@ function roadmapJourneyState(snapshot,isConnected=true,now=Date.now()/1000){
   if(s?.quarantine)return result(3,'Attempt quarantined · not qualified',
     'The original run, usage and evidence gaps are preserved. Repository ownership remains held; terminal safety is unknown. Quarantine does not allow Resume or another Play.',
     'Inspect preserved disposition','operations',{requiresOperator:true});
+  if(s?.canceledPlayDisposition)return result(3,
+    s.canceledPlayDisposition.status==='disposed_unqualified'?'Canceled Play preserved · continuation blocked':'Canceled Play disposition needs inspection',
+    s.canceledPlayDisposition.status==='disposed_unqualified'?
+    'Cancel is already resolved. The original run and missing brain receipt are preserved as unqualified. No more cancellation is needed. A new turn requires a supported no-reload observer and separate authority; nothing will be replayed.':
+    'The local disposition is incomplete or changed. Preserve its claim and original records; no retry, reload, replay or continuation is authorized.',
+    'Inspect continuation requirements','operations',{requiresOperator:true});
   const pause=snapshot.workspacePause||{},control=snapshot.meta?.brainControl||{};
   if(control.desired==='stopped'&&pause.status==='pausing'&&control.phase==='checkpointing'){
     const missing=(pause.blockers||[]).some(item=>['inventory_missing','inventory_incomplete'].includes(item.code));
