@@ -179,6 +179,8 @@ class Ledger:
             meta = self.get(db, "meta", 1)
             from .readiness_disposition import retained_in as readiness_retained
             readiness_retained(self, db)
+            from .readiness_owned import retained_in as owned_readiness_retained
+            owned_readiness_retained(self,db)
             forward = os.path.lexists(self.root/'standard-forward-continuation.json')
             require(not os.path.lexists(self.root / 'standard-partial-admission-disposition.json') or forward,
                     'Partial admission disposition is read-only; both claims remain fenced')
@@ -194,6 +196,7 @@ class Ledger:
                 from .standard_successor import retained_in
                 retained_in(self, db)
             readiness_retained(self, db)
+            owned_readiness_retained(self,db)
             db.commit()
         except BaseException:
             db.rollback()

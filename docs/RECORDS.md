@@ -5,6 +5,18 @@ Canonical JSON is UTF-8, sorted keys, compact separators, no NaN. Its SHA-256 is
 the record identity; this encoding is local to this tool, not RFC 8785 signing.
 SQLite uses WAL, synchronous FULL and BEGIN IMMEDIATE for serialized transitions.
 
+## Readiness-owned first-phase lifecycle
+
+[READINESS-OWNED-LIFECYCLE.md](READINESS-OWNED-LIFECYCLE.md) defines the signed
+`codex_readiness_start` workflow and `readiness_owned_load_v1` private review.
+The canonical ledger/brain/database-identity claim precedes the new command;
+exclusive load-claim, load-ack and close journals distinguish intent, native
+acknowledgment and original connection closure. Its version-3 pre-Play handoff
+pins the exact review hash. Historical receipt validation correlates the original
+canonical claim, handoff, loaded policy, command/turn and evidence. Missing or
+partial records stay unknown and consumed. No inspection claim is reused, old
+request rewritten, usage reset, binding changed or terminal safety inferred.
+
 ## One-shot pre-Play inspection load
 
 [PREPLAY-INSPECTION-LOAD.md](PREPLAY-INSPECTION-LOAD.md) defines private

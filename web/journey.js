@@ -49,12 +49,13 @@ function catalogReadinessDetails(root,refresh){
         body.append(recheck);
       }
       if(publicSource){
-        body.append(el('p','A backend-specific readiness source is now installed. The failed request remains unchanged. A new check requires an already-loaded brain; it will not reload it or start Play.','muted'));
-        const next=button('Request a new public-host readiness check',()=>{
+        const ownedSource=state.brainNotification?.readinessOwnedSourceAvailable===true;
+        body.append(el('p',ownedSource?'Review a distinct readiness-owned startup. It can load the same brain once and keep capture and receipt on one connection. Old requests and the consumed inspection remain unchanged.':'A backend-specific readiness source is now installed. The failed request remains unchanged. A new check requires an already-loaded brain; it will not reload it or start Play.','muted'));
+        const next=button(ownedSource?'Review readiness-owned startup':'Request a new public-host readiness check',()=>{
           const current=state.standard?.catalogRefresh;
           if(busy||!connected||workspaceId!==key||current?.id!==requestId||current.status!=='failed'||
             state.brainNotification?.publicReadinessSourceAvailable!==true||state.standard?.contextHash!==contextHash)return;
-          return requestCatalogForPlay(state.standard);
+          return ownedSource?assistantRequestStep('codex_readiness_start'):requestCatalogForPlay(state.standard);
         });next.disabled=busy||!connected||standardCatalogInFlight.has(workspaceId);body.append(next);
       }
     }

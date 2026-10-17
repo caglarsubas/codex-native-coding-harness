@@ -1,5 +1,22 @@
 # Codex Orchestrator — personal tooling
 
+## Forward-only readiness-owned lifecycle source (2026-10-17)
+
+Read docs/READINESS-OWNED-LIFECYCLE.md before the distinct signed
+`codex_readiness_start` / `readiness_owned_load_v1` control. Only its new exact
+scope-bound owner review may create a version-3 first-phase public readiness
+handoff. Verified private backups and a canonical permanent intent precede
+command creation; a separate original-connection claim precedes at most one
+fixed readiness-only load, repeated actual policy/tracker checks, public evidence
+capture and one receipt turn on that same connection. Partial/unknown attempts
+stay consumed, including across request IDs and hosts; no reconnect or renewal.
+The original observer's 15-minute send window is not review expiry or phase
+authority. This supersedes already-loaded-only solely for that new control;
+v2 and old requests remain unchanged. Preserve all inspection claims, requests,
+runs, usage/gaps/expiry and bindings. No inspection reload, old readiness/Play/
+recovery replay, usage reset, native permission response or assumed safety.
+Source/fixtures install or confirm nothing; quiesce older writers before rollout.
+
 ## One-shot pre-Play inspection load source (2026-10-17)
 
 Read docs/PREPLAY-INSPECTION-LOAD.md before `public_preplay_inspection_load_v1`.

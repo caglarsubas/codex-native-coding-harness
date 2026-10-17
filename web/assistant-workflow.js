@@ -1,5 +1,5 @@
 "use strict";
-const workflowPhrases={phase_help:'confirm help',phase_prepare:'confirm prepare',phase_reconcile:'confirm reconcile',phase_recovery:'confirm recovery',phase_pause_recovery:'confirm pause recovery',phase_pause_receipt_recovery:'confirm pause receipt recovery',phase_ended_recovery_record:'confirm non-waking inspection record',phase_close:'confirm close stopped phase',phase_review:'confirm review',phase_play:'confirm play',phase_pause:'confirm pause',phase_resume:'confirm resume',brain_budget:'confirm brain allowance',usage_check:'confirm usage',codex_check:'confirm readiness',brain_message:'confirm send'};
+const workflowPhrases={phase_help:'confirm help',phase_prepare:'confirm prepare',phase_reconcile:'confirm reconcile',phase_recovery:'confirm recovery',phase_pause_recovery:'confirm pause recovery',phase_pause_receipt_recovery:'confirm pause receipt recovery',phase_ended_recovery_record:'confirm non-waking inspection record',phase_close:'confirm close stopped phase',phase_review:'confirm review',phase_play:'confirm play',phase_pause:'confirm pause',phase_resume:'confirm resume',brain_budget:'confirm brain allowance',usage_check:'confirm usage',codex_check:'confirm readiness',codex_readiness_start:'confirm readiness-owned startup',brain_message:'confirm send'};
 Object.assign(workflowPhrases,{phase_historical_effects:'confirm historical effects',phase_terminal_closeout:'confirm terminal closeout'});
 function assistantLocalWorkflow(question,current=state){
   // Exact product starters, not an inferred intent or approval. The normal
@@ -30,12 +30,12 @@ function assistantWorkflowState(action,current=state,now=Date.now()/1000){
   if(action.refreshing)return {locked:true,label:'Refreshing review',detail:'Checking current scope and prerequisites. Nothing is being confirmed.'};
   if(action.rejected)return {locked:true,label:'Review again',detail:action.rejected,refreshable:true};
   if(action.uncertain)return {locked:false,label:'Receipt unconfirmed',detail:'Retry this same confirmation to recover its receipt.'};
-  if(now>doc.expiresAt)return {locked:true,label:'Review needs refreshing',detail:'Refresh this review here. Nothing was submitted; your phase and its limits are unchanged.',refreshable:true};
+  if(!(doc.workflow==='codex_readiness_start'&&doc.validity==='until_scope_changes')&&now>doc.expiresAt)return {locked:true,label:'Review needs refreshing',detail:'Refresh this review here. Nothing was submitted; your phase and its limits are unchanged.',refreshable:true};
   const request=doc.request;
   const stale=doc.workflow==='phase_review'?(current?.mission?.revision!==request.expectedRevision||current?.mission?.documentHash!==request.documentHash):
     request.preview?(doc.workflow==='brain_budget'?current?.standard?.brainBudget?.contextHash!==request.preview.contextHash:
       request.preview.operation!=='pause'&&current?.standard?.contextHash!==request.preview.contextHash):
-    ['codex_check','usage_check'].includes(doc.workflow)?current?.standard?.contextHash!==request.contextHash:current?.meta?.revision!==request.expectedRevision;
+    ['codex_check','codex_readiness_start','usage_check'].includes(doc.workflow)?current?.standard?.contextHash!==request.contextHash:current?.meta?.revision!==request.expectedRevision;
   if(stale||current?.meta?.brainId!==doc.brainId)return {locked:true,label:'Project changed',detail:'Refresh this review to see the current scope before confirming.',refreshable:true};
   if(action.playEdited)return {locked:true,label:'Play settings changed',detail:'Update the preview to review and sign these values before confirming. Nothing has started.',refreshable:true};
   return {locked:false,label:'Ready for your confirmation',detail:action.guided?'Click Help to run this bounded preparation. Review and Play stay separate.':'Type “'+workflowPhrases[doc.workflow]+'” or use the button below.'};
@@ -86,6 +86,11 @@ function assistantWorkflowPreview(item,proposal,guided=false){
   if(guided){section.append(el('h3',doc.workflow==='phase_recovery'?'Prepare safely from this checkpoint':'Check blockers and prepare what’s next'),el('p','Uses Codex tokens. No Play, policy changes or task retries.','muted'));}
   else section.append(el('p','REVIEW TOGETHER','eyebrow'),el('h3',p.title),el('p',p.impact));
   if(p.summary&&!guided){const list=el('ul');for(const text of p.summary)list.append(el('li',text));section.append(list);}
+  if(doc.workflow==='codex_readiness_start'){
+    section.append(el('p','Same project and brain · readiness only. Play remains separate.','chat-phase-title'),
+      el('p',p.details.checkout),el('p','Current activity: '+p.details.before.activity+'. Terminal safety remains unknown.','muted'));
+    const details=el('details');details.append(el('summary','Details · exact readiness scope'),el('pre',JSON.stringify(p.details,null,2)));section.append(details);
+  }
   if(['phase_pause_recovery','phase_pause_receipt_recovery'].includes(doc.workflow)){
     section.append(el('p','Uses up to '+num(p.details.allowanceTokens)+' tokens as cooperative one-turn guidance, not a provider cap or phase-budget increase.','muted'));
     const details=el('details');details.append(el('summary','Details · saved Pause and latest-ended turn check'),el('pre',JSON.stringify(p.details,null,2)));section.append(details);
@@ -134,7 +139,7 @@ function assistantWorkflowPreview(item,proposal,guided=false){
     if(guided){const details=el('details'),list=el('ul');for(const text of p.summary||[])list.append(el('li',text));details.append(el('summary','Details · checks and prepared instruction'),list,el('p',p.impact),el('p',p.message));section.append(details);}
     else section.append(narrative(p.message,'Exact instruction to the project brain'));
   }
-  const exact=el('details');exact.append(el('summary','Receipt binding & expiry'),el('p','Expires '+when(doc.expiresAt)),el('pre',JSON.stringify({project:doc.workspaceId,mission:p.mission?.documentHash,requestId:doc.id},null,2)));section.append(exact);
+  const exact=el('details');exact.append(el('summary','Receipt binding & expiry'),el('p',doc.workflow==='codex_readiness_start'&&doc.validity==='until_scope_changes'?'Valid until scope changes; no timer expiry.':'Expires '+when(doc.expiresAt)),el('pre',JSON.stringify({project:doc.workspaceId,mission:p.mission?.documentHash,requestId:doc.id},null,2)));section.append(exact);
   const status=el('p',null,'chat-action-status');status.setAttribute('role','status');
   const controls=el('div',null,'assistant-actions'),confirm=el('button','Confirm','primary'),dismiss=el('button','Dismiss'),renew=el('button','Refresh review');confirm.type=dismiss.type=renew.type='button';renew.hidden=true;controls.append(dismiss,renew,confirm);section.append(status,controls);
   const expiry=el('p',null,'muted');section.append(expiry);
@@ -192,6 +197,8 @@ function assistantTypedConfirmation(question){
 }
 async function assistantRequestStep(key,text){
   if(!connected||assistantPending)return;
+  if(key==='codex_check'&&state.brainNotification?.readinessOwnedSourceAvailable===true&&!state.standard?.run)key='codex_readiness_start';
+  if(key==='codex_readiness_start')focusAssistantConversation();
   assistantPending=true;assistantConnectionChanged();
   try{const proposal=await api('/api/assistant/preview',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify(text===undefined?{key}:{key,text})});
     assistantActionPreview(chatTurn('control','Review this next step here.'),proposal);assistantScroll();

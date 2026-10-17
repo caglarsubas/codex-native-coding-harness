@@ -1,5 +1,10 @@
 # Backend-specific public-host readiness
 
+The separate [readiness-owned lifecycle](READINESS-OWNED-LIFECYCLE.md) now
+supports a new exact prospective version-3 control that owns one restricted
+load and its original receipt subscription. The version-2 loaded-only contract
+below is unchanged; no old request or inspection allowance gains a reload.
+
 ## Why the desktop check failed
 
 The opted-in `public_app_server_tasks_v1` backend deliberately has no protected

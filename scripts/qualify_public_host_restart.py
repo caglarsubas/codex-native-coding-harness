@@ -27,7 +27,9 @@ from orchestrator.native_auth_readiness import inspect as authentication
 from qualify_public_native_tasks import StdioFixture
 
 
-def qualify(binary, expected_hash, *, inspection=False, subscription_seconds=None, signed_in_preplay=False, preplay_load=False):
+def qualify(binary, expected_hash, *, inspection=False, subscription_seconds=None, signed_in_preplay=False, preplay_load=False, readiness_owned=False):
+    require(not readiness_owned or not inspection and not signed_in_preplay and subscription_seconds is None,
+            'Readiness-owned qualification is a separate disposable fixture')
     require(not preplay_load or inspection, 'Pre-Play load qualification requires the explicit disposable inspection fixture')
     require(not signed_in_preplay or not inspection and subscription_seconds is None,
             'The signed-in pre-Play backup fixture grants no inspection load')
@@ -39,12 +41,14 @@ def qualify(binary, expected_hash, *, inspection=False, subscription_seconds=Non
     path, _ = secure_path(binary)
     require(hashlib.sha256(path.read_bytes()).hexdigest() == expected_hash, 'Exact reviewed native fixture binary required')
     requests, processes = [], []
+    readiness_hook = []
     class Provider(http.server.BaseHTTPRequestHandler):
         def do_GET(self): self.send_error(404)
         def do_POST(self):
             require(self.path == '/v1/responses', 'Only the loopback fixture response route is permitted')
             size = int(self.headers.get('Content-Length','0')); require(0 < size < 1_000_000, 'Bounded fixture request required')
             self.rfile.read(size); requests.append(self.path)
+            if readiness_hook: readiness_hook[0]()
             events = [{'type':'response.created','response':{'id':'restart-fixture'}},
                 {'type':'response.output_item.done','item':{'type':'message','role':'assistant','id':'receipt',
                     'content':[{'type':'output_text','text':'Retained disposable fixture receipt.'}]}},
@@ -146,6 +150,16 @@ def qualify(binary, expected_hash, *, inspection=False, subscription_seconds=Non
             if signed_in_preplay:
                 require(stamp(auth_file.lstat()) == auth_epoch and not (backup/'auth.json').exists(),
                         'Warm native fixture changed or copied the synthetic auth file')
+            if readiness_owned:
+                from qualify_readiness_owned import Fixture
+                fixture = Fixture(endpoint,brain,project['id'],cwd)
+                readiness_hook.append(fixture.provider_ack)
+                result = fixture.run()
+                require(len(requests) == 2 and history.read_bytes().startswith(before) and
+                        restricted_config(home,cwd) == config_before,'Readiness fixture changed old history/config or made extra requests')
+                return dict(result,status='readiness_owned_fixture_passed',coldReceiptModelRequests=1,
+                    loopbackReadinessModelRequests=1,externalProviderRequests=0,liveHostConnections=0,
+                    liveNativeWrites=0,oldHistoryAndConfigPreserved=True)
             if inspection:
                 from orchestrator.public_pilot_inspection import InspectionProxy, load_params, repeated
                 scope = {'brainId': brain, 'projectId': project['id'], 'cwd': str(cwd),
@@ -235,9 +249,11 @@ if __name__ == '__main__':
     parser.add_argument('--executable',required=True); parser.add_argument('--sha256',required=True)
     parser.add_argument('--inspection',action='store_true',help='Also qualify one metadata-only warm load and read-only reconciliation')
     parser.add_argument('--preplay-load',action='store_true',help='Use the separate pre-Play load boundary in the disposable inspection fixture')
+    parser.add_argument('--readiness-owned',action='store_true',help='Qualify a distinct readiness-owned load, capture, turn and synthetic fixture receipt')
     parser.add_argument('--signed-in-preplay',action='store_true',help='Test the separate auth-metadata-only backup using a synthetic empty auth container; no load')
     parser.add_argument('--subscription-seconds',type=int,
                         help='Disposable only: hold the original subscription for 75–300 seconds, then verify unload')
     args = parser.parse_args()
     print(canonical(qualify(args.executable,args.sha256,inspection=args.inspection,
-                          subscription_seconds=args.subscription_seconds,signed_in_preplay=args.signed_in_preplay,preplay_load=args.preplay_load)))
+                          subscription_seconds=args.subscription_seconds,signed_in_preplay=args.signed_in_preplay,
+                          preplay_load=args.preplay_load,readiness_owned=args.readiness_owned)))

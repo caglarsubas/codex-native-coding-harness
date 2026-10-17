@@ -1,5 +1,14 @@
 # Durable project knowledge and bounded brain context
 
+[READINESS-OWNED-LIFECYCLE.md](READINESS-OWNED-LIFECYCLE.md) adds a distinct
+prospective signed first-phase readiness control. Its original connection owns
+at most one restricted load, capability capture, one receipt-only turn and
+bounded observation. It does not reuse the consumed inspection allowance or
+any old request. Scope-bound review has no timer expiry; partial/unknown claims
+permanently fence replacements. Source, merge, installation, exact live review,
+receipt and pilot acceptance remain separate. All old requests, usage, claims,
+bindings and terminal-safety unknowns are preserved.
+
 [PREPLAY-INSPECTION-LOAD.md](PREPLAY-INSPECTION-LOAD.md) defines the separate
 one-shot first-phase load review. An issued fresh restart, exact current binding,
 correlated original failed-schema receipt or real canceled disposition, and empty
