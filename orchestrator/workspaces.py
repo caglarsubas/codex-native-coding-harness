@@ -119,7 +119,9 @@ def validate_profile(value):
 
 
 class Registry:
-    def __init__(self, root, *, create=False):
+    def __init__(self, root, *, create=False, read_only=False):
+        require(not (create and read_only), 'Read-only registry cannot be created')
+        self.read_only = read_only
         self.root = private_path(root, existing=not create)
         if create:
             self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -147,12 +149,17 @@ class Registry:
 
     @contextlib.contextmanager
     def tx(self):
-        db = sqlite3.connect(self.db, isolation_level=None, timeout=10)
+        db = (sqlite3.connect(self.db.as_uri() + '?mode=ro', uri=True, isolation_level=None, timeout=10)
+              if self.read_only else sqlite3.connect(self.db, isolation_level=None, timeout=10))
         db.row_factory = sqlite3.Row
         try:
-            db.execute("PRAGMA journal_mode=WAL")
-            db.execute("PRAGMA synchronous=FULL")
-            db.execute("BEGIN IMMEDIATE")
+            if self.read_only:
+                db.execute('PRAGMA query_only=ON')
+                db.execute('BEGIN')
+            else:
+                db.execute("PRAGMA journal_mode=WAL")
+                db.execute("PRAGMA synchronous=FULL")
+                db.execute("BEGIN IMMEDIATE")
             yield db
             db.commit()
         except BaseException:
@@ -237,7 +244,7 @@ class Registry:
         return Path(row["root"])
 
     def ledger(self, workspace_id):
-        ledger = Ledger(self.root_for(workspace_id))
+        ledger = Ledger(self.root_for(workspace_id), read_only=self.read_only)
         ledger.workspace_id, ledger.platform_root = workspace_id, self.root
         return ledger
 

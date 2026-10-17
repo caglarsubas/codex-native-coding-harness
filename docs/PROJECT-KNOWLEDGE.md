@@ -1,5 +1,15 @@
 # Durable project knowledge and bounded brain context
 
+[SANDBOX-SAFE-RUN-CONTROL.md](SANDBOX-SAFE-RUN-CONTROL.md) separates genuinely
+read-only CLI opening from a prospective checkout-local run mailbox on the
+original owned observer. Closed explicit calls reuse the existing reviewed run,
+controller, measured-usage and public-task gates without exposing registry,
+SQLite, socket or controller credentials to the brain. One-shot claims, process
+reply seals and transaction-bound observer checks fence unknown/interrupted calls.
+It cannot attach to the already delivered v3 Play or answer its held permission.
+Source delivery installs nothing; original requests, usage, claims, bindings and
+terminal-safety unknowns stay unchanged. Live continuation remains separate.
+
 Readiness browser confirmations preserve the exact canonical inner review as
 text, not JavaScript numbers: nanosecond file epochs otherwise round and reject
 the signed preview before any claim or command. Authentication, closed-schema,

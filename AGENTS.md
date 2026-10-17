@@ -1,5 +1,22 @@
 # Codex Orchestrator — personal tooling
 
+## Sandbox-safe standard run-control source (2026-10-17)
+
+Read docs/SANDBOX-SAFE-RUN-CONTROL.md before the prospective
+`standard_run_observer_v1` path. Only future original public standard
+Play/Pause/Resume notifications may retain its checkout-local source/authority/
+identity-bound handoff before native start. Closed sequential brain requests use
+the original observer and existing standard controller/usage/task/result gates;
+never grant the sandbox shared-registry writes, a socket or controller credential.
+Permanent claims and original-process reply seals fence interrupted/forged calls.
+No request means no service; status never collects or sends. Strict/legacy,
+recovery and historical controls do not acquire it. Held native permissions fence
+mutations and require their own exact owner response; never answer, cancel,
+rewrite or bypass them automatically. The read-only continuation assessment
+attaches no handoff and changes no request. Do not hot-patch or restart the owning
+observer to install source. Preserve requests, usage/gaps/claims/bindings/expiry
+and unknown safety. Source delivery installs nothing and qualifies no pilot.
+
 ## Forward-only pre-Play successor-host source (2026-10-17)
 
 Read docs/PREPLAY-SUCCESSOR-HOST.md before explicit `prepare --successor`.

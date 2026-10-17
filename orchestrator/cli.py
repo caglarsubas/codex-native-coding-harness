@@ -19,11 +19,18 @@ def main():
     parser.add_argument("--platform", type=Path, help="Private workspace registry directory")
     parser.add_argument("--workspace", help="Exact registered workspace ID; never inferred from cwd")
     parser.add_argument("--preplay-handoff", type=Path, help="Original checkout-local catalog handoff; no database/socket access")
+    parser.add_argument('--run-handoff', type=Path, help='Original checkout-local standard run mailbox; no registry/socket access')
     sub = parser.add_subparsers(dest="action", required=True)
     sub.add_parser("standard-preplay-state", help="Read original pre-Play context, not live readiness")
     sub.add_parser("standard-preplay-status", help="Follow the same immutable catalog receipt without resubmission")
     p = sub.add_parser("standard-preplay-receipt", help="Submit only the exact designated brain's catalog or catalog_error")
     p.add_argument("result", type=Path)
+    p = sub.add_parser('standard-run-call', help='One closed sequential brain request to its original owned observer')
+    p.add_argument('result', type=Path)
+    p = sub.add_parser('standard-run-status', help='File-only original call progress; never resend or collect')
+    p.add_argument('sequence', type=int)
+    p = sub.add_parser('standard-run-continuation', help='Read-only assessment; never attach a mailbox to an old request')
+    p.add_argument('command_id')
     for name in ("status", "inbox", "process", "scan", "export", "inference-check", "inference-status", "readiness", "doctor", "rehearse"):
         sub.add_parser(name)
     for name in ("workspace-list", "workspace-verify-backup", "workspace-profile"):
@@ -290,6 +297,14 @@ def main():
                    help="Separately reviewed multi-host historical provenance; read-only reconciliation only, never a native recovery or connection fallback")
     p.add_argument("--inference-env", type=Path, help="Existing private inference configuration; never a browser-selected path")
     args = parser.parse_args()
+    if args.run_handoff or args.action in ('standard-run-call', 'standard-run-status'):
+        if (not args.run_handoff or args.preplay_handoff or args.platform or args.workspace or args.state or
+                args.action not in ('standard-run-call', 'standard-run-status')):
+            raise Refusal('Use only the original --run-handoff and a closed standard run helper')
+        from . import standard_run_mailbox
+        out = (standard_run_mailbox.submit(args.run_handoff, args.result) if args.action == 'standard-run-call'
+               else standard_run_mailbox.status(args.run_handoff, args.sequence))
+        print(json.dumps(out, ensure_ascii=False, indent=2)); return
     if args.preplay_handoff or args.action.startswith("standard-preplay-"):
         if (not args.preplay_handoff or args.platform or args.workspace or args.state or
                 args.action not in ("standard-preplay-state", "standard-preplay-status", "standard-preplay-receipt")):
@@ -377,7 +392,8 @@ def main():
         print(json.dumps(out, ensure_ascii=False, indent=2)); return
     if (args.action == "run-readiness" or args.action.startswith(("historical-cleanup-", "standard-native-", "standard-host-", "standard-public-", "task-contract-", "model-policy-", "native-evidence-", "brain-cycle-", "phase-checkpoint-", "native-create-", "native-task-", "native-account-", "phase-usage-", "runner-handoff-", "terminal-handoff-", "result-handoff-", "archive-handoff-", "correction-handoff-"))) and not (args.platform and args.workspace):
         raise Refusal("This operation requires an explicit registered workspace")
-    registry = Registry(args.platform, create=args.action == "workspace-register") if args.platform else None
+    read_only = args.action in ('standard-state', 'status', 'inbox', 'mission-state', 'standard-run-continuation')
+    registry = Registry(args.platform, create=args.action == "workspace-register", read_only=read_only) if args.platform else None
     if notification_binding:
         if not registry:
             raise Refusal("Owned app-server wake requires a registered standard project")
@@ -515,7 +531,7 @@ def main():
         return
     if registry and not args.workspace:
         raise Refusal("Select an exact --workspace; no default portfolio is inferred")
-    ledger = registry.ledger(args.workspace) if registry else Ledger(args.state or ROOT / ".state")
+    ledger = registry.ledger(args.workspace) if registry else Ledger(args.state or ROOT / ".state", read_only=read_only)
     token = os.environ.get("ORCHESTRATOR_CONTROLLER_TOKEN", "")
     read = lambda path: json.loads(path.read_text())
     action = args.action
@@ -573,6 +589,9 @@ def main():
     elif action == "standard-state":
         from .standard import read as standard_read
         out = standard_read(ledger)
+    elif action == 'standard-run-continuation':
+        from .standard_run_mailbox import continuation
+        out = continuation(ledger, args.command_id)
     elif action.startswith('standard-successor-'):
         if not registry or not args.workspace: raise Refusal('Exact registered workspace required')
         from . import standard_successor as successor

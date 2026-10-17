@@ -5,6 +5,17 @@ Canonical JSON is UTF-8, sorted keys, compact separators, no NaN. Its SHA-256 is
 the record identity; this encoding is local to this tool, not RFC 8785 signing.
 SQLite uses WAL, synchronous FULL and BEGIN IMMEDIATE for serialized transitions.
 
+## Prospective sandbox-safe run mailbox
+
+[SANDBOX-SAFE-RUN-CONTROL.md](SANDBOX-SAFE-RUN-CONTROL.md) defines the closed
+`standard_run_observer_v1` handoff, exact original-turn binding and bounded
+sequential request/permanent claim/reply chain. An original-process-only HMAC
+seal authenticates prior completed replies at the next service boundary;
+interruption or unknown output fences every later call. No restart adoption,
+historical attachment, permission response, reload, control replay, usage reset
+or inferred terminal safety is included. Read-only CLI objects use existing
+private databases with SQLite mode=ro/query_only and cannot initialize schema.
+
 ## Fresh pre-Play successor-host maintenance
 
 [PREPLAY-SUCCESSOR-HOST.md](PREPLAY-SUCCESSOR-HOST.md) adds the explicitly

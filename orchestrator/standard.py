@@ -675,13 +675,19 @@ def brain(registry, ledger, token, request):
             # this transaction. Do not overwrite that counter with the earlier
             # controller snapshot when the run receipt is saved below.
             meta["revision"] = ledger.get(db, "meta", 1)["revision"]
-        elif operation == "receive":
-            exact(request, "operation runId")
+        elif operation in ("receive", "receive_control"):
+            exact(request, "operation runId" + (" commandId" if operation == "receive_control" else ""))
+            if operation == 'receive_control':
+                selected = ledger.get(db, 'commands', request['commandId'])
+                require(selected['kind'] in ('standard_play', 'standard_pause', 'standard_resume') and
+                        selected['payload'] == {'runId': run['id']}, 'Exact run control receipt required')
             meta["inboxCheckedAt"] = time.time()
             from .conversation import pending, receive_in
             from .historical_effects import historical_ids
             retired = historical_ids(ledger, db)
             for command in ledger.all(db, "commands"):
+                if operation == 'receive_control' and command['id'] != request['commandId']:
+                    continue  # The sandbox run adapter cannot drain unrelated messages/decisions.
                 if command["id"] in retired:
                     continue  # Owner-retired originals stay byte-identical, never forged brain receipts.
                 if command["kind"].startswith("standard_") and command["kind"] not in ("standard_recovery", "standard_pause_recovery", "standard_pause_receipt_recovery") and command["status"] == "queued":

@@ -4,6 +4,45 @@ This separates source implementation from installation, merge and live
 qualification. None of these entries grants standard Play, a brain replacement
 or strict Harness execution authority.
 
+## Sandbox-safe standard run control
+
+`standard-state` no longer opens write-initializing Registry/Ledger objects.
+The prospective `standard_run_observer_v1` adapter instead keeps sandbox calls
+in checkout-local private files and services their closed data operations on
+the original owned observer. It exposes no socket or controller credential.
+Permanent claims, original-process reply seals, exact source/identity/authority
+pins and transaction-bound ownership checks retain unknown outcomes without
+replay. Exact run receipt does not drain unrelated messages or decisions.
+
+All 24 new focused cases pass, including real macOS sandbox execution from
+the checkout with registry/SQLite/network access denied and release source
+write-protected. The fixture reaches exact receipt, measured usage, scoped
+claim/seed, blocked checkpoint and release, but starts no native worker. Other
+cases cover early delivery acknowledgment, held permissions and queued owner
+responses, Pause, expiry, missing usage, source/binding/brain/session changes,
+concurrency, interrupted claims and forged replies. Existing notification and
+native-observer suites pass separately.
+
+Final frozen-byte discovery passed **2,992 Python tests** in 684.243 seconds,
+with one optional Graphify executable check skipped. All **39 JavaScript
+suites**, **31 web syntax checks**, **146 source/script AST checks** and diff
+checks pass. The qualification runner rejects source changes during its run.
+No Actions workflow, download or paid service was added or invoked.
+
+The existing compiled native fixture independently qualified one disposable
+thread/turn, actual apply_patch and fixed pwd, restricted worker policy and two
+item lifecycles, using three loopback model responses and zero cloud/live-host
+requests. This is not an integrated measured-worker pilot pass, historical
+cleanup proof or migration qualification.
+
+Repeated read-only live checks preserved all five database proofs, original
+requests, usage/gaps, claims, binding and native-host epoch. The current v3 Play
+remains the only Play, unreceipted with no controller or registered task and
+unknown measured usage/terminal safety. Its original notification has no run
+mailbox and cannot gain one retrospectively. No permission response, cancellation,
+reload, replay, usage reset, source installation or pilot acceptance occurred.
+See [the contract and rollout boundary](SANDBOX-SAFE-RUN-CONTROL.md).
+
 ## Exact readiness browser round-trip
 
 The signed readiness preview previously exposed nanosecond sidecar epochs as

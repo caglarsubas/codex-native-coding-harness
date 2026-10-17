@@ -163,6 +163,10 @@ class BrainNotifier:
                     if standard_run.get('successorHash'):
                         notification['successorHash'] = standard_run['successorHash']
                     notification["hostInspectionTransport"] = "owned_observer_v1"
+                    record = self.app_server.binding.get('brains', {}).get(brain_id, {})
+                    if command['kind'] in ('standard_play', 'standard_pause', 'standard_resume') and record.get('nativeTaskBackend'):
+                        from .standard_run_mailbox import prepare as prepare_run
+                        notification['runControl'] = prepare_run(ledger, db, command, self.app_server.binding)
                 except (OSError, ValueError, Refusal):
                     notification.update(status="unavailable", finishedAt=time.time(),
                         detail="The private owned-host handoff is unavailable. No turn was sent; inspect this saved receipt before continuing.")
@@ -361,7 +365,26 @@ class BrainNotifier:
                 "No permissions come from this notification; use the exact owner-approved run and inheritance seed. "
                 "Keep supervising registered tasks with native waits until the reviewed phase checkpoint or stop."
             )
-        if notification.get("hostBindingHash") and command["kind"] != "standard_pause_receipt_recovery":
+            if notification.get('runControl'):
+                from .standard_run_mailbox import path
+                file = path(ledger.root, command_id, 'handoff')
+                message = (
+                    'A committed standard control needs your original-turn receipt. '
+                    f'Read {json.dumps(str(source / "docs/SANDBOX-SAFE-RUN-CONTROL.md"))} completely. '
+                    f'You must be designated brain {brain_id}. Use source {json.dumps(str(source))}, '
+                    f'but keep command cwd in your bound checkout. Use PYTHONPATH={json.dumps(str(source))} python3 -B -m orchestrator.cli '
+                    f'--run-handoff {json.dumps(str(file))} standard-run-call PRIVATE_CALL_JSON. '
+                    'Each private call has exactly sequence (starting at 1), operation, payload. '
+                    'Call state, acquire, receive, then usage and host_inspect through this mailbox only. '
+                    'Never open the shared registry, SQLite, controller credential or protected native socket. '
+                    'Use journal for only claim, cancel_unissued, preserve, finish or checkpoint; seed for this task seed; '
+                    'task for one explicit public creation request and task_status to follow only that existing request. '
+                    'Keep supervising eligible registered work until the reviewed checkpoint or stop, then release. '
+                    'Pending/unknown calls must use standard-run-status SEQUENCE; never replace, skip or retry an effect. '
+                    'Pause and missing evidence fence new effects. No native approval response, reload, Play/recovery '
+                    'replay, usage reset, policy/binding change, merge or assumed terminal safety is authorized.'
+                )
+        if notification.get("hostBindingHash") and not notification.get('runControl') and command["kind"] != "standard_pause_receipt_recovery":
             if notification.get('successorHash'):
                 source = Path(__file__).resolve().parent.parent
                 message += (
@@ -386,7 +409,7 @@ class BrainNotifier:
                 "A successful override or disk feature list cannot clear unknown evidence. "
                 "Checkpoint and release when fenced; do not retry Play or recovery to obtain missing evidence."
             )
-        if has_conversation and command["kind"] not in ("standard_recovery", "brain_reply_recovery", "standard_pause_receipt_recovery"):
+        if has_conversation and not notification.get('runControl') and command["kind"] not in ("standard_recovery", "brain_reply_recovery", "standard_pause_receipt_recovery"):
             source = Path(__file__).resolve().parent.parent
             scope = (f"--platform {json.dumps(str(ledger.platform_root))} --workspace {ledger.workspace_id}"
                      if getattr(ledger, "workspace_id", None) else f"--state {json.dumps(str(ledger.root))}")
