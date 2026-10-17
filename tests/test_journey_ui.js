@@ -46,7 +46,7 @@ s=base();s.mission.document.spec.authority.approvalMode='exact_owner';assert.equ
 s=base();s.standard.available=false;s.standard.catalogRequired=true;assert.equal(model(s).action,'catalog');
 s.standard.catalogRefresh={status:'queued'};assert.equal(model(s).action,'request');
 s.standard.catalogRefresh.status='failed';assert.equal(model(s).label,'Retry Codex readiness');
-for(const error of [{code:'native_task_schema_unavailable',retryable:true},{code:'schema_unavailable',retryable:true},
+for(const error of [{code:'native_task_schema_unavailable',retryable:true},{code:'schema_unavailable',retryable:true},{code:'native_schema_unavailable',retryable:false},
   {code:'unsupported_destination',retryable:false}]){
   s.standard.catalogRefresh.catalogError=error;
   const unavailable=model(s);
@@ -56,6 +56,10 @@ for(const error of [{code:'native_task_schema_unavailable',retryable:true},{code
   assert.match(unavailable.detail,/Play has not started/);
 }
 delete s.standard.catalogRefresh.catalogError;
+const publicStopped=base();publicStopped.standard.available=false;publicStopped.standard.catalogRequired=true;
+publicStopped.standard.catalogRefresh={status:'queued',notification:{status:'unavailable',preplayCatalog:{version:2}}};
+assert.equal(model(publicStopped).action,'request');assert.equal(model(publicStopped).requiresSetupChange,true);
+assert.match(model(publicStopped).detail,/will not be retried/);
 assert.match(box.catalogReadinessIssue({status:'failed',catalogError:{code:'schema_unavailable',retryable:true}}).detail,/could not observe/,'An unavailable observation does not prove tool absence');
 s.standard.catalogRequired=false;assert.equal(model(s).action,'runReadiness');
 s=base();s.standard.run=run('running');assert.equal(model(s).action,'overview');assert.equal(model(s).canPause,true);

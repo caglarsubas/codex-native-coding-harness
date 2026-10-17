@@ -57,6 +57,12 @@ No new contract is backfilled into it and no old claim is migrated into a send.
 
 ## Brain-led task creation
 
+Future first-phase readiness uses the backend-specific original-bound evidence
+in [PUBLIC-HOST-READINESS.md](PUBLIC-HOST-READINESS.md), not unavailable desktop
+creation/message schemas. A model list alone is insufficient. Existing failed
+checks, old catalogs/turns and unknown safety remain unchanged; the source does
+not reload a brain or submit the distinct next check.
+
 The designated brain receives its existing owner-confirmed control, acquires
 the existing controller and claims a scoped standard task. Its explicit helper is:
 

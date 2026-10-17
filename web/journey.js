@@ -3,6 +3,10 @@
 // can authorize Play, Resume or Pause; this module never submits them directly.
 const journeyDetailsOpen=new Set();
 function catalogReadinessIssue(refresh){
+  if(refresh?.notification?.preplayCatalog?.version===2&&refresh.notification.status==='unavailable')return {
+    title:'Public-host readiness needs operator attention',
+    detail:'The original public-backend check stopped before a turn. Its evidence/send claim will not be retried. Inspect the saved delivery diagnostic; no brain was reloaded and Play has not started.',
+    requiresSetupChange:true};
   if(refresh?.status!=='failed')return null;
   const error=refresh.catalogError;
   // Retryability may mean "after setup changes", not "send the same check
@@ -11,7 +15,7 @@ function catalogReadinessIssue(refresh){
     title:'Codex task tools are unavailable',
     detail:'The brain received the check, but this host does not expose the native task tools needed to verify models and efforts. Repair the host’s tool setup before another check. Your phase review is unchanged; Play has not started.',
     requiresSetupChange:true};
-  if(error?.code==='schema_unavailable')return {
+  if(error?.code==='schema_unavailable'||error?.code==='native_schema_unavailable')return {
     title:'Codex task capabilities are unverified',
     detail:'The brain could not observe the native task schemas needed to verify models and efforts. Inspect the host’s tool setup before another check. Your phase review is unchanged; Play has not started.',
     requiresSetupChange:true};
@@ -22,7 +26,7 @@ function catalogReadinessIssue(refresh){
   return null;
 }
 function catalogReadinessDetails(root,refresh){
-  if(refresh?.status!=='failed')return;
+  if(refresh?.status!=='failed'&&!catalogReadinessIssue(refresh))return;
   const key=workspaceId,requestId=refresh.id,contextHash=state.standard?.contextHash;
   const details=journeyDisclosure('catalog-error:'+refresh.id,'Details · Codex readiness diagnostic',body=>{
     body.append(el('p',refresh.result||'No diagnostic text was retained.'),
@@ -30,7 +34,11 @@ function catalogReadinessDetails(root,refresh){
     if(refresh.catalogError)body.append(el('p','Error: '+refresh.catalogError.code+' · retryable after prerequisites are resolved: '+(refresh.catalogError.retryable?'yes':'no'),'subline'));
     if(catalogReadinessIssue(refresh)){
       body.append(el('p','A new check is not a host repair. It sends a new bounded request to the same brain; it does not reconfigure the host, grant authority or start Play.','muted'));
-      if(refresh.catalogError?.retryable!==false){
+      const publicSource=state.brainNotification?.publicReadinessSourceAvailable===true&&
+        refresh.notification?.nativeTaskContract?.protocol==='public_app_server_tasks_v1'&&
+        refresh.notification?.preplayCatalog?.version===1&&
+        ['native_schema_unavailable','native_task_schema_unavailable','schema_unavailable'].includes(refresh.catalogError?.code);
+      if(!publicSource&&refresh.status==='failed'&&refresh.catalogError?.retryable!==false){
         const recheck=button('Check again after host repair',()=>{
           const current=state.standard?.catalogRefresh;
           if(workspaceId!==key||current?.id!==requestId||current.status!=='failed'||!catalogReadinessIssue(current)||
@@ -39,6 +47,15 @@ function catalogReadinessDetails(root,refresh){
         });
         recheck.disabled=busy||!connected||standardCatalogInFlight.has(workspaceId);
         body.append(recheck);
+      }
+      if(publicSource){
+        body.append(el('p','A backend-specific readiness source is now installed. The failed request remains unchanged. A new check requires an already-loaded brain; it will not reload it or start Play.','muted'));
+        const next=button('Request a new public-host readiness check',()=>{
+          const current=state.standard?.catalogRefresh;
+          if(busy||!connected||workspaceId!==key||current?.id!==requestId||current.status!=='failed'||
+            state.brainNotification?.publicReadinessSourceAvailable!==true||state.standard?.contextHash!==contextHash)return;
+          return requestCatalogForPlay(state.standard);
+        });next.disabled=busy||!connected||standardCatalogInFlight.has(workspaceId);body.append(next);
       }
     }
   });
@@ -292,6 +309,8 @@ function roadmapJourneyState(snapshot,isConnected=true,now=Date.now()/1000){
     if(request?.disposition?.status==='disposed_unqualified')return result(1,'Readiness check ended without a result',
       'Cancel resolved and this attempt is recorded as unqualified. Its original request and missing receipt are preserved. A new check needs a separate request; nothing will be resent automatically.',
       'Request a new readiness check','catalog',{catalog:true});
+    const publicIssue=request?.notification?.preplayCatalog?.version===2&&catalogReadinessIssue(request);
+    if(publicIssue)return result(1,publicIssue.title,publicIssue.detail,'Inspect Codex readiness','request',{catalog:true,requiresSetupChange:true});
     if(request?.status==='queued')return result(1,request.notification?.status==='unavailable'?'Codex check needs delivery':'Waiting for Codex readiness',
       'A request to check available models and efforts is saved. Inspect delivery below before sending another request. Play still needs your confirmation.','Inspect request delivery','request',{catalog:true});
     const issue=catalogReadinessIssue(request);

@@ -1,5 +1,14 @@
 # Durable project knowledge and bounded brain context
 
+[PUBLIC-HOST-READINESS.md](PUBLIC-HOST-READINESS.md) separates the opted-in
+public task backend's versioned binary schemas and repeated runtime catalog,
+identity, authentication and effective-policy evidence from desktop tool
+discovery. Only a prospective original sending command can capture it, on an
+already-loaded idle brain; acknowledgement cannot refresh its observation time.
+The old schema failure remains a real failed receipt, not a retry permit.
+Source/disposable qualification sends no live request, reloads no brain and
+changes no binding, old run, usage, claim or terminal-safety unknown.
+
 [READINESS-DISPOSITION.md](READINESS-DISPOSITION.md) separates local owner
 disposition of a canceled legacy readiness attempt from its missing brain
 receipt. It preserves that original request and prevents replay/backfill. It

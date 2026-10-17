@@ -21,6 +21,11 @@ unchanged.
 
 ## Designated brain procedure
 
+The following version-1 procedure observes desktop task-tool schemas. Future
+opted-in public backends instead use the version-2 exact-evidence acknowledgment
+in [PUBLIC-HOST-READINESS.md](PUBLIC-HOST-READINESS.md). They deliberately do not
+inherit desktop tools. Do not convert/backfill a delivered version-1 request.
+
 Use the exact source and absolute handoff path in the original fixed pointer.
 Verify that this native task is the named brain. These helpers are an exception
 to the normal standard-cycle registry/controller procedure for this receipt only:

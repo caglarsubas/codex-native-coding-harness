@@ -4,6 +4,40 @@ This separates source implementation from installation, merge and live
 qualification. None of these entries grants standard Play, a brain replacement
 or strict Harness execution authority.
 
+## Backend-specific public-host readiness
+
+The [public-host source](PUBLIC-HOST-READINESS.md) has 32 focused disposable
+Python tests covering schema/argument compatibility, immutable capture and
+receipt hashes, original observation time, public/desktop isolation, unloaded
+and active refusal, enforced policy, bounded agreeing model pages, empty MCP
+inventory, lost responses, Stop/send races and no automatic retry or reload.
+All 38 JavaScript suites and 31 browser-script syntax checks pass. A rendered
+disposable dashboard at 1440px and 320px exposes one distinct new-check action
+with keyboard focus, unchanged failed history, no horizontal overflow or browser
+errors; viewing/polling preserved its exact ledger fingerprint.
+
+The final complete local discovery passed **2,877 Python tests** (one optional
+Graphify executable check skipped) in 600.138 seconds. All 303 Python source,
+script and fixture AST checks and diff checks passed. An earlier run was
+intentionally interrupted to correct capture-time preservation; its private
+log is retained and is not counted as a completed qualification. No GitHub
+Actions or paid service was added or invoked; GitHub reported zero workflows.
+
+The pinned compiled runtime (`5efb9e2cefbbca03ab5ec3780105c7873c5f265d10c0e32c749afccc9fda5ee7`)
+passed the isolated actual-schema/read fixture: eight advertised models, two
+agreeing model-list reads, matching effective policy, one disposable project and
+brain, zero native loads, turns, provider requests or live-host connections.
+Its source pins are explicitly synthetic and its stdio fixture does not qualify
+a live socket/binding, account model entitlement, terminal safety or pilot.
+
+Read-only preservation inspection found both live v3 requests unchanged, with
+the old attempt disposed/unqualified and the distinct newer attempt retaining
+its real nonretryable `native_schema_unavailable` receipt. Old database proofs,
+run usage/gaps, claims, binding pins and installed PR-164 source remained exact.
+No source upgrade, native request, reload, Play, recovery, usage reset or safety
+assertion was applied. Merge, installation and explicit native qualification
+remain separate.
+
 ## Canceled pre-Play readiness disposition
 
 The [forward-only disposition](READINESS-DISPOSITION.md) has 24 disposable

@@ -1,5 +1,19 @@
 # Codex Orchestrator — personal tooling
 
+## Backend-specific public readiness source (2026-10-17)
+
+Read docs/PUBLIC-HOST-READINESS.md before the version-2 prospective public pre-Play
+path. Only an original sending request may claim a fixed reviewed-binary schema
+export plus repeated same-connection model, identity, enforced-policy, empty MCP
+and non-refreshing authentication observations. Require already-loaded idle;
+never reload or substitute desktop schemas, a model list alone, guessed capability
+values or account entitlement. The brain acknowledges the exact captured hash
+through the original observer; no reusable socket/controller or native permission
+is granted. Partial capture, drift, Stop and ended observers stay fenced with no
+automatic retry/backfill. Preserve both old requests, disposition, runs, usage,
+claims, bindings and unknown terminal safety. Source/disposable qualification
+installs nothing, sends no live readiness/Play/recovery and accepts no pilot.
+
 ## Forward-only readiness disposition source (2026-10-16)
 
 Read docs/READINESS-DISPOSITION.md before operator-only readiness-disposition

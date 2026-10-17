@@ -53,6 +53,7 @@ class BrainNotifier:
             if not self.app_server.configured(brain_id):
                 return {"status": "unavailable", "detail": "The reviewed local Codex app-server binding is unavailable. No native send is attempted."}
             return {"status": "configured", "transport": "owned_app_server",
+                    "publicReadinessSourceAvailable": bool(getattr(self.app_server, 'binding', {}).get('brains', {}).get(brain_id, {}).get('nativeTaskBackend')),
                     "connection": self.app_server.connection_status(brain_id),
                     # The wake socket can deliver and observe a turn, but its
                     # persisted/loaded thread reads do not qualify a complete
@@ -317,6 +318,22 @@ class BrainNotifier:
                     "Do not retry readiness, infer models from documentation, answer native permissions, change policy, "
                     "start Play, create workers, Resume, change bindings or assume terminal safety. End after the receipt."
                 )
+                if notification['preplayCatalog']['version'] == 2:
+                    message = (
+                        "A committed public-backend readiness check needs your exact receipt. "
+                        f"Read {json.dumps(str(source / 'docs/PUBLIC-HOST-READINESS.md'))} completely. "
+                        f"Use source {json.dumps(str(source))}; this task must be designated brain {brain_id}. "
+                        f"Run python3 -m orchestrator.cli --preplay-handoff {json.dumps(str(handoff))} standard-preplay-state. "
+                        "Inspect its original publicReadiness evidence, not desktop creation/message tools. "
+                        "The reviewed binary's schemas and repeated runtime catalog/policy observations are already captured. "
+                        f"Write a private JSON with operation public_catalog_ack, requestId {command_id}, and that exact evidenceHash, "
+                        "or catalog_error if it is unavailable. Do not supply or select models/efforts yourself. "
+                        f"Then run python3 -m orchestrator.cli --preplay-handoff {json.dumps(str(handoff))} "
+                        "standard-preplay-receipt PRIVATE_RESULT_JSON; follow only standard-preplay-status if pending. "
+                        "Do not use the shared registry/controller, connect sockets, reload a brain, answer permissions, "
+                        "send another readiness request, start Play/workers, recover, change bindings/usage or assume terminal safety. "
+                        "A catalog is not account entitlement or pilot acceptance. End after this receipt."
+                    )
             else:
                 message = (
                     "A committed read-only standard-project capability refresh needs your receipt. "

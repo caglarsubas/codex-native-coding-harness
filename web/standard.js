@@ -67,7 +67,7 @@ function catalogStatus(refresh){
   return {title:'Capability request saved',detail:'The request is retained but has not been sent. A stopped or parked brain must be explicitly resumed; this request never resumes it.'};
 }
 function scheduleCatalogFollowup(s){
-  const key=workspaceId,refresh=s.catalogRefresh;if(!refresh||refresh.disposition||refresh.status!=='queued'||standardCatalogTimers.has(key))return;
+  const key=workspaceId,refresh=s.catalogRefresh;if(!refresh||refresh.disposition||refresh.notification?.preplayCatalog?.version===2||refresh.status!=='queued'||standardCatalogTimers.has(key))return;
   const notification=refresh.notification||{},safeRetry=notification.status==='unavailable'&&refresh.deliveryAttempts<refresh.maxDeliveryAttempts;
   const recent=Date.now()/1000-refresh.createdAt<90;
   if(!safeRetry&&!recent)return;
