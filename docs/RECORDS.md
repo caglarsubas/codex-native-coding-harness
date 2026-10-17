@@ -28,6 +28,15 @@ canonical claim, handoff, loaded policy, command/turn and evidence. Missing or
 partial records stay unknown and consumed. No inspection claim is reused, old
 request rewritten, usage reset, binding changed or terminal safety inferred.
 
+At the browser boundary only, the signed request is exactly
+`{id, contextHash, readinessStartJson}`. The last field is the canonical inner
+review as text so JavaScript cannot round nanosecond private file identities.
+Decode only after the outer signature/session/project checks; reject duplicate
+keys, non-finite values, noncanonical text, extra fields and mismatched IDs or
+contexts. Store the original inner object under `payload.readinessStart`, with
+its original hash and integer epochs. This changes no command/claim/handoff
+schema or one-shot allowance and provides no old-preview migration or replay.
+
 ## One-shot pre-Play inspection load
 
 [PREPLAY-INSPECTION-LOAD.md](PREPLAY-INSPECTION-LOAD.md) defines private

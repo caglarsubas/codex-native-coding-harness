@@ -294,7 +294,7 @@ class JourneyProposals(ActionProposals):
             host = self.runtime.notifier.app_server
             require(host is not None,'Reviewed owned public host required')
             review = readiness_owned.prepare(self.runtime.registry,self.runtime.ledger,host.binding,ident)
-            request = {'id':ident,'contextHash':standard['contextHash'],'readinessStart':review}
+            request = readiness_owned.browser_request(review)
             preview['summary'] = [readiness_owned.IMPACT,
                 'At most one load and one new readiness turn; a partial or unknown attempt cannot be retried.',
                 'One connection owns load, capture and receipt observation, up to 15 minutes after sending.',
@@ -691,7 +691,8 @@ class JourneyProposals(ActionProposals):
             from . import readiness_owned
             host = self.runtime.notifier.app_server
             require(host is not None,'Reviewed owned public host required')
-            result = readiness_owned.confirm(self.runtime.registry,ledger,host.binding,request['readinessStart'])
+            result = readiness_owned.confirm(self.runtime.registry,ledger,host.binding,
+                                             readiness_owned.browser_review(request))
         else:
             require(kind in ("phase_help", "phase_prepare", "phase_reconcile", "brain_message"), "Unknown conversation action")
             result = ledger.submit(request, actor="dashboard")

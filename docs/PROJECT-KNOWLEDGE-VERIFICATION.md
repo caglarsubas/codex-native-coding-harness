@@ -4,6 +4,36 @@ This separates source implementation from installation, merge and live
 qualification. None of these entries grants standard Play, a brain replacement
 or strict Harness execution authority.
 
+## Exact readiness browser round-trip
+
+The signed readiness preview previously exposed nanosecond sidecar epochs as
+JSON numbers. Real Node parsing/stringification rounded those pins and rejected
+the HMAC before command creation. The corrected browser envelope retains the
+canonical inner review as text, with all exact original integer pins restored
+only after authenticated signature/session/project checks. Closed schema,
+canonical equality, command/context correlation, private/native scope checks,
+backups and permanent one-shot fences remain mandatory.
+
+Six new focused Python cases cover the actual JavaScript round-trip, Unicode,
+foreign sessions, tampering, malformed/noncanonical text and a resigned rounded
+pin that still fails private-scope validation. The original synthetic receipt
+fixture proves one load/turn/receipt, never inspection reuse. JavaScript exercises
+the real generic footer and scope gate with legacy timer behavior unchanged.
+The disposable rendered 1440px/320px fixture additionally makes one actual
+authenticated HTTP confirmation, verifies its command/canonical claim/exact odd
+nanosecond pins, and suppresses notification entirely. No live host, load, turn,
+model request or old-run mutation occurs. Source, manual merge, installation,
+a fresh exact live review and a real readiness receipt remain separate.
+
+Full local discovery passed **2,968 Python tests** in 785.354 seconds, with one
+optional Graphify executable check skipped. All 39 JavaScript suites, 31 web
+syntax checks, 313 Python AST checks and diff checks pass. Final focused and
+rendered reruns retain the exact serialization/security assertions. No Actions,
+download or paid service was added or invoked. A read-only live conservation
+check preserved all five database proofs, original requests, usage, claims and
+binding epochs with zero native RPCs; the live rejected preview remains
+unsubmitted, and terminal safety remains unknown.
+
 ## Forward-only fresh pre-Play host successor
 
 The [separate successor review](PREPLAY-SUCCESSOR-HOST.md) preserves legacy

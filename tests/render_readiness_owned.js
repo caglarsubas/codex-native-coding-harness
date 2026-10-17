@@ -1,9 +1,10 @@
 'use strict';
-// Disposable browser context and metadata-only fixture. Never confirms a control.
+// Disposable browser context. Opt-in local confirmation suppresses notification.
 const assert=require('node:assert/strict'),cp=require('node:child_process');
 const {chromium}=require('playwright');
 (async()=>{
-  const child=cp.spawn('python3',['tests/manual_readiness_owned_fixture.py'],{stdio:['ignore','pipe','pipe']});
+  const confirmBrowser=process.argv.includes('--confirm-browser');
+  const child=cp.spawn('python3',['tests/manual_readiness_owned_fixture.py',...(confirmBrowser?['--confirm-browser']:[])],{stdio:['ignore','pipe','pipe']});
   const exited=new Promise(resolve=>child.once('exit',resolve));
   let browser,stderr='';child.stderr.on('data',x=>stderr+=x);
   try{
@@ -30,14 +31,29 @@ const {chromium}=require('playwright');
       await page.getByText('Valid until scope changes; no timer expiry.',{exact:true}).last().waitFor();
       const details=page.getByText('Details · exact readiness scope',{exact:true}).last();await details.click();
       assert.equal(await page.getByRole('button',{name:'confirm readiness-owned startup',exact:true}).last().isEnabled(),true);
+      assert.equal(await page.getByText('Confirmation window ended. Refresh the review here; no need to write another message.',{exact:true}).count(),0,'No expired footer on a scope-bound review');
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,'Reflow at '+width);
       runs.push({width,exactReview:true,noTimerExpiry:true,noOverflow:true,confirmed:false});
+      await details.click();await binding.click();
+      const footer=page.getByText('Valid until scope changes; no timer expiry.',{exact:true}).last();
+      await footer.scrollIntoViewIfNeeded();assert.equal(await footer.isVisible(),true);
       if(process.env.READINESS_SCREENSHOT_DIR)await page.screenshot({path:process.env.READINESS_SCREENSHOT_DIR+'/readiness-'+width+'.png',fullPage:true});
     }
     assert.deepEqual(errors,[]);
     assert.equal(writes.filter(x=>!x.endsWith('/login')&&!x.endsWith('/assistant/preview')).length,0,'No control/confirm POST');
     assert.equal(writes.filter(x=>x.endsWith('/assistant/preview')).length,2);
-    console.log(JSON.stringify({rendered:runs,previews:2,confirmations:0,nativeActions:0,errors:0}));
+    if(confirmBrowser){
+      const response=page.waitForResponse(r=>new URL(r.url()).pathname.endsWith('/assistant/confirm')&&r.request().method()==='POST');
+      await page.getByRole('button',{name:'confirm readiness-owned startup',exact:true}).last().click();
+      const received=await response;
+      assert.equal(received.status(),200,await received.text());
+      await page.waitForFunction(()=>[...document.querySelectorAll('.chat-action')].some(x=>x.dataset.actionState==='recorded'));
+      assert.equal(writes.filter(x=>x.endsWith('/assistant/confirm')).length,1);
+      assert.equal(writes.filter(x=>!x.endsWith('/login')&&!x.endsWith('/assistant/preview')&&!x.endsWith('/assistant/confirm')).length,0);
+    }
+    assert.deepEqual(errors,[]);
+    console.log(JSON.stringify({rendered:runs,previews:2,confirmations:confirmBrowser?1:0,
+      localCommandOnly:confirmBrowser,nativeActions:0,exactNanosecondPins:true,errors:0}));
     await context.close();
   }finally{
     if(browser)await browser.close();child.kill('SIGINT');

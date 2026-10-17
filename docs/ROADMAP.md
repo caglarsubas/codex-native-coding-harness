@@ -1,5 +1,13 @@
 # Codex-native orchestration roadmap
 
+- [x] Preserve exact signed readiness file epochs through a real JavaScript and
+  authenticated browser confirmation round-trip; align the generic footer with
+  scope-bound no-timer validity without weakening any signature/scope/one-shot
+  check ([contract](READINESS-OWNED-LIFECYCLE.md); disposable qualification only).
+- [ ] Separately merge/install the browser repair, then prepare a new exact live
+  review and qualify its actual readiness receipt. The rejected preview created
+  no command or native allowance; do not replay/re-sign it automatically.
+
 - [x] Implement explicit forward-only successor-host maintenance for a genuinely
   exited issued fresh pre-Play restart, preserving all old requests, claims,
   bindings and usage ([contract](PREPLAY-SUCCESSOR-HOST.md); source/disposable

@@ -1,5 +1,14 @@
 # Durable project knowledge and bounded brain context
 
+Readiness browser confirmations preserve the exact canonical inner review as
+text, not JavaScript numbers: nanosecond file epochs otherwise round and reject
+the signed preview before any claim or command. Authentication, closed-schema,
+source/private/native scope checks and one-shot gates are unchanged. The generic
+footer now matches the readiness control's scope-bound no-timer validity; old
+timed controls remain timed. Disposable browser confirmation and native delivery
+are separate qualification axes. Source delivery does not refresh/re-sign a
+rejected live preview, install source or continue the pilot automatically.
+
 [PREPLAY-SUCCESSOR-HOST.md](PREPLAY-SUCCESSOR-HOST.md) defines a separate
 scope-bound launch-only review for a later genuine exit of an issued fresh
 pre-Play restart. A bounded immutable lineage and per-last-process claim preserve

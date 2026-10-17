@@ -14,6 +14,22 @@ authenticated conversation. The review has no timer expiry; source, native
 state and private scope changes invalidate it. It cannot survive a server key
 change as an unsigned approval. No model output or vague assent confirms it.
 
+The signed browser request contains only `id`, `contextHash` and
+`readinessStartJson`: the exact canonical UTF-8 review encoded as JSON text.
+Nanosecond file epochs exceed JavaScript's safe integer range and must not cross
+this boundary as parsed browser numbers. After the normal HMAC, session and
+project checks, the server decodes this text with duplicate/non-finite rejection,
+requires canonical equality, the closed inner review and matching command/context,
+then repeats all original scope/native checks. The command, backup and private
+claim retain the original review object and exact integers; no file pin is
+rounded, removed, regenerated or migrated to make a signature pass. Legacy raw
+browser requests are not converted. A rejected preview creates no command or
+allowance and does not authorize a silent re-sign, refresh or resend.
+
+Both the confirmation gate and generic review footer say that this scope-bound
+control has no timer expiry. Source/state/session/key changes still invalidate
+it, and legacy timed controls retain their original confirmation windows.
+
 Only an empty, unowned, paused schema-1, all-standard first-phase project with
 an unchanged reviewed phase-delegated mission qualifies. Strict enrollment,
 Brain Stop, workers, packets, decisions, pending/uncertain controls, admission,
@@ -95,9 +111,19 @@ it qualifies connection/receipt composition, not live model/tool compliance,
 native build trust, account access, terminal safety or pilot acceptance. It makes
 no live-host connection or external provider request and reads no credentials.
 
-The local qualification includes 22 focused Python cases, 39 JavaScript suites,
-31 web syntax checks and rendered 1440px/320px review checks with no horizontal
-overflow or control confirmation. The compiled loopback fixture observed the
+The local qualification includes 28 focused Python cases, including real Node
+JSON round-trips with unrepresentable odd nanosecond epochs, Unicode paths,
+tampering, foreign sessions and malformed/noncanonical text. JavaScript checks
+exercise the real generic footer and unchanged legacy expiry. Rendered
+1440px/320px review checks retain zero horizontal overflow and no false expiry.
+The default rendered fixture confirms nothing. Its separate opt-in
+`node tests/render_readiness_owned.js --confirm-browser` mode submits one real
+authenticated HTTP confirmation in a disposable project with a consumed
+inspection claim; it verifies the canonical command/claim and exact original
+file epochs while explicitly suppressing all notification and native delivery.
+It is not live owner confirmation or native execution qualification.
+
+The compiled loopback fixture observed the
 actual restricted policy, eight catalog models, one readiness load, one receipt
 turn and original observer closure. These are disposable-source results, not a
 live receipt or permission to activate the pilot.
