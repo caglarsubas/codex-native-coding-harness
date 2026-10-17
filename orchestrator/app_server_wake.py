@@ -398,6 +398,15 @@ class AppServerWake:
         for proxy in subscriptions:
             proxy.__exit__(None, None, None)
 
+    def has_pending_permission(self, brain_id):
+        """In-memory fence, including a queued response not yet consumed.
+
+        Do not project choices through another ledger transaction while a
+        caller already holds the run-write transaction.
+        """
+        with self._lock:
+            return brain_id in self._pending_approvals
+
     def pending_approval(self, brain_id):
         """Exact, transient owner-only prompt. Never persist or send to inference."""
         with self._lock:
@@ -1133,6 +1142,9 @@ class AppServerWake:
                 if effective is not None:
                     effective["nativeTurnId"] = confirmed_turn_id
                 self.ledger.put(db, "commands", command_id, command)
+            if (command.get('notification') or {}).get('runControl'):
+                from .standard_run_mailbox import bind_turn
+                bind_turn(self.ledger, command_id, brain_id, confirmed_turn_id, host=self)
             stage = "subscription"
             thread = threading.Thread(target=self._observe_turn,
                 args=(proxy, command_id, brain_id, turn["id"]), daemon=True,
@@ -1165,6 +1177,7 @@ class AppServerWake:
             return result
         finally:
             if not retained:
+                getattr(self, '_run_control_keys', {}).pop(command_id, None)
                 if effect_started:
                     try:
                         self._finish_thread_observation(command_id, brain_id, confirmed_turn_id, "unconfirmed",
@@ -1203,6 +1216,9 @@ class AppServerWake:
                     # serviced by this already-owned observer, never by UI polling.
                     from .standard_host_inspection import service_request, _mailbox
                     try:
+                        from .standard_run_mailbox import service_pending as service_run
+                        if (control.get('notification') or {}).get('runControl', {}).get('transport') == 'standard_run_observer_v1':
+                            service_run(self, proxy, command_id, brain_id, turn_id)
                         from .public_native_tasks import service_pending
                         service_pending(self, command_id, brain_id, turn_id)
                         from . import standard_preplay
@@ -1283,6 +1299,7 @@ class AppServerWake:
             attention_reason = "observer_read_failed"
         finally:
             proxy.__exit__(None, None, None)
+            getattr(self, '_run_control_keys', {}).pop(command_id, None)
             if hasattr(proxy,'_readiness_owned_deadline'):
                 try:
                     from .readiness_owned import journal, PROTOCOL

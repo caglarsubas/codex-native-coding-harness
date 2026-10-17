@@ -13,6 +13,15 @@ edits. The live pilot requires separate qualification and continuation authority
 
 # Codex Orchestrator
 
+For a prospective `standard_run_observer_v1` notification, read source
+`docs/SANDBOX-SAFE-RUN-CONTROL.md` fully and use only its original `--run-handoff`
+closed sequential calls instead of shared registry/controller access. This is
+the standard-cycle exception for that marker only. Permanent claims and
+observer-process seals prevent unknown-call replay. Keep all current mission,
+usage, Pause, native task and independent result gates. No permission response,
+reload, binding change or safety inference is granted. Old held requests cannot
+acquire a mailbox; read-only continuation assessment does not resolve them.
+
 For a later genuine exit of an issued fresh pre-Play restart, read source
 `docs/PREPLAY-SUCCESSOR-HOST.md` completely before explicit `prepare --successor`.
 Only its new exact launch review can use the unchanged first-phase scope and

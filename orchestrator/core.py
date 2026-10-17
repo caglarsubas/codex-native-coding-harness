@@ -132,7 +132,15 @@ def validate_seed(seed):
 
 
 class Ledger:
-    def __init__(self, root):
+    def __init__(self, root, *, read_only=False):
+        self.read_only = read_only
+        if read_only:
+            from .workspaces import private_path, private_database
+            self.root = private_path(root, existing=True)
+            self.db = private_database(self.root / 'ledger.sqlite3')
+            with contextlib.closing(self.connect()) as db:
+                require(supported_ledger_metadata(self.get(db, 'meta', 1)), 'Unsupported ledger version')
+            return
         self.root = Path(root).resolve()
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
         os.chmod(self.root, 0o700)
@@ -164,6 +172,11 @@ class Ledger:
         os.chmod(self.db, 0o600)
 
     def connect(self):
+        if self.read_only:
+            db = sqlite3.connect(self.db.as_uri() + '?mode=ro', uri=True, timeout=10, isolation_level=None)
+            db.row_factory = sqlite3.Row
+            db.execute('PRAGMA query_only=ON')
+            return db
         db = sqlite3.connect(self.db, timeout=10, isolation_level=None)
         db.row_factory = sqlite3.Row
         db.execute("PRAGMA foreign_keys=ON")
@@ -173,6 +186,7 @@ class Ledger:
 
     @contextlib.contextmanager
     def tx(self):
+        require(not self.read_only, 'Read-only ledger cannot initialize or mutate state')
         db = self.connect()
         try:
             db.execute("BEGIN IMMEDIATE")

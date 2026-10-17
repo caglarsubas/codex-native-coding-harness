@@ -1,5 +1,13 @@
 # Codex-native orchestration roadmap
 
+- [x] Implement read-only CLI opening and prospective original-observer run
+  control for sandboxed public standard brains without shared database/socket
+  access ([contract](SANDBOX-SAFE-RUN-CONTROL.md); source/disposable tests only).
+- [ ] Separately merge/install when ownership permits, resolve the original held
+  v3 native permission through its exact owner control, and qualify a permitted
+  continuation. No historical mailbox attachment, automatic response/cancellation,
+  brain reload, replay, usage reset or terminal-safety inference follows source.
+
 - [x] Preserve exact signed readiness file epochs through a real JavaScript and
   authenticated browser confirmation round-trip; align the generic footer with
   scope-bound no-timer validity without weakening any signature/scope/one-shot

@@ -1,5 +1,13 @@
 # Cooperative standard-project brain
 
+If the original notification carries `standard_run_observer_v1`, first read
+`docs/SANDBOX-SAFE-RUN-CONTROL.md` completely. Its checkout-local mailbox replaces
+the shared-registry/controller shell procedure for that exact turn only. Use
+closed state/acquire/receive/usage/host_inspect/journal/task/status/release calls;
+never open protected databases or sockets. All standard rules below still apply.
+Do not attach this protocol to an already delivered control or use it to answer
+native permissions, replay a request, reset usage or infer terminal safety.
+
 For a separately reviewed disjoint successor, read source
 `docs/SAFE-SUCCESSOR.md` fully. Admission never grants Play or releases the old
 quarantined repository/usage. Only the existing target's separately confirmed
