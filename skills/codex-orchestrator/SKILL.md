@@ -42,6 +42,19 @@ launch review before its permanent fence/exec claim. Never reuse consumed
 approvals, load a brain, replay a request, change bindings, reset usage or infer
 terminal safety. Source delivery installs/launches/confirms nothing.
 
+For an explicitly requested one-shot pre-Play public inspection load, read
+source `docs/PREPLAY-INSPECTION-LOAD.md` completely. Require an unchanged empty
+unowned paused first-phase project, actual original failed-schema receipt or
+canceled-readiness disposition, and its exact issued fresh-restart host/binding.
+Prepare only a new exact until-scope-changes review; never infer application.
+Application verifies private backups and commits the canonical ledger/brain
+claim before one fixed metadata-only load. A partial/unknown attempt stays
+consumed across review directories and hosts. The separately reviewed original
+foreground observation window is not review expiry or a durable host/phase
+lease. Reconcile/status never load, acknowledge lost responses, create readiness,
+replay Play/recovery, change bindings/usage or assert terminal safety. Source
+delivery and preparation install, load and confirm nothing.
+
 For the explicitly requested operator-only exact export from shared ~/.codex,
 read `docs/SHARED-BRAIN-EXPORT.md` completely. Export one bound native-returned
 brain rollout to a new disjoint private archive, never the shared home, credentials

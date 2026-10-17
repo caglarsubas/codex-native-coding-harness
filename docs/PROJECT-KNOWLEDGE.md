@@ -1,5 +1,14 @@
 # Durable project knowledge and bounded brain context
 
+[PREPLAY-INSPECTION-LOAD.md](PREPLAY-INSPECTION-LOAD.md) defines the separate
+one-shot first-phase load review. An issued fresh restart, exact current binding,
+correlated original failed-schema receipt or real canceled disposition, and empty
+unowned paused state are mandatory. A canonical ledger/brain claim precedes one
+fixed load; private backups and repeated actual loaded-policy checks are not a
+readiness receipt. Its bounded original foreground subscription does not expire
+the scope-bound review or allow reconnect/reload. Source/preparation loads nothing,
+changes no requests/usage/claims/bindings and grants no Play or terminal safety.
+
 [PUBLIC-HOST-READINESS.md](PUBLIC-HOST-READINESS.md) separates the opted-in
 public task backend's versioned binary schemas and repeated runtime catalog,
 identity, authentication and effective-policy evidence from desktop tool

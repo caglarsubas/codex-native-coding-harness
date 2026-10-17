@@ -1,5 +1,19 @@
 # Codex Orchestrator — personal tooling
 
+## One-shot pre-Play inspection load source (2026-10-17)
+
+Read docs/PREPLAY-INSPECTION-LOAD.md before `public_preplay_inspection_load_v1`.
+Only an unchanged empty unowned paused first-phase public project on its exact
+issued fresh-restart host qualifies. Preserve original requests/dispositions,
+usage, claims, bindings and unknown terminal safety. A new until-scope-changes
+exact review may authorize one fixed metadata-only load, with verified private
+backups and canonical ledger/brain claim before effect. Partial/unknown attempts
+stay consumed across directories/hosts; reconcile/status never reload. The
+separately reviewed 15–300-second original foreground subscription is not review
+expiry or phase authority. No turn, permission response, new readiness request,
+readiness/Play/recovery replay, usage reset, binding change or safety assumption.
+Source/qualification and preparing a live review install/apply nothing.
+
 ## Backend-specific public readiness source (2026-10-17)
 
 Read docs/PUBLIC-HOST-READINESS.md before the version-2 prospective public pre-Play

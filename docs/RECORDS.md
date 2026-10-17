@@ -5,6 +5,19 @@ Canonical JSON is UTF-8, sorted keys, compact separators, no NaN. Its SHA-256 is
 the record identity; this encoding is local to this tool, not RFC 8785 signing.
 SQLite uses WAL, synchronous FULL and BEGIN IMMEDIATE for serialized transitions.
 
+## One-shot pre-Play inspection load
+
+[PREPLAY-INSPECTION-LOAD.md](PREPLAY-INSPECTION-LOAD.md) defines private
+`public_preplay_inspection_load_v1` reviews. They pin clean source, original
+fresh restart/exec claim, exact current binding/process/socket, dual project IDs,
+first mission, original receipt/disposition and complete registry/ledger proofs.
+The canonical ledger/brain/database-identity claim precedes the private intent
+and load claim; another review directory or endpoint cannot mint a second load.
+The original foreground connection has a separately reviewed, non-renewable
+observation window. Missing closure or load acknowledgment stays unknown.
+Read-only reconciliation never loads or repairs it. Observations are not old
+catalog receipts, usage, terminal cleanup, a checkpoint, Play or pilot acceptance.
+
 ## Fresh pre-Play public host restart
 
 [PUBLIC-PREPLAY-HOST-RESTART.md](PUBLIC-PREPLAY-HOST-RESTART.md) defines the

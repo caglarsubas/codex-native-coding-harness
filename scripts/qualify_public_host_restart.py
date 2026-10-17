@@ -27,7 +27,8 @@ from orchestrator.native_auth_readiness import inspect as authentication
 from qualify_public_native_tasks import StdioFixture
 
 
-def qualify(binary, expected_hash, *, inspection=False, subscription_seconds=None, signed_in_preplay=False):
+def qualify(binary, expected_hash, *, inspection=False, subscription_seconds=None, signed_in_preplay=False, preplay_load=False):
+    require(not preplay_load or inspection, 'Pre-Play load qualification requires the explicit disposable inspection fixture')
     require(not signed_in_preplay or not inspection and subscription_seconds is None,
             'The signed-in pre-Play backup fixture grants no inspection load')
     if subscription_seconds is not None:
@@ -159,9 +160,13 @@ def qualify(binary, expected_hash, *, inspection=False, subscription_seconds=Non
                         owner = SubscriptionOwner(proxy, subscription_seconds, digest(scope))
                         proxy.subscription_owner = owner; proxy.query_limit = 2048
                     proxy.load_permitted = True
-                    reply = proxy._rpc('thread/resume',load_params(scope))
-                    require(reply['thread']['id'] == brain and reply['thread']['cwd'] == str(cwd) and
-                            reply['thread'].get('turns',[]) == [], 'Exact metadata-only load acknowledgment required')
+                    if preplay_load:
+                        from orchestrator.public_preplay_load import load_once
+                        load_once(proxy,scope)
+                    else:
+                        reply = proxy._rpc('thread/resume',load_params(scope))
+                        require(reply['thread']['id'] == brain and reply['thread']['cwd'] == str(cwd) and
+                                reply['thread'].get('turns',[]) == [], 'Exact metadata-only load acknowledgment required')
                     loaded = repeated(proxy,scope)
                     if owner is not None:
                         checks = []
@@ -194,7 +199,7 @@ def qualify(binary, expected_hash, *, inspection=False, subscription_seconds=Non
                             warm.poll() is None and len(requests) == 1 and history.read_bytes().startswith(before) and
                             restricted_config(home,cwd) == config_before,
                             'Release must preserve unknown evidence, same host, history/config and zero model requests')
-                    return {'status':'subscription_ownership_fixture_passed', 'sameHome':True,
+                    return {'status':'subscription_ownership_fixture_passed', 'sameHome':True,'preplayLoadBoundaryQualified':preplay_load,
                         'reviewedObservationSeconds':subscription_seconds,'verifiedLoadedBeyondSeconds':60,
                         'heldOriginalSubscription':True,'metadataCheckCount':len(checks),
                         'releasedConnectionAllowsUnload':True,'readOnlyConnectionsDoNotAdoptOwnership':True,
@@ -205,7 +210,7 @@ def qualify(binary, expected_hash, *, inspection=False, subscription_seconds=Non
                         'configAndHistoryPreserved':True,'liveNativeWrites':0,'livePilotQualified':False}
                 require(restricted_config(home,cwd) == config_before and len(requests) == 1,
                         'Inspection/reconciliation changed configuration or requested a model')
-                return {'status':'inspection_fixture_passed','sameHome':True,
+                return {'status':'inspection_fixture_passed','sameHome':True,'preplayLoadBoundaryQualified':preplay_load,
                     'projectBrainAndEndedTurnPreserved':True,'actualRestrictedLoadedPolicy':True,
                     'unixTransport':'actual_inspection_proxy','coldReceiptModelRequests':1,
                     'inspectionLoads':1,'inspectionTurns':0,'inspectionModelRequests':0,
@@ -229,9 +234,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--executable',required=True); parser.add_argument('--sha256',required=True)
     parser.add_argument('--inspection',action='store_true',help='Also qualify one metadata-only warm load and read-only reconciliation')
+    parser.add_argument('--preplay-load',action='store_true',help='Use the separate pre-Play load boundary in the disposable inspection fixture')
     parser.add_argument('--signed-in-preplay',action='store_true',help='Test the separate auth-metadata-only backup using a synthetic empty auth container; no load')
     parser.add_argument('--subscription-seconds',type=int,
                         help='Disposable only: hold the original subscription for 75–300 seconds, then verify unload')
     args = parser.parse_args()
     print(canonical(qualify(args.executable,args.sha256,inspection=args.inspection,
-                          subscription_seconds=args.subscription_seconds,signed_in_preplay=args.signed_in_preplay)))
+                          subscription_seconds=args.subscription_seconds,signed_in_preplay=args.signed_in_preplay,preplay_load=args.preplay_load)))
