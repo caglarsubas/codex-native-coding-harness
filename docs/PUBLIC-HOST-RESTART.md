@@ -1,5 +1,9 @@
 # Safe existing-home public host restart
 
+For a fresh signed-in schema-1 pre-Play home without a completed transfer, use
+the separate [pre-Play maintenance profile](PUBLIC-PREPLAY-HOST-RESTART.md).
+The transferred-run profile below remains unchanged and refuses credentials.
+
 `public_existing_home_restart_v1` is separate operator maintenance. It fixes the
 empty-home launch dead end without replaying launch, transfer, Play or recovery.
 The original `public_app_server_host_v1` gate is unchanged. This is not automatic

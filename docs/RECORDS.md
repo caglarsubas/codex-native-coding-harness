@@ -5,6 +5,16 @@ Canonical JSON is UTF-8, sorted keys, compact separators, no NaN. Its SHA-256 is
 the record identity; this encoding is local to this tool, not RFC 8785 signing.
 SQLite uses WAL, synchronous FULL and BEGIN IMMEDIATE for serialized transitions.
 
+## Fresh pre-Play public host restart
+
+[PUBLIC-PREPLAY-HOST-RESTART.md](PUBLIC-PREPLAY-HOST-RESTART.md) defines the
+operator-only `public_preplay_home_restart_v1` manifest, source/scope/backup/file
+epoch pins, separate metadata-only credential epoch, canonical predecessor fence
+and exclusive intent/exec claim. These are private launch-maintenance records,
+not native receipts, readiness evidence or installed bindings. Historical status
+does not probe or retry the host. Unknown current/historical terminal safety,
+original request outcomes and old usage/claims stay unchanged.
+
 ## Canceled readiness disposition
 
 [READINESS-DISPOSITION.md](READINESS-DISPOSITION.md) defines the separate

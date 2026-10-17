@@ -21,12 +21,15 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from orchestrator.core import canonical, digest, require
 from orchestrator.native_read_client import secure_path, inspect_endpoint
 from orchestrator.public_host_lifecycle import CONFIG, environment
-from orchestrator.public_host_restart import home_snapshot, backup_check, restricted_config, RestartReadProxy
+from orchestrator.public_host_restart import home_snapshot, signed_in_preplay_snapshot, backup_check, restricted_config, RestartReadProxy
+from orchestrator.host_runtime import stamp
 from orchestrator.native_auth_readiness import inspect as authentication
 from qualify_public_native_tasks import StdioFixture
 
 
-def qualify(binary, expected_hash, *, inspection=False, subscription_seconds=None):
+def qualify(binary, expected_hash, *, inspection=False, subscription_seconds=None, signed_in_preplay=False):
+    require(not signed_in_preplay or not inspection and subscription_seconds is None,
+            'The signed-in pre-Play backup fixture grants no inspection load')
     if subscription_seconds is not None:
         from orchestrator.native_subscription import duration
         duration(subscription_seconds)
@@ -97,9 +100,21 @@ def qualify(binary, expected_hash, *, inspection=False, subscription_seconds=Non
             before = history.read_bytes(); stop(cold)
             require(cold.poll() is not None, 'Owned cold fixture process has not exited')
             config_before = restricted_config(home,cwd)
-            snapshot = home_snapshot(home,binary,brain=brain)
-            require(home_snapshot(home,binary,backup,brain=brain) == snapshot, 'Cold native home changed during fixture backup')
+            if signed_in_preplay:
+                # Empty synthetic auth container, not an account, key or token.
+                # Exercise preservation only, never claim sign-in qualification.
+                auth_file = home/'auth.json'
+                require(not auth_file.exists(), 'Fixture unexpectedly acquired credentials')
+                auth_file.write_bytes(b'{}\n'); auth_file.chmod(0o600)
+                auth_epoch = stamp(auth_file.lstat())
+            snapshotter = signed_in_preplay_snapshot if signed_in_preplay else home_snapshot
+            snapshot = snapshotter(home,binary,brain=brain)
+            require(snapshotter(home,binary,backup,brain=brain) == snapshot, 'Cold native home changed during fixture backup')
             backup_check({'backupPath':str(backup)},snapshot)
+            if signed_in_preplay:
+                require(not (backup/'auth.json').exists() and stamp(auth_file.lstat()) == auth_epoch and
+                        snapshot['credentialMetadata']['bytesRead'] is False and snapshot['credentialMetadata']['copied'] is False,
+                        'Synthetic auth must remain in place and outside the opaque backup')
             warm = subprocess.Popen([binary,*override,'app-server','--listen','unix://'+str(sockets/'host.sock')],cwd=cwd,
                 env=environment({'codexHome':str(home)}),stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,start_new_session=True)
@@ -127,6 +142,9 @@ def qualify(binary, expected_hash, *, inspection=False, subscription_seconds=Non
             require(samples[0] == samples[1] and history.read_bytes().startswith(before) and len(requests) == 1,
                     'Warm native read caused history drift or another model request')
             require(restricted_config(home,cwd) == config_before, 'Warm fixture modified reviewed restricted config')
+            if signed_in_preplay:
+                require(stamp(auth_file.lstat()) == auth_epoch and not (backup/'auth.json').exists(),
+                        'Warm native fixture changed or copied the synthetic auth file')
             if inspection:
                 from orchestrator.public_pilot_inspection import InspectionProxy, load_params, repeated
                 scope = {'brainId': brain, 'projectId': project['id'], 'cwd': str(cwd),
@@ -195,6 +213,8 @@ def qualify(binary, expected_hash, *, inspection=False, subscription_seconds=Non
                     'currentTrackedTerminals':'known_empty','currentTerminalSafety':'unknown',
                     'historicalTerminalSafety':'unknown','livePilotQualified':False}
             return {'status':'fixture_passed','sameHome':True,'projectBrainAndEndedTurnPreserved':True,
+                'signedInPreplayBackupProfile':signed_in_preplay,'syntheticAuthOnly':signed_in_preplay,
+                'credentialBytesReadByBackup':False,'credentialsCopied':False,'liveSignInQualified':False,
                 'backupVerified':True,'preservedNativeProjectTrust':config_before['nativeProjectTrust'],
                 'unixTransport':'actual_read_proxy','coldReceiptModelRequests':1,
                 'warmModelRequests':0,'warmLoads':0,'warmTurns':0,'warmNativeWrites':0,
@@ -209,8 +229,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--executable',required=True); parser.add_argument('--sha256',required=True)
     parser.add_argument('--inspection',action='store_true',help='Also qualify one metadata-only warm load and read-only reconciliation')
+    parser.add_argument('--signed-in-preplay',action='store_true',help='Test the separate auth-metadata-only backup using a synthetic empty auth container; no load')
     parser.add_argument('--subscription-seconds',type=int,
                         help='Disposable only: hold the original subscription for 75–300 seconds, then verify unload')
     args = parser.parse_args()
     print(canonical(qualify(args.executable,args.sha256,inspection=args.inspection,
-                          subscription_seconds=args.subscription_seconds)))
+                          subscription_seconds=args.subscription_seconds,signed_in_preplay=args.signed_in_preplay)))

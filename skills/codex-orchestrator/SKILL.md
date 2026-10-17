@@ -31,6 +31,17 @@ safe. Connectivity reads and candidate binding stay separate from installed
 binding and phase authority. Source delivery launches or installs nothing and
 does not qualify the pilot.
 
+For an explicitly requested fresh pre-Play signed-in public host repair, read
+source `docs/PUBLIC-PREPLAY-HOST-RESTART.md` completely. This separate schema-1
+empty-first-phase profile preserves ended readiness requests and any real
+canceled-readiness disposition. Pin the original issued launch, exact package,
+home/checkout/dual project mapping and all old records. Back up opaque native
+state except credentials; auth.json is metadata-only and remains in place.
+Require repeated predecessor/home quiescence and one new exact scope-bound
+launch review before its permanent fence/exec claim. Never reuse consumed
+approvals, load a brain, replay a request, change bindings, reset usage or infer
+terminal safety. Source delivery installs/launches/confirms nothing.
+
 For the explicitly requested operator-only exact export from shared ~/.codex,
 read `docs/SHARED-BRAIN-EXPORT.md` completely. Export one bound native-returned
 brain rollout to a new disjoint private archive, never the shared home, credentials

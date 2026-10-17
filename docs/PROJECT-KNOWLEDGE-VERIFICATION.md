@@ -4,6 +4,41 @@ This separates source implementation from installation, merge and live
 qualification. None of these entries grants standard Play, a brain replacement
 or strict Harness execution authority.
 
+## Fresh signed-in pre-Play host repair
+
+The [separate maintenance profile](PUBLIC-PREPLAY-HOST-RESTART.md) passes 20
+focused disposable tests plus all 40 existing transferred-home restart tests.
+Coverage includes a real retained canceled-readiness disposition followed by a
+distinct failed request, immutable request/database/binding pins, no credential
+open/hash/copy, complete opaque backup verification, unchanged old scanner,
+aliases/foreign sessions, native project/build/policy mismatch, unknown delivery,
+pending permissions, Stop/run/controller races, scope drift, permanent claims,
+interrupted exec and historical file-only status. No native socket is permitted
+by the unit fixtures. The source skill is updated, not the installed live skill.
+
+The pinned compiled runtime
+`5efb9e2cefbbca03ab5ec3780105c7873c5f265d10c0e32c749afccc9fda5ee7`
+passes both real-native same-home Unix fixtures (legacy and new backup profile).
+Each makes one cold loopback receipt and zero warm loads, turns, native write
+RPCs or provider requests, preserving exact project/brain/latest-ended-turn and
+history/config. The new fixture preserves an empty synthetic auth container in
+place without backing it up; it is not real sign-in or account qualification.
+Unloaded policy and all current/historical terminal safety remain unknown.
+
+Read-only live inspection confirms that the absent original v3 host, two ended
+requests, real canceled-readiness disposition and existing signed-in home fit
+the narrow source profile. All five protected database proofs, old run usage,
+claims and binding epochs remain unchanged, and the installed PR-165 dashboard
+and gateway remain healthy. These are source/preparation observations, not a
+host launch, live reconnection, readiness replay, loaded policy or pilot result.
+No runtime download, Actions workflow or paid service was introduced.
+
+Final complete local discovery passed **2,897 Python tests** in 729.807 seconds
+(one optional Graphify executable check skipped). All 38 JavaScript suites,
+31 browser-script syntax checks, 305 Python AST checks and diff checks pass.
+Source delivery still installs/launches/confirms nothing; the live host is not
+restored by these results.
+
 ## Backend-specific public-host readiness
 
 The [public-host source](PUBLIC-HOST-READINESS.md) has 32 focused disposable

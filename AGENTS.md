@@ -160,6 +160,25 @@ Current empty trackers do not prove historical cleanup or whole-terminal safety.
 Do not read/copy auth.json or reconnect original endpoints. Source delivery
 installs/loads/confirms nothing and leaves the paused pilot unchanged.
 
+## Fresh pre-Play public host repair source (2026-10-17)
+
+Read docs/PUBLIC-PREPLAY-HOST-RESTART.md before the separate operator-only
+`public_preplay_home_restart_v1` path. Only an empty unowned paused schema-1
+first-phase standard project with ended original readiness turns qualifies;
+an unreceived canceled request needs its actual retained disposition. Preserve
+both requests, old runs/usage/claims, all bindings and unknown safety. Require
+the exact original issued launch/exec claim, package, home, checkout, dual project
+IDs, saved catalog mapping and public policy/task contracts. Repeat original-PID
+absence and home quiescence without reconnecting the old endpoint. The separate
+signed-in scanner may inspect only private auth.json metadata, never its bytes,
+hash or contents, and never copy/replace/refresh credentials. Verify an opaque
+non-credential backup and unchanged credential epoch. The older restart profile
+still refuses signed-in homes. One new exact until-scope-changes launch review
+and canonical predecessor fence precede fixed closed-environment exec. Failed,
+interrupted or unknown claims stay consumed. No load, readiness/Play/recovery
+replay, binding change, usage reset, terminal-safety inference, detached service
+or pilot acceptance. Source delivery launches/installs/confirms nothing.
+
 ## Existing-home public host restart source (2026-10-15)
 
 Read docs/PUBLIC-HOST-RESTART.md before the operator-only
