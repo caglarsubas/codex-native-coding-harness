@@ -1,5 +1,10 @@
 # Fresh pre-Play host repair
 
+A later genuine exit of an already issued fresh restart has the separately
+reviewed [successor maintenance path](PREPLAY-SUCCESSOR-HOST.md). Only explicit
+`prepare --successor` can prepare that distinct version-2 review; the version-1
+original-launch-only contract below is unchanged and cannot reuse an ancestor.
+
 `public_preplay_home_restart_v1` is separate operator maintenance for an exited
 fresh public host whose isolated home is already signed in. It does not relax
 the older transferred-run restart or initial empty-home launch profile. No

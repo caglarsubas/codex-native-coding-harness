@@ -18,6 +18,7 @@ from .public_host_lifecycle import POLICY, directory_identity, environment, isol
 from .native_read_client import decode
 
 KIND = 'public_preplay_home_restart_v1'
+SUCCESSOR_KIND = 'public_preplay_successor_restart_v1'
 PREFIX = 'public-preplay-host-restart-'
 FIELDS = {'version','kind','previousAttempt','previousPins','launchSpec','bindingFile','bindingPin',
           'scope','homeSnapshotPin','backupPath','socketDirectory','socketDirectoryIdentity',
@@ -117,14 +118,22 @@ def protected(registry, ledger, binding_file, launch):
             'sidecars':sidecars(ledger)}
 
 
-def inputs(registry, ledger, previous, binding_file):
+def inputs(registry, ledger, previous, binding_file, *, successor=False):
+    if successor:
+        from .public_preplay_host_lineage import inputs as successor_inputs
+        return successor_inputs(registry,ledger,previous,binding_file)
     # Do not coerce a transferred-run restart into this fresh-home profile.
     require((Path(previous)/'launch.json').is_file(), 'Exact initial fresh public host launch is required')
     launch, old, pins = restart.original_launch(previous,ledger)
     return launch,old,pins,protected(registry,ledger,binding_file,launch)
 
 
-def fence_path(ledger, launch, old):
+def fence_path(ledger, launch, old, *, successor=False):
+    if successor:
+        require(isinstance(old.get('processIdentity'),str) and old.get('specHash'), 'Issued successor process epoch required')
+        key = digest({'kind':SUCCESSOR_KIND,'launchSpec':launch,'homeIdentity':launch['homeIdentity'],
+            'previousPid':old['pid'],'previousEpoch':old['processIdentity'],'previousSpecHash':old['specHash']})
+        return ledger.root/(PREFIX+key+'.json')
     key = digest({'kind':KIND,'launchSpec':launch,'homeIdentity':launch['homeIdentity'],
                   'previousPid':old['pid'],'previousEpoch':old['observedAt']})
     return ledger.root/(PREFIX+key+'.json')
@@ -141,18 +150,22 @@ def paths(spec):
             'New socket/review paths must be private, bounded and disjoint from original state')
     require(spec['backupPath'] == str(directory/'native-home-backup') and
             spec['homeSnapshotPin']['path'] == str(directory/'home-snapshot.json'), 'Closed backup locations required')
+    if spec['version'] == 2:
+        old = [Path(p) for p in spec['scope']['retiredSocketDirectories']+spec['scope']['predecessorReviewDirectories']]
+        require(all(not p.is_relative_to(q) and not q.is_relative_to(p) for p in (directory,sockets) for q in old),
+                'Successor sockets/review must be disjoint from every predecessor')
 
 
-def prepare(registry, ledger, previous, binding_file, sockets, directory):
-    launch,old,pins,scope = values = inputs(registry,ledger,previous,binding_file)
-    fence = fence_path(ledger,launch,old)
+def prepare(registry, ledger, previous, binding_file, sockets, directory, *, successor=False):
+    launch,old,pins,scope = values = inputs(registry,ledger,previous,binding_file,successor=successor)
+    fence = fence_path(ledger,launch,old,successor=successor)
     require(not os.path.lexists(fence), 'This predecessor restart is consumed; never resend')
     sockets = isolated_directory(sockets); directory = Path(directory)
     isolated_directory(directory.parent)
     require(not list(sockets.iterdir()), 'New empty socket directory required')
     tree = restart.source_tree()
     # Check boundaries before creating/copying any source data.
-    spec = {'version':1,'kind':KIND,'previousAttempt':str(previous),'previousPins':pins,'launchSpec':launch,
+    spec = {'version':2 if successor else 1,'kind':SUCCESSOR_KIND if successor else KIND,'previousAttempt':str(previous),'previousPins':pins,'launchSpec':launch,
             'bindingFile':str(binding_file),'bindingPin':restart.pin(binding_file),'scope':scope,
             'homeSnapshotPin':{'path':str(directory/'home-snapshot.json')},'backupPath':str(directory/'native-home-backup'),
             'socketDirectory':str(sockets),'socketDirectoryIdentity':directory_identity(sockets),
@@ -168,7 +181,7 @@ def prepare(registry, ledger, previous, binding_file, sockets, directory):
     write_record(directory/'home-snapshot.json',snapshot)
     spec['homeSnapshotPin'] = restart.pin(directory/'home-snapshot.json',1_000_000)
     restart.backup_check(spec,snapshot)
-    require(values == inputs(registry,ledger,previous,binding_file), 'Protected scope changed during preparation')
+    require(values == inputs(registry,ledger,previous,binding_file,successor=successor), 'Protected scope changed during preparation')
     write_record(directory/'restart.json',spec)
     return preview(registry,ledger,directory/'restart.json')
 
@@ -176,24 +189,26 @@ def prepare(registry, ledger, previous, binding_file, sockets, directory):
 def load_spec(path):
     spec = decode(restart.read_file(private_file(path),65536)[0])
     require(isinstance(spec,dict) and set(spec) == FIELDS and type(spec['version']) is int and
-            spec['version'] == 1 and spec['kind'] == KIND and
+            ((spec['version'] == 1 and spec['kind'] == KIND) or
+             (spec['version'] == 2 and spec['kind'] == SUCCESSOR_KIND)) and
             Path(path) == Path(spec['reviewDirectory'])/'restart.json' and spec['sourceTree'] == restart.source_tree(),
             'Exact closed clean-source pre-Play restart manifest required')
     isolated_directory(spec['reviewDirectory']); paths(spec)
     return spec
 
 
-def review_hash(spec): return digest({'kind':KIND,'mode':'exec','specHash':digest(spec)})
+def review_hash(spec): return digest({'kind':spec['kind'],'mode':'exec','specHash':digest(spec)})
 
 
 def validate(registry, ledger, path, *, claimed=False):
     spec = load_spec(path)
-    launch,old,pins,scope = inputs(registry,ledger,spec['previousAttempt'],spec['bindingFile'])
+    successor = spec['version'] == 2
+    launch,old,pins,scope = inputs(registry,ledger,spec['previousAttempt'],spec['bindingFile'],successor=successor)
     require((launch,pins,scope,restart.pin(spec['bindingFile'])) ==
             (spec['launchSpec'],spec['previousPins'],spec['scope'],spec['bindingPin']), 'Reviewed scope changed')
-    fence = fence_path(ledger,launch,old)
+    fence = fence_path(ledger,launch,old,successor=successor)
     require(str(fence) == spec['fencePath'], 'Canonical predecessor restart fence differs')
-    expected = {'kind':KIND,'specHash':digest(spec),'reviewDirectory':spec['reviewDirectory']}
+    expected = {'kind':spec['kind'],'specHash':digest(spec),'reviewDirectory':spec['reviewDirectory']}
     if claimed: require(decode(restart.read_file(private_file(fence),65536)[0]) == expected, 'Claimed restart fence differs')
     else: require(not os.path.lexists(fence), 'Restart is consumed; inspection only, never relaunch')
     sockets = isolated_directory(spec['socketDirectory'])
@@ -209,7 +224,7 @@ def validate(registry, ledger, path, *, claimed=False):
 
 def preview(registry, ledger, path):
     spec = validate(registry,ledger,path)
-    return {'kind':KIND,'reviewHash':review_hash(spec),'validity':'until_scope_changes',
+    return {'kind':spec['kind'],'reviewHash':review_hash(spec),'validity':'until_scope_changes',
             'workspaceId':ledger.workspace_id,'brainId':spec['scope']['brainId'],
             'startsHost':False,'boundary':dict(BOUNDARY)}
 
@@ -219,14 +234,14 @@ def exec_host(registry, ledger, path, confirm_hash):
     require(sys.platform == 'darwin' and platform.machine() == 'arm64', 'macOS ARM64 is required')
     require(confirm_hash == review_hash(spec), 'Exact new pre-Play launch review required; consumed approvals cannot be reused')
     attempt = Path(spec['reviewDirectory'])/'attempt'; attempt.mkdir(mode=0o700); sync_directory(attempt.parent)
-    write_record(attempt/'intent.json',{'kind':KIND,'specHash':digest(spec),'reviewHash':confirm_hash,'at':time.time()})
+    write_record(attempt/'intent.json',{'kind':spec['kind'],'specHash':digest(spec),'reviewHash':confirm_hash,'at':time.time()})
     from .standard_quarantine import exclusive
-    exclusive(Path(spec['fencePath']),{'kind':KIND,'specHash':digest(spec),'reviewDirectory':spec['reviewDirectory']})
+    exclusive(Path(spec['fencePath']),{'kind':spec['kind'],'specHash':digest(spec),'reviewDirectory':spec['reviewDirectory']})
     with os.fdopen(os.open(attempt/'exec.claim',os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600),'wb') as stream:
         stream.flush(); os.fsync(stream.fileno())
     sync_directory(attempt)
     require(validate(registry,ledger,path,claimed=True) == spec, 'Scope changed after permanent claim; no retry')
-    state = {'kind':KIND,'status':'exec_boundary_issued','pid':os.getpid(),'parentPid':os.getppid(),
+    state = {'kind':spec['kind'],'status':'exec_boundary_issued','pid':os.getpid(),'parentPid':os.getppid(),
              'processIdentity':restart.process_identity(os.getpid()),'at':time.time(),'specHash':digest(spec),
              'boundary':dict(BOUNDARY)}
     write_record(attempt/'status.json',state)
@@ -247,16 +262,17 @@ def exec_host(registry, ledger, path, confirm_hash):
 def status(path):
     """Historical file-only read, even after source, scope or host drift."""
     spec = decode(restart.read_file(private_file(path),65536)[0])
-    require(isinstance(spec,dict) and set(spec) == FIELDS and spec['kind'] == KIND and
-            type(spec['version']) is int and spec['version'] == 1 and
+    require(isinstance(spec,dict) and set(spec) == FIELDS and type(spec['version']) is int and
+            ((spec['version'] == 1 and spec['kind'] == KIND) or
+             (spec['version'] == 2 and spec['kind'] == SUCCESSOR_KIND)) and
             Path(path) == Path(spec['reviewDirectory'])/'restart.json', 'Closed restart record required')
     attempt = Path(spec['reviewDirectory'])/'attempt'
-    base = {'kind':KIND,'historical':True,'hostReady':False,'boundary':dict(BOUNDARY)}
+    base = {'kind':spec['kind'],'historical':True,'hostReady':False,'boundary':dict(BOUNDARY)}
     if not os.path.lexists(attempt): return {**base,'status':'prepared_not_submitted','claimRetained':False}
     isolated_directory(attempt)
     if not (attempt/'status.json').exists(): return {**base,'status':'outcome_unknown','claimRetained':(attempt/'exec.claim').exists()}
     row = decode(restart.read_file(private_file(attempt/'status.json'),65536)[0])
-    require(row.get('kind') == KIND and row.get('specHash') == digest(spec) and row.get('boundary') == BOUNDARY and
+    require(row.get('kind') == spec['kind'] and row.get('specHash') == digest(spec) and row.get('boundary') == BOUNDARY and
             row.get('status') in {'exec_boundary_issued','exec_failed','exec_outcome_unknown'}, 'Invalid historical restart status')
     return {**base,'status':row['status'],'pid':row['pid'],'processIdentity':row['processIdentity'],
             'claimRetained':(attempt/'exec.claim').exists()}
@@ -267,6 +283,7 @@ def main():
     parser.add_argument('--platform',type=Path,required=True); parser.add_argument('--workspace',required=True)
     sub = parser.add_subparsers(dest='operation',required=True)
     setup = sub.add_parser('prepare')
+    setup.add_argument('--successor',action='store_true',help='Separate exact review of a genuinely exited issued pre-Play restart')
     for name in ('previous_attempt','binding_file','socket_directory','review_directory'): setup.add_argument(name,type=Path)
     for name in ('preview','status','exec'):
         operation = sub.add_parser(name); operation.add_argument('manifest',type=Path)
@@ -276,7 +293,7 @@ def main():
         if args.operation == 'status': value = status(args.manifest)
         else:
             registry,ledger = partial.routes(args.platform,args.workspace)
-            if args.operation == 'prepare': value = prepare(registry,ledger,args.previous_attempt,args.binding_file,args.socket_directory,args.review_directory)
+            if args.operation == 'prepare': value = prepare(registry,ledger,args.previous_attempt,args.binding_file,args.socket_directory,args.review_directory,successor=args.successor)
             elif args.operation == 'preview': value = preview(registry,ledger,args.manifest)
             else: exec_host(registry,ledger,args.manifest,args.confirm_hash); return
         print(canonical(value))

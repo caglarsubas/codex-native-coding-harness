@@ -1,5 +1,12 @@
 # Durable project knowledge and bounded brain context
 
+[PREPLAY-SUCCESSOR-HOST.md](PREPLAY-SUCCESSOR-HOST.md) defines a separate
+scope-bound launch-only review for a later genuine exit of an issued fresh
+pre-Play restart. A bounded immutable lineage and per-last-process claim preserve
+the original-launch-only v1 contract and every consumed approval/inspection.
+Source/fixtures install or launch nothing; runtime liveness, binding, readiness
+receipt and pilot acceptance remain separate, with terminal safety unknown.
+
 [READINESS-OWNED-LIFECYCLE.md](READINESS-OWNED-LIFECYCLE.md) adds a distinct
 prospective signed first-phase readiness control. Its original connection owns
 at most one restricted load, capability capture, one receipt-only turn and

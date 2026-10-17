@@ -27,7 +27,8 @@ from orchestrator.native_auth_readiness import inspect as authentication
 from qualify_public_native_tasks import StdioFixture
 
 
-def qualify(binary, expected_hash, *, inspection=False, subscription_seconds=None, signed_in_preplay=False, preplay_load=False, readiness_owned=False):
+def qualify(binary, expected_hash, *, inspection=False, subscription_seconds=None, signed_in_preplay=False, preplay_load=False, readiness_owned=False, successor_preplay=False):
+    require(not successor_preplay or signed_in_preplay,'Successor reopen fixture requires synthetic signed-in pre-Play metadata')
     require(not readiness_owned or not inspection and not signed_in_preplay and subscription_seconds is None,
             'Readiness-owned qualification is a separate disposable fixture')
     require(not preplay_load or inspection, 'Pre-Play load qualification requires the explicit disposable inspection fixture')
@@ -150,6 +151,43 @@ def qualify(binary, expected_hash, *, inspection=False, subscription_seconds=Non
             if signed_in_preplay:
                 require(stamp(auth_file.lstat()) == auth_epoch and not (backup/'auth.json').exists(),
                         'Warm native fixture changed or copied the synthetic auth file')
+            if successor_preplay:
+                stop(warm)
+                require(warm.poll() is not None,'Exact owned warm predecessor must actually exit')
+                next_backup=root/'successor-backup'; next_backup.mkdir(mode=0o700)
+                next_snapshot=signed_in_preplay_snapshot(home,binary,brain=brain)
+                require(signed_in_preplay_snapshot(home,binary,next_backup,brain=brain)==next_snapshot,
+                        'Successor non-credential snapshot changed')
+                backup_check({'backupPath':str(next_backup)},next_snapshot)
+                next_socket=root/'successor-ipc'; next_socket.mkdir(mode=0o700)
+                successor=subprocess.Popen([binary,*override,'app-server','--listen','unix://'+str(next_socket/'host.sock')],
+                    cwd=cwd,env=environment({'codexHome':str(home)}),stdin=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
+                processes.append(successor); deadline=time.monotonic()+15
+                while not (next_socket/'host.sock').exists():
+                    require(successor.poll() is None and time.monotonic()<deadline,'Successor fixture socket unavailable')
+                    time.sleep(.05)
+                next_endpoint=inspect_endpoint(binary,str((next_socket/'host.sock').resolve(strict=True)),identity_hash)
+                with RestartReadProxy(next_endpoint,brain,project['id']) as proxy:
+                    for _ in range(2):
+                        p=proxy._rpc('project/read',{'projectId':project['id']})['project']
+                        t=proxy._rpc('thread/read',{'threadId':brain,'includeTurns':False})['thread']
+                        latest=proxy._rpc('thread/turns/list',{'threadId':brain,'cursor':None,'limit':1,
+                            'sortDirection':'desc','itemsView':'notLoaded'})['data']
+                        require(p['id']==project['id'] and p['roots']==[{'path':str(cwd)}] and
+                            t['id']==brain and t['projectId']==project['id'] and t['cwd']==str(cwd) and
+                            t['status']['type']=='notLoaded' and latest[0]['id']==turn['id'] and
+                            latest[0]['status']=='completed' and proxy._rpc('thread/effectivePolicy/read',{'threadId':brain})==
+                            {'version':1,'threadId':brain,'policy':None},'Successor metadata/policy differs')
+                require(len(requests)==1 and history.read_bytes().startswith(before) and
+                    restricted_config(home,cwd)==config_before and stamp(auth_file.lstat())==auth_epoch and
+                    not (next_backup/'auth.json').exists(),'Successor changed history/config/auth or requested a model')
+                return {'status':'successor_preplay_runtime_fixture_passed','sameHomeReopenedTwice':True,
+                    'exactOwnedPredecessorExited':True,'projectBrainAndEndedTurnPreserved':True,
+                    'syntheticAuthOnly':True,'credentialBytesReadByBackup':False,'credentialsCopied':False,
+                    'coldReceiptModelRequests':1,'warmModelRequests':0,'warmLoads':0,'warmTurns':0,
+                    'externalProviderRequests':0,'liveHostConnections':0,'lineageJournals':'separate_unit_fixtures',
+                    'currentTerminalSafety':'unknown','historicalTerminalSafety':'unknown','livePilotQualified':False}
             if readiness_owned:
                 from qualify_readiness_owned import Fixture
                 fixture = Fixture(endpoint,brain,project['id'],cwd)
@@ -251,9 +289,11 @@ if __name__ == '__main__':
     parser.add_argument('--preplay-load',action='store_true',help='Use the separate pre-Play load boundary in the disposable inspection fixture')
     parser.add_argument('--readiness-owned',action='store_true',help='Qualify a distinct readiness-owned load, capture, turn and synthetic fixture receipt')
     parser.add_argument('--signed-in-preplay',action='store_true',help='Test the separate auth-metadata-only backup using a synthetic empty auth container; no load')
+    parser.add_argument('--successor-preplay',action='store_true',help='With signed-in-preplay, qualify a second disposable same-home reopen after actual warm exit')
     parser.add_argument('--subscription-seconds',type=int,
                         help='Disposable only: hold the original subscription for 75–300 seconds, then verify unload')
     args = parser.parse_args()
     print(canonical(qualify(args.executable,args.sha256,inspection=args.inspection,
                           subscription_seconds=args.subscription_seconds,signed_in_preplay=args.signed_in_preplay,
-                          preplay_load=args.preplay_load,readiness_owned=args.readiness_owned)))
+                          preplay_load=args.preplay_load,readiness_owned=args.readiness_owned,
+                          successor_preplay=args.successor_preplay)))

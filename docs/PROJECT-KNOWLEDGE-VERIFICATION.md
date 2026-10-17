@@ -4,6 +4,20 @@ This separates source implementation from installation, merge and live
 qualification. None of these entries grants standard Play, a brain replacement
 or strict Harness execution authority.
 
+## Forward-only fresh pre-Play host successor
+
+The [separate successor review](PREPLAY-SUCCESSOR-HOST.md) preserves legacy
+initial-only v1 behavior and every ancestor claim/archive. Disposable cases
+exercise issued versus partial/failed/unknown exec, exact new review, bounded
+lineage/cycles, actual predecessor epoch, changed state/binding/auth metadata,
+socket reuse and post-claim drift. The opt-in compiled `--signed-in-preplay
+--successor-preplay` fixture reopens the same isolated temporary home twice
+after actual owned process exit, preserving project/brain/ended turn and using
+zero warm loads, turns or model calls. Its auth container is synthetic; lineage
+journals are covered separately in unit fixtures. These results are not live
+host trust, sign-in, cleanup, installed binding, readiness receipt or pilot
+acceptance. Source and live launch/cutover remain separate.
+
 ## Forward-only readiness-owned lifecycle
 
 [READINESS-OWNED-LIFECYCLE.md](READINESS-OWNED-LIFECYCLE.md) specifies the new

@@ -1,5 +1,14 @@
 # Codex-native orchestration roadmap
 
+- [x] Implement explicit forward-only successor-host maintenance for a genuinely
+  exited issued fresh pre-Play restart, preserving all old requests, claims,
+  bindings and usage ([contract](PREPLAY-SUCCESSOR-HOST.md); source/disposable
+  qualification only).
+- [ ] Separately merge/install and prepare the exact new v3 successor launch
+  review, then qualify connectivity/binding before a new readiness review.
+  No launch, inspection reload, request replay or terminal-safety inference
+  follows source delivery.
+
 - [x] Implement a separately owner-reviewed forward-only readiness-owned
   load/subscription, keeping one original connection across restricted load,
   capability capture and receipt-only turn; retain legacy loaded-only semantics

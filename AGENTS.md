@@ -1,5 +1,21 @@
 # Codex Orchestrator — personal tooling
 
+## Forward-only pre-Play successor-host source (2026-10-17)
+
+Read docs/PREPLAY-SUCCESSOR-HOST.md before explicit `prepare --successor`.
+Only a new exact `public_preplay_successor_restart_v1` review may extend a
+complete issued/exited fresh restart, never its ancestor, failed/unknown exec or
+consumed approval. Pin the bounded cycle-free chain, original archives/claims,
+same home/package/brain/dual project IDs/policy and unchanged first-phase
+requests/registry/ledger. Require repeated exact PID absence and home quiescence;
+this is not cleanup or an exit-cause/TTL assertion. Preserve current binding and
+inspection claims; no readiness-owned intent may use this narrow path. Back up
+opaque non-credential state, inspecting auth.json metadata only. A permanent
+per-last-process-epoch claim precedes fixed launch-only exec. No reconnect,
+replay, load, turn, binding change, usage reset, safety inference or pilot
+acceptance. Legacy v1 remains initial-launch-only. Source installs/launches or
+confirms nothing; live review, connectivity and cutover remain separate.
+
 ## Forward-only readiness-owned lifecycle source (2026-10-17)
 
 Read docs/READINESS-OWNED-LIFECYCLE.md before the distinct signed
