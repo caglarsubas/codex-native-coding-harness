@@ -69,6 +69,11 @@ function assistantActionState(action,current=state,now=Date.now()/1000){
   if(current?.meta?.revision!==doc.command.expectedRevision)return {locked:true,label:'State changed',detail:'Ask again to review the latest state before confirming. No control was submitted from this preview.'};
   return {locked:false,label:'Awaiting your confirmation',detail:'Review the exact action and target below. Sending a chat message is not confirmation.'};
 }
+function assistantExpiryText(doc,now=Date.now()/1000){
+  if(doc.workflow==='codex_readiness_start'&&doc.validity==='until_scope_changes')return 'Valid until scope changes; no timer expiry.';
+  const seconds=Math.max(0,Math.ceil(doc.expiresAt-now)),remaining=seconds<60?`${seconds} second${seconds===1?'':'s'}`:`${Math.ceil(seconds/60)} minute${seconds>60?'s':''}`;
+  return seconds?`Confirmation window: ${remaining} remaining. Refreshing never confirms or extends the phase.`:'Confirmation window ended. Refresh the review here; no need to write another message.';
+}
 function refreshAssistantActions(){
   for(const action of assistantActions.values()){
     if(action.proposal.document.workflow){
@@ -76,7 +81,7 @@ function refreshAssistantActions(){
       if(action.status.textContent!==message)action.status.textContent=message;
       if(action.renew){action.renew.hidden=!info.refreshable;action.renew.disabled=!connected||assistantPending;action.renew.textContent=action.playEdited?'Update Play preview':'Refresh review';}
       if(action.playInputs)for(const input of Object.values(action.playInputs))input.disabled=!!info.recorded||action.sending||action.cancelled||action.uncertain||action.refreshing;
-      if(action.expiry){const seconds=Math.max(0,Math.ceil(action.proposal.document.expiresAt-Date.now()/1000)),remaining=seconds<60?`${seconds} second${seconds===1?'':'s'}`:`${Math.ceil(seconds/60)} minute${seconds>60?'s':''}`;action.expiry.hidden=!!info.recorded||action.cancelled;const text=seconds?`Confirmation window: ${remaining} remaining. Refreshing never confirms or extends the phase.`:'Confirmation window ended. Refresh the review here; no need to write another message.';if(action.expiry.textContent!==text)action.expiry.textContent=text;}
+      if(action.expiry){action.expiry.hidden=!!info.recorded||action.cancelled;const text=assistantExpiryText(action.proposal.document);if(action.expiry.textContent!==text)action.expiry.textContent=text;}
       action.confirm.disabled=!connected||info.locked||assistantPending;action.confirm.textContent=info.recorded?'Saved':action.uncertain?'Recover receipt':action.guided?'Help me continue development':workflowPhrases[action.proposal.document.workflow];
       action.dismiss.disabled=!!info.recorded||action.sending||action.cancelled||action.uncertain;
       action.element.dataset.actionState=info.recorded?'recorded':info.locked?'closed':'review';

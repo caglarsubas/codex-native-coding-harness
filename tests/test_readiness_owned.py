@@ -1,6 +1,9 @@
 """Disposable forward-only readiness lifecycle; never a live brain or host."""
 import copy
+import json
+import os
 from pathlib import Path
+import subprocess
 import time
 from types import SimpleNamespace
 import unittest
@@ -90,6 +93,9 @@ class ReadinessOwnedTest(unittest.TestCase):
     def confirm(self,p=None):
         return self.proposals.confirm(self.ledger,{'proposal':p or self.preview,'confirmed':True},'owner-session')
 
+    def review(self,p=None):
+        return owned.browser_review((p or self.preview)['document']['request'])
+
     def deliver(self): return self.f.notifier.notify(self.cid)
 
     def receipt(self):
@@ -150,7 +156,8 @@ class ReadinessOwnedTest(unittest.TestCase):
         self.assertEqual([m for m,_ in self.calls].count('turn/start'),1)
 
     def test_scope_source_binding_session_and_native_drift_refuse_before_claim(self):
-        self.prepare(); bad=copy.deepcopy(self.preview); bad['document']['request']['readinessStart']['maximumSeconds']=901
+        self.prepare(); bad=copy.deepcopy(self.preview); changed=self.review(bad); changed['maximumSeconds']=901
+        bad['document']['request']['readinessStartJson']=owned.canonical(changed)
         with self.assertRaises(Refusal): self.confirm(bad)
         with self.assertRaises(Refusal): self.proposals.confirm(self.ledger,{'proposal':self.preview,'confirmed':True},'foreign')
         self.active=True
@@ -158,7 +165,7 @@ class ReadinessOwnedTest(unittest.TestCase):
         self.assertFalse(owned.claims(self.ledger))
 
     def test_unloaded_is_unknown_and_wrong_current_policy_or_trackers_block(self):
-        p=self.prepare(); before=p['document']['request']['readinessStart']['before']
+        p=self.prepare(); before=self.review(p)['before']
         self.assertIsNone(before['policy']); self.assertIsNone(before['trackedTerminals'])
         self.confirm(); self.policy_bad=True; self.deliver()
         self.assertNotIn('turn/start',[m for m,_ in self.calls])
@@ -176,7 +183,7 @@ class ReadinessOwnedTest(unittest.TestCase):
         self.assertNotIn('turn/start',[m for m,_ in self.calls]); self.assertTrue(owned.claims(self.ledger))
 
     def test_partial_canonical_claim_is_not_a_new_request_allowance(self):
-        self.prepare(); review=self.preview['document']['request']['readinessStart']
+        self.prepare(); review=self.review()
         exclusive(owned.fence(self.ledger),{'protocol':owned.PROTOCOL,'commandId':self.cid,
             'reviewHash':digest(review),'bindingHash':digest(self.binding),'backup':{}})
         with self.assertRaises(Refusal): self.confirm()
@@ -200,7 +207,7 @@ class ReadinessOwnedTest(unittest.TestCase):
         file=self.ledger.root/'old-immutable.claim'; exclusive(file,{'usageGap':'unknown','tokens':1049625})
         self.prepare(); self.confirm()
         claim=owned.record(owned.fence(self.ledger)); archive=owned.record(claim['backup']['path'],1000000)
-        self.assertEqual(archive['reviewHash'],digest(self.preview['document']['request']['readinessStart']))
+        self.assertEqual(archive['reviewHash'],digest(self.review()))
         self.assertEqual(len(archive['files']),3)
         for p in archive['files'].values(): self.assertEqual(Path(p['path']).stat().st_mode&0o777,0o600)
         self.assertEqual(owned.record(file),{'usageGap':'unknown','tokens':1049625})
@@ -295,3 +302,77 @@ class ReadinessOwnedTest(unittest.TestCase):
         claim=owned.record(owned.fence(self.ledger)); claim['bindingHash']='0'*64
         owned.fence(self.ledger).write_text(__import__('json').dumps(claim))
         with self.assertRaises(Refusal): owned.catalog_proof(c)
+
+    @staticmethod
+    def browser_roundtrip(value):
+        result=subprocess.run(['node','-e',
+            'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>process.stdout.write(JSON.stringify(JSON.parse(s))));'],
+            input=json.dumps(value),text=True,capture_output=True,check=True,timeout=10)
+        return json.loads(result.stdout)
+
+    def test_real_javascript_roundtrip_preserves_exact_nanosecond_pins_and_receipt(self):
+        old=self.ledger.root/'public-preplay-load-consumed.claim'
+        exclusive(old,{'old':'consumed','usageGap':'unknown'})
+        os.utime(old,ns=(1792000000000000001,1792000000000000001))
+        original=old.read_bytes(); proposal=self.prepare(); review=self.review()
+        pin=review['local']['sidecars'][old.name]
+        self.assertIn(1792000000000000001,pin['identity'])
+        rounded=self.browser_roundtrip(review)
+        self.assertNotEqual(rounded['local']['sidecars'][old.name],pin,'Fixture must reproduce the old unsafe-number boundary')
+        wire=self.browser_roundtrip(proposal)
+        self.assertEqual(wire,proposal)
+        self.assertEqual(self.review(wire),review)
+        self.confirm(wire); self.deliver(); self.receipt()
+        command=self.ledger.snapshot()['commands'][0]
+        self.assertEqual(command['payload']['readinessStart'],review)
+        self.assertEqual(command['payload']['readinessStart']['local']['sidecars'][old.name],pin)
+        self.assertEqual(old.read_bytes(),original)
+        self.assertEqual([m for m,_ in self.calls].count('thread/resume'),1)
+        self.assertEqual([m for m,_ in self.calls].count('turn/start'),1)
+        self.assertIsNone(standard.read(self.ledger)['run'])
+
+    def test_browser_wire_rejects_unencoded_noncanonical_and_malformed_reviews(self):
+        self.prepare(); request=self.preview['document']['request']; review=self.review()
+        cases=[{'id':self.cid,'contextHash':review['contextHash'],'readinessStart':review},
+               {**request,'readinessStartJson':' '+request['readinessStartJson']},
+               {**request,'readinessStartJson':'[]'},
+               {**request,'readinessStartJson':request['readinessStartJson'].replace('"version":1','"version":1,"version":1',1)},
+               {**request,'readinessStartJson':request['readinessStartJson'].replace('"maximumSeconds":900','"maximumSeconds":NaN',1)},
+               {**request,'readinessStartJson':'x'*30001},
+               {**request,'unexpected':'ignored?'}]
+        for value in cases:
+            with self.subTest(value=str(value)[:100]), self.assertRaises(Refusal): owned.browser_review(value)
+        self.assertFalse(owned.claims(self.ledger))
+        self.assertFalse(any(m in ('thread/resume','turn/start') for m,_ in self.calls))
+
+    def test_canonical_browser_review_must_match_outer_command_and_context(self):
+        self.prepare(); request=self.preview['document']['request']
+        for key,value in (('id',str(uuid.uuid4())),('contextHash','0'*64)):
+            with self.subTest(key=key), self.assertRaises(Refusal): owned.browser_review({**request,key:value})
+        self.assertFalse(owned.claims(self.ledger))
+
+    def test_resigned_rounded_pin_still_fails_scope_validation_before_claim(self):
+        old=self.ledger.root/'old-inspection.claim'; exclusive(old,{'consumed':True})
+        os.utime(old,ns=(1792000000000000001,1792000000000000001))
+        self.prepare(); bad=copy.deepcopy(self.preview); rounded=self.browser_roundtrip(self.review())
+        bad['document']['request']=owned.browser_request(rounded)
+        bad['signature']=self.proposals.sign(bad['document'])
+        with self.assertRaises(Refusal): self.confirm(bad)
+        self.assertFalse(owned.claims(self.ledger))
+        self.assertEqual(self.ledger.snapshot()['commands'],[])
+
+    def test_unicode_claim_name_and_large_epoch_survive_browser_encoding(self):
+        old=self.ledger.root/'inspection-\u00e9-\u6d4b\u8bd5.claim'; exclusive(old,{'consumed':True})
+        self.prepare(); review=self.review(); wire=self.browser_roundtrip(self.preview)
+        self.assertEqual(self.review(wire),review)
+        self.confirm(wire)
+        self.assertEqual(self.ledger.snapshot()['commands'][0]['payload']['readinessStart'],review)
+
+    def test_browser_roundtrip_keeps_foreign_session_and_tampering_refused(self):
+        self.prepare(); wire=self.browser_roundtrip(self.preview)
+        with self.assertRaises(Refusal):
+            self.proposals.confirm(self.ledger,{'proposal':wire,'confirmed':True},'other-browser')
+        changed=self.review(wire); changed['before']['latestTurn']={'id':'foreign','status':'completed'}
+        wire['document']['request']=owned.browser_request(changed)
+        with self.assertRaises(Refusal): self.confirm(wire)
+        self.assertFalse(owned.claims(self.ledger))

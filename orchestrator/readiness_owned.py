@@ -11,7 +11,7 @@ from pathlib import Path
 import sqlite3
 import time
 
-from .core import SHA, digest, require
+from .core import SHA, canonical, digest, require
 from . import partial_admission as partial, standard, standard_preplay as preplay
 from .host_lifecycle import sync_directory
 from .native_read_client import ReadProxy, validate_endpoint
@@ -180,6 +180,30 @@ def validate_review(value):
              before['environmentScope'] == 'host_global') or
             (before['activity'] == 'idle' and matches(before['policy']) and before['trackedTerminals'] == [] and
              before['environmentScope'] == 'thread'), 'Unloaded policy/terminals remain unknown')
+    return value
+
+
+def browser_request(value):
+    """Carry exact file epochs as text across JavaScript's JSON number limit.
+
+    The inner review is still the original closed authority record. Never round,
+    omit or normalize its native/private pins to make a signature verify.
+    """
+    validate_review(value)
+    return {'id':value['commandId'],'contextHash':value['contextHash'],
+            'readinessStartJson':canonical(value)}
+
+
+def browser_review(request):
+    """Decode only the exact canonical review after outer signature validation."""
+    from .native_read_client import decode
+    require(isinstance(request,dict) and set(request) == {'id','contextHash','readinessStartJson'} and
+            isinstance(request['readinessStartJson'],str) and 0 < len(request['readinessStartJson']) <= 30000,
+            'Exact canonical readiness browser request required')
+    raw = request['readinessStartJson']
+    value = validate_review(decode(raw))
+    require(canonical(value) == raw and request['id'] == value['commandId'] and
+            request['contextHash'] == value['contextHash'], 'Readiness browser scope differs')
     return value
 
 
