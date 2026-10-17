@@ -228,15 +228,30 @@ def quiescent(launch, status):
 
 def home_snapshot(home, binary, backup=None, *, brain=None):
     """Opaque bounded file inventory; no SQL, configuration evaluation or restore."""
+    return _home_snapshot(home, binary, backup, brain=brain, signed_in_preplay=False)
+
+
+def signed_in_preplay_snapshot(home, binary, backup=None, *, brain):
+    """Separate pre-Play maintenance profile; credential bytes are never opened.
+
+    This is not permission to copy credentials or to use this home in the older
+    transferred-run restart profile. The caller pins the existing credential
+    epoch and preserves the file in place, outside the opaque state backup.
+    """
+    return _home_snapshot(home, binary, backup, brain=brain, signed_in_preplay=True)
+
+
+def _home_snapshot(home, binary, backup, *, brain, signed_in_preplay):
     home = isolated_directory(home)
+    top_files = TOP_FILES | ({'auth.json', 'models_cache.json'} if signed_in_preplay else set())
     with os.scandir(home) as entries:
         top = []
         for entry in entries:
             top.append(entry)
             require(len(top) <= MAX_ENTRIES, 'Native home inventory exceeds bound')
-    require(len(top) <= MAX_ENTRIES and all(p.name in TOP_FILES|TOP_DIRS for p in top),
+    require(len(top) <= MAX_ENTRIES and all(p.name in top_files|TOP_DIRS for p in top),
             'Unsupported native home entry; credentials/plugins are not imported or read')
-    rows, directories, count, total = {}, {}, 0, 0
+    rows, directories, count, total, credential = {}, {}, 0, 0, None
     pending = [home]
     while pending:
         current = pending.pop(); relative = current.relative_to(home)
@@ -256,6 +271,14 @@ def home_snapshot(home, binary, backup=None, *, brain=None):
             path = Path(entry.path); rel = str(path.relative_to(home)); before = path.lstat()
             parts = path.relative_to(home).parts
             require(len(path.relative_to(home).parts) <= 16 and len(rel) <= 1024, 'Native path bound exceeded')
+            if signed_in_preplay and rel == 'auth.json':
+                # Deliberately no open(), hash, JSON decode, backup or auth RPC.
+                safe_path(path)
+                require(stat.S_ISREG(before.st_mode) and before.st_uid == os.getuid() and
+                        before.st_nlink == 1 and not before.st_mode & 0o077 and 0 < before.st_size <= 65536,
+                        'Existing private unaliased credential metadata required')
+                credential = {'identity':list(stamp(before)), 'bytesRead':False, 'copied':False}
+                continue
             require(entry.name not in {'auth.json','.credentials.json','.env','plugins','hooks','managed-config.toml'},
                     'Credential/plugin/config content is outside native-home backup scope')
             require(parts[0] != 'skills' or len(parts) == 1 or parts[1] == '.system', 'Only embedded system skills may be retained')
@@ -272,7 +295,7 @@ def home_snapshot(home, binary, backup=None, *, brain=None):
                 if backup is not None: os.symlink(binary,backup/rel)
                 require(stamp(path.lstat()) == stamp(before) and os.readlink(path) == binary, 'Native link changed')
                 continue
-            require(entry.name in TOP_FILES if current == home else True, 'Unexpected native file')
+            require(entry.name in top_files if current == home else True, 'Unexpected native file')
             if parts[0] == 'sessions' and brain is not None:
                 require(entry.name.endswith('-'+brain+'.jsonl'), 'Foreign or unsupported native session history')
             raw, record = read_file(path,min(MAX_FILE,MAX_HOME-total))
@@ -287,9 +310,14 @@ def home_snapshot(home, binary, backup=None, *, brain=None):
         require(list(stamp((home/rel).lstat())) == record['identity'], 'Native file epoch changed')
     for rel, record in directories.items():
         require(list(stamp((home/rel).lstat())) == record, 'Native directory epoch changed')
+    if signed_in_preplay:
+        require(credential is not None and list(stamp((home/'auth.json').lstat())) == credential['identity'],
+                'Existing credential metadata is missing or changed')
     if backup is not None:
         for rel in sorted(directories,key=lambda p:len(Path(p).parts),reverse=True): sync_directory(backup/rel)
-    return {'files':rows,'directories':directories,'bytes':total}
+    result = {'files':rows,'directories':directories,'bytes':total}
+    if signed_in_preplay: result['credentialMetadata'] = credential
+    return result
 
 
 def backup_check(spec, snapshot):

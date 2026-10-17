@@ -38,6 +38,14 @@ phase authority are separate evidence axes. Do not infer restored execution,
 historical cleanup or pilot acceptance from source implementation or a connected
 replacement host.
 
+The separate [fresh pre-Play host repair](PUBLIC-PREPLAY-HOST-RESTART.md) handles
+an exited signed-in schema-1 host without pretending it has a completed transfer.
+It preserves both original readiness attempts/dispositions and all state,
+backs up only non-credential native bytes, and pins credential metadata without
+opening/copying it. One new scope-bound launch review remains separate from
+connectivity, dashboard binding, policy/readiness and Play. Source qualification
+does not restore the live host or establish historical terminal safety.
+
 [PUBLIC-PILOT-INSPECTION.md](PUBLIC-PILOT-INSPECTION.md) separates a new exact
 one-shot current inspection load from replaying a transferred/ended native effect.
 Unloaded policy/terminals stay unknown until actual loaded observations exist;
