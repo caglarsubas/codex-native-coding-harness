@@ -13,6 +13,15 @@ edits. The live pilot requires separate qualification and continuation authority
 
 # Codex Orchestrator
 
+For a later genuine exit of an issued fresh pre-Play restart, read source
+`docs/PREPLAY-SUCCESSOR-HOST.md` completely before explicit `prepare --successor`.
+Only its new exact launch review can use the unchanged first-phase scope and
+bounded issued ancestor chain. Preserve old archives/claims/inspection/bindings;
+failed, partial or unknown exec cannot become a predecessor. Auth is metadata
+only, and current/historical terminal safety stays unknown. Legacy v1 remains
+initial-only. Source/preparation launches nothing; no load, replay, binding
+cutover, usage reset, detached service or pilot acceptance is included.
+
 For a new signed `codex_readiness_start`, read source
 `docs/READINESS-OWNED-LIFECYCLE.md` fully. The owner control alone authorizes its
 prospective readiness-owned load/capture/receipt on one original connection.

@@ -5,6 +5,17 @@ Canonical JSON is UTF-8, sorted keys, compact separators, no NaN. Its SHA-256 is
 the record identity; this encoding is local to this tool, not RFC 8785 signing.
 SQLite uses WAL, synchronous FULL and BEGIN IMMEDIATE for serialized transitions.
 
+## Fresh pre-Play successor-host maintenance
+
+[PREPLAY-SUCCESSOR-HOST.md](PREPLAY-SUCCESSOR-HOST.md) adds the explicitly
+selected version-2 `public_preplay_successor_restart_v1` manifest. It retains
+the same closed top-level fields as v1, but pins complete issued ancestor
+intent/status/exec/fence/archive/binding records and current unchanged first-phase
+scope. Its new permanent fence binds the last process PID/birth/spec hash,
+not the proposed socket, source or review directory. Partial/failed/unknown
+records never authorize another attempt. Historical status is file-only;
+no old launch/inspection approval is converted or terminal safety inferred.
+
 ## Readiness-owned first-phase lifecycle
 
 [READINESS-OWNED-LIFECYCLE.md](READINESS-OWNED-LIFECYCLE.md) defines the signed
