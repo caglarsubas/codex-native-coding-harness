@@ -1,5 +1,14 @@
 # Version 1 record contracts
 
+`canceled_play_replacement_load_v1` is a separate operator review and external
+canonical journal, not an original Play receipt or schema migration. It pins
+full issued-host provenance, preserved canceled attempt, separate candidate,
+source and exact one-load scope. A private permanent intent/load claim precedes
+one fixed metadata-only resume. Lost outcomes remain consumed; status validates
+acknowledgement/observation pins without native I/O. Original rows, sidecars,
+usage, claims and historical binding epochs remain intact. See
+[CANCELED-PLAY-REPLACEMENT-LOAD.md](CANCELED-PLAY-REPLACEMENT-LOAD.md).
+
 `already_loaded_subscription_v1` is a separate transport build contract with exact
 native source/tree/executable pins, not a ledger command or continuation receipt.
 Its one-attempt open connection requires the caller's separate durable owner

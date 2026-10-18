@@ -1,5 +1,15 @@
 # Cooperative standard-project brain
 
+The separately authorized replacement-load exception is documented in
+`docs/CANCELED-PLAY-REPLACEMENT-LOAD.md`. Read it fully before its operator-only
+control. Only its new exact review may claim one metadata-only load on the
+actually issued replacement. Old load/readiness/Play/recovery claims stay
+consumed; original requests/run/usage/claims/historical bindings remain immutable.
+It must precede local canceled-Play disposition and never supplies a missing
+receipt, turn, Resume, dispatch or terminal-safety proof. Status is historical
+and file-only; a closed connection is not fresh loaded-state evidence. Source
+delivery confirms or loads nothing live and does not qualify the pilot.
+
 For the separate operator-only canceled-attempt forward-planning and launch-only
 replacement review, read `docs/CANCELED-CONTINUATION-CONTROL.md` fully. Only the
 new prospective checkout mailbox can receive that new planning instruction and

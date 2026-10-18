@@ -1,5 +1,23 @@
 # Codex Orchestrator — personal tooling
 
+## Separately authorized canceled-attempt replacement load (2026-10-18)
+
+Read docs/CANCELED-PLAY-REPLACEMENT-LOAD.md before the operator-only
+`canceled_play_replacement_load_v1` path. The owner authorized a new separately
+reviewed load, not reuse of any earlier load/readiness/Play/recovery claim. Require
+the exact actually issued replacement process/package/socket and unchanged
+undisposed canceled attempt, dual identities, private verified backups and one
+new exact scope-bound review. Canonical external intent/load claims precede
+the one fixed metadata-only resume; repeated actual identity/latest-ended-turn,
+loaded policy and complete empty current tracker checks remain mandatory.
+Unknown/partial claims never retry or migrate. Preserve old ledger/run/usage/
+gaps/expiry/claims/capture/historical binding bytes and credential metadata;
+no auth bytes, permission response, turn, phase Resume, dispatch or assumed safety.
+Status is file-only and historical after connection close. This narrow new
+control supersedes no-reload only for its exact owner-confirmed load. Existing
+already-loaded-only continuation and old claim fences remain unchanged. Source
+and disposable qualification install, launch, load and confirm nothing live.
+
 ## Canceled-attempt forward planning and replacement review (2026-10-18)
 
 Read docs/CANCELED-CONTINUATION-CONTROL.md fully before either new operator-only

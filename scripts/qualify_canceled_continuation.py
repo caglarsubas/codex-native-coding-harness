@@ -33,7 +33,67 @@ import test_canceled_play as fixtures
 import test_standard_run_mailbox as mailbox
 
 
-def qualify(package,evidence):
+def qualify_reviewed_load(owner,package,evidence,processes,creators,calls):
+    """Real cold/warm native load; synthetic launch provenance is labelled.
+
+    The separate unit fixtures validate full issued-launch provenance. Here only
+    that local provenance is supplied by the fixture; the production claim,
+    backup, closed proxy, native resume and policy/tracker checks run unchanged.
+    """
+    from orchestrator import canceled_load as load
+    f=owner.f; registry,ledger=owner.registry,owner.ledger
+    before=[database_proof(p) for p in (registry.db,ledger.db)]
+    sidecars=api.old.sidecars(ledger); original_pin=api.pin(owner.binding_file)
+    for creator in creators: creator.__exit__(None,None,None)
+    creators.clear()
+    cold=processes[-1]; cold.terminate(); cold.wait(timeout=10)
+    home=f.root/'native-home'; ipc=f.root/'warm-ipc'; ipc.mkdir(mode=0o700)
+    binary=str(Path(package['root'])/'bin/codex')
+    warm=subprocess.Popen([binary,'app-server','--listen','unix://'+str(ipc/'host.sock')],
+        cwd=f.repo,env=environment({'codexHome':str(home)}),stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
+    processes.append(warm); until=time.monotonic()+15
+    while not (ipc/'host.sock').exists():
+        require(warm.poll() is None and time.monotonic()<until,'Disposable warm host did not listen'); time.sleep(.02)
+    endpoint=inspect_endpoint(binary,str((ipc/'host.sock').resolve()),'0'*64)
+    with FixtureProxy(endpoint,bootstrap=True): pass
+    candidate=copy.deepcopy(owner.binding); candidate['endpoint']=endpoint
+    candidate_file=f.root/'load-candidate.json'; write_record(candidate_file,candidate)
+    original=api.original_context(registry,ledger,owner.binding_file,owner.cid)
+    launch_dir=f.root/'synthetic-launch'; launch_dir.mkdir(mode=0o700)
+    launch_file=launch_dir/'synthetic-issued-launch.json'
+    write_record(launch_file,{'fixture':'synthetic launch provenance, not live authority'})
+    scope={'binding':candidate,'brainId':f.brain,'projectId':f.project,'cwd':str(f.repo),
+        'latestTurnId':f.turn,'latestTurnStatus':'interrupted'}
+    provenance={'original':original,'launchFile':str(launch_file),'launchPins':[{'path':str(launch_file)}],
+        'home':str(home),'scope':scope,'host':{'pid':warm.pid},'config':{'fixture':'loopback only'},
+        'packageEpochs':api.package_epochs(package)}
+    methods=[]; production=load.inspection.InspectionProxy
+    class Observed(production):
+        def _rpc(self,method,params):
+            methods.append(method); return super()._rpc(method,params)
+    with patch.object(load,'provenance',return_value=provenance):
+        q=load.prepare(registry,ledger,launch_file,candidate_file)['request']
+        archive=f.root/'load-backup'; load.backup(registry,ledger,q,archive,writers_stopped=True)
+        with patch.object(load.inspection,'InspectionProxy',Observed):
+            result=load.confirm(registry,ledger,q,digest(q),writers_stopped=True,backup_root=archive)
+        require(load.status(q)==result,'Saved production load result changed')
+    exclusive(evidence/'load-attempt.json',{'result':result,'methods':methods})
+    require(result['status']=='load_observed_idle','Compiled native metadata-only load failed')
+    require(methods.count('thread/resume')==1 and 'turn/start' not in methods and
+        'turn/interrupt' not in methods and len(calls)==1,'Warm load started model work or replayed an effect')
+    require(before==[database_proof(p) for p in (registry.db,ledger.db)] and sidecars==api.old.sidecars(ledger)
+        and original_pin==api.pin(owner.binding_file),'Original synthetic requests/usage/claims/binding changed')
+    summary={'qualifiedProductionMetadataLoad':True,'package':package,'provider':'loopback_fake_only',
+        'launchProvenance':'synthetic_fixture_only_unit_qualified_separately','nativeLoads':1,'warmModelRequests':0,
+        'fakeProviderRequests':len(calls),'methodCounts':{m:methods.count(m) for m in sorted(set(methods))},
+        'originalSyntheticLedgerPreserved':True,'originalBindingPreserved':True,'liveNativeConnections':0,
+        'boundary':dict(load.BOUNDARY)}
+    exclusive(evidence/'summary.json',summary)
+    return summary
+
+
+def qualify(package,evidence,*,reviewed_load=False):
     evidence=Path(evidence).resolve(strict=True)
     require(not list(evidence.iterdir()) and not evidence.stat().st_mode & 0o077 and
         not evidence.is_relative_to(SOURCE),'New empty private evidence directory outside source required')
@@ -120,6 +180,8 @@ stream_max_retries = 0
             side_effect=lambda *a,**kw:temp(prefix='fc.',dir='/private/tmp')):
             owner.setUp()
         f=owner.f; ledger,registry=owner.ledger,owner.registry
+        if reviewed_load:
+            return qualify_reviewed_load(owner,package,evidence,native_process,creators,calls)
         with ledger.tx() as db:
             meta=ledger.get(db,'meta',1); run=meta['standardRun']
             run.update(brainObservedTokens=10,brainUsageCoverage='observed_partial',usageHighWater=10)
@@ -177,4 +239,5 @@ stream_max_retries = 0
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__); p.add_argument('--package',required=True); p.add_argument('--evidence',required=True)
-    args=p.parse_args(); print(canonical(qualify(args.package,args.evidence)))
+    p.add_argument('--reviewed-load',action='store_true',help='Separate cold/warm metadata-only load fixture; no planning turn')
+    args=p.parse_args(); print(canonical(qualify(args.package,args.evidence,reviewed_load=args.reviewed_load)))
