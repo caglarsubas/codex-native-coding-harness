@@ -21,7 +21,7 @@ import uuid
 
 SOURCE=Path(__file__).resolve().parents[1]
 sys.path[:0]=[str(SOURCE),str(SOURCE/'tests')]
-from orchestrator import canceled_continuation as api, brain_memory, public_host_runtime
+from orchestrator import canceled_continuation as api, brain_memory, public_host_runtime, connection_handoff
 from orchestrator.core import Ledger, canonical, digest, require
 from orchestrator.host_lifecycle import write_record
 from orchestrator.native_read_client import inspect_endpoint
@@ -93,8 +93,9 @@ def qualify_reviewed_load(owner,package,evidence,processes,creators,calls):
     return summary
 
 
-def qualify(package,evidence,*,reviewed_load=False,forward_usage_evidence=False):
-    require(not (reviewed_load and forward_usage_evidence),'Separate qualification modes required')
+def qualify(package,evidence,*,reviewed_load=False,forward_usage_evidence=False,continuous_handoff=False):
+    require(not (reviewed_load and (forward_usage_evidence or continuous_handoff)),'Separate qualification modes required')
+    forward_usage_evidence=forward_usage_evidence or continuous_handoff
     evidence=Path(evidence).resolve(strict=True)
     require(not list(evidence.iterdir()) and not evidence.stat().st_mode & 0o077 and
         not evidence.is_relative_to(SOURCE),'New empty private evidence directory outside source required')
@@ -126,11 +127,12 @@ def qualify(package,evidence,*,reviewed_load=False,forward_usage_evidence=False)
     server=http.server.ThreadingHTTPServer(('127.0.0.1',0),Provider)
     thread=threading.Thread(target=server.serve_forever,daemon=True); thread.start()
     owner=fixtures.CanceledPlayTest('runTest')
-    base=mailbox.RunMailboxTest.setUp; native_process=[]; creators=[]
+    base=mailbox.RunMailboxTest.setUp; native_process=[]; creators=[]; owner_thread=None; continuous=None
     def native_setup(f):
         home=f.root/'native-home'; ipc=f.root/'native-ipc'
         for path in (home,ipc): path.mkdir(mode=0o700)
-        (home/'config.toml').write_text('model = "gpt-6-astra"\nmodel_provider = "followup_fixture"\n'+CONFIG+f'''
+        (home/'config.toml').write_text('model = "gpt-6-astra"\nmodel_provider = "followup_fixture"\n'+
+            ('thread_unload_delay_secs = 1\n' if continuous_handoff else '')+CONFIG+f'''
 [model_providers.followup_fixture]
 name = "Disposable continuation loopback provider"
 base_url = "http://127.0.0.1:{server.server_port}/v1"
@@ -218,12 +220,56 @@ stream_max_retries = 0
             def _line(self):
                 row=super()._line(); native.append(row); return row
         with patch.object(api,'Proxy',Observed):
-            result=api.confirm(registry,ledger,q,review['reviewHash'],writers_stopped=True,backup_root=backup)
+            if continuous_handoff:
+                planning_file=f.root/'planning-review.json'; write_record(planning_file,q)
+                continuous=connection_handoff.prepare(registry,ledger,planning_file,60)['request']
+                exclusive(evidence/'continuous-review.json',continuous)
+                continuous_backup=f.root/'continuous-backup'
+                connection_handoff.backup(registry,ledger,continuous,continuous_backup,writers_stopped=True)
+                outcomes=[]; failures=[]
+                def own():
+                    try: outcomes.append(connection_handoff.serve(registry,ledger,continuous,digest(continuous),
+                        writers_stopped=True,backup_root=continuous_backup))
+                    except BaseException as error: failures.append(str(error))
+                owner_thread=threading.Thread(target=own,daemon=True); owner_thread.start()
+                until=time.monotonic()+15
+                while not (Path(continuous['journal'])/'ready.json').exists():
+                    require(owner_thread.is_alive() and time.monotonic()<until,
+                        'Continuous fixture did not establish ownership: '+canonical(failures or outcomes))
+                    time.sleep(.02)
+                for creator in creators: creator.__exit__(None,None,None)
+                creators.clear()
+                # Real native 1-second idle-unload policy; no model keepalive,
+                # resubscription or creator connection remains during this wait.
+                time.sleep(1.5)
+                require(len(calls)==1 and methods.count('thread/subscribe')==1 and
+                    'turn/start' not in methods,'Review wait performed work or reattached')
+                approval=connection_handoff.planning_review(registry,ledger,continuous)
+                connection_handoff.authorize(registry,ledger,continuous,approval['request'],approval['reviewHash'])
+                owner_thread.join(45)
+                require(not owner_thread.is_alive() and not failures and len(outcomes)==1,
+                    'Original continuous owner did not finish: '+canonical(failures))
+                require(outcomes[0]['status']=='planning_completed' and outcomes[0]['connectionClosed'] is True,
+                    'Continuous planning did not complete: '+canonical(outcomes))
+                require(connection_handoff.status(continuous)==outcomes[0],'Continuous retained result changed')
+                exclusive(evidence/'continuous-owner.json',outcomes[0])
+                result=api.status(q)
+                time.sleep(1.5)
+                # A new read-only fixture observer is NOT an owning handoff,
+                # reconnect or retry of the consumed production connection.
+                with FixtureProxy(q['candidateBinding']['endpoint']) as observer:
+                    metadata=observer.call('thread/read',{'threadId':f.brain,'includeTurns':False})['thread']
+                require(metadata['id']==f.brain and metadata['status']=={'type':'notLoaded'},
+                    'Closed fixture owner did not permit normal idle unloading')
+                exclusive(evidence/'post-close-metadata.json',{'threadId':metadata['id'],'status':metadata['status'],
+                    'terminalSafety':'unknown','observer':'separate disposable read-only fixture observer'})
+            else:
+                result=api.confirm(registry,ledger,q,review['reviewHash'],writers_stopped=True,backup_root=backup)
         failure=Path(q['journal'])/'failure.json'
         exclusive(evidence/'attempt.json',{'result':result,'methods':methods,
             'failure':json.loads(failure.read_bytes()) if failure.exists() else None})
         exclusive(evidence/'native-events.json',{'events':native})
-        if result['status']!='planning_completed':
+        if result['status']!='planning_completed' and creators:
             exclusive(evidence/'fixture-only-diagnostic.json',creators[0]._rpc('thread/read',
                 {'threadId':f.brain,'includeTurns':True}))
         require(result['status']=='planning_completed','Production receipt/proposal lifecycle not complete: '+canonical(result))
@@ -243,9 +289,20 @@ stream_max_retries = 0
                 'New usage did not preserve and advance its immutable fixture baseline')
             summary.update(qualifiedProspectiveUsage=True,telemetry='synthetic_local_numeric_fixture_only',
                 oldUsageHash=digest(report),newUsageHash=digest(usage['report']))
+        if continuous_handoff:
+            summary.update(qualifiedContinuousHandoff=True,fixtureUnloadDelaySeconds=1,
+                reviewDelaySeconds=1.5,otherSubscribersClosedBeforeReview=True,
+                oneOwningConnection=methods.count('initialize')==1,
+                reconnected=False,resubscribed=False,postCloseUnloadedObserved=True,
+                qualifiedSourceHash=api.old.source_hash(),continuousSourceHash=connection_handoff.source_hash())
+            require(summary['oneOwningConnection'],'More than one original connection')
         exclusive(evidence/'summary.json',summary)
         return summary
     finally:
+        if owner_thread is not None and owner_thread.is_alive() and continuous is not None:
+            try: connection_handoff.stop(continuous,digest(continuous))
+            except (OSError,ValueError): pass
+            owner_thread.join(5)
         for creator in creators: creator.__exit__(None,None,None)
         for process in native_process:
             if process.poll() is None: process.terminate(); process.wait(timeout=10)
@@ -256,5 +313,6 @@ if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__); p.add_argument('--package',required=True); p.add_argument('--evidence',required=True)
     p.add_argument('--reviewed-load',action='store_true',help='Separate cold/warm metadata-only load fixture; no planning turn')
     p.add_argument('--forward-usage-evidence',action='store_true',help='Separate prospective usage with immutable synthetic telemetry')
+    p.add_argument('--continuous-handoff',action='store_true',help='Same owning connection beyond actual fixture idle-unload timeout; separate exact planning approval')
     args=p.parse_args(); print(canonical(qualify(args.package,args.evidence,reviewed_load=args.reviewed_load,
-        forward_usage_evidence=args.forward_usage_evidence)))
+        forward_usage_evidence=args.forward_usage_evidence,continuous_handoff=args.continuous_handoff)))
