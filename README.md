@@ -314,6 +314,14 @@ For unconsumed canceled-attempt planning, the separate operator-only
 reviewed foreground subscription across the exact planning review. It cannot
 reload an unloaded brain, restore a closed connection or retry a consumed attempt.
 
+For an exact recorded pre-subscription failure, the separate
+[same-project lifecycle](docs/SAME-PROJECT-LIFECYCLE.md) preserves that consumed
+attempt and its unknown outcome while preparing one distinct bounded successor.
+A metadata-only diagnostic reports unloaded prerequisites without consuming
+planning. One new combined exact review covers subscription, fresh cumulative
+usage and an inert receipt/proposal on the same connection. No v4, reload,
+Play/recovery replay, usage reset, binding change or assumed safety follows.
+
 In **Mission & authority**, [model & effort policy controls](docs/MODEL-POLICY-CONTROLS.md)
 let the owner inspect a recorded catalog, explicitly choose profile quality/token
 floors and escalation limits, then preview and confirm review or revocation.

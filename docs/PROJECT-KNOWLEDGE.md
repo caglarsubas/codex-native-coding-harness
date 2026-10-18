@@ -1,5 +1,14 @@
 # Durable project knowledge and bounded brain context
 
+[SAME-PROJECT-LIFECYCLE.md](SAME-PROJECT-LIFECYCLE.md) separates original history,
+read-only current diagnostics, foreground ownership, subscription, cumulative
+accounting, new send/receipt/proposal and closure. Its single canonical successor
+preserves the exact failed planning attempt as unknown; it never reuses that
+claim or creates another project. A new combined exact review keeps one owning
+connection through the new inert planning result, using actual monotone usage
+against both retained observations. Unloaded remains blocked without reload;
+no fixture/source qualification installs, confirms or accepts a live pilot.
+
 [CONTINUOUS-CONNECTION-HANDOFF.md](CONTINUOUS-CONNECTION-HANDOFF.md) preserves
 one explicitly reviewed foreground subscription through a separate exact planning
 review and same-process handoff. Only unconsumed prospective planning is eligible;

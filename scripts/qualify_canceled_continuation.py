@@ -6,6 +6,7 @@ No account, live host, old request, reload, replay or external model is used.
 """
 import argparse
 import copy
+import contextlib
 import http.server
 import json
 import os
@@ -21,7 +22,7 @@ import uuid
 
 SOURCE=Path(__file__).resolve().parents[1]
 sys.path[:0]=[str(SOURCE),str(SOURCE/'tests')]
-from orchestrator import canceled_continuation as api, brain_memory, public_host_runtime, connection_handoff
+from orchestrator import canceled_continuation as api, brain_memory, public_host_runtime, connection_handoff, same_project_lifecycle
 from orchestrator.core import Ledger, canonical, digest, require
 from orchestrator.host_lifecycle import write_record
 from orchestrator.native_read_client import inspect_endpoint
@@ -93,9 +94,11 @@ def qualify_reviewed_load(owner,package,evidence,processes,creators,calls):
     return summary
 
 
-def qualify(package,evidence,*,reviewed_load=False,forward_usage_evidence=False,continuous_handoff=False):
-    require(not (reviewed_load and (forward_usage_evidence or continuous_handoff)),'Separate qualification modes required')
-    forward_usage_evidence=forward_usage_evidence or continuous_handoff
+def qualify(package,evidence,*,reviewed_load=False,forward_usage_evidence=False,continuous_handoff=False,same_project_successor=False,same_project_unloaded=False):
+    same_project_successor=same_project_successor or same_project_unloaded
+    require(not (reviewed_load and (forward_usage_evidence or continuous_handoff or same_project_successor)) and
+        not (continuous_handoff and same_project_successor),'Separate qualification modes required')
+    forward_usage_evidence=forward_usage_evidence or continuous_handoff or same_project_successor
     evidence=Path(evidence).resolve(strict=True)
     require(not list(evidence.iterdir()) and not evidence.stat().st_mode & 0o077 and
         not evidence.is_relative_to(SOURCE),'New empty private evidence directory outside source required')
@@ -132,7 +135,7 @@ def qualify(package,evidence,*,reviewed_load=False,forward_usage_evidence=False,
         home=f.root/'native-home'; ipc=f.root/'native-ipc'
         for path in (home,ipc): path.mkdir(mode=0o700)
         (home/'config.toml').write_text('model = "gpt-6-astra"\nmodel_provider = "followup_fixture"\n'+
-            ('thread_unload_delay_secs = 1\n' if continuous_handoff else '')+CONFIG+f'''
+            ('thread_unload_delay_secs = 1\n' if continuous_handoff or same_project_unloaded else '')+CONFIG+f'''
 [model_providers.followup_fixture]
 name = "Disposable continuation loopback provider"
 base_url = "http://127.0.0.1:{server.server_port}/v1"
@@ -220,7 +223,67 @@ stream_max_retries = 0
             def _line(self):
                 row=super()._line(); native.append(row); return row
         with patch.object(api,'Proxy',Observed):
-            if continuous_handoff:
+            if same_project_successor:
+                # Label the historical failure as injected, not an actual native
+                # unload. The current successor uses the real compiled host and
+                # real restricted sandbox/connection without a fixture reload.
+                parent_file=f.root/'predecessor-review.json'; write_record(parent_file,q)
+                if same_project_unloaded:
+                    for creator in creators: creator.__exit__(None,None,None)
+                    creators.clear(); time.sleep(1.5)
+                failure_fixture=(contextlib.nullcontext() if same_project_unloaded else
+                    patch.object(api.transport.Subscription,'_sample',side_effect=api.Refusal(same_project_lifecycle.REFUSAL)))
+                with failure_fixture:
+                    parent_result=api.confirm(registry,ledger,q,review['reviewHash'],writers_stopped=True,backup_root=backup)
+                require(parent_result['status']=='incomplete_unknown' and 'turn/start' not in methods and
+                    'thread/subscribe' not in methods and len(calls)==1,'Injected predecessor refusal performed an effect')
+                parent_pins={**same_project_lifecycle.inventory(q['journal']),**same_project_lifecycle.inventory(q['mailbox'])}
+                exclusive(evidence/'predecessor-fixture.json',{'injectedPreflightRefusal':not same_project_unloaded,'nativeUnloadClaimed':same_project_unloaded,
+                    'result':parent_result,'pins':parent_pins,'methods':list(methods)})
+                review=same_project_lifecycle.prepare(registry,ledger,parent_file); q=review['request']
+                backup=f.root/'same-project-backup'; api.backup(registry,ledger,q,backup,writers_stopped=True)
+                exclusive(evidence/'successor-review.json',q)
+                if same_project_unloaded:
+                    methods.clear(); native.clear()
+                    original_inspector=same_project_lifecycle.InspectionProxy
+                    class Inspector(original_inspector):
+                        def _rpc(self,method,params):
+                            methods.append(method); return super()._rpc(method,params)
+                    with patch.object(same_project_lifecycle,'InspectionProxy',Inspector):
+                        diagnostic=same_project_lifecycle.inspect(registry,ledger,q)
+                    require(diagnostic['nativeStatus']=={'type':'notLoaded'} and
+                        diagnostic['blockers']==['brain_not_loaded_no_reload_authorized'] and
+                        diagnostic['policy']==diagnostic['trackedTerminals']=='unknown' and
+                        not diagnostic['executionAuthorized'] and not Path(q['journal']).exists() and
+                        not connection_handoff.location(registry,q).exists(),'Unloaded diagnostic created authority or assumed safety')
+                    require(not any(m in methods for m in ('thread/resume','thread/subscribe','turn/start','turn/interrupt')) and
+                        len(calls)==1 and before==[database_proof(p) for p in (registry.db,ledger.db)] and
+                        parent_pins=={**same_project_lifecycle.inventory(api.read_review(parent_file)['journal']),
+                            **same_project_lifecycle.inventory(api.read_review(parent_file)['mailbox'])},'Unloaded case changed native work, claims or original rows')
+                    exclusive(evidence/'diagnostic.json',diagnostic)
+                    summary={'qualifiedSameProjectUnloadedDiagnostic':True,'actualNativeUnloadObserved':True,
+                        'injectedPredecessorRefusal':False,'fixtureUnloadDelaySeconds':1,'fixtureWaitSeconds':1.5,
+                        'provider':'loopback_fake_only','setupFakeProviderRequests':1,'diagnosticModelRequests':0,
+                        'diagnosticNativeWrites':0,'usageCollections':0,'executionClaimsCreated':0,
+                        'liveNativeConnections':0,'productionReloads':0,'newProjectsCreated':0,
+                        'originalSyntheticLedgerPreserved':True,'predecessorUnknownPreserved':True,
+                        'originalBindingPreserved':True,'methodCounts':{m:methods.count(m) for m in sorted(set(methods))},
+                        'qualifiedSourceHash':api.old.source_hash(),'boundary':dict(same_project_lifecycle.BOUNDARY)}
+                    exclusive(evidence/'summary.json',summary); return summary
+                script='import sys;sys.path.insert(0,'+repr(str(SOURCE))+');from orchestrator.canceled_continuation import submit;'+\
+                    'p='+repr(str(Path(q['mailbox'])/'handoff.json'))+';'+\
+                    'assert submit(p,"receive")["status"]=="received";'+\
+                    'assert submit(p,"proposal",{"summary":"Disposable same-project proposal","nextSteps":["Owner review only; no dispatch"]})["status"]=="proposal_retained"'
+                command[0]=shlex.join([sys.executable,'-B','-c',script]); methods.clear(); native.clear()
+                result_owner=same_project_lifecycle.confirm(registry,ledger,q,review['reviewHash'],writers_stopped=True,backup_root=backup)
+                require(result_owner['status']=='planning_completed' and result_owner['connectionClosed'] and
+                    same_project_lifecycle.status(registry,q)==result_owner,'Same-project owner failed: '+canonical(result_owner))
+                exclusive(evidence/'successor-owner.json',result_owner)
+                parent=api.read_review(parent_file)
+                require(parent_pins=={**same_project_lifecycle.inventory(parent['journal']),**same_project_lifecycle.inventory(parent['mailbox'])},
+                    'Predecessor bytes/epochs changed')
+                result=api.status(q)
+            elif continuous_handoff:
                 planning_file=f.root/'planning-review.json'; write_record(planning_file,q)
                 continuous=connection_handoff.prepare(registry,ledger,planning_file,60)['request']
                 exclusive(evidence/'continuous-review.json',continuous)
@@ -296,6 +359,12 @@ stream_max_retries = 0
                 reconnected=False,resubscribed=False,postCloseUnloadedObserved=True,
                 qualifiedSourceHash=api.old.source_hash(),continuousSourceHash=connection_handoff.source_hash())
             require(summary['oneOwningConnection'],'More than one original connection')
+        if same_project_successor:
+            summary.update(qualifiedSameProjectSuccessor=True,predecessorFixture='injected_preflight_refusal_not_native_unload',
+                predecessorUnknownPreserved=True,oneOwningConnection=methods.count('initialize')==1,
+                sameBrainProjectAndBinding=True,newProjectsCreated=0,productionReloads=0,
+                qualifiedSourceHash=api.old.source_hash())
+            require(summary['oneOwningConnection'],'Successor changed connection')
         exclusive(evidence/'summary.json',summary)
         return summary
     finally:
@@ -314,5 +383,8 @@ if __name__=='__main__':
     p.add_argument('--reviewed-load',action='store_true',help='Separate cold/warm metadata-only load fixture; no planning turn')
     p.add_argument('--forward-usage-evidence',action='store_true',help='Separate prospective usage with immutable synthetic telemetry')
     p.add_argument('--continuous-handoff',action='store_true',help='Same owning connection beyond actual fixture idle-unload timeout; separate exact planning approval')
+    p.add_argument('--same-project-successor',action='store_true',help='Injected historical preflight refusal, then one actual same-project compiled receipt/proposal lifecycle')
+    p.add_argument('--same-project-unloaded',action='store_true',help='Actual native unload and original preflight refusal, then non-authorizing same-project diagnostic')
     args=p.parse_args(); print(canonical(qualify(args.package,args.evidence,reviewed_load=args.reviewed_load,
-        forward_usage_evidence=args.forward_usage_evidence,continuous_handoff=args.continuous_handoff)))
+        forward_usage_evidence=args.forward_usage_evidence,continuous_handoff=args.continuous_handoff,
+        same_project_successor=args.same_project_successor,same_project_unloaded=args.same_project_unloaded)))

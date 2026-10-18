@@ -4,6 +4,48 @@ This separates source implementation from installation, merge and live
 qualification. None of these entries grants standard Play, a brain replacement
 or strict Harness execution authority.
 
+## Same-project lifecycle and forward lineage — 2026-10-18
+
+[SAME-PROJECT-LIFECYCLE.md](SAME-PROJECT-LIFECYCLE.md) adds one bounded version-3
+successor, not a replay, new pilot project or claim reset. The exact original
+preflight refusal/unknown outcome, complete predecessor inventory and cumulative
+usage remain pinned. A positive typed closed-stage record or the independently
+qualified frozen PR-176 implementation is mandatory. Metadata-only diagnostics
+cannot load, subscribe, collect usage or authorize execution. One new combined
+exact review retains the same foreground connection through subscription, one
+fresh monotone collection and explicit new receipt/proposal. Unknown delivery,
+Stop, permissions, source/native drift and original expiry remain fenced.
+
+Twenty-one new disposable unit cases passed, including same-project conservation,
+complete/partial lineage, wrong approval/backup, duplicate-owner races, standalone
+fallback, unloaded/unknown prerequisites, Stop races, permission waits, lost start
+acknowledgements, monotone prior-observation floors, freshness/expiry, retained
+record drift and diagnostic non-authority. Full local regression passed 3,147
+Python tests (3,146 passed; the existing opt-in Graphify test skipped), all 40
+JavaScript suites, 31 web-script syntax checks, 157 source/script AST checks and
+diff checks. The first full run was interrupted because an operator umask of 077
+changed an existing deliberately non-private fixture; the complete normal-022
+run passed without weakening that test.
+
+The final compiled successor fixture retained one actual native owning connection,
+one subscription, one new turn and its sandboxed explicit receipt/inert proposal.
+It preserved the same fixture brain/project/binding and original synthetic ledger.
+The predecessor refusal in this positive fixture is explicitly injected, not
+claimed as a native unload. A separate negative fixture actually closes every
+subscriber and observes native unloading after its disposable one-second delay.
+The real original preflight then refuses, and the successor diagnostic repeats
+`notLoaded` with unknown policy/terminals, zero subscription/turn/load calls,
+zero usage collections and zero execution claims. That negative predecessor is
+not injected. The standalone version-1 and continuous version-2 compiled native
+regressions also passed. All model traffic was labelled loopback fake traffic;
+native package/source pins are unchanged from the prior qualified artifact.
+
+These fixtures use no live host/credential, downloads, paid service or Action,
+and qualify no real worker or live pilot. This operator-only source increment
+changes no web UI and makes no new rendered-UI qualification claim. Separately
+requested live preparation/diagnostic evidence is private and is not execution
+authority. Source qualification does not install or confirm the live v3 pilot.
+
 ## Continuous foreground planning handoff — 2026-10-18
 
 [CONTINUOUS-CONNECTION-HANDOFF.md](CONTINUOUS-CONNECTION-HANDOFF.md) adds a

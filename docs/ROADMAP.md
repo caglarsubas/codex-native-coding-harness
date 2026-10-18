@@ -1,5 +1,16 @@
 # Codex-native orchestration roadmap
 
+- [x] Implement distinct same-project continuation for the exact recorded
+  pre-subscription refusal, retaining the consumed predecessor and unknown safety,
+  metadata-only diagnostic, combined new review and same-connection accounting/
+  receipt/proposal ([contract](SAME-PROJECT-LIFECYCLE.md)).
+- [x] Qualify the same-project successor and actual-unload non-authorizing
+  diagnostic, unchanged compiled native regressions, full 3,147-test Python
+  suite (one optional skip), 40 JavaScript suites and static/diff checks.
+- [ ] Separate manual merge, safe installation, actual v3 loaded-state
+  eligibility and exact live review/application. No v4,
+  reload, Play/recovery replay, binding change, usage reset or assumed safety.
+
 - [x] Implement an opt-in continuous foreground connection through exact planning
   review and same-process receipt/proposal handoff, retaining one-shot claims,
   fresh prospective usage and original ledger/binding/expiry invariants

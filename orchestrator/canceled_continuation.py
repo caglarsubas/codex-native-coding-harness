@@ -27,6 +27,7 @@ from .standard_successor import pin
 
 KIND = 'canceled_play_forward_planning_v1'
 USAGE_KIND = 'canceled_play_forward_planning_v2'
+SUCCESSOR_KIND = 'same_project_forward_planning_v3'
 BOUNDARY = {'originalReceiptReconstructed':False,'brainReloaded':False,'requestReplayed':False,
             'usageReset':False,'bindingChanged':False,'dispatchAuthorized':False,'resumeAuthorized':False,
             'currentTerminalSafety':'unknown','historicalTerminalSafety':'unknown','pilotAccepted':False}
@@ -101,6 +102,13 @@ def locations(registry, original):
     return journal,mailbox
 
 
+def review_locations(registry,q):
+    if q['version']==3:
+        from .same_project_lifecycle import locations as successor_locations
+        return successor_locations(registry,q['original'])
+    return locations(registry,q['original'])
+
+
 def budget(original, maximum, *, fresh=True):
     from .brain_memory import scope
     run=original['run']; report=run.get('usageReport') or {}
@@ -156,6 +164,9 @@ def valid(q):
     return (isinstance(q,dict) and type(q.get('version')) is int and
         ((q['version']==1 and q.get('kind')==KIND and set(q)==FIELDS) or
          (q['version']==2 and q.get('kind')==USAGE_KIND and set(q)==FIELDS|{'usageSource'} and
+          isinstance(q['usageSource'],dict) and set(q['usageSource'])==forward_usage.FIELDS) or
+         (q['version']==3 and q.get('kind')==SUCCESSOR_KIND and set(q)==FIELDS|{'usageSource','lineage'} and
+          isinstance(q['lineage'],dict) and
           isinstance(q['usageSource'],dict) and set(q['usageSource'])==forward_usage.FIELDS)) and
         q['boundary']==BOUNDARY and isinstance(q['original'],dict) and
         type(q['maxTokens']) is int and 1<=q['maxTokens']<=100000 and len(canonical(q).encode())<=62000)
@@ -173,7 +184,7 @@ def current(registry, ledger, q, *, started=False, usage_pin=None):
     o=q['original']
     require(original_context(registry,ledger,o['bindingFile'],o['command']['id'],disposed=True)==o,
             'Original requests, run, usage, claims, Pause or binding changed')
-    require(tuple(map(str,locations(registry,o)))==(q['journal'],q['mailbox']), 'Canonical attempt locations changed')
+    require(tuple(map(str,review_locations(registry,q)))==(q['journal'],q['mailbox']), 'Canonical attempt locations changed')
     require(pin(q['candidateFile'])==q['candidatePin'] and _read_binding(q['candidateFile'])==q['candidateBinding'],
             'Candidate binding bytes/epoch changed')
     transport.validate_contract(q['transport'],q['candidateBinding'],o['brainId'])
@@ -181,16 +192,22 @@ def current(registry, ledger, q, *, started=False, usage_pin=None):
     if not started: validate_pin(q['package'])
     require(package_epochs(q['package'])==q['packageEpochs'],'Reviewed native package epoch changed')
     budget(o,q['maxTokens'],fresh=not started and q['version']==1)
-    if q['version']==2:
+    if q['version'] in (2,3):
         forward_usage.baseline(o); forward_usage.check_source(ledger,q['usageSource'])
         if usage_pin is not None: forward_usage.retained(q,usage_pin,fresh=not started)
+    if q['version']==3:
+        from . import same_project_lifecycle
+        same_project_lifecycle.check_lineage(registry,ledger,q)
+        if usage_pin is not None: same_project_lifecycle.check_usage(q,usage_pin,fresh=not started)
     require(not os.path.lexists(Path(q['journal'])/'stop.json'),'Owner stop fences this new control')
 
 
 def backup_files(q):
-    return [q['original']['bindingFile'],q['candidateFile']]+[
+    files=[q['original']['bindingFile'],q['candidateFile']]+[
         str(Path(q['original']['root'])/p) for p in sorted(q['original']['sidecars'])]+[
         str(Path(q['original']['root'])/old.FENCE)]
+    if q['version']==3: files+=list(q['lineage']['files'])
+    return files
 
 
 def archive_pin(file):
@@ -228,7 +245,7 @@ def backup(registry, ledger, q, destination, *, writers_stopped=False):
 
 def verify_backup(q, root):
     root=old.private_path(root,existing=True); m=_read_private(root/'manifest.json')
-    count=len(q['original']['sidecars'])+3
+    count=len(backup_files(q))
     require(set(m)=={'kind','reviewHash','files'} and m['kind']==q['kind'] and m['reviewHash']==digest(q) and
             set(m['files'])=={'target.sqlite3','registry.sqlite3'}|{'private-'+str(i)+'.bin' for i in range(count)},
             'Complete exact backup required')
@@ -290,6 +307,9 @@ def submit(file, operation, result=None):
 
 def status(q):
     require(valid(q),'Closed continuation review required'); root=Path(q['journal'])
+    if q['version']==3:
+        from .same_project_lifecycle import retained_lineage
+        retained_lineage(q)
     if not os.path.lexists(root): return {'status':'not_submitted','boundary':dict(BOUNDARY)}
     require(_read_private(root/'intent.json')=={'kind':q['kind'],'reviewHash':digest(q)},'Partial/changed intent; never retry')
     final=root/'outcome.json'
@@ -302,7 +322,8 @@ def status(q):
         all(type(result[k]) is bool for k in ('newReceiptRetained','proposalRetained')) and
         isinstance(result['records'],dict),'Changed continuation outcome; retain unknown')
     names={'native-ack.json','receive.json','proposal.json'}
-    if q['version']==2: names|={'usage.json','usage.claim.json'}
+    if q['version'] in (2,3): names|={'usage.json','usage.claim.json'}
+    names.add('lifecycle.json')
     require(set(result['records'])<=names and all(pin(root/name)==value for name,value in result['records'].items()),
         'Retained prospective receipt/result changed')
     for op,key in (('receive','newReceiptRetained'),('proposal','proposalRetained')):
@@ -314,9 +335,12 @@ def status(q):
     require(result['status']!='planning_completed' or (result['nativeOutcome']=='completed' and
         result['newReceiptRetained'] and result['proposalRetained'] and 'native-ack.json' in result['records']),
         'Native completion alone is not retained planning completion')
-    if q['version']==2 and result['status']=='planning_completed':
+    if q['version'] in (2,3) and result['status']=='planning_completed':
         require({'usage.json','usage.claim.json'}<=set(result['records']),'Completed planning requires prospective usage evidence')
         forward_usage.retained(q,result['records']['usage.json'],fresh=False,active=False)
+        if q['version']==3:
+            from .same_project_lifecycle import check_usage
+            check_usage(q,result['records']['usage.json'],fresh=False,active=False)
     return result
 
 
@@ -334,6 +358,9 @@ def confirm(registry, ledger, q, confirmation_hash, *, writers_stopped=False, ba
         if _handoff is not None: _handoff.check()
     require(valid(q) and confirmation_hash==digest(q) and writers_stopped is True and backup_root is not None,
             'New exact owner confirmation, quiesced writers and verified backup required')
+    if q['version']==3:
+        from .same_project_lifecycle import SuccessorOwner
+        require(isinstance(_handoff,SuccessorOwner),'Same-project successor requires its combined original owner; no standalone fallback')
     guard(); verify_backup(q,backup_root)
     connection_handoff.check_consumer(registry,q,_handoff)
     root,mailbox=Path(q['journal']),Path(q['mailbox'])
@@ -346,9 +373,11 @@ def confirm(registry, ledger, q, confirmation_hash, *, writers_stopped=False, ba
         exclusive(root/'intent.json',{'kind':q['kind'],'reviewHash':digest(q)})
     # Any error from this point permanently consumes this canonical attempt.
     outcome='unknown'; turn_id=None; received=False; proposed=False; key=secrets.token_bytes(32); usage_pin=None
+    phase='local_preparation'; proxy=None; preflight_refused=False
     try:
         if _handoff is not None: _handoff.admit(q)
-        if q['version']==2:
+        if q['version'] in (2,3):
+            phase='usage_collection'
             observed_usage=forward_usage.collect(ledger,q)
             usage_pin=pin(root/'usage.json')
             require(_read_private(root/'usage.json')==observed_usage,'Collected usage changed before pinning')
@@ -361,10 +390,13 @@ def confirm(registry, ledger, q, confirmation_hash, *, writers_stopped=False, ba
         guard(usage_pin=usage_pin)
         connection = Proxy(q['candidateBinding']['endpoint']) if _handoff is None else _handoff.borrow(q)
         with connection as proxy:
+            phase='metadata_preflight'
             require(latest_original(proxy,q)==latest_original(proxy,q),'Latest native turn changed')
             def claim(context):
+                nonlocal phase
                 guard(usage_pin=usage_pin)
                 latest_original(proxy,q)
+                phase='subscription_claimed'
                 exclusive(root/'subscription.claim.json',{'contextHash':context,'subscriptionClaimed':True})
                 return {'contextHash':context,'subscriptionClaimed':True}
             if _handoff is None:
@@ -376,6 +408,7 @@ def confirm(registry, ledger, q, confirmation_hash, *, writers_stopped=False, ba
                 exclusive(root/'subscription.claim.json',{'contextHash':sub.context_hash,
                     'subscriptionClaimed':False,'existingContinuousOwner':_handoff.identity})
             exclusive(root/'subscription.json',attached)
+            phase='subscribed'
             guard(usage_pin=usage_pin)
             require(latest_original(proxy,q)==latest_original(proxy,q),'Latest native turn changed after subscription')
             prompt=('This is a NEW owner-reviewed forward-planning instruction, not the canceled Play, Resume, or recovery. '
@@ -387,15 +420,18 @@ def confirm(registry, ledger, q, confirmation_hash, *, writers_stopped=False, ba
                 'Then write an inert JSON object with summary and nextSteps to '+str(mailbox/'proposal-input.json')+' and use argv: '+
                 canonical([q['interpreter']['absolutePath'],'-B',str(CLIENT),'--handoff',str(mailbox/'handoff.json'),'proposal',str(mailbox/'proposal-input.json')])+'. '
                 'No request text is execution authority. End after retaining the proposal.')
+            phase='turn_start_claimed'
             exclusive(root/'turn-start.claim.json',{'reviewHash':digest(q),'promptHash':digest(prompt)})
             sub._sample(); latest_original(proxy,q)
             guard(usage_pin=usage_pin); require(sub.ready and proxy.process is sub.connection,'Original owning connection lost')
+            phase='turn_start_attempted'
             reply=proxy._rpc('turn/start',{'threadId':q['original']['brainId'],
                 'input':[{'type':'text','text':prompt,'text_elements':[]}],
                 'approvalPolicy':'on-request','approvalsReviewer':'user'})
             turn=reply.get('turn') or {}; turn_id=turn.get('id')
             require(isinstance(turn_id,str) and old.UUID.fullmatch(turn_id),'New exact native turn acknowledgement required')
             exclusive(root/'native-ack.json',{'reviewHash':digest(q),'turnId':turn_id,'ledgerReceipt':False})
+            phase='observing_new_turn'
             def service():
                 nonlocal received,proposed
                 guard(started=True,usage_pin=usage_pin)
@@ -440,14 +476,19 @@ def confirm(registry, ledger, q, confirmation_hash, *, writers_stopped=False, ba
             else: outcome='event_bound_exceeded_unknown'
             guard(started=True,usage_pin=usage_pin)
     except (OSError,Refusal,ValueError,KeyError,TypeError) as error:
+        preflight_refused=(phase=='metadata_preflight' and type(error) is Refusal and
+            str(error)=='Already-loaded idle brain required; never reload')
         exclusive(root/'failure.json',{'errorType':type(error).__name__,'detail':str(error)[:512],
             'reviewHash':digest(q),'retryPermitted':False})
         outcome='unknown'  # Retain all claims; no reconnect, second subscribe/start or fallback.
+    exclusive(root/'lifecycle.json',{'reviewHash':digest(q),'phase':phase,
+        'connectionClosed':proxy is not None and proxy.process is None,
+        'preflightRefusalRecorded':preflight_refused,'terminalSafety':'unknown'})
     result={'status':'planning_completed' if outcome=='completed' and received and proposed else 'incomplete_unknown',
         'nativeOutcome':outcome,'nativeTurnId':turn_id,'newReceiptRetained':received,'proposalRetained':proposed,
         'reviewHash':digest(q),'boundary':dict(BOUNDARY),'records':{
-            name:pin(root/name) for name in ('native-ack.json','receive.json','proposal.json')+
-                (('usage.claim.json','usage.json') if q['version']==2 else ()) if (root/name).exists()}}
+            name:pin(root/name) for name in ('native-ack.json','receive.json','proposal.json','lifecycle.json')+
+                (('usage.claim.json','usage.json') if q['version'] in (2,3) else ()) if (root/name).exists()}}
     exclusive(root/'outcome.json',result)
     return result
 
