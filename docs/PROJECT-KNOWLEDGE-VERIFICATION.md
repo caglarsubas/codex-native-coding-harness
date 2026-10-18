@@ -4,6 +4,48 @@ This separates source implementation from installation, merge and live
 qualification. None of these entries grants standard Play, a brain replacement
 or strict Harness execution authority.
 
+## Continuous foreground planning handoff — 2026-10-18
+
+[CONTINUOUS-CONNECTION-HANDOFF.md](CONTINUOUS-CONNECTION-HANDOFF.md) adds a
+separate exact owner-bound connection review, immutable ready record and new
+process/nonce-bound planning confirmation. The original foreground process passes
+its single connection/subscription into the existing canonical planning control.
+It does not reload, reconnect, resubscribe, dispatch or rearm a consumed attempt.
+Fresh actual usage is collected after the planning confirmation, preserving the
+original baseline, 120-second freshness, budgets/reserve and original expiry.
+
+Nineteen disposable unit cases cover exact approvals and separate receipts;
+unloaded preflight; backup/ready/source drift; partial/consumed/closed ownership;
+standalone fallback and concurrent-open refusal; process-local CLI ownership;
+Stop before/during a turn; native permissions; collection interruption and stale
+evidence despite a longer hold window; and historical file-only status.
+
+The production compiled-native fixture closes every other subscriber, waits
+1.5 seconds beyond its explicitly configured one-second disposable unload delay,
+then prepares/confirms planning. The single owning connection and subscription
+remain unchanged; one new native turn retains the explicit sandboxed receipt and
+inert proposal. The native package remains commit
+`cd935163b03fbbe3d26a464be5c199a31011b120`, tree
+`26323f8f8aea3827361be30d75826551c61277e8`, executable SHA-256
+`f7129d8763a45268aaa136b3a50de20acfcb6e07458a672d6c253d6d727f2ec9`.
+The original fixture ledger and usage are synthetic; all three model responses
+are loopback fakes, with no live native connection, credential, download, paid
+service or Action. This is not a real worker pilot or terminal-cleanup proof.
+
+The final compiled check also observes normal `notLoaded` metadata after closing
+the owner, without reopening that consumed subscription. The unchanged standalone
+version-1 production planning fixture passes separately. Full local regression:
+3,126 Python tests (3,125 passed, one optional skip), all 40 JavaScript suites,
+31 web-script syntax checks, 156 source/script AST checks and diff checks.
+This operator-only increment adds no UI or rendered-UI qualification claim.
+
+The live v3 review preparation is deliberately file-only. Its consumed original
+planning/load claims and closed earlier connection cannot acquire this prospective
+path. The blocker assessment grants no authority and offers no unusable native
+confirmation. Original requests, usage, claims, bindings and unknown safety remain
+unchanged. Source, merge, installation, actual live eligibility and acceptance are
+separate; the current dashboard/host are not modified by this source delivery.
+
 ## Forward-only canceled-attempt usage — 2026-10-18
 
 The explicit version-2 planning review preserves the old ledger's snapshot-backed

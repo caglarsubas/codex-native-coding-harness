@@ -1,5 +1,14 @@
 # Durable project knowledge and bounded brain context
 
+[CONTINUOUS-CONNECTION-HANDOFF.md](CONTINUOUS-CONNECTION-HANDOFF.md) preserves
+one explicitly reviewed foreground subscription through a separate exact planning
+review and same-process handoff. Only unconsumed prospective planning is eligible;
+closed/partial/consumed attempts cannot be adopted, retried, reloaded or rearmed.
+Fresh usage is collected only after planning confirmation, with unchanged freshness,
+limits and expiry. Source qualification does not supply v3's missing connection
+or turn its consumed planning claim into a new review. A file-only assessment
+preserves and exposes those blockers without authority or live native inspection.
+
 [FORWARD-USAGE-EVIDENCE.md](FORWARD-USAGE-EVIDENCE.md) defines the explicit
 version-2 planning review. It preserves the old snapshot-backed usage as an
 immutable baseline while claiming one actual bounded collection into the separate

@@ -1,5 +1,15 @@
 # Version 1 record contracts
 
+The separate `continuous_connection_handoff_v1` review and external canonical
+journal retain one original foreground subscription. Its immutable ready pin,
+process birth and nonce bind `continuous_planning_authorization_v1` to a separate
+exact planning confirmation. A single-use process-local handoff reuses that
+connection without resubscription, load or reconnect. The existing prospective
+planning journal/usage/receipt/proposal remains canonical and unchanged in meaning;
+partial or consumed attempts cannot switch versions or directories to retry.
+File-only status and non-authorizing blocker assessments never claim current
+connection health or safety. See [the handoff contract](CONTINUOUS-CONNECTION-HANDOFF.md).
+
 The opt-in `canceled_play_forward_planning_v2` review adds the exact configured
 usage source to the separately reviewed planning control. Its canonical attempt
 is shared with version 1; neither can rearm a consumed original attempt. A

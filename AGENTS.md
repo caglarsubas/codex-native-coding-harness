@@ -1,5 +1,22 @@
 # Codex Orchestrator — personal tooling
 
+## Continuous foreground handoff source (2026-10-18)
+
+Read docs/CONTINUOUS-CONNECTION-HANDOFF.md before the separate operator-only
+continuous owner. Require an unconsumed exact version-2 planning request, original
+scope/accounting/binding preservation, quiesced writers and private verified
+backups. A new exact handoff review claims one already-loaded-only foreground
+subscription; a separate exact process/nonce-bound planning confirmation permits
+one usage collection and inert receipt/proposal turn on that very same connection.
+No native metadata/model keepalive, resume, reload, reconnect, resubscribe,
+permission response, cancel, dispatcher or background adoption is supported.
+Stop, source/ready/native drift, loss and original expiry fence service; either
+canonical claim permanently prohibits fallback or retry. Status/assessment are
+file-only and never infer current connection or terminal safety. Consumed v3
+planning/load attempts cannot acquire this prospective path or an executable
+review: retain a non-authorizing blocker assessment instead. Source qualification
+installs or applies nothing live and accepts no pilot.
+
 ## Forward-only canceled-attempt usage evidence (2026-10-18)
 
 Read docs/FORWARD-USAGE-EVIDENCE.md before the explicit version-2 planning

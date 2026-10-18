@@ -1,5 +1,13 @@
 # Codex-native orchestration roadmap
 
+- [x] Implement an opt-in continuous foreground connection through exact planning
+  review and same-process receipt/proposal handoff, retaining one-shot claims,
+  fresh prospective usage and original ledger/binding/expiry invariants
+  ([contract](CONTINUOUS-CONNECTION-HANDOFF.md); disposable source qualification).
+- [ ] Separate manual merge and safe installation, then actual live eligibility
+  and exact owner review. Existing v3 load/planning claims remain consumed; no
+  source upgrade, assessment or review may reload, retry or rearm them.
+
 - [x] Implement opt-in forward-only usage evidence for canceled-attempt planning,
   preserving the old ledger/report and collecting once into its prospective
   journal without weaker freshness or expiry checks

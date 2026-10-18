@@ -309,6 +309,11 @@ dependency. Event-driven waiting pauses model polling while awaiting owner input
 new dashboard events wake the same brain. A paused heartbeat cannot recover a
 failed notification, which stays visible for manual recovery.
 
+For unconsumed canceled-attempt planning, the separate operator-only
+[continuous connection handoff](docs/CONTINUOUS-CONNECTION-HANDOFF.md) keeps one
+reviewed foreground subscription across the exact planning review. It cannot
+reload an unloaded brain, restore a closed connection or retry a consumed attempt.
+
 In **Mission & authority**, [model & effort policy controls](docs/MODEL-POLICY-CONTROLS.md)
 let the owner inspect a recorded catalog, explicitly choose profile quality/token
 floors and escalation limits, then preview and confirm review or revocation.
