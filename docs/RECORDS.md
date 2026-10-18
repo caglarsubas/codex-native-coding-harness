@@ -1,5 +1,15 @@
 # Version 1 record contracts
 
+The separate `same_project_forward_planning_v3` review binds the original
+version-2 request, complete canonical journal/mailbox pins, positive closed
+preflight-stage record (or allowlisted frozen legacy implementation), both usage
+baselines and unchanged identity/bindings. Its new fixed successor journal and
+original continuous-owner slot cannot be rearmed or chained. One exact combined
+review retains subscription, handoff, actual usage and explicit new receipt/
+proposal facts; predecessor outcome and terminal safety remain unknown.
+Diagnostic observation is non-authorizing and creates no execution claim. See
+[SAME-PROJECT-LIFECYCLE.md](SAME-PROJECT-LIFECYCLE.md).
+
 The separate `continuous_connection_handoff_v1` review and external canonical
 journal retain one original foreground subscription. Its immutable ready pin,
 process birth and nonce bind `continuous_planning_authorization_v1` to a separate

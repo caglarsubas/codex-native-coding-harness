@@ -1,5 +1,28 @@
 # Codex Orchestrator — personal tooling
 
+## Same-project lifecycle source (2026-10-18)
+
+Read docs/SAME-PROJECT-LIFECYCLE.md before the separate version-3 successor.
+Preserve the original consumed version-2 planning request and unknown outcome;
+only its exact closed pre-subscription refusal lineage is supported. Require the
+typed pinned closed preflight record, or the explicit allowlisted immutable
+PR-176 source plus its complete original canonical failure/usage/mailbox records.
+Never infer historical non-execution or terminal cleanup from this local lineage.
+One fixed canonical successor and original owner slot, never recursive successors
+or source/ID/endpoint retries, may use a new exact combined owner review for one
+already-loaded-only subscription, one monotone actual usage collection and one
+NEW inert receipt/proposal on that same foreground connection. Preserve both
+usage baselines, freshness, limits, expiry, old rows/claims/holds and binding bytes.
+The explicit diagnostic is metadata-only and grants no execution, subscription,
+usage collection or claim; unloaded means blocked with unknown policy/terminals,
+not a reason to create v4. Stop/drift/loss/expiry/permissions remain fail-closed.
+No load, replay, approval response, cancel, automatic retry, host/binding change,
+usage reset, ownership release or safety/pilot-acceptance inference is added.
+This distinct successor does not rearm or migrate any earlier claim. Source and
+disposable qualification install or confirm nothing live; manual merge and safe
+stopped-writer/backed-up installation, actual eligibility and exact live review
+remain separate.
+
 ## Continuous foreground handoff source (2026-10-18)
 
 Read docs/CONTINUOUS-CONNECTION-HANDOFF.md before the separate operator-only

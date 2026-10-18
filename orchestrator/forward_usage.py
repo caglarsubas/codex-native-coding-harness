@@ -132,7 +132,7 @@ def inventory(value, run):
 def collect(ledger, q):
     """Called once, only after canonical owner intent; no native API or DB writes."""
     original=q['original']; run=original['run']; value=q['usageSource']; root=Path(q['journal'])
-    require(q['version']==2 and q['kind']=='canceled_play_forward_planning_v2' and
+    require((q['version'],q['kind']) in ((2,'canceled_play_forward_planning_v2'),(3,'same_project_forward_planning_v3')) and
         _read_private(root/'intent.json')=={'kind':q['kind'],'reviewHash':digest(q)},
         'Exact committed prospective owner intent required before collection')
     check_source(ledger,value)
