@@ -1,5 +1,19 @@
 # Codex Orchestrator — personal tooling
 
+## Subscribe-only transport source (2026-10-18)
+
+Read docs/NO-RELOAD-TRANSPORT.md before the internal subscription transport. The
+experimental reviewed native build atomically subscribes only to an already-loaded
+idle runtime and refuses unloading/unloaded/active threads. No resume fallback,
+new turn, policy change, permission response or reconnect is supported. The client
+requires exact build/binding pins and repeated actual identity/policy/tracker reads.
+Its claim callback is not an owner-authentication or durable continuation adapter;
+no production caller or live control is included. Fixtures use disjoint homes and
+a fake loopback provider only. Preserve old requests/run/usage/gaps/claims/bindings
+and unknown safety. Source/fixture qualification launches no live host, changes no
+binding, applies no canceled-Play disposition and accepts no pilot. An absent host
+cannot supply an already-loaded brain without a separately permitted runtime path.
+
 ## Canceled Play disposition source (2026-10-18)
 
 Read docs/CANCELED-PLAY-DISPOSITION.md before the operator-only canceled-play

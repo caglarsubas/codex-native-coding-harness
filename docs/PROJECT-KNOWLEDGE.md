@@ -1,5 +1,12 @@
 # Durable project knowledge and bounded brain context
 
+[NO-RELOAD-TRANSPORT.md](NO-RELOAD-TRANSPORT.md) defines the supplemental native
+subscribe-only operation and closed same-connection transport. Its loaded lookup
+and subscription serialize against native unload; it never resumes or starts a
+turn. Source/build fixture qualification is separate from live host/binding review
+and the still-missing exact-owner continuation adapter. No old request, usage,
+claim, binding, expiry or safety unknown is changed by this source delivery.
+
 [CANCELED-PLAY-DISPOSITION.md](CANCELED-PLAY-DISPOSITION.md) separates the local
 unqualified disposition of an owner-canceled, interrupted, unreceipted Play from
 native continuation. Exact scope-bound review and private backups precede one

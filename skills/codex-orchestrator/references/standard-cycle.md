@@ -1,5 +1,13 @@
 # Cooperative standard-project brain
 
+The supplemental source-only subscription component is documented in
+`docs/NO-RELOAD-TRANSPORT.md`. It can attach only to an already-loaded idle runtime
+on a separately reviewed build and the same original open connection. It is not
+a continuation control or an owner-confirmation journal. Never reload, replay,
+change an existing binding or send an unobserved turn to use it. A missing host,
+unknown tracker, original canceled Play or missing continuation authority stays
+blocked. Source/fixtures apply no live disposition and accept no pilot.
+
 For a separately recorded canceled-Play disposition, read
 `docs/CANCELED-PLAY-DISPOSITION.md`. The original missing receipt is never
 received retroactively. This is an unqualified local owner record with a write
