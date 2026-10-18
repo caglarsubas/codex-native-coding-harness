@@ -1,5 +1,14 @@
 # Cooperative standard-project brain
 
+For the separate operator-only canceled-attempt forward-planning and launch-only
+replacement review, read `docs/CANCELED-CONTINUATION-CONTROL.md` fully. Only the
+new prospective checkout mailbox can receive that new planning instruction and
+retain an inert proposal; no original Play receipt, dispatch, Resume, reload,
+permission response or replay is granted. The original ledger/claims/binding and
+usage remain immutable. Missing measured usage, an expired phase or unloaded
+brain stays blocked. Source/fixture delivery does not launch or connect a host,
+install a binding, confirm disposition/continuation or qualify the live pilot.
+
 The supplemental source-only subscription component is documented in
 `docs/NO-RELOAD-TRANSPORT.md`. It can attach only to an already-loaded idle runtime
 on a separately reviewed build and the same original open connection. It is not
@@ -11,8 +20,8 @@ blocked. Source/fixtures apply no live disposition and accept no pilot.
 For a separately recorded canceled-Play disposition, read
 `docs/CANCELED-PLAY-DISPOSITION.md`. The original missing receipt is never
 received retroactively. This is an unqualified local owner record with a write
-fence; its continuation assessment starts nothing. The current public protocol
-does not provide a qualified no-reload owned subscription. Do not load, replay,
+fence; its continuation assessment starts nothing. The original pinned host
+does not provide the separately qualified no-reload subscription. Do not load, replay,
 send an unobserved turn or ask for another Cancel to disguise that boundary.
 Source delivery grants no live disposition, continuation or pilot acceptance.
 

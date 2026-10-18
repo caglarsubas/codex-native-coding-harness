@@ -1,10 +1,18 @@
 # Codex-native orchestration roadmap
 
+- [x] Implement a distinct exact-owner, already-loaded-only forward-planning
+  control with separate prospective receipt/proposal journal and a post-Cancel
+  launch-only replacement-host review ([contract](CANCELED-CONTINUATION-CONTROL.md)).
+  Original requests, run/usage/gaps/claims/binding and unknown safety stay intact.
+- [ ] Separately merge/install, review the actual replacement package/launch,
+  qualify permitted connectivity/binding and resolve actual loaded/usage/expiry
+  prerequisites before a new continuation. Source prepares no automatic live turn.
+
 - [x] Implement explicit already-loaded-only subscription in the reviewed native
   build and a closed same-connection client transport with no resume fallback
   ([contract](NO-RELOAD-TRANSPORT.md); source/fixture component, not continuation).
-- [ ] Qualify a permitted live runtime/build/binding and implement the distinct
-  exact-owner continuation adapter. Preserve the canceled original Play, usage,
+- [ ] Qualify a permitted live runtime/build/binding for the distinct
+  exact-owner forward-planning adapter. Preserve the canceled original Play, usage,
   claims and binding; a missing host/unloaded brain stays blocked under no reload.
 
 - [x] Implement non-waking exact canceled-Play disposition and a truthful

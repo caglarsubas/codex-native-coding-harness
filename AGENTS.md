@@ -1,5 +1,22 @@
 # Codex Orchestrator — personal tooling
 
+## Canceled-attempt forward planning and replacement review (2026-10-18)
+
+Read docs/CANCELED-CONTINUATION-CONTROL.md fully before either new operator-only
+path. A distinct exact-owner forward-planning control may subscribe once only to
+an already-loaded idle brain on its separately pinned candidate endpoint. Require
+the original complete canceled-Play disposition, immutable original rows/sidecars/
+binding, actual gap-free retained usage within unchanged allowance/expiry, private
+backups and permanent external claims. Only a new explicit receipt and inert
+proposal are supported; no Resume or dispatch, old receipt backfill, reload,
+permission response, reconnect or replay. Source/fixtures grant no live control.
+The separate post-Cancel replacement review pins an issued retired-host lineage,
+exact native package and unchanged isolated home. Preserve credentials in place
+by metadata only and back up non-credential state. Prepare/preview/status start
+nothing; only a new exact hash can authorize one launch-only foreground exec.
+No binding change, brain load, usage reset or terminal-safety inference follows.
+An exited host cannot supply a loaded brain under the no-reload constraint.
+
 ## Subscribe-only transport source (2026-10-18)
 
 Read docs/NO-RELOAD-TRANSPORT.md before the internal subscription transport. The
@@ -8,8 +25,8 @@ idle runtime and refuses unloading/unloaded/active threads. No resume fallback,
 new turn, policy change, permission response or reconnect is supported. The client
 requires exact build/binding pins and repeated actual identity/policy/tracker reads.
 Its claim callback is not an owner-authentication or durable continuation adapter;
-no production caller or live control is included. Fixtures use disjoint homes and
-a fake loopback provider only. Preserve old requests/run/usage/gaps/claims/bindings
+the separate caller above supplies its own exact review and journal. Fixtures use
+disjoint homes and a fake loopback provider only. Preserve old requests/run/usage/gaps/claims/bindings
 and unknown safety. Source/fixture qualification launches no live host, changes no
 binding, applies no canceled-Play disposition and accepts no pilot. An absent host
 cannot supply an already-loaded brain without a separately permitted runtime path.

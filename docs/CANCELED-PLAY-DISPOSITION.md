@@ -1,5 +1,11 @@
 # Canceled Play: forward-only disposition and continuation assessment
 
+The separately reviewed prospective planning control and launch-only replacement
+review are documented in [CANCELED-CONTINUATION-CONTROL.md](CANCELED-CONTINUATION-CONTROL.md).
+They do not change this disposition, its original-row/sidecar fence or the
+non-executing `canceled-play-continuation` assessment below. No disposition or old
+approval authorizes a new turn, host launch, binding change, Resume or dispatch.
+
 `canceled_play_disposition_v1` records a local **unqualified** outcome for one
 accepted Play whose owner Cancel resolved, original turn was interrupted and
 original observer closed without a brain receipt. It never replaces that receipt,
