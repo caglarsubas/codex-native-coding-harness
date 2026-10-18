@@ -13,6 +13,12 @@ Its `turn/start` does not subscribe a new connection. A new turn without an owne
 observer would lose permission and lifecycle handling; calling `thread/resume`
 would violate the no-reload instruction. Neither is an acceptable fallback.
 
+The supplemental [subscribe-only transport](NO-RELOAD-TRANSPORT.md) now provides
+the source-build component for an already-loaded idle runtime. It does not change
+this original binding or supply an executable exact-owner continuation adapter.
+An absent host or unloaded brain still cannot be continued under no reload; the
+local disposition remains a separate non-waking unqualified record.
+
 ## Exact operator review, no countdown
 
 Use explicit existing registry/workspace routing:

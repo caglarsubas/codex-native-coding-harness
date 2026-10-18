@@ -1,5 +1,12 @@
 # Codex-native orchestration roadmap
 
+- [x] Implement explicit already-loaded-only subscription in the reviewed native
+  build and a closed same-connection client transport with no resume fallback
+  ([contract](NO-RELOAD-TRANSPORT.md); source/fixture component, not continuation).
+- [ ] Qualify a permitted live runtime/build/binding and implement the distinct
+  exact-owner continuation adapter. Preserve the canceled original Play, usage,
+  claims and binding; a missing host/unloaded brain stays blocked under no reload.
+
 - [x] Implement non-waking exact canceled-Play disposition and a truthful
   continuation assessment, preserving original rows/usage/claims/bindings and
   fencing incomplete records ([contract](CANCELED-PLAY-DISPOSITION.md)).

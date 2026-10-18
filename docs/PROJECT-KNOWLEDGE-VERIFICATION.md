@@ -4,6 +4,50 @@ This separates source implementation from installation, merge and live
 qualification. None of these entries grants standard Play, a brain replacement
 or strict Harness execution authority.
 
+## No-reload owning subscription transport — 2026-10-18
+
+The experimental native `thread/subscribe` source and closed Python transport
+qualify subscription to the same already-loaded idle runtime, not a production
+continuation control. Seventeen new Python cases cover exact build/binding and
+identity pins, actual restricted policy, closed empty tracker coverage, owner
+claim ordering, duplicate/concurrent attempts, connection replacement, lost or
+malformed replies, drift and no resume/reconnect fallback.
+
+Frozen-source full discovery passed **3,029 Python tests** in 984.443 seconds,
+with one optional Graphify executable check skipped. All **40 JavaScript suites**,
+**31 web syntax checks**, **149 source/script AST checks** and staged/unstaged diff
+checks pass.
+Rendered disposable desktop/320px checks retain readable unknown-safety and
+missing-receipt guidance, keyboard Details, no horizontal overflow and zero
+control/wake submissions. No Actions workflow or paid service was added or run.
+
+The offline native candidate passed **379 app-server unit tests**, **320 protocol
+tests** (one explicit generation helper ignored), **3 subscribe regressions** and
+**5 existing unsubscribe regressions**. Stable schemas remain unchanged. A real
+two-connection Unix fixture verifies new-connection lifecycle and permission
+delivery, unchanged subscription-time history, no model call during subscription,
+active-wait refusal, observed native unload and a consumed preflight-to-unload
+race with an actual rejected subscribe RPC. It uses two labelled fake loopback
+responses and no reload or live-host connection. The prior binary refuses the
+new method; capability is not inherited. A separate existing actual-tool fixture
+passes apply_patch, fixed pwd, restricted worker policy and two retained item
+lifecycles using three fake loopback responses and zero cloud/live-host requests.
+
+The exact native source bundle and monolithic ARM64 package are retained
+privately, with source/tree/executable pins in [the contract](NO-RELOAD-TRANSPORT.md).
+This is operator-reviewed candidate provenance, not vendor desktop authorization,
+reproducible-build attestation, native process cleanup or live pilot acceptance.
+
+Read-only preservation checks retain all five database proofs and 29 protected
+records, including old requests/run/usage gaps/claims/binding and the missing Play
+receipt. The original host PID is absent and no owner was observed at its exact
+socket. Pure contract validation refuses the unchanged old binding without opening
+an endpoint. No live disposition, source/host/dashboard installation, native load,
+permission response, cancellation, replay, usage reset or binding change occurred.
+The exact-owner continuation adapter and a permitted already-loaded live runtime
+remain outstanding. Current and historical terminal safety stay unknown; v3 is
+not continued or accepted by source/fixture success.
+
 ## Canceled Play disposition and continuation boundary — 2026-10-18
 
 The non-waking `canceled_play_disposition_v1` source qualifies the local

@@ -1,5 +1,12 @@
 # Version 1 record contracts
 
+`already_loaded_subscription_v1` is a separate transport build contract with exact
+native source/tree/executable pins, not a ledger command or continuation receipt.
+Its one-attempt open connection requires the caller's separate durable owner
+claim. No production caller or live approval route is supplied; see
+[NO-RELOAD-TRANSPORT.md](NO-RELOAD-TRANSPORT.md). Native subscription acknowledgement
+does not authorize a turn, change a binding or settle historical effects.
+
 The runtime validates these contracts explicitly in `orchestrator/core.py`.
 Canonical JSON is UTF-8, sorted keys, compact separators, no NaN. Its SHA-256 is
 the record identity; this encoding is local to this tool, not RFC 8785 signing.
