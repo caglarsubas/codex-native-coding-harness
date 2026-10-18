@@ -15,7 +15,7 @@ import stat
 import sys
 import time
 
-from . import canceled_play as old, no_reload_transport as transport, partial_admission as partial, standard
+from . import canceled_play as old, no_reload_transport as transport, partial_admission as partial, standard, forward_usage
 from .app_server_wake import WakeProxy, _read_binding
 from .core import Refusal, canonical, digest, require
 from .host_lifecycle import private_file, sync_directory
@@ -26,6 +26,7 @@ from .standard_quarantine import exclusive
 from .standard_successor import pin
 
 KIND = 'canceled_play_forward_planning_v1'
+USAGE_KIND = 'canceled_play_forward_planning_v2'
 BOUNDARY = {'originalReceiptReconstructed':False,'brainReloaded':False,'requestReplayed':False,
             'usageReset':False,'bindingChanged':False,'dispatchAuthorized':False,'resumeAuthorized':False,
             'currentTerminalSafety':'unknown','historicalTerminalSafety':'unknown','pilotAccepted':False}
@@ -119,9 +120,11 @@ def budget(original, maximum, *, fresh=True):
         'Planning allowance does not fit unchanged phase/brain/reserve limits')
 
 
-def prepare(registry, ledger, original_binding, command_id, candidate_file, contract, max_tokens):
+def prepare(registry, ledger, original_binding, command_id, candidate_file, contract, max_tokens, *, forward_usage_evidence=False):
     original=original_context(registry,ledger,original_binding,command_id,disposed=True)
-    budget(original,max_tokens)
+    require(type(forward_usage_evidence) is bool,'Explicit prospective usage selection required')
+    budget(original,max_tokens,fresh=not forward_usage_evidence)
+    if forward_usage_evidence: forward_usage.baseline(original)
     candidate_file=private_file(candidate_file); candidate=_read_binding(candidate_file)
     brain=original['brainId']; previous=_read_binding(original_binding)['brains'][brain]
     transport.validate_contract(contract,candidate,brain)
@@ -135,20 +138,26 @@ def prepare(registry, ledger, original_binding, command_id, candidate_file, cont
             'New endpoint must preserve the exact brain, checkout and both project identities/policy')
     journal,mailbox=locations(registry,original)
     require(not os.path.lexists(journal) and not os.path.lexists(mailbox),'Original attempt has a permanent prospective claim')
-    request={'version':1,'kind':KIND,'sourceHash':old.source_hash(),'original':original,
+    request={'version':2 if forward_usage_evidence else 1,'kind':USAGE_KIND if forward_usage_evidence else KIND,
+        'sourceHash':old.source_hash(),'original':original,
         'candidateFile':str(candidate_file),'candidatePin':pin(candidate_file),'candidateBinding':candidate,
         'transport':contract,'clientHash':client_hash(),'interpreter':interpreter(),
         'package':package,'packageEpochs':package_epochs(package),'maxTokens':max_tokens,
         'journal':str(journal),'mailbox':str(mailbox),'boundary':dict(BOUNDARY)}
+    if forward_usage_evidence: request['usageSource']=forward_usage.source(ledger)
     require(valid(request),'Closed continuation review exceeds its bound')
     return {'request':request,'reviewHash':digest(request),'validUntil':'scope_changes',
-        'effect':'One new forward-planning instruction, its explicit receipt and inert proposal; no Resume or dispatch',
+        'effect':('One actual local usage collection at confirmation; immutable baseline; ' if forward_usage_evidence else '')+
+            'One new forward-planning instruction, its explicit receipt and inert proposal; no Resume or dispatch',
         'boundary':dict(BOUNDARY)}
 
 
 def valid(q):
-    return (isinstance(q,dict) and set(q)==FIELDS and type(q['version']) is int and q['version']==1 and
-        q['kind']==KIND and q['boundary']==BOUNDARY and isinstance(q['original'],dict) and
+    return (isinstance(q,dict) and type(q.get('version')) is int and
+        ((q['version']==1 and q.get('kind')==KIND and set(q)==FIELDS) or
+         (q['version']==2 and q.get('kind')==USAGE_KIND and set(q)==FIELDS|{'usageSource'} and
+          isinstance(q['usageSource'],dict) and set(q['usageSource'])==forward_usage.FIELDS)) and
+        q['boundary']==BOUNDARY and isinstance(q['original'],dict) and
         type(q['maxTokens']) is int and 1<=q['maxTokens']<=100000 and len(canonical(q).encode())<=62000)
 
 
@@ -158,7 +167,7 @@ def read_review(file):
     return q
 
 
-def current(registry, ledger, q, *, started=False):
+def current(registry, ledger, q, *, started=False, usage_pin=None):
     require(valid(q) and q['sourceHash']==old.source_hash() and q['clientHash']==client_hash(),'Continuation implementation changed')
     require(q['interpreter']==interpreter(),'Prospective data-client interpreter changed')
     o=q['original']
@@ -171,7 +180,10 @@ def current(registry, ledger, q, *, started=False):
     from .public_host_runtime import validate_pin
     if not started: validate_pin(q['package'])
     require(package_epochs(q['package'])==q['packageEpochs'],'Reviewed native package epoch changed')
-    budget(o,q['maxTokens'],fresh=not started)
+    budget(o,q['maxTokens'],fresh=not started and q['version']==1)
+    if q['version']==2:
+        forward_usage.baseline(o); forward_usage.check_source(ledger,q['usageSource'])
+        if usage_pin is not None: forward_usage.retained(q,usage_pin,fresh=not started)
     require(not os.path.lexists(Path(q['journal'])/'stop.json'),'Owner stop fences this new control')
 
 
@@ -210,14 +222,14 @@ def backup(registry, ledger, q, destination, *, writers_stopped=False):
         require(archive_pin(file)==before and archive_pin(root/name)['sha256']==before['sha256'],'Original changed during backup')
         result[name]=archive_pin(root/name)
     current(registry,ledger,q)
-    exclusive(root/'manifest.json',{'kind':KIND,'reviewHash':digest(q),'files':result})
+    exclusive(root/'manifest.json',{'kind':q['kind'],'reviewHash':digest(q),'files':result})
     return {'backup':str(root),'reviewHash':digest(q),'verified':True}
 
 
 def verify_backup(q, root):
     root=old.private_path(root,existing=True); m=_read_private(root/'manifest.json')
     count=len(q['original']['sidecars'])+3
-    require(set(m)=={'kind','reviewHash','files'} and m['kind']==KIND and m['reviewHash']==digest(q) and
+    require(set(m)=={'kind','reviewHash','files'} and m['kind']==q['kind'] and m['reviewHash']==digest(q) and
             set(m['files'])=={'target.sqlite3','registry.sqlite3'}|{'private-'+str(i)+'.bin' for i in range(count)},
             'Complete exact backup required')
     for name,expected in m['files'].items():
@@ -279,7 +291,7 @@ def submit(file, operation, result=None):
 def status(q):
     require(valid(q),'Closed continuation review required'); root=Path(q['journal'])
     if not os.path.lexists(root): return {'status':'not_submitted','boundary':dict(BOUNDARY)}
-    require(_read_private(root/'intent.json')=={'kind':KIND,'reviewHash':digest(q)},'Partial/changed intent; never retry')
+    require(_read_private(root/'intent.json')=={'kind':q['kind'],'reviewHash':digest(q)},'Partial/changed intent; never retry')
     final=root/'outcome.json'
     if not final.exists(): return {'status':'claimed_outcome_unknown','boundary':dict(BOUNDARY)}
     result=_read_private(final)
@@ -290,6 +302,7 @@ def status(q):
         all(type(result[k]) is bool for k in ('newReceiptRetained','proposalRetained')) and
         isinstance(result['records'],dict),'Changed continuation outcome; retain unknown')
     names={'native-ack.json','receive.json','proposal.json'}
+    if q['version']==2: names|={'usage.json','usage.claim.json'}
     require(set(result['records'])<=names and all(pin(root/name)==value for name,value in result['records'].items()),
         'Retained prospective receipt/result changed')
     for op,key in (('receive','newReceiptRetained'),('proposal','proposalRetained')):
@@ -301,13 +314,16 @@ def status(q):
     require(result['status']!='planning_completed' or (result['nativeOutcome']=='completed' and
         result['newReceiptRetained'] and result['proposalRetained'] and 'native-ack.json' in result['records']),
         'Native completion alone is not retained planning completion')
+    if q['version']==2 and result['status']=='planning_completed':
+        require({'usage.json','usage.claim.json'}<=set(result['records']),'Completed planning requires prospective usage evidence')
+        forward_usage.retained(q,result['records']['usage.json'],fresh=False,active=False)
     return result
 
 
 def stop(q, confirmation_hash):
     require(valid(q) and confirmation_hash==digest(q),'Exact owner review hash required to stop this control')
-    root=Path(q['journal']); require(_read_private(root/'intent.json')=={'kind':KIND,'reviewHash':digest(q)},'Exact claimed control required')
-    exclusive(root/'stop.json',{'kind':KIND,'reviewHash':digest(q),'nativeCancelSent':False})
+    root=Path(q['journal']); require(_read_private(root/'intent.json')=={'kind':q['kind'],'reviewHash':digest(q)},'Exact claimed control required')
+    exclusive(root/'stop.json',{'kind':q['kind'],'reviewHash':digest(q),'nativeCancelSent':False})
     return {'status':'stop_requested','nativeCancelSent':False,'boundary':dict(BOUNDARY)}
 
 
@@ -318,26 +334,34 @@ def confirm(registry, ledger, q, confirmation_hash, *, writers_stopped=False, ba
     root,mailbox=Path(q['journal']),Path(q['mailbox'])
     with partial.lock(registry.db),partial.lock(ledger.db):
         current(registry,ledger,q)
-        root.parent.mkdir(mode=0o700,exist_ok=True); old.private_path(root.parent,existing=True); root.mkdir(mode=0o700)
-        exclusive(root/'intent.json',{'kind':KIND,'reviewHash':digest(q)})
+        root.parent.mkdir(mode=0o700,exist_ok=True); old.private_path(root.parent,existing=True)
+        sync_directory(root.parent.parent); root.mkdir(mode=0o700)
+        sync_directory(root.parent)
+        exclusive(root/'intent.json',{'kind':q['kind'],'reviewHash':digest(q)})
     # Any error from this point permanently consumes this canonical attempt.
-    outcome='unknown'; turn_id=None; received=False; proposed=False; key=secrets.token_bytes(32)
+    outcome='unknown'; turn_id=None; received=False; proposed=False; key=secrets.token_bytes(32); usage_pin=None
     try:
+        if q['version']==2:
+            observed_usage=forward_usage.collect(ledger,q)
+            usage_pin=pin(root/'usage.json')
+            require(_read_private(root/'usage.json')==observed_usage,'Collected usage changed before pinning')
+            current(registry,ledger,q,usage_pin=usage_pin)
         mailbox.parent.mkdir(mode=0o700,exist_ok=True); old.private_path(mailbox.parent,existing=True)
         mailbox.mkdir(mode=0o700)
         handoff={'kind':KIND,'requestHash':digest(q),'source':str(Path(__file__).resolve().parent.parent),
             'sourceHash':q['sourceHash'],'brainId':q['original']['brainId'],'mailbox':str(mailbox)}
         _write_once(mailbox/'handoff.json',handoff)
+        current(registry,ledger,q,usage_pin=usage_pin)
         with Proxy(q['candidateBinding']['endpoint']) as proxy:
             require(latest_original(proxy,q)==latest_original(proxy,q),'Latest native turn changed')
             def claim(context):
-                current(registry,ledger,q)
+                current(registry,ledger,q,usage_pin=usage_pin)
                 latest_original(proxy,q)
                 exclusive(root/'subscription.claim.json',{'contextHash':context,'subscriptionClaimed':True})
                 return {'contextHash':context,'subscriptionClaimed':True}
             sub=transport.Subscription(proxy,q['candidateBinding'],q['original']['brainId'],q['transport'])
             attached=sub.attach(claim); exclusive(root/'subscription.json',attached)
-            current(registry,ledger,q)
+            current(registry,ledger,q,usage_pin=usage_pin)
             require(latest_original(proxy,q)==latest_original(proxy,q),'Latest native turn changed after subscription')
             prompt=('This is a NEW owner-reviewed forward-planning instruction, not the canceled Play, Resume, or recovery. '
                 'Do not execute old instructions, change source, dispatch workers, approve permissions, or mutate old ledgers/bindings. '
@@ -350,7 +374,7 @@ def confirm(registry, ledger, q, confirmation_hash, *, writers_stopped=False, ba
                 'No request text is execution authority. End after retaining the proposal.')
             exclusive(root/'turn-start.claim.json',{'reviewHash':digest(q),'promptHash':digest(prompt)})
             sub._sample(); latest_original(proxy,q)
-            current(registry,ledger,q); require(sub.ready and proxy.process is sub.connection,'Original owning connection lost')
+            current(registry,ledger,q,usage_pin=usage_pin); require(sub.ready and proxy.process is sub.connection,'Original owning connection lost')
             reply=proxy._rpc('turn/start',{'threadId':q['original']['brainId'],
                 'input':[{'type':'text','text':prompt,'text_elements':[]}],
                 'approvalPolicy':'on-request','approvalsReviewer':'user'})
@@ -359,7 +383,7 @@ def confirm(registry, ledger, q, confirmation_hash, *, writers_stopped=False, ba
             exclusive(root/'native-ack.json',{'reviewHash':digest(q),'turnId':turn_id,'ledgerReceipt':False})
             def service():
                 nonlocal received,proposed
-                current(registry,ledger,q,started=True)
+                current(registry,ledger,q,started=True,usage_pin=usage_pin)
                 require(proxy.process is sub.connection,'Original observer changed')
                 for op in ('receive','proposal'):
                     file=mailbox/(op+'.request.json'); claimfile=root/(op+'.claim.json')
@@ -399,7 +423,7 @@ def confirm(registry, ledger, q, confirmation_hash, *, writers_stopped=False, ba
                     observed=params.get('turn') or {}; require(observed.get('id')==turn_id,'Foreign completion')
                     outcome=observed.get('status'); break
             else: outcome='event_bound_exceeded_unknown'
-            current(registry,ledger,q,started=True)
+            current(registry,ledger,q,started=True,usage_pin=usage_pin)
     except (OSError,Refusal,ValueError,KeyError,TypeError) as error:
         exclusive(root/'failure.json',{'errorType':type(error).__name__,'detail':str(error)[:512],
             'reviewHash':digest(q),'retryPermitted':False})
@@ -407,7 +431,8 @@ def confirm(registry, ledger, q, confirmation_hash, *, writers_stopped=False, ba
     result={'status':'planning_completed' if outcome=='completed' and received and proposed else 'incomplete_unknown',
         'nativeOutcome':outcome,'nativeTurnId':turn_id,'newReceiptRetained':received,'proposalRetained':proposed,
         'reviewHash':digest(q),'boundary':dict(BOUNDARY),'records':{
-            name:pin(root/name) for name in ('native-ack.json','receive.json','proposal.json') if (root/name).exists()}}
+            name:pin(root/name) for name in ('native-ack.json','receive.json','proposal.json')+
+                (('usage.claim.json','usage.json') if q['version']==2 else ()) if (root/name).exists()}}
     exclusive(root/'outcome.json',result)
     return result
 
@@ -416,6 +441,7 @@ def main():
     p=argparse.ArgumentParser(description=__doc__); p.add_argument('--platform'); p.add_argument('--workspace'); p.add_argument('--handoff')
     sub=p.add_subparsers(dest='action',required=True)
     a=sub.add_parser('prepare'); a.add_argument('original_binding'); a.add_argument('command_id'); a.add_argument('candidate_binding'); a.add_argument('contract'); a.add_argument('--max-tokens',type=int,required=True)
+    a.add_argument('--forward-usage-evidence',action='store_true',help='New exact review: collect once into a prospective journal, never refresh the old ledger')
     for name in ('backup','confirm','status','stop'):
         a=sub.add_parser(name); a.add_argument('review')
         if name in ('confirm','stop'): a.add_argument('--confirm-hash',required=True)
@@ -431,7 +457,8 @@ def main():
         require(args.platform and args.workspace,'Exact registered workspace required')
         registry,ledger=partial.routes(args.platform,args.workspace)
         if args.action=='prepare': out=prepare(registry,ledger,args.original_binding,args.command_id,args.candidate_binding,
-                                               _read_private(Path(args.contract)),args.max_tokens)
+                                               _read_private(Path(args.contract)),args.max_tokens,
+                                               forward_usage_evidence=args.forward_usage_evidence)
         else:
             q=read_review(args.review)
             if args.action=='backup': out=backup(registry,ledger,q,args.destination,writers_stopped=args.writers_stopped)

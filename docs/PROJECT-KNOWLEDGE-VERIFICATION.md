@@ -4,6 +4,50 @@ This separates source implementation from installation, merge and live
 qualification. None of these entries grants standard Play, a brain replacement
 or strict Harness execution authority.
 
+## Forward-only canceled-attempt usage — 2026-10-18
+
+The explicit version-2 planning review preserves the old ledger's snapshot-backed
+report/high-water amounts, while one claimed local collection writes a separate
+prospective numeric record. The original disposition, request/claim/binding
+fences, 120-second send-boundary freshness, phase clock, allowances and reserve
+are unchanged. Version 1 stays the default. Preview/backup/status collect nothing;
+failed, stale, interrupted or unknown attempts cannot resample or rearm by changing
+versions. See [FORWARD-USAGE-EVIDENCE.md](FORWARD-USAGE-EVIDENCE.md).
+
+Twenty-seven new disposable cases cover stale baseline versus fresh evidence,
+exact session/vector/call/sample continuity, missing/gapped/regressed counters,
+aggregate/high-water/brain/phase/reserve checks, expiry and I/O delay, nonfinite or
+future times, immutable source/config/root/file identities, aliases, duplicate
+archives, changing reads, interrupted claims, stop races, concurrent confirmations
+and historical file-only status. Original database/sidecar/binding conservation is
+asserted. Existing default-path continuation and accounting tests remain separate.
+
+The compiled production-control fixture passes with one subscription, one new
+planning turn, exact completion and separate receipt/proposal records. The source
+package remains native commit `cd935163b03fbbe3d26a464be5c199a31011b120`, tree
+`26323f8f8aea3827361be30d75826551c61277e8`, executable SHA-256
+`f7129d8763a45268aaa136b3a50de20acfcb6e07458a672d6c253d6d727f2ec9`.
+It uses three loopback fake-provider responses, synthetic local numeric telemetry
+and a synthetic original ledger. The original fixture ledger/sidecars/binding
+remain unchanged, with zero reloads and zero live native connections. This is not
+live usage, entitlement, descendant cleanup, terminal safety or a worker pilot.
+
+All 40 JavaScript suites, 31 web-script syntax checks and 155 Python source/script
+AST checks pass. This operator-only accounting change adds no UI or rendered-UI
+qualification claim, runtime download, Action or paid service. Source delivery
+installs/applies/confirms nothing live. Compatible backed-up installation, the
+separate exact disposition and new planning review, live evidence/runtime checks
+and pilot acceptance remain distinct steps; no old request or usage is reset.
+
+Final full local discovery passes **3,107 Python tests** in 637.041 seconds:
+3,106 passed, with one optional Graphify executable check skipped. The 77 focused
+continuation/legacy/compaction accounting cases and both compiled native planning
+modes pass. Source/test Python bytes were frozen across full discovery, SHA-256
+`a9eb11b29d04e7b88d1a6df85491ec3793411e2f1de157af49cbbc814f492997`.
+Staged/unstaged diff checks and 127 local documentation links also pass. Five live
+database proofs and protected claims/bindings match the retained post-usage anchor;
+the live dashboard remains on PR-175. No disposition or live planning was sent.
+
 ## Distinct canceled-attempt planning control — 2026-10-18
 
 The new operator-only control has a separate canonical owner journal, subscription

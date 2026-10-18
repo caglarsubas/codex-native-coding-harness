@@ -93,7 +93,8 @@ def qualify_reviewed_load(owner,package,evidence,processes,creators,calls):
     return summary
 
 
-def qualify(package,evidence,*,reviewed_load=False):
+def qualify(package,evidence,*,reviewed_load=False,forward_usage_evidence=False):
+    require(not (reviewed_load and forward_usage_evidence),'Separate qualification modes required')
     evidence=Path(evidence).resolve(strict=True)
     require(not list(evidence.iterdir()) and not evidence.stat().st_mode & 0o077 and
         not evidence.is_relative_to(SOURCE),'New empty private evidence directory outside source required')
@@ -184,9 +185,16 @@ stream_max_retries = 0
             return qualify_reviewed_load(owner,package,evidence,native_process,creators,calls)
         with ledger.tx() as db:
             meta=ledger.get(db,'meta',1); run=meta['standardRun']
-            run.update(brainObservedTokens=10,brainUsageCoverage='observed_partial',usageHighWater=10)
-            report={'runId':run['id'],'scopeHash':brain_memory.scope(run),'coverage':'observed_local','gaps':[],
-                'tokens':{'total_tokens':10},'collectedAt':time.time(),'through':time.time(),'records':[]}
+            if forward_usage_evidence:
+                # Deliberately synthetic numeric logs; the native lifecycle below
+                # is real, but neither side attests live/provider consumption.
+                for file in f.home.rglob('*.jsonl'): file.chmod(0o600)
+                report=brain_memory.collect(ledger,run)
+            else:
+                report={'runId':run['id'],'scopeHash':brain_memory.scope(run),'coverage':'observed_local','gaps':[],
+                    'tokens':{'total_tokens':10},'collectedAt':time.time(),'through':time.time(),'records':[]}
+            run.update(brainObservedTokens=report['tokens']['total_tokens'],brainUsageCoverage='observed_partial',
+                usageHighWater=report['tokens']['total_tokens'])
             run['usageReport']=report; ledger.put(db,'meta',1,meta)
             db.execute('INSERT INTO snapshots VALUES(?,?,?)',(digest(report),'standard_usage',canonical(report)))
         owner.apply()  # Synthetic fixture owner disposition; no live control.
@@ -194,7 +202,8 @@ stream_max_retries = 0
         contract={'protocol':api.transport.PROTOCOL,'method':api.transport.METHOD,
             'sourceCommit':package['sourceCommit'],'sourceTree':package['sourceTree'],
             'executableSha256':package['executableHash']}
-        review=api.prepare(registry,ledger,owner.binding_file,owner.cid,candidate,contract,100)
+        review=api.prepare(registry,ledger,owner.binding_file,owner.cid,candidate,contract,100,
+            forward_usage_evidence=forward_usage_evidence)
         q=review['request']; backup=f.root/'prospective-backup'; api.backup(registry,ledger,q,backup,writers_stopped=True)
         before=[database_proof(p) for p in (registry.db,ledger.db)]; pins=api.old.sidecars(ledger)
         script='import sys;sys.path.insert(0,'+repr(str(SOURCE))+');from orchestrator.canceled_continuation import submit;'+\
@@ -228,6 +237,12 @@ stream_max_retries = 0
             'nativeOutcome':result['nativeOutcome'],'receiptRetained':True,'proposalRetained':True,
             'originalSyntheticLedgerPreserved':True,'originalBindingPreserved':True,
             'nativeReloads':0,'liveNativeConnections':0,'boundary':dict(api.BOUNDARY)}
+        if forward_usage_evidence:
+            usage=json.loads((Path(q['journal'])/'usage.json').read_bytes())
+            require(usage['baselineHash']==digest(report) and usage['report']['collectedAt']>=report['collectedAt'],
+                'New usage did not preserve and advance its immutable fixture baseline')
+            summary.update(qualifiedProspectiveUsage=True,telemetry='synthetic_local_numeric_fixture_only',
+                oldUsageHash=digest(report),newUsageHash=digest(usage['report']))
         exclusive(evidence/'summary.json',summary)
         return summary
     finally:
@@ -240,4 +255,6 @@ stream_max_retries = 0
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__); p.add_argument('--package',required=True); p.add_argument('--evidence',required=True)
     p.add_argument('--reviewed-load',action='store_true',help='Separate cold/warm metadata-only load fixture; no planning turn')
-    args=p.parse_args(); print(canonical(qualify(args.package,args.evidence,reviewed_load=args.reviewed_load)))
+    p.add_argument('--forward-usage-evidence',action='store_true',help='Separate prospective usage with immutable synthetic telemetry')
+    args=p.parse_args(); print(canonical(qualify(args.package,args.evidence,reviewed_load=args.reviewed_load,
+        forward_usage_evidence=args.forward_usage_evidence)))

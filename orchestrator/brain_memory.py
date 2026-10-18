@@ -23,11 +23,11 @@ def scope(run):
                    "checkpoint": run.get("checkpoint")})
 
 
-def session_usage(paths, identity, start, end, brain=False):
+def session_usage(paths, identity, start, end, brain=False, *, open_log=None):
     events, gaps, session_starts, invalid_totals = {}, [], [], []
     native, legacy, compactions = [], [], []
     for path in paths:
-        with open_regular(path) as stream:
+        with (open_log or open_regular)(path) as stream:
             header_line = stream.readline(MAX_LINE + 1)
             require(len(header_line) <= MAX_LINE, "Log header exceeds telemetry bound")
             header = json.loads(header_line)

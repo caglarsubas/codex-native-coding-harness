@@ -24,9 +24,9 @@ class ContinuationTest(unittest.TestCase):
         self.f=self.old.f; self.registry,self.ledger=self.old.registry,self.old.ledger
         with self.ledger.tx() as db:
             meta=self.ledger.get(db,'meta',1); run=meta['standardRun']
-            run.update(brainObservedTokens=1,brainUsageCoverage='observed_partial',usageHighWater=1)
-            report={'runId':run['id'],'scopeHash':brain_memory.scope(run),'coverage':'observed_local','gaps':[],
-                'tokens':{'total_tokens':1},'collectedAt':time.time(),'through':time.time(),'records':[]}
+            report=self.usage_baseline(run)
+            run.update(brainObservedTokens=report['tokens']['total_tokens'],brainUsageCoverage='observed_partial',
+                usageHighWater=report['tokens']['total_tokens'])
             run['usageReport']=report
             self.ledger.put(db,'meta',1,meta)
             db.execute('INSERT INTO snapshots VALUES(?,?,?)',(digest(report),'standard_usage',canonical(report)))
@@ -87,6 +87,10 @@ class ContinuationTest(unittest.TestCase):
                 return {'method':'turn/completed','params':{'threadId':owner.f.brain,'turn':{'id':self.turn,'status':'completed'}}}
         self.Proxy=Proxy; self.latest=self.f.turn; self.receipt=True; self.fail_start=False; self.early_permission=False; self.client_error=None
         p=patch.object(api,'Proxy',Proxy); p.start(); self.addCleanup(p.stop)
+
+    def usage_baseline(self,run):
+        return {'runId':run['id'],'scopeHash':brain_memory.scope(run),'coverage':'observed_local','gaps':[],
+            'tokens':{'total_tokens':1},'collectedAt':time.time(),'through':time.time(),'records':[]}
 
     def prepare(self):
         return api.prepare(self.registry,self.ledger,self.old.binding_file,self.old.cid,self.candidate,self.contract,1)
