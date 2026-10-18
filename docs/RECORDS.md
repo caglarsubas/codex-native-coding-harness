@@ -1,5 +1,15 @@
 # Version 1 record contracts
 
+`post_disposition_maintenance_load_v1` pins the positively closed original load,
+complete canceled-Play disposition and exact unknown planning-refusal lineage,
+same issued host/candidate binding, source/interpreter and one metadata-only
+scope. Its fixed external journal is keyed to the original ledger identity,
+brain and Play, never source, review ID or host. Intent/load claim, acknowledgement,
+policy/current-tracker observation, failure and closure stay separate. A consumed
+or partial claim cannot retry or migrate, and fences competing old-phase planning.
+Status is historical and file-only. No old record, usage, expiry, receipt or safety
+unknown is rewritten. See [the maintenance contract](POST-DISPOSITION-MAINTENANCE-LOAD.md).
+
 The separate `same_project_forward_planning_v3` review binds the original
 version-2 request, complete canonical journal/mailbox pins, positive closed
 preflight-stage record (or allowlisted frozen legacy implementation), both usage

@@ -1,5 +1,14 @@
 # Durable project knowledge and bounded brain context
 
+[POST-DISPOSITION-MAINTENANCE-LOAD.md](POST-DISPOSITION-MAINTENANCE-LOAD.md)
+defines one separately reviewed metadata-only load on the same existing host and
+brain after a proved closed earlier load, complete canceled-Play disposition and
+closed planning preflight refusal. Old claims/outcomes, both usage snapshots,
+bindings and expiry remain immutable. Private backups and permanent external
+claims precede actual native policy/current-tracker observations. No model turn,
+phase continuation, keeper, safety inference or pilot acceptance follows. The
+earlier undisposed load gate and old-phase expiry/freshness checks remain intact.
+
 [SAME-PROJECT-LIFECYCLE.md](SAME-PROJECT-LIFECYCLE.md) separates original history,
 read-only current diagnostics, foreground ownership, subscription, cumulative
 accounting, new send/receipt/proposal and closure. Its single canonical successor

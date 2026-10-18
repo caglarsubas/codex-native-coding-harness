@@ -34,7 +34,7 @@ import test_canceled_play as fixtures
 import test_standard_run_mailbox as mailbox
 
 
-def qualify_reviewed_load(owner,package,evidence,processes,creators,calls):
+def qualify_reviewed_load(owner,package,evidence,processes,creators,calls,*,maintenance_load=False):
     """Real cold/warm native load; synthetic launch provenance is labelled.
 
     The separate unit fixtures validate full issued-launch provenance. Here only
@@ -85,6 +85,8 @@ def qualify_reviewed_load(owner,package,evidence,processes,creators,calls):
         'turn/interrupt' not in methods and len(calls)==1,'Warm load started model work or replayed an effect')
     require(before==[database_proof(p) for p in (registry.db,ledger.db)] and sidecars==api.old.sidecars(ledger)
         and original_pin==api.pin(owner.binding_file),'Original synthetic requests/usage/claims/binding changed')
+    if maintenance_load:
+        return qualify_maintenance_load(owner,package,evidence,calls,q,provenance,candidate_file)
     summary={'qualifiedProductionMetadataLoad':True,'package':package,'provider':'loopback_fake_only',
         'launchProvenance':'synthetic_fixture_only_unit_qualified_separately','nativeLoads':1,'warmModelRequests':0,
         'fakeProviderRequests':len(calls),'methodCounts':{m:methods.count(m) for m in sorted(set(methods))},
@@ -94,7 +96,78 @@ def qualify_reviewed_load(owner,package,evidence,processes,creators,calls):
     return summary
 
 
-def qualify(package,evidence,*,reviewed_load=False,forward_usage_evidence=False,continuous_handoff=False,same_project_successor=False,same_project_unloaded=False):
+def qualify_maintenance_load(owner,package,evidence,calls,old_load,provenance,candidate_file):
+    """Real additional maintenance load; synthetic lineage is explicitly labelled.
+
+    Full issued-host provenance is unit-qualified. Old load is real; parent
+    preflight refusal and expired wall clock are injected fixture conditions.
+    """
+    from orchestrator import canceled_load as prior, maintenance_load as maintenance
+    f=owner.f; registry,ledger=owner.registry,owner.ledger
+    old_file=f.root/'original-load.json'; write_record(old_file,old_load)
+    old_pins=same_project_lifecycle.inventory(old_load['journal'])
+    for file in f.home.rglob('*.jsonl'): file.chmod(0o600)
+    with ledger.tx() as db:
+        meta=ledger.get(db,'meta',1); run=meta['standardRun']; report=brain_memory.collect(ledger,run)
+        run.update(brainObservedTokens=report['tokens']['total_tokens'],brainUsageCoverage='observed_partial',
+            usageHighWater=report['tokens']['total_tokens'],usageReport=report)
+        ledger.put(db,'meta',1,meta)
+        db.execute('INSERT INTO snapshots VALUES(?,?,?)',(digest(report),'standard_usage',canonical(report)))
+    owner.apply()  # Separately labelled synthetic canceled-Play disposition.
+    contract={'protocol':api.transport.PROTOCOL,'method':api.transport.METHOD,
+        'sourceCommit':package['sourceCommit'],'sourceTree':package['sourceTree'],
+        'executableSha256':package['executableHash']}
+    parent=api.prepare(registry,ledger,owner.binding_file,owner.cid,candidate_file,contract,100,forward_usage_evidence=True)['request']
+    parent_backup=f.root/'original-planning-backup'; api.backup(registry,ledger,parent,parent_backup,writers_stopped=True)
+    with patch.object(api.transport.Subscription,'_sample',side_effect=api.Refusal(same_project_lifecycle.REFUSAL)):
+        refused=api.confirm(registry,ledger,parent,digest(parent),writers_stopped=True,backup_root=parent_backup)
+    require(refused['status']=='incomplete_unknown' and refused['nativeOutcome']=='unknown','Parent fixture must remain unknown')
+    parent_file=f.root/'original-planning.json'; write_record(parent_file,parent)
+    parent_pins=same_project_lifecycle.inventory(parent['journal'])
+    before=[database_proof(p) for p in (registry.db,ledger.db)]; sidecars=api.old.sidecars(ledger)
+    binding_pin=api.pin(owner.binding_file); calls_before=len(calls)
+    time.sleep(1.5)  # Explicit disposable one-second unload fixture, not live waiting.
+    with FixtureProxy(provenance['scope']['binding']['endpoint']) as observer:
+        actual=observer._rpc('thread/read',{'threadId':f.brain,'includeTurns':False})
+    require(actual['thread']['status']=={'type':'notLoaded'},'Require real unloaded native runtime before the new load')
+    methods=[]; production=prior.inspection.InspectionProxy
+    class Observed(production):
+        def _rpc(self,method,params): methods.append(method); return super()._rpc(method,params)
+    with patch.object(prior,'issued_provenance',return_value=provenance),\
+         patch('time.time',return_value=parent['original']['run']['expiresAt']+1):
+        reviewed=maintenance.prepare(registry,ledger,parent_file,old_file); q=reviewed['request']
+        archive=f.root/'new-maintenance-backup'; maintenance.backup(registry,ledger,q,archive,writers_stopped=True)
+        try: api.current(registry,ledger,parent)
+        except api.Refusal as error: require('clock expired' in str(error),'Unrelated planning refusal is not expiry qualification')
+        else: raise api.Refusal('Expired phase continuation unexpectedly authorized')
+        with patch.object(prior.inspection,'InspectionProxy',Observed):
+            result=maintenance.confirm(registry,ledger,q,digest(q),writers_stopped=True,backup_root=archive)
+        require(result['status']=='maintenance_load_observed_idle' and maintenance.status(q)==result,'Compiled maintenance load failed')
+        try: api.current(registry,ledger,parent)
+        except api.Refusal as error: require('Maintenance load claim' in str(error),'Competing planning was not maintenance-fenced')
+        else: raise api.Refusal('Maintenance silently enabled planning')
+        try: maintenance.confirm(registry,ledger,q,digest(q),writers_stopped=True,backup_root=archive)
+        except (OSError,api.Refusal): pass
+        else: raise api.Refusal('Maintenance attempt was replayed')
+    require(methods.count('thread/resume')==1 and not set(methods)&{'turn/start','turn/interrupt','thread/subscribe'} and
+        len(calls)==calls_before==1,'Maintenance emitted a turn, replay, subscription or provider request')
+    require(before==[database_proof(p) for p in (registry.db,ledger.db)] and sidecars==api.old.sidecars(ledger) and
+        api.pin(owner.binding_file)==binding_pin and old_pins==same_project_lifecycle.inventory(old_load['journal']) and
+        parent_pins==same_project_lifecycle.inventory(parent['journal']),'Original fixture history changed')
+    exclusive(evidence/'maintenance-attempt.json',{'review':reviewed,'outcome':result,'methods':methods})
+    summary={'qualifiedProductionMaintenanceLoad':True,'qualifiedSourceHash':api.old.source_hash(),'package':package,
+        'provider':'loopback_fake_only','launchProvenance':'synthetic_fixture_only_unit_qualified_separately',
+        'predecessorPreflightRefusal':'injected_fixture_only','expiredWallClock':'simulated_fixture_only',
+        'actualNativeUnloadObserved':True,'nativeMaintenanceLoads':1,'maintenanceModelRequests':0,
+        'fakeProviderRequests':len(calls),'newProjectsCreated':0,'liveNativeConnections':0,
+        'originalSyntheticLedgerPreserved':True,'originalBindingPreserved':True,'originalLoadClaimPreserved':True,
+        'originalPlanningUnknownPreserved':True,'expiredPhaseContinuationRefused':True,'maintenanceReplayRefused':True,
+        'methodCounts':{m:methods.count(m) for m in sorted(set(methods))},'boundary':dict(maintenance.BOUNDARY)}
+    exclusive(evidence/'summary.json',summary); return summary
+
+
+def qualify(package,evidence,*,reviewed_load=False,maintenance_load=False,forward_usage_evidence=False,continuous_handoff=False,same_project_successor=False,same_project_unloaded=False):
+    reviewed_load=reviewed_load or maintenance_load
     same_project_successor=same_project_successor or same_project_unloaded
     require(not (reviewed_load and (forward_usage_evidence or continuous_handoff or same_project_successor)) and
         not (continuous_handoff and same_project_successor),'Separate qualification modes required')
@@ -135,7 +208,7 @@ def qualify(package,evidence,*,reviewed_load=False,forward_usage_evidence=False,
         home=f.root/'native-home'; ipc=f.root/'native-ipc'
         for path in (home,ipc): path.mkdir(mode=0o700)
         (home/'config.toml').write_text('model = "gpt-6-astra"\nmodel_provider = "followup_fixture"\n'+
-            ('thread_unload_delay_secs = 1\n' if continuous_handoff or same_project_unloaded else '')+CONFIG+f'''
+            ('thread_unload_delay_secs = 1\n' if continuous_handoff or same_project_unloaded or maintenance_load else '')+CONFIG+f'''
 [model_providers.followup_fixture]
 name = "Disposable continuation loopback provider"
 base_url = "http://127.0.0.1:{server.server_port}/v1"
@@ -187,7 +260,7 @@ stream_max_retries = 0
             owner.setUp()
         f=owner.f; ledger,registry=owner.ledger,owner.registry
         if reviewed_load:
-            return qualify_reviewed_load(owner,package,evidence,native_process,creators,calls)
+            return qualify_reviewed_load(owner,package,evidence,native_process,creators,calls,maintenance_load=maintenance_load)
         with ledger.tx() as db:
             meta=ledger.get(db,'meta',1); run=meta['standardRun']
             if forward_usage_evidence:
@@ -381,10 +454,12 @@ stream_max_retries = 0
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__); p.add_argument('--package',required=True); p.add_argument('--evidence',required=True)
     p.add_argument('--reviewed-load',action='store_true',help='Separate cold/warm metadata-only load fixture; no planning turn')
+    p.add_argument('--maintenance-load',action='store_true',help='Separate real post-disposition maintenance load; simulated expired clock and injected historical preflight refusal')
     p.add_argument('--forward-usage-evidence',action='store_true',help='Separate prospective usage with immutable synthetic telemetry')
     p.add_argument('--continuous-handoff',action='store_true',help='Same owning connection beyond actual fixture idle-unload timeout; separate exact planning approval')
     p.add_argument('--same-project-successor',action='store_true',help='Injected historical preflight refusal, then one actual same-project compiled receipt/proposal lifecycle')
     p.add_argument('--same-project-unloaded',action='store_true',help='Actual native unload and original preflight refusal, then non-authorizing same-project diagnostic')
     args=p.parse_args(); print(canonical(qualify(args.package,args.evidence,reviewed_load=args.reviewed_load,
+        maintenance_load=args.maintenance_load,
         forward_usage_evidence=args.forward_usage_evidence,continuous_handoff=args.continuous_handoff,
         same_project_successor=args.same_project_successor,same_project_unloaded=args.same_project_unloaded)))

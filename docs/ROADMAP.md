@@ -1,5 +1,15 @@
 # Codex-native orchestration roadmap
 
+- [x] Implement a distinct exact-reviewed post-disposition metadata load for the
+  same existing brain/host, preserving positively closed old load and unknown
+  planning claims, original usage/bindings/expiry, private backups and one-shot
+  external ownership ([contract](POST-DISPOSITION-MAINTENANCE-LOAD.md)).
+- [x] Qualify 34 maintenance unit cases, the full 3,181-test Python suite (one
+  optional skip), 40 JavaScript suites, 31 syntax / 158 AST checks, and four
+  compiled-native fixtures. No live effect, clock extension or acceptance follows.
+- [ ] Separate manual merge, safe installation and exact live maintenance review.
+  Expired-phase follow-up remains independent; do not create v4 or retry old work.
+
 - [x] Implement distinct same-project continuation for the exact recorded
   pre-subscription refusal, retaining the consumed predecessor and unknown safety,
   metadata-only diagnostic, combined new review and same-connection accounting/
