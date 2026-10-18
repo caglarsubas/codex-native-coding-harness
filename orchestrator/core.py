@@ -191,6 +191,9 @@ class Ledger:
         try:
             db.execute("BEGIN IMMEDIATE")
             meta = self.get(db, "meta", 1)
+            from .canceled_play import exists_in as canceled_play_fenced
+            require(not canceled_play_fenced(self, db),
+                    'Canceled Play disposition is read-only; no reload, receipt reconstruction or replay')
             from .readiness_disposition import retained_in as readiness_retained
             readiness_retained(self, db)
             from .readiness_owned import retained_in as owned_readiness_retained
@@ -206,6 +209,7 @@ class Ledger:
                 from .standard_successor import retained_in
                 retained_in(self, db, meta)
             yield db
+            require(not canceled_play_fenced(self, db), 'Canceled Play intent appeared during this transaction')
             if successor or os.path.lexists(self.root/'standard-successor.json'):
                 from .standard_successor import retained_in
                 retained_in(self, db)
@@ -769,6 +773,9 @@ class Ledger:
             from .readiness_disposition import retained_in as readiness_retained, public as readiness_public
             disposition = readiness_retained(self, db)
             result['readinessDisposition'] = readiness_public(disposition) if disposition else None
+            from .canceled_play import status_in as canceled_play_status
+            canceled = canceled_play_status(self, db)
+            result['canceledPlayDisposition'] = canceled if canceled['status'] != 'not_recorded' else None
             result["workflow"] = workflow(result)
             if getattr(self, "workspace_id", None):
                 from .missions import state_in

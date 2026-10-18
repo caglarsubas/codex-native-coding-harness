@@ -136,6 +136,18 @@ async function reviewStandardControl(s,operation,run){
 function standardPanel(root,mode='all'){
   const s=state.standard;if(!s)return;
   const panel=el('section',null,'mission-status'),run=s.run;
+  if(s.canceledPlayDisposition){
+    const d=s.canceledPlayDisposition;
+    panel.append(el('p','PRESERVED ATTEMPT','eyebrow'),el('h2',d.status==='disposed_unqualified'?'Canceled Play · unqualified':'Canceled Play disposition · record unavailable'),
+      el('p',d.status==='disposed_unqualified'?
+        'Cancel is resolved; no further cancellation is needed. The original Play, missing receipt, run, expiry, usage gaps and repository holds remain unchanged. No reload, replay, Resume or new Play is authorized.':
+        'The disposition record is incomplete or changed. Preserve the original claim and records; do not retry, delete a fence, reload, replay or infer continuation authority.','checkpoint'),
+      el('h3','Continuation requirements'));
+    for(const b of d.continuation?.blockers||[])panel.append(el('p',b.detail));
+    panel.append(el('p','Current and historical terminal safety remain unknown. This local disposition is not a safe checkpoint, closeout or pilot acceptance.','muted'));
+    const details=el('details');details.append(el('summary','Details · original canceled Play and continuation boundary'),el('pre',JSON.stringify(d,null,2)));
+    panel.append(details);root.append(panel);return;
+  }
   if(s.successor){
     const prior=s.successor;
     if(prior.writesBlocked){

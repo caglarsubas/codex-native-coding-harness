@@ -1,5 +1,14 @@
 # Durable project knowledge and bounded brain context
 
+[CANCELED-PLAY-DISPOSITION.md](CANCELED-PLAY-DISPOSITION.md) separates the local
+unqualified disposition of an owner-canceled, interrupted, unreceipted Play from
+native continuation. Exact scope-bound review and private backups precede one
+permanent claim/snapshot; all original run, usage, request, claim, capture and
+binding values remain unchanged. Normal writes remain fenced. The continuation
+assessment is non-executing: the pinned protocol has no qualified no-reload owned
+subscription. Source delivery installs nothing, confirms no live disposition,
+starts no new turn and accepts no pilot.
+
 [SANDBOX-SAFE-RUN-CONTROL.md](SANDBOX-SAFE-RUN-CONTROL.md) separates genuinely
 read-only CLI opening from a prospective checkout-local run mailbox on the
 original owned observer. Closed explicit calls reuse the existing reviewed run,

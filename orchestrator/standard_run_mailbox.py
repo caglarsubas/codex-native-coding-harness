@@ -408,9 +408,24 @@ def continuation(ledger, command_id):
     note = command.get('notification') or {}
     require(command['kind'] in KINDS and run.get('id') == command['payload'].get('runId'), 'Exact original run control required')
     prospective = (note.get('runControl') or {}).get('transport') == TRANSPORT
+    canceled = (note.get('nativeApprovals') or [])
+    permission = note.get('nativePermissionObservation') or {}
+    cancel_resolved = (note.get('nativeTurnStatus') == 'interrupted' and
+                       (note.get('nativeThreadObservation') or {}).get('streamStatus') == 'closed' and
+                       len(canceled) == 1 and canceled[0].get('decision') == 'cancel' and
+                       canceled[0].get('status') == 'resolved' and
+                       canceled[0].get('turnId') == note.get('nativeTurnId') and
+                       permission.get('turnId') == note.get('nativeTurnId') and
+                       permission.get('reason') == 'native_resolved' and
+                       permission.get('requestHash') == canceled[0].get('requestHash'))
+    from .canceled_play import status as disposition_status
+    disposition = disposition_status(ledger)
     return {'commandId': command_id, 'runId': run['id'], 'nativeTurnId': note.get('nativeTurnId'),
             'originalCommandHash': digest(command), 'originalRunHash': digest(run),
             'prospectiveMailbox': prospective,
-            'status': 'follow_original_mailbox' if prospective else 'held_original_requires_owner_resolution',
+            'status': 'follow_original_mailbox' if prospective else
+                      'canceled_play_disposed_unqualified' if disposition['status'] == 'disposed_unqualified' else
+                      'canceled_original_requires_forward_disposition' if cancel_resolved else 'held_original_requires_owner_resolution',
             'blocker': None if prospective else 'Original observer has no run mailbox; do not attach one or restart its connection',
-            'actionsTaken': [], 'permissionResponseRequiredSeparately': True, 'boundary': BOUNDARY}
+            'actionsTaken': [], 'permissionResponseRequiredSeparately': not cancel_resolved,
+            'disposition': disposition, 'boundary': BOUNDARY}

@@ -96,6 +96,8 @@ def git_root(path):
 
 def eligible(ledger, db):
     meta = ledger.get(db, "meta", 1)
+    from .canceled_play import exists_in as canceled_play_fenced
+    require(not canceled_play_fenced(ledger, db), 'Canceled Play is disposed as unqualified; continuation has no execution authority')
     require(not os.path.lexists(ledger.root/'standard-partial-admission-disposition.json') or
             os.path.lexists(ledger.root/'standard-forward-continuation.json'),
             'Partial admission disposed as unqualified; no Play or retry')
@@ -167,6 +169,16 @@ def projection(ledger, db):
     if latest_refresh and latest_refresh.get('payload',{}).get('readinessStart'):
         result['catalogRefresh']['readinessOwned'] = True
     from . import readiness_disposition as disposition
+    from .canceled_play import status_in as canceled_play_status
+    canceled = canceled_play_status(ledger, db)
+    if canceled['status'] != 'not_recorded':
+        result.update(canceledPlayDisposition=canceled, available=False,
+                      blocker='Canceled Play preserved as unqualified; no reload, replay or automatic continuation',
+                      blockers=[b['detail'] for b in canceled['continuation']['blockers']],
+                      contextHash=digest(meta),
+                      parallelEligibility={'permitted':(run or {}).get('limits',{}).get('maxParallelTasks',0),
+                                           'currentlyEligible':0,'active':0,'reason':'Canceled Play remains fenced'})
+        return result
     try:
         disposed = disposition.retained_in(ledger, db)
         result['readinessDisposition'] = disposition.public(disposed) if disposed else None
