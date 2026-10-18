@@ -1,5 +1,12 @@
 # Codex-native orchestration roadmap
 
+- [x] Implement the separately reviewed one-shot replacement-host brain load,
+  preserving canceled Play, usage, claims and historical bindings
+  ([contract](CANCELED-PLAY-REPLACEMENT-LOAD.md); source/disposable qualification).
+- [ ] Separately merge/install, confirm the exact actual replacement launch/load
+  and qualify current policy/tracker/accounting/disposition before any new
+  forward-planning control. Source qualification does not continue the live pilot.
+
 - [x] Implement a distinct exact-owner, already-loaded-only forward-planning
   control with separate prospective receipt/proposal journal and a post-Cancel
   launch-only replacement-host review ([contract](CANCELED-CONTINUATION-CONTROL.md)).

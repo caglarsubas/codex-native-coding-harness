@@ -1,5 +1,14 @@
 # Durable project knowledge and bounded brain context
 
+[CANCELED-PLAY-REPLACEMENT-LOAD.md](CANCELED-PLAY-REPLACEMENT-LOAD.md) defines
+the owner's narrow new one-load exception after canceled Play. Its exact new
+review pins an actually issued replacement, the immutable original undisposed
+attempt and separate candidate binding. Permanent external claims, private
+backups and same-connection metadata/policy/current-tracker checks permit no
+turn, replay, usage reset, binding installation or safety inference. Load delivery,
+historical observation, later accounting/disposition and pilot acceptance remain
+distinct. Source/fixtures perform no live load or control confirmation.
+
 [CANCELED-CONTINUATION-CONTROL.md](CANCELED-CONTINUATION-CONTROL.md) adds a
 separate exact-owner forward-planning turn with a new journal/mailbox outside
 the immutable original ledger. An explicit new receipt plus inert proposal is

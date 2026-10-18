@@ -1,5 +1,11 @@
 # Separate forward-planning control and replacement-host review
 
+For the owner's separately authorized one-load exception, see
+[CANCELED-PLAY-REPLACEMENT-LOAD.md](CANCELED-PLAY-REPLACEMENT-LOAD.md).
+That new exact control must precede local disposition and starts no turn. It
+does not relax this planning adapter's already-loaded-only, retained-usage,
+original-expiry or separate exact-owner confirmation requirements.
+
 This is source, not installation or live authority. Read the original
 [canceled-Play disposition](CANCELED-PLAY-DISPOSITION.md),
 [no-reload transport](NO-RELOAD-TRANSPORT.md) and
