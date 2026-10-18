@@ -1,5 +1,15 @@
 # Cooperative standard-project brain
 
+For the explicit operator-only version-2 canceled-attempt planning review, read
+`docs/FORWARD-USAGE-EVIDENCE.md` fully. The old snapshot-backed usage stays an
+immutable baseline. Exact confirmation claims one local collection into the new
+journal; freshness remains below 120 seconds at send with monotone exact session
+vectors, old high-water amounts and unchanged limits/reserve/expiry. Preview,
+backup and status never collect; stale/partial/gapped attempts cannot resample,
+reload, reconnect or change versions to retry. A new receipt/inert proposal is
+not Resume, dispatch, a repaired old receipt or pilot acceptance. Source delivery
+installs or confirms nothing and changes no historical binding or safety unknown.
+
 The separately authorized replacement-load exception is documented in
 `docs/CANCELED-PLAY-REPLACEMENT-LOAD.md`. Read it fully before its operator-only
 control. Only its new exact review may claim one metadata-only load on the

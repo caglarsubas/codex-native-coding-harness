@@ -1,5 +1,23 @@
 # Codex Orchestrator — personal tooling
 
+## Forward-only canceled-attempt usage evidence (2026-10-18)
+
+Read docs/FORWARD-USAGE-EVIDENCE.md before the explicit version-2 planning
+review (`prepare --forward-usage-evidence`). The stale original report is only
+an immutable, snapshot-backed cumulative baseline, never fresh execution evidence.
+One exact prospective confirmation claims the same canonical original-attempt
+directory before one bounded local numeric collection. Pin the existing private
+configuration/root identities; retain new source/file/sample provenance outside
+the old ledger. Validate complete exact sessions, unchanged scope, monotone vectors
+and high-water amounts, gap-free coverage, unchanged allowances/reserve/expiry
+and the existing 120-second freshness at subscription and turn-start boundaries.
+Gaps, changing files, partial collection, stop/drift or stale evidence consume the
+attempt without resampling, reconnecting or switching versions to retry. Preview,
+backup and status never collect or retimestamp evidence. Version 1 is unchanged.
+Only the separately reviewed new receipt/inert proposal is supported. No reload,
+Play/recovery replay, usage reset, binding change, terminal-safety inference or
+pilot acceptance follows. Source qualification installs or confirms nothing live.
+
 ## Separately authorized canceled-attempt replacement load (2026-10-18)
 
 Read docs/CANCELED-PLAY-REPLACEMENT-LOAD.md before the operator-only

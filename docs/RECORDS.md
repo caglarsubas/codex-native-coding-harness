@@ -1,5 +1,14 @@
 # Version 1 record contracts
 
+The opt-in `canceled_play_forward_planning_v2` review adds the exact configured
+usage source to the separately reviewed planning control. Its canonical attempt
+is shared with version 1; neither can rearm a consumed original attempt. A
+`prospective_registered_usage_v1` claim and record pin the original usage receipt,
+new numeric observation and source/file epochs/hashes outside the frozen ledger.
+No timestamp is renewed by reading. Gaps/stale/regressed evidence never permit
+send; original budget/expiry and unknown safety stay unchanged. See
+[FORWARD-USAGE-EVIDENCE.md](FORWARD-USAGE-EVIDENCE.md).
+
 `canceled_play_replacement_load_v1` is a separate operator review and external
 canonical journal, not an original Play receipt or schema migration. It pins
 full issued-host provenance, preserved canceled attempt, separate candidate,

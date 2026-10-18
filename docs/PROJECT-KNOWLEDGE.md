@@ -1,5 +1,14 @@
 # Durable project knowledge and bounded brain context
 
+[FORWARD-USAGE-EVIDENCE.md](FORWARD-USAGE-EVIDENCE.md) defines the explicit
+version-2 planning review. It preserves the old snapshot-backed usage as an
+immutable baseline while claiming one actual bounded collection into the separate
+prospective journal. Freshness stays below 120 seconds at send; monotone exact
+session vectors/high-water amounts and unchanged limits/reserve/expiry remain
+mandatory. Preview/backup/status collect nothing; failed/stale/partial attempts
+cannot resample or switch versions to retry. Version 1 remains unchanged. Source
+delivery installs/confirms nothing and accepts no live pilot.
+
 [CANCELED-PLAY-REPLACEMENT-LOAD.md](CANCELED-PLAY-REPLACEMENT-LOAD.md) defines
 the owner's narrow new one-load exception after canceled Play. Its exact new
 review pins an actually issued replacement, the immutable original undisposed

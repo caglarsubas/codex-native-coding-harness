@@ -1,5 +1,13 @@
 # Codex-native orchestration roadmap
 
+- [x] Implement opt-in forward-only usage evidence for canceled-attempt planning,
+  preserving the old ledger/report and collecting once into its prospective
+  journal without weaker freshness or expiry checks
+  ([contract](FORWARD-USAGE-EVIDENCE.md); source/disposable qualification).
+- [ ] Separately merge/install, review actual disposition and the new planning
+  control, then qualify live evidence/runtime and pilot outcome. No reload,
+  Play/recovery replay, binding change, usage reset or assumed safety follows source.
+
 - [x] Implement the separately reviewed one-shot replacement-host brain load,
   preserving canceled Play, usage, claims and historical bindings
   ([contract](CANCELED-PLAY-REPLACEMENT-LOAD.md); source/disposable qualification).

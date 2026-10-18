@@ -1,5 +1,12 @@
 # Separate forward-planning control and replacement-host review
 
+The explicit version-2 `prepare --forward-usage-evidence` option is documented in
+[FORWARD-USAGE-EVIDENCE.md](FORWARD-USAGE-EVIDENCE.md). It keeps the original
+report immutable as a baseline and claims one actual new collection into the
+prospective journal at confirmation. The 120-second send-boundary freshness,
+unchanged budget/expiry, one-shot and already-loaded-only checks remain intact.
+Version 1 stays the default; no existing request is upgraded or retried.
+
 For the owner's separately authorized one-load exception, see
 [CANCELED-PLAY-REPLACEMENT-LOAD.md](CANCELED-PLAY-REPLACEMENT-LOAD.md).
 That new exact control must precede local disposition and starts no turn. It
@@ -31,7 +38,7 @@ the old binary. A source/client/interpreter/package change invalidates review.
 Review validity is scope-bound, not a short approval timer; actual evidence
 freshness and the original phase clock still apply.
 
-The original registered-session usage report must already have its matching
+For version 1, the original registered-session usage report must already have its matching
 retained snapshot, known cumulative brain/total/high-water values, no reported
 coverage gaps and a collection age below 120 seconds at the send boundary. A
 local registered-session measurement is not billing, provider or full descendant
@@ -171,6 +178,6 @@ without loading it or sending a second model request.
 
 Source qualification, PR/manual merge, installation, launch review/confirmation,
 connectivity, binding review, disposition and continuation remain separate steps.
-The live v3 original host is absent, its usage is not measured, and its no-reload
-and terminal-safety constraints remain intact. Source delivery prepares a host
-review only; it does not make the pilot complete or start development.
+Live runtime/accounting evidence must be checked separately; source fixtures do
+not refresh it. No-reload and terminal-safety constraints remain intact. Source
+delivery does not make the pilot complete or start development.
