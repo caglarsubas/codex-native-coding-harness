@@ -1,5 +1,23 @@
 # Codex Orchestrator — personal tooling
 
+## Post-disposition maintenance-load source (2026-10-18)
+
+Read docs/POST-DISPOSITION-MAINTENANCE-LOAD.md before this separate operator-only
+one-load exception. Require a complete canceled-Play disposition, positively
+closed canonical earlier load, exact closed planning preflight-refusal lineage,
+unchanged issued host/package/socket/brain/dual IDs/cwd and both bindings. Unknown,
+partial or stopped old attempts cannot retry through this path. Preserve all old
+rows, requests, usage/gaps/expiry, holds and claims; no source/version/ID or host
+may rearm the new canonical intent/load claim. One new exact scope-bound review,
+stopped writers and verified private backups precede one fixed metadata-only load
+and repeated actual identity/policy/current-tracker checks. No native turn,
+permission response, cancel, sign-in, rebind, usage collection/reset, clock grant,
+ownership release or safety/acceptance inference. Expiry is bypassed only for
+zero-turn maintenance, never planning; its permanent claim fences competing old
+planning. Closing the original connection makes evidence historical and may
+unload again; no keeper, reconnect or implicit continuation. Preparation/backup/
+status are file-only. Source/fixtures install, load and confirm nothing live.
+
 ## Same-project lifecycle source (2026-10-18)
 
 Read docs/SAME-PROJECT-LIFECYCLE.md before the separate version-3 successor.

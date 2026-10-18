@@ -43,12 +43,34 @@ def provenance(registry, ledger, launch_file):
     """
     require(Path(launch_file).name == 'replacement.json', 'Exact replacement review filename required')
     q = host.load(launch_file)
+    o = q['original']
+    require(control.original_context(registry, ledger, o['bindingFile'], o['command']['id']) == o
+            and o['dispositionHash'] is None, 'Unchanged undisposed canceled attempt required')
+    return issued_provenance(registry, ledger, launch_file)
+
+
+def issued_provenance(registry, ledger, launch_file, *, historical=False):
+    """Local issued-host facts only, not load or current-ledger authority.
+
+    Each caller must separately validate its own original-context contract.
+    The original load's undisposed guard above is deliberately unchanged.
+    """
+    require(Path(launch_file).name == 'replacement.json', 'Exact replacement review filename required')
+    if historical:
+        before = control.pin(launch_file)
+        q = decode(shared.read_file(private_file(launch_file),65536)[0])
+        require(isinstance(q,dict) and set(q)==host.FIELDS and type(q['version']) is int and q['version']==1 and
+            q['kind']==host.KIND and q['boundary']==host.BOUNDARY and
+            Path(launch_file)==Path(q['reviewDirectory'])/'replacement.json' and
+            isinstance(q['sourceTree'],str) and len(q['sourceTree'])==40 and
+            all(c in '0123456789abcdef' for c in q['sourceTree']) and control.pin(launch_file)==before,
+            'Complete pinned historical issued-host review required; never execute old source')
+    else:
+        q = host.load(launch_file)
     review = isolated_directory(q['reviewDirectory'])
     require(q['backupPath'] == str(review/'native-home-backup')
             and q['homeSnapshotPin']['path'] == str(review/'home-snapshot.json'), 'Closed reviewed native archive paths required')
     o = q['original']
-    require(control.original_context(registry, ledger, o['bindingFile'], o['command']['id']) == o
-            and o['dispositionHash'] is None, 'Unchanged undisposed canceled attempt required')
     earlier = host.lineage.issued(q['previousAttempt'], ledger)
     require(earlier[:3] == (q['originalLaunch'], q['previousStatus'], q['previousPins']),
             'Issued original host lineage changed')

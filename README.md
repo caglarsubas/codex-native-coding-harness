@@ -314,6 +314,14 @@ For unconsumed canceled-attempt planning, the separate operator-only
 reviewed foreground subscription across the exact planning review. It cannot
 reload an unloaded brain, restore a closed connection or retry a consumed attempt.
 
+The separately authorized [post-disposition maintenance load](docs/POST-DISPOSITION-MAINTENANCE-LOAD.md)
+allows one new exact-reviewed metadata load on that same existing brain/host only
+after a proved closed earlier load and complete canceled-Play disposition. It
+preserves every old attempt and unknown outcome, starts no turn, changes no
+binding and does not renew an expired phase. Closing its connection makes the
+observation historical; it is not a keeper or planning handoff. Source delivery
+does not install or apply the live control.
+
 For an exact recorded pre-subscription failure, the separate
 [same-project lifecycle](docs/SAME-PROJECT-LIFECYCLE.md) preserves that consumed
 attempt and its unknown outcome while preparing one distinct bounded successor.

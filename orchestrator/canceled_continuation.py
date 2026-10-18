@@ -184,6 +184,9 @@ def current(registry, ledger, q, *, started=False, usage_pin=None):
     o=q['original']
     require(original_context(registry,ledger,o['bindingFile'],o['command']['id'],disposed=True)==o,
             'Original requests, run, usage, claims, Pause or binding changed')
+    from .maintenance_load import location as maintenance_location
+    require(not os.path.lexists(maintenance_location(registry,o)),
+            'Maintenance load claim fences phase planning; no automatic continuation or adoption')
     require(tuple(map(str,review_locations(registry,q)))==(q['journal'],q['mailbox']), 'Canonical attempt locations changed')
     require(pin(q['candidateFile'])==q['candidatePin'] and _read_binding(q['candidateFile'])==q['candidateBinding'],
             'Candidate binding bytes/epoch changed')

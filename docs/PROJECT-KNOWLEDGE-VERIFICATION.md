@@ -4,6 +4,48 @@ This separates source implementation from installation, merge and live
 qualification. None of these entries grants standard Play, a brain replacement
 or strict Harness execution authority.
 
+## Post-disposition maintenance load — 2026-10-18
+
+[POST-DISPOSITION-MAINTENANCE-LOAD.md](POST-DISPOSITION-MAINTENANCE-LOAD.md)
+adds one distinct exact-reviewed metadata load on the same existing host/brain,
+not a retry of a consumed load or planning request. The positively closed earlier
+load, full canceled-Play disposition, exact preflight-refusal lineage and unknown
+predecessor outcome remain pinned. Issued-host facts can be read from their exact
+historical review without requiring or executing its old source tree; source,
+intent/exec pins and process/package/socket/history/credential-metadata checks
+remain separate. The original undisposed load guard is unchanged.
+
+Thirty-four disposable unit cases passed: exact approval/quiescence/backups,
+canonical once-only claims and concurrent confirmations, same-host/identity/
+binding/package drift, expired-phase separation, old unknown/partial effects,
+Stop and cross-control races, unknown load/close outcomes, actual native policy/
+tracker/authentication/MCP prerequisites, historical-source pin drift, credential
+non-reading and historical file-only status. A claimed maintenance attempt fences
+competing old-phase planning; no clock, usage or safety check is loosened for it.
+The control rechecks its own original intent, load claim and acknowledgement
+before loading or retaining a positive result; corruption remains unknown.
+
+The compiled maintenance fixture passed using the unchanged reviewed native
+package. It performs a real earlier load on a warm disposable host, records a
+labelled synthetic usage baseline/disposition and injects the exact historical
+planning preflight refusal. After actual native unloading, the production new
+control makes one fixed metadata load and verifies actual loaded restricted policy
+and current empty tracker, with zero additional model requests. The expired wall
+clock and launch provenance are explicitly synthetic fixture conditions, not live
+evidence. Old load/planning claims, unknown outcomes, synthetic ledger and bindings
+remain unchanged; replay and expired-phase continuation refuse. Compiled earlier
+load, same-project successor and continuous-handoff regressions also passed.
+
+Full local regression passed 3,181 Python tests (3,180 passed; the existing opt-in
+Graphify test skipped), all 40 JavaScript suites, 31 web-script syntax checks,
+158 source/script AST checks and diff checks. Earlier development runs were
+interrupted as ownership guards and disposable fixtures were corrected; only the
+complete final-source run is qualification evidence. These fixtures use no live credential/host, downloads, paid service
+or Actions. This operator-only source adds no web UI and claims no new rendered
+qualification. Source delivery installs, loads and confirms nothing live. Exact
+live maintenance application and separate expired-phase follow-up cannot be
+inferred from preparation or from this source qualification.
+
 ## Same-project lifecycle and forward lineage — 2026-10-18
 
 [SAME-PROJECT-LIFECYCLE.md](SAME-PROJECT-LIFECYCLE.md) adds one bounded version-3

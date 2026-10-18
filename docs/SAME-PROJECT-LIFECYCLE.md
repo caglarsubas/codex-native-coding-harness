@@ -57,6 +57,13 @@ If the brain is unloaded, the honest result is
 confirmation or create v4. No no-reload protocol can restore an unloaded brain.
 An actual permitted loaded runtime remains an independent prerequisite.
 
+The separate [post-disposition maintenance control](POST-DISPOSITION-MAINTENANCE-LOAD.md)
+implements the owner's new narrow one-load exception on the same existing host.
+It cannot rearm an earlier load, start a model turn, keep an owning planning
+connection or extend the original phase. A claimed maintenance attempt fences
+competing old-phase planning. An expired successor does not become eligible
+because a maintenance load succeeded.
+
 ## One combined, scope-bound owner review
 
 One new exact confirmation covers the subscription, one new actual usage
