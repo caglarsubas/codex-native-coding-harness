@@ -1,10 +1,19 @@
 # Durable project knowledge and bounded brain context
 
+[CANCELED-CONTINUATION-CONTROL.md](CANCELED-CONTINUATION-CONTROL.md) adds a
+separate exact-owner forward-planning turn with a new journal/mailbox outside
+the immutable original ledger. An explicit new receipt plus inert proposal is
+not Resume, dispatch, an original Play receipt or pilot acceptance. The separate
+post-Cancel replacement review preserves issued-host lineage, unchanged isolated
+home and credential metadata, and permits only a future exact-reviewed launch.
+Missing usage, expired authority, unloaded brains and unknown terminal safety
+stay blocked. No source delivery installs, launches, rebinds or confirms these.
+
 [NO-RELOAD-TRANSPORT.md](NO-RELOAD-TRANSPORT.md) defines the supplemental native
 subscribe-only operation and closed same-connection transport. Its loaded lookup
 and subscription serialize against native unload; it never resumes or starts a
 turn. Source/build fixture qualification is separate from live host/binding review
-and the still-missing exact-owner continuation adapter. No old request, usage,
+and the separate exact-owner planning adapter. No old request, usage,
 claim, binding, expiry or safety unknown is changed by this source delivery.
 
 [CANCELED-PLAY-DISPOSITION.md](CANCELED-PLAY-DISPOSITION.md) separates the local
@@ -12,8 +21,8 @@ unqualified disposition of an owner-canceled, interrupted, unreceipted Play from
 native continuation. Exact scope-bound review and private backups precede one
 permanent claim/snapshot; all original run, usage, request, claim, capture and
 binding values remain unchanged. Normal writes remain fenced. The continuation
-assessment is non-executing: the pinned protocol has no qualified no-reload owned
-subscription. Source delivery installs nothing, confirms no live disposition,
+assessment is non-executing: the original pinned host has no qualified no-reload
+owned subscription. Source delivery installs nothing, confirms no live disposition,
 starts no new turn and accepts no pilot.
 
 [SANDBOX-SAFE-RUN-CONTROL.md](SANDBOX-SAFE-RUN-CONTROL.md) separates genuinely

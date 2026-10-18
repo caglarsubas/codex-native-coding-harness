@@ -113,6 +113,14 @@ ledger; these native checks do not stand in for them.
 
 ## V3 boundary and rollout
 
+The separate production **forward-planning**, not Resume/dispatch, caller is now
+documented in [CANCELED-CONTINUATION-CONTROL.md](CANCELED-CONTINUATION-CONTROL.md).
+It has its own exact owner review, permanent journal, explicit new receipt and
+proposal. The transport itself remains authority-free. The supplemental native
+ended-turn-status patch is required after a canceled turn: ID presence alone
+mistook retained interrupted history for active work. The newer candidate keeps
+the original unload/active/policy fences and is reviewed as a distinct package.
+
 Keep native source/build qualification, manual source merge, installation, exact
 host/build/binding review, canceled-Play disposition and a distinct continuation
 control separate. Do not change the existing v3 binding to make this new build fit.

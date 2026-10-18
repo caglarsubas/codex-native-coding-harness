@@ -4,6 +4,54 @@ This separates source implementation from installation, merge and live
 qualification. None of these entries grants standard Play, a brain replacement
 or strict Harness execution authority.
 
+## Distinct canceled-attempt planning control — 2026-10-18
+
+The new operator-only control has a separate canonical owner journal, subscription
+and turn-start claims, explicit prospective receipt/proposal mailbox, verified
+backup and exact scope-bound review. The original disposition and all standard
+dispatch gates remain unchanged. Sixteen focused continuation cases and nine
+replacement-review cases pass, covering unknown/lost outcomes, exact receipt
+correlation, wrong hash, backup/package/source pins, concurrent confirmation,
+stop/latest-turn races, permanent attempts, credential non-reading and no native
+connection/retry during launch review. These are disposable source fixtures.
+
+The production adapter also passed a compiled Unix-host/sandbox fixture: one
+subscribe, one distinct turn, explicit receipt and inert proposal, exact native
+completion, unchanged original synthetic ledger/sidecars/binding, and three fake
+loopback provider responses. No live host, account, native reload or old request
+was used. A prior candidate correctly refused before turn start; this negative
+qualification exposed an ended-turn predicate defect rather than proving safety.
+
+The native repair checks `inProgress` status instead of ID presence: interrupted
+history intentionally retains an ID. Existing loaded-idle, agent-state and unload
+mutex fences remain intact. The source patch is retained in
+`native-patches/subscribe-ended-turn-status.patch`. Offline qualification passes
+380 app-server unit tests, three subscribe regressions and five unsubscribe
+regressions. The separately retained source-built package is not vendor desktop
+authorization, process cleanup or a real worker pilot. Full source-suite results
+are recorded separately after final frozen-byte verification.
+
+The new package also passes the native unload/active-wait/race transport fixture
+and the existing public-task actual-tool lifecycle fixture. A synthetic-auth
+same-home fixture reopens twice without warm loads, turns or model requests. A
+separate cross-build check creates the disposable project/brain/history with the
+original `5efb9e2c…` binary and reads it on the replacement `f7129d87…` binary:
+exact identity/history/config remain, with zero warm loads, turns or model calls.
+Credential bytes are not read or copied by backup. No live home is used.
+
+Final frozen-byte discovery passes **3,054 Python tests** in 731.320 seconds,
+with one optional Graphify executable check skipped. All **40 JavaScript suites**,
+**31 web syntax checks**, **153 source/script AST checks** and staged/unstaged
+diff checks pass. The qualification runner verified unchanged source bytes across
+the run. No Actions workflow, paid service, live installation or activation was
+introduced. No web UI was changed in this operator-only source increment.
+
+Live read-only checks retain five database proofs, original requests/run/usage/
+claims and binding. Original host PID 1667 is absent; its issued lineage validates
+17 historical file pins. No live disposition, native connection, host launch,
+dashboard restart, binding change, turn, usage reset or terminal-safety assertion
+was made. A launch-only review is distinct from any later continuation authority.
+
 ## No-reload owning subscription transport — 2026-10-18
 
 The experimental native `thread/subscribe` source and closed Python transport
