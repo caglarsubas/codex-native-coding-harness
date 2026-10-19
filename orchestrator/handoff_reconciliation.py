@@ -16,6 +16,7 @@ from .standard_quarantine import exclusive
 
 KIND='transferred_preparation_completion_evidence_v1'
 PR181_SOURCE='fc52c345ab84a917fe875bd97d12c9bc15c54fcbf5e3bc712583c048647312b3'
+PR182_SOURCE='f0c99ec7248045d6c207c8366d8e4d1724b183093f2a601eca5456cc14cc535d'
 BOUNDARY={**planning.BOUNDARY,'observerReconnected':False,'subscriptionAttached':False,
     'nativeWrites':False,'usageCollected':False,'postTurnUsage':'unknown_not_collected',
     'oldOutcomeChanged':False,'phaseClockRenewed':False,'repositoryHoldsReleased':False}
@@ -178,12 +179,19 @@ def collect(registry,ledger,file,directory,*,source=None):
     return evidence
 
 
-def status(registry,ledger,directory):
+def status(registry,ledger,directory,*,completion_source=None):
     root=Path(directory); evidence=handoff.read(root/'evidence.json'); before=handoff.read(root/'intent.json')
     require({p.name for p in root.iterdir()}=={'intent.json','evidence.json'} and evidence.get('kind')==KIND and
         evidence.get('context')==before and evidence.get('boundary')==BOUNDARY and
         evidence.get('status') in ('preparation_completion_observed','unknown'),'Complete unmodified independent evidence required')
     source=before['originalSource']; _,now=context(registry,ledger,before['reviewFile'],None if source is None else source['root'])
+    if before['currentSourceHash']!=now['currentSourceHash']:
+        require(completion_source is not None and before['currentSourceHash']==PR182_SOURCE,
+            'Historical completion requires its exact immutable qualified PR-182 source')
+        proof=handoff.phase.lifecycle.source_proof(completion_source)
+        require(proof['sourceHash']==PR182_SOURCE,'Only qualified PR-182 completion source bytes are supported')
+        now={**now,'currentSourceHash':proof['sourceHash']}
+    else: require(completion_source is None,'Current-source completion requires no historical-source substitute')
     require(before==now,'Original claims, evidence provenance or implementation changed')
     common={'kind','status','context','observedAt','boundary'}
     if evidence['status']=='preparation_completion_observed':

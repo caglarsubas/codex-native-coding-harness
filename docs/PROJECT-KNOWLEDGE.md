@@ -1,5 +1,12 @@
 # Durable project knowledge and bounded brain context
 
+[POST-PREPARATION-WORKER-ADMISSION.md](POST-PREPARATION-WORKER-ADMISSION.md)
+separates append-only actual destination usage from exact disjoint worker-phase
+lineage and separate fresh target Play. Both original baselines, claims, binding
+epochs, registry proofs and canceled/partial repository holds remain intact.
+Unknown counters/safety and unavailable targets do not become zero or free scope.
+Operator source delivery neither loads, installs, admits nor activates live work.
+
 [OBSERVER-HEARTBEAT-AND-RECONCILIATION.md](OBSERVER-HEARTBEAT-AND-RECONCILIATION.md)
 separates original-connection control I/O from foreground authority checks and
 defines independent read-only evidence for the exact consumed v5 preparation.

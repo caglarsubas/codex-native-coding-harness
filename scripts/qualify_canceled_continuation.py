@@ -270,6 +270,7 @@ def qualify(package,evidence,*,reviewed_load=False,maintenance_load=False,forwar
             require(self.path=='/v1/responses','Loopback fake only')
             size=int(self.headers.get('Content-Length','0')); require(0<size<=1_000_000,'Bounded fake request')
             self.rfile.read(size); calls.append('loopback_fake')
+            response_id='fixture-response-'+str(len(calls))
             if len(calls)==1:
                 item={'type':'function_call','name':'exec_command','call_id':'fixture-cancel',
                     'arguments':json.dumps({'cmd':'/usr/bin/true','workdir':str(owner.f.repo),
@@ -280,9 +281,9 @@ def qualify(package,evidence,*,reviewed_load=False,maintenance_load=False,forwar
             else:
                 item={'type':'message','role':'assistant','id':'fixture-proposal-message',
                     'content':[{'type':'output_text','text':'New inert proposal retained.'}]}
-            events=[{'type':'response.created','response':{'id':'fixture-response'}},
+            events=[{'type':'response.created','response':{'id':response_id}},
                 {'type':'response.output_item.done','item':item},
-                {'type':'response.completed','response':{'id':'fixture-response',
+                {'type':'response.completed','response':{'id':response_id,
                     'usage':{'input_tokens':5,'output_tokens':5,'total_tokens':10}}}]
             payload=''.join('data: '+json.dumps(row)+'\n\n' for row in events).encode()
             self.send_response(200); self.send_header('Content-Type','text/event-stream')

@@ -1,5 +1,21 @@
 # Codex Orchestrator — personal tooling
 
+## Post-preparation worker admission and v4 usage (2026-10-19)
+
+Read docs/POST-PREPARATION-WORKER-ADMISSION.md before using the separate
+`post_preparation_usage` or `worker_phase_admission` adapters. Explicit repeated
+read-only native evidence may append numeric accounting for the exact transferred
+completed preparation; never reuse its old usage claim or change observation
+configuration, original reports, clocks or claims. Missing/regressed counters,
+changed source/file epochs and unknown safety stay unknown. Admission is only an
+exact new owner-reviewed lineage to an already registered, independently reviewed,
+genuinely disjoint empty standard target, after all-database/private-sidecar
+backups and stopped writers. It starts no Play and loads nothing. Preserve source
+registry/ledger proofs and every historical hold; canceled/partial claims still
+exclude their repositories. Partial admission is permanently fenced. Separate
+fresh target Play and loaded-only policy/tracker/effect gates remain mandatory.
+Source qualification installs nothing and does not continue or accept a live pilot.
+
 ## Observer heartbeat and independent completion evidence (2026-10-19)
 
 Read docs/OBSERVER-HEARTBEAT-AND-RECONCILIATION.md before explicit read-only
