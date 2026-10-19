@@ -47,22 +47,29 @@ class OwnedEventStream:
     def next(self, callback, deadline):
         # No file validation or native RPC is ever performed by the I/O reader.
         # A callback can take longer than a heartbeat without blocking pongs.
+        self.check()
         if callback is not None:
             callback()
+        self.check()
         while True:
+            self.check()
             try:
                 row, size = self.events.get_nowait()
                 with self.lock:
                     self.bytes -= size
                 return row
             except queue.Empty:
-                if self.error is not None:
-                    raise self.error
-                require(not self.stop.is_set(), 'Original observer stream closed')
                 require(time.monotonic() < deadline, 'Native read deadline exceeded')
                 self.stop.wait(.025)
+                self.check()
                 if callback is not None:
                     callback()
+
+    def check(self):
+        if self.error is not None:
+            raise self.error
+        if self.stop.is_set():
+            raise self.lost('observer_closed')
 
     def close(self):
         self.stop.set()

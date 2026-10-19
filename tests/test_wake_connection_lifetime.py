@@ -352,6 +352,29 @@ class WakeConnectionLifetimeTest(unittest.TestCase):
         with self.streaming_pipe(events=0) as (proxy,probes):
             with self.assertRaisesRegex(Refusal,'already started'): proxy.watch_connection()
 
+    def test_known_reader_loss_fences_callbacks_and_queued_completion(self):
+        with self.streaming_pipe(events=0) as (proxy,probes):
+            proxy._event_stream.error=NativeConnectionLost('heartbeat_missing')
+            with patch.object(proxy,'_on_wait_tick',create=True) as callback:
+                with self.assertRaises(NativeConnectionLost): proxy._line()
+                callback.assert_not_called()
+
+    def test_loss_during_slow_check_does_not_deliver_queued_data(self):
+        with self.streaming_pipe(events=0) as (proxy,probes):
+            def check(): proxy._event_stream.error=NativeConnectionLost('heartbeat_missing')
+            proxy._on_wait_tick=check
+            with self.assertRaises(NativeConnectionLost): proxy._line()
+
+    def test_known_reader_loss_fences_native_json_writes_without_a_retry(self):
+        from orchestrator.native_read_client import ReadProxy
+        with self.streaming_pipe(events=0) as (proxy,probes):
+            proxy._event_stream.error=NativeConnectionLost('heartbeat_missing')
+            with patch.object(ReadProxy,'_write') as write:
+                for value in ({'id':42,'result':{'decision':'accept'}},
+                              {'id':43,'method':'turn/start','params':{}}):
+                    with self.assertRaises(NativeConnectionLost): proxy._write(value)
+                write.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

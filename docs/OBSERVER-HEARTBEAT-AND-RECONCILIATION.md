@@ -14,6 +14,8 @@ notify, retry or keep a closed connection alive. Only the foreground owner check
 Stop/scope/expiry, services mailboxes and authorizes effects. Preserve event order,
 finite count/byte bounds and explicit overflow uncertainty. Closing the original
 proxy stops and joins its reader, without killing or restarting the native host.
+Known reader failure fences callbacks, queued data and foreground JSON writes,
+including native permission responses; stale queued events cannot restore health.
 
 The 15-second cadence, 10-second missing-pong threshold, exact nonce/endpoint epoch,
 read/phase deadlines and 120-second send freshness are unchanged. Data or wrong

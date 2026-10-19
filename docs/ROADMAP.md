@@ -5,8 +5,12 @@
 - [x] Implement explicit forward-only completion evidence for a consumed v5
   preparation with both original receipt/proposal, preserving its unknown outcome
   ([contract](OBSERVER-HEARTBEAT-AND-RECONCILIATION.md)).
-- [ ] Qualify full regression and compiled-native lost-completion/unloaded reads;
-  separate manual merge, safe installation and actual live evidence.
+- [x] Qualify complete 3,270-case Python discovery (one optional skip), 40 JS
+  suites, syntax/AST checks and four compiled-native cases, including actual
+  heartbeat progress during a 26-second foreground block and unloaded read-only
+  reconciliation. Final discovery partitions have exact test-ID multiplicity
+  equality with unpartitioned discovery; no case is omitted.
+- [ ] Separate manual merge, safe installation and actual live evidence.
 - [ ] No binding cutover or worker Play from evidence alone; pilot acceptance
   remains separate and historical terminal safety remains unknown.
 

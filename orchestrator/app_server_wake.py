@@ -210,6 +210,13 @@ class WakeProxy(ReadProxy):
         finally:
             self._awaiting_start = False
 
+    def _write(self, value):
+        # Native commands/permission responses remain foreground-only. A known
+        # reader failure fences JSON even if the owner was doing slow work.
+        if self._event_stream is not None:
+            self._event_stream.check()
+        return super()._write(value)
+
     def _line(self):
         if self._event_stream is not None:
             row = self._event_stream.next(getattr(self, '_on_wait_tick', None), self.deadline)
