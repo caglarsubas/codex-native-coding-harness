@@ -17,6 +17,7 @@ import time
 from .core import Refusal, canonical, digest, require
 from .native_read_client import NativeReadFailure, ReadProxy, decode, file_identity, secure_path, socket_identity, validate_endpoint
 from .projects import text as catalog_text
+from .owned_event_stream import OwnedEventStream
 
 UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\Z")
 MAX_BINDING = 16_384
@@ -78,6 +79,17 @@ class WakeProxy(ReadProxy):
         self._frame_lock = threading.Lock()
         self._write_deadline = threading.local()
         self._watching = False
+        self._event_stream = None
+
+    def __exit__(self, *args):
+        stream = self._event_stream
+        if stream is not None:
+            stream.close()
+        try:
+            return super().__exit__(*args)
+        finally:
+            if stream is not None:
+                stream.close()
 
     def __enter__(self):
         epoch = self._epoch()
@@ -95,6 +107,7 @@ class WakeProxy(ReadProxy):
         # The already owned connection only: no discovery, reconnect or RPC.
         # A healthy quiet turn is not subject to an idle timeout. It must answer
         # WebSocket control pings even while model/tool/owner work is pending.
+        require(not self._watching, 'Original observer already started; never restart it')
         epoch = self._epoch()
         if getattr(self, "_endpoint_epoch", epoch) != epoch:
             raise NativeConnectionLost("endpoint_changed")
@@ -102,6 +115,9 @@ class WakeProxy(ReadProxy):
         self._next_ping = time.monotonic() + self.heartbeat_interval
         self._pending_ping = None
         self._watching = True
+        if self.process is not None:
+            self._event_stream = OwnedEventStream(self, lambda: ReadProxy._line(self), NativeConnectionLost)
+            self._event_stream.start()
 
     def _epoch(self):
         try:
@@ -133,16 +149,19 @@ class WakeProxy(ReadProxy):
     def _ready(self, stream, event):
         if event == selectors.EVENT_READ and self._watching:
             while True:
-                callback = getattr(self, "_on_wait_tick", None)
+                reader = self._event_stream
+                if reader is not None and reader.stop.is_set():
+                    raise NativeConnectionLost('observer_closed')
+                callback = None if reader is not None else getattr(self, "_on_wait_tick", None)
                 if callback is not None:
                     callback()
                 probe_at = self._watch_tick()
-                remaining = self.deadline - time.monotonic()
+                remaining = (reader.deadline if reader is not None else self.deadline) - time.monotonic()
                 require(remaining > 0, "Native read deadline exceeded")
                 with selectors.DefaultSelector() as selector:
                     selector.register(stream, event)
                     if selector.select(max(0, min(remaining, probe_at - time.monotonic(),
-                                                  0.25 if callback is not None else remaining))):
+                                                  0.25 if callback is not None or reader is not None else remaining))):
                         return
         if event != selectors.EVENT_WRITE or not hasattr(self._write_deadline, "value"):
             return super()._ready(stream, event)
@@ -192,9 +211,12 @@ class WakeProxy(ReadProxy):
             self._awaiting_start = False
 
     def _line(self):
-        if self._watching:
-            self._watch_tick()
-        row = super()._line()
+        if self._event_stream is not None:
+            row = self._event_stream.next(getattr(self, '_on_wait_tick', None), self.deadline)
+        else:
+            if self._watching:
+                self._watch_tick()
+            row = super()._line()
         # The same already-owned stream, including events racing turn/start
         # or owner permission waits. No extra connection, RPC or discovery.
         capture = getattr(self, "_on_effect_event", None)

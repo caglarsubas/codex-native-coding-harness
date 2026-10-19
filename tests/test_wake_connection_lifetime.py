@@ -1,5 +1,6 @@
 """Disposable pipes only; never launch or probe a real native host."""
 import json
+import contextlib
 import os
 import selectors
 import threading
@@ -10,6 +11,7 @@ from unittest.mock import patch
 
 from orchestrator.app_server_wake import AppServerWake, NativeConnectionLost, WakeProxy
 from orchestrator.core import Refusal
+from orchestrator.owned_event_stream import OwnedEventStream
 from test_app_server_wake import (BRAIN, TURN, MemoryLedger, ApprovalProxy,
                                   COMMAND_REQUIRED, wait_pending)
 
@@ -251,6 +253,104 @@ class WakeConnectionLifetimeTest(unittest.TestCase):
             close()
             os.close(server_input)
             os.close(server_output)
+
+    @contextlib.contextmanager
+    def streaming_pipe(self, *, events=20, pong=True):
+        """One disposable pipe pair; its peer accepts control frames ONLY."""
+        incoming, output = os.pipe(); server_input, outgoing = os.pipe()
+        proxy = self.proxy()
+        proxy.process = SimpleNamespace(stdout=os.fdopen(incoming, 'rb', buffering=0),
+            stdin=os.fdopen(outgoing, 'wb', buffering=0), poll=lambda:0)
+        os.set_blocking(incoming, False); os.set_blocking(outgoing, False)
+        proxy.deadline = time.monotonic()+3
+        proxy.heartbeat_interval, proxy.heartbeat_timeout = .015, .06
+        stop=threading.Event(); probes=[]; errors=[]
+        def frame(row):
+            payload=json.dumps(row).encode()
+            return b'\x81\x7e'+len(payload).to_bytes(2,'big')+payload
+        def receive(count):
+            data=b''
+            while len(data)<count:
+                with selectors.DefaultSelector() as selector:
+                    selector.register(server_input,selectors.EVENT_READ)
+                    if not selector.select(.05):
+                        if stop.is_set(): return None
+                        continue
+                part=os.read(server_input,count-len(data))
+                if not part: return None
+                data+=part
+            return data
+        def server():
+            try:
+                while not stop.is_set():
+                    header=receive(2)
+                    if header is None: break
+                    self.assertEqual(header,b'\x89\x88','No JSON, RPC, cancellation or permission response')
+                    mask,body=receive(4),receive(8)
+                    nonce=bytes(value^mask[i%4] for i,value in enumerate(body)); probes.append(nonce)
+                    if len(probes)==1:
+                        os.write(output,b''.join(frame({'method':'fixture/delta','params':{'n':n}}) for n in range(events)))
+                    if pong: os.write(output,b'\x8a\x08'+nonce)
+                    if len(probes)==1:
+                        os.write(output,frame({'method':'turn/completed','params':{'threadId':BRAIN,
+                            'turn':{'id':TURN,'status':'completed'}}}))
+            except Exception as error:
+                if not stop.is_set(): errors.append(error)
+        peer=threading.Thread(target=server,daemon=True)
+        try:
+            with patch.object(proxy,'_epoch',return_value=('fixture',)):
+                peer.start(); proxy.watch_connection()
+                yield proxy,probes
+        finally:
+            stop.set(); proxy.__exit__(); peer.join(1)
+            os.close(server_input); os.close(output)
+            self.assertFalse(proxy._event_stream.thread.is_alive(),'No orphaned I/O owner')
+            self.assertFalse(peer.is_alive()); self.assertEqual(errors,[])
+
+    def test_slow_foreground_callbacks_cannot_starve_buffered_pongs(self):
+        with self.streaming_pipe() as (proxy,probes):
+            proxy._on_wait_tick=lambda:time.sleep(.03)
+            rows=[proxy._line() for _ in range(21)]
+            self.assertEqual([r['params']['n'] for r in rows[:-1]],list(range(20)))
+            self.assertEqual(rows[-1]['method'],'turn/completed')
+            self.assertGreater(len(probes),5,'Heartbeat progresses during slow authority checks')
+            self.assertIsNone(proxy._event_stream.error)
+
+    def test_one_blocked_callback_does_not_block_control_frame_progress(self):
+        with self.streaming_pipe(events=0) as (proxy,probes):
+            def guard():
+                end=time.monotonic()+.5
+                while len(probes)<4 and time.monotonic()<end: time.sleep(.005)
+                self.assertGreaterEqual(len(probes),4)
+            proxy._on_wait_tick=guard
+            self.assertEqual(proxy._line()['method'],'turn/completed')
+
+    def test_missing_pong_is_not_renewed_by_a_backlog_of_data(self):
+        with self.streaming_pipe(events=20,pong=False) as (proxy,probes):
+            time.sleep(.12)
+            self.assertIsInstance(proxy._event_stream.error,NativeConnectionLost)
+            self.assertEqual(proxy._event_stream.error.reason,'heartbeat_missing')
+            self.assertEqual(len(probes),1)
+
+    def test_buffer_count_and_byte_overflow_fail_closed_without_reconnect(self):
+        for attribute,limit in (('max_events',2),('max_bytes',10)):
+            with self.subTest(attribute=attribute),patch.object(OwnedEventStream,attribute,limit):
+                with self.streaming_pipe(events=20) as (proxy,probes):
+                    end=time.monotonic()+1
+                    while proxy._event_stream.error is None and time.monotonic()<end: time.sleep(.005)
+                    self.assertIsInstance(proxy._event_stream.error,NativeConnectionLost)
+                    self.assertEqual(proxy._event_stream.error.reason,'observer_backpressure')
+                    self.assertLessEqual(proxy._event_stream.events.qsize(),proxy._event_stream.max_events)
+
+    def test_owner_stop_is_still_checked_before_consuming_a_queued_event(self):
+        with self.streaming_pipe(events=0) as (proxy,probes):
+            def stop(): raise Refusal('Owner Stop')
+            proxy._on_wait_tick=stop
+            with self.assertRaisesRegex(Refusal,'Owner Stop'): proxy._line()
+
+    def test_original_watchdog_cannot_be_restarted(self):
+        with self.streaming_pipe(events=0) as (proxy,probes):
+            with self.assertRaisesRegex(Refusal,'already started'): proxy.watch_connection()
 
 
 if __name__ == "__main__":
