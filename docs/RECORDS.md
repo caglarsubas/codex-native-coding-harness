@@ -1,5 +1,14 @@
 # Version 1 record contracts
 
+`transferred_preparation_completion_evidence_v1` appends independent completion
+evidence outside immutable v5 owner/consumer journals. Original receipt/proposal
+and native acknowledgement are mandatory; the old outcome stays `incomplete_unknown`.
+Repeat exact native project/history/latest-turn/account reads without load,
+subscription/turn or usage collection. Unloaded policy/terminals remain unknown.
+File-only status never renews time. A distinct conditional
+`reconciled_preparation_binding_review_v1` proposal pins evidence and original
+outcome, installing nothing. See [observer contract](OBSERVER-HEARTBEAT-AND-RECONCILIATION.md).
+
 `same_project_successor_phase_v1` is a distinct preparation-only phase review,
 not a new project or replacement old-run row. Its canonical original-ledger/Play
 directory owns separate owner-clock, subscribe/handoff and usage/turn/receipt/

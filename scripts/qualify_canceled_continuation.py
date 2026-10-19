@@ -34,7 +34,7 @@ import test_canceled_play as fixtures
 import test_standard_run_mailbox as mailbox
 
 
-def qualify_reviewed_load(owner,package,evidence,processes,creators,calls,*,maintenance_load=False,successor_phase=False,phase_unloaded=False,commands=None,host_transfer=False,transfer_lost_ack=False):
+def qualify_reviewed_load(owner,package,evidence,processes,creators,calls,*,maintenance_load=False,successor_phase=False,phase_unloaded=False,commands=None,host_transfer=False,transfer_lost_ack=False,transfer_reconciliation=False):
     """Real cold/warm native load; synthetic launch provenance is labelled.
 
     The separate unit fixtures validate full issued-launch provenance. Here only
@@ -88,7 +88,7 @@ def qualify_reviewed_load(owner,package,evidence,processes,creators,calls,*,main
     if maintenance_load:
         return qualify_maintenance_load(owner,package,evidence,calls,q,provenance,candidate_file,
             successor_phase=successor_phase,phase_unloaded=phase_unloaded,commands=commands,
-            host_transfer=host_transfer,processes=processes,transfer_lost_ack=transfer_lost_ack)
+            host_transfer=host_transfer,processes=processes,transfer_lost_ack=transfer_lost_ack,transfer_reconciliation=transfer_reconciliation)
     summary={'qualifiedProductionMetadataLoad':True,'package':package,'provider':'loopback_fake_only',
         'launchProvenance':'synthetic_fixture_only_unit_qualified_separately','nativeLoads':1,'warmModelRequests':0,
         'fakeProviderRequests':len(calls),'methodCounts':{m:methods.count(m) for m in sorted(set(methods))},
@@ -98,7 +98,7 @@ def qualify_reviewed_load(owner,package,evidence,processes,creators,calls,*,main
     return summary
 
 
-def qualify_maintenance_load(owner,package,evidence,calls,old_load,provenance,candidate_file,*,successor_phase=False,phase_unloaded=False,commands=None,host_transfer=False,processes=None,transfer_lost_ack=False):
+def qualify_maintenance_load(owner,package,evidence,calls,old_load,provenance,candidate_file,*,successor_phase=False,phase_unloaded=False,commands=None,host_transfer=False,processes=None,transfer_lost_ack=False,transfer_reconciliation=False):
     """Real additional maintenance load; synthetic lineage is explicitly labelled.
 
     Full issued-host provenance is unit-qualified. Old load is real; parent
@@ -168,7 +168,7 @@ def qualify_maintenance_load(owner,package,evidence,calls,old_load,provenance,ca
     if host_transfer:
         from qualify_host_transfer_handoff import qualify_transfer
         return qualify_transfer(owner,package,evidence,calls,q,provenance,before,sidecars,binding_pin,
-            old_pins,parent_pins,commands,processes,lost_ack=transfer_lost_ack)
+            old_pins,parent_pins,commands,processes,lost_ack=transfer_lost_ack,lost_completion=transfer_reconciliation)
     if successor_phase:
         try:
             return qualify_successor_phase(owner,package,evidence,calls,q,provenance,before,sidecars,
@@ -249,8 +249,9 @@ def qualify_successor_phase(owner,package,evidence,calls,maintenance_q,provenanc
     exclusive(evidence/'summary.json',summary); return summary
 
 
-def qualify(package,evidence,*,reviewed_load=False,maintenance_load=False,forward_usage_evidence=False,continuous_handoff=False,same_project_successor=False,same_project_unloaded=False,successor_phase=False,phase_unloaded=False,host_transfer=False,transfer_lost_ack=False):
-    host_transfer=host_transfer or transfer_lost_ack
+def qualify(package,evidence,*,reviewed_load=False,maintenance_load=False,forward_usage_evidence=False,continuous_handoff=False,same_project_successor=False,same_project_unloaded=False,successor_phase=False,phase_unloaded=False,host_transfer=False,transfer_lost_ack=False,transfer_reconciliation=False):
+    require(not (transfer_lost_ack and transfer_reconciliation),'Separate lost-stage qualification modes required')
+    host_transfer=host_transfer or transfer_lost_ack or transfer_reconciliation
     successor_phase=successor_phase or phase_unloaded
     maintenance_load=maintenance_load or successor_phase or host_transfer
     reviewed_load=reviewed_load or maintenance_load
@@ -348,7 +349,7 @@ stream_max_retries = 0
         if reviewed_load:
             return qualify_reviewed_load(owner,package,evidence,native_process,creators,calls,maintenance_load=maintenance_load,
                 successor_phase=successor_phase,phase_unloaded=phase_unloaded,commands=command,host_transfer=host_transfer,
-                transfer_lost_ack=transfer_lost_ack)
+                transfer_lost_ack=transfer_lost_ack,transfer_reconciliation=transfer_reconciliation)
         with ledger.tx() as db:
             meta=ledger.get(db,'meta',1); run=meta['standardRun']
             if forward_usage_evidence:
@@ -551,9 +552,18 @@ if __name__=='__main__':
     p.add_argument('--phase-unloaded',action='store_true',help='Actual native unload after maintenance; phase diagnostic cannot subscribe, claim, collect or start')
     p.add_argument('--host-transfer',action='store_true',help='Real same-brain/project transfer to a disjoint fixture host, then preparation on that same load connection; no fixture keeper')
     p.add_argument('--transfer-lost-ack',action='store_true',help='Real destination load, inject lost acknowledgement and prove no second load/assignment/turn')
-    args=p.parse_args(); print(canonical(qualify(args.package,args.evidence,reviewed_load=args.reviewed_load,
+    p.add_argument('--transfer-reconciliation',action='store_true',help='Real completed preparation with injected observer loss; independent read-only reconciliation after actual unload, no replay')
+    p.add_argument('--transfer-slow-foreground',action='store_true',help='Actual native matching pong during a 26-second blocked foreground check, with unchanged heartbeat limits')
+    args=p.parse_args()
+    if args.transfer_slow_foreground:
+        require(not any(getattr(args,k) for k in ('reviewed_load','maintenance_load','forward_usage_evidence','continuous_handoff',
+            'same_project_successor','same_project_unloaded','successor_phase','phase_unloaded','host_transfer','transfer_lost_ack',
+            'transfer_reconciliation')),'Separate slow-foreground fixture mode required')
+        from qualify_host_transfer_handoff import qualify_slow_foreground
+        print(canonical(qualify_slow_foreground(args.package,args.evidence)))
+    else: print(canonical(qualify(args.package,args.evidence,reviewed_load=args.reviewed_load,
         maintenance_load=args.maintenance_load,
         forward_usage_evidence=args.forward_usage_evidence,continuous_handoff=args.continuous_handoff,
         same_project_successor=args.same_project_successor,same_project_unloaded=args.same_project_unloaded,
         successor_phase=args.successor_phase,phase_unloaded=args.phase_unloaded,host_transfer=args.host_transfer,
-        transfer_lost_ack=args.transfer_lost_ack)))
+        transfer_lost_ack=args.transfer_lost_ack,transfer_reconciliation=args.transfer_reconciliation)))

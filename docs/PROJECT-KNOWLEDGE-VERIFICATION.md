@@ -4,6 +4,45 @@ This separates source implementation from installation, merge and live
 qualification. None of these entries grants standard Play, a brain replacement
 or strict Harness execution authority.
 
+## Observer heartbeat and independent completion evidence — 2026-10-19
+
+[OBSERVER-HEARTBEAT-AND-RECONCILIATION.md](OBSERVER-HEARTBEAT-AND-RECONCILIATION.md)
+adds bounded original-pipe control I/O, foreground known-loss fencing and a
+separate append-only completion collector. It never rewrites the consumed v5
+outcome, reconstructs old receipts, reloads/subscribes/starts work, collects usage,
+changes a binding or promotes unknown terminals into safety.
+
+Final local discovery passed 3,270 Python cases (3,269 passed; the existing
+optional Graphify case skipped). Four disjoint process-isolated discovery groups
+preserve exact test-ID multiplicity against normal unpartitioned discovery; no
+case is omitted. The preceding sequential 3,267-case run also passed before the
+three final known-loss fence cases were added. All 40 JavaScript suites, 31 web
+syntax checks, 346 Python AST checks and diff checks passed. Implementation and
+test hashes remained unchanged throughout final qualification.
+
+An earlier private runner's umask 077 made two intended mode-0755 negative fixtures
+private, causing failures. Those failed logs are retained. The corrected complete
+and final runs use the established fixture umask 022, with private 0700 evidence
+directories and 0600 logs; no product privacy gate or test was weakened.
+
+Four final compiled-native cases passed with the unchanged reviewed package:
+actual matching pong during a 26-second blocked foreground check, positive
+same-connection transfer/preparation, lost-load acknowledgement with no subsequent
+assignment/subscription/turn, and independent completed-turn evidence after actual
+idle unload and injected post-completion observer loss. Reconciliation used only
+initialize and exact non-refreshing account/project/brain/latest-turn reads, with
+zero loads, subscriptions, turns or usage collection. Original unknown records and
+ledger/accounting/binding bytes were preserved. The heartbeat cadence/timeout stay
+15/10 seconds; freshness and phase clocks are unchanged.
+
+Model responses are loopback fakes; ledger, numeric usage, launch provenance,
+preflight and expired clocks are explicitly synthetic/injected. There is no live
+native connection, credential access, download, cloud call, paid service or Action
+in these fixtures. This backend/operator-only increment makes no rendered-UI claim.
+Source, manual merge, safe installation, explicit live reconciliation, a separately
+reviewed binding cutover and pilot acceptance remain separate. The live pilot is
+not qualified by these source/disposable results.
+
 ## Same-project successor preparation phase — 2026-10-19
 
 [SUCCESSOR-PREPARATION-PHASE.md](SUCCESSOR-PREPARATION-PHASE.md) adds one

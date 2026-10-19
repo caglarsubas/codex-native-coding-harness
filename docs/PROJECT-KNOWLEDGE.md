@@ -1,5 +1,12 @@
 # Durable project knowledge and bounded brain context
 
+[OBSERVER-HEARTBEAT-AND-RECONCILIATION.md](OBSERVER-HEARTBEAT-AND-RECONCILIATION.md)
+separates original-connection control I/O from foreground authority checks and
+defines independent read-only evidence for the exact consumed v5 preparation.
+The old unknown outcome and all requests/usage/claims/bindings remain unchanged.
+No reload, replay, native write, usage reset, safety or pilot acceptance follows.
+Positive evidence may prepare only a distinct conditional future binding review.
+
 [SUCCESSOR-PREPARATION-PHASE.md](SUCCESSOR-PREPARATION-PHASE.md) defines a
 distinct preparation-only phase inside the existing project after completed
 maintenance and original expiry. A new exact review starts its own bounded

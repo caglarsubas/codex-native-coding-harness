@@ -1,5 +1,21 @@
 # Codex Orchestrator — personal tooling
 
+## Observer heartbeat and independent completion evidence (2026-10-19)
+
+Read docs/OBSERVER-HEARTBEAT-AND-RECONCILIATION.md before explicit read-only
+`handoff_reconciliation`. Only a closed v5 lost observer with positive transfer,
+the exact new turn and both original receipt/proposal qualifies. Append repeated
+completion evidence outside old journals; preserve their unknown outcomes and
+all rows/claims/usage/gaps/expiry/holds/bindings. Require the same issued destination/
+account and qualified immutable PR-181 source evidence for historical requests.
+No old-source execution, observer reconnect, load, subscription, write, turn,
+permission response, cancel, usage refresh/reset, safety or acceptance inference.
+Unloaded policy/terminals remain unknown. Its distinct conditional binding proposal
+installs nothing and grants no authority. The bounded I/O reader belongs to one
+original pipe, has no RPC/authority capability and stops on close. Preserve all
+heartbeat/read/phase/freshness bounds and foreground Stop checks. Source/fixtures
+install, collect or confirm nothing live; merge, rollout and live inspection separate.
+
 ## Same-project new-host transfer and continuous handoff (2026-10-19)
 
 Read docs/HOST-TRANSFER-AND-CONTINUOUS-HANDOFF.md before the separate version-5

@@ -16,7 +16,7 @@ import sys
 import time
 
 from . import canceled_play as old, no_reload_transport as transport, partial_admission as partial, standard, forward_usage
-from .app_server_wake import WakeProxy, _read_binding
+from .app_server_wake import WakeProxy, NativeConnectionLost, _read_binding
 from .core import Refusal, canonical, digest, require
 from .host_lifecycle import private_file, sync_directory
 from .native_project_assignment import _read_registry
@@ -551,8 +551,11 @@ def confirm(registry, ledger, q, confirmation_hash, *, writers_stopped=False, ba
     except (OSError,Refusal,ValueError,KeyError,TypeError) as error:
         preflight_refused=(phase=='metadata_preflight' and type(error) is Refusal and
             str(error)=='Already-loaded idle brain required; never reload')
-        exclusive(root/'failure.json',{'errorType':type(error).__name__,'detail':str(error)[:512],
-            'reviewHash':digest(q),'retryPermitted':False})
+        failure={'errorType':type(error).__name__,'detail':str(error)[:512],
+            'reviewHash':digest(q),'retryPermitted':False}
+        if isinstance(error, NativeConnectionLost):
+            failure['connectionLossReason']=error.reason
+        exclusive(root/'failure.json',failure)
         outcome='unknown'  # Retain all claims; no reconnect, second subscribe/start or fallback.
     exclusive(root/'lifecycle.json',{'reviewHash':digest(q),'phase':phase,
         'connectionClosed':proxy is not None and proxy.process is None,

@@ -14,6 +14,8 @@ import time
 from unittest.mock import patch
 
 from orchestrator import host_transfer_handoff as api, canceled_continuation as planning, canceled_load
+from orchestrator import handoff_reconciliation as reconcile
+from orchestrator.app_server_wake import NativeConnectionLost
 from orchestrator.core import Refusal,canonical,digest,require
 from orchestrator.host_lifecycle import write_record
 from orchestrator.native_read_client import inspect_endpoint
@@ -23,8 +25,36 @@ from orchestrator.standard_quarantine import exclusive
 from qualify_no_reload_transport import FixtureProxy
 
 
+def qualify_slow_foreground(package,evidence):
+    """Block actual foreground validation beyond 15+10 seconds, not I/O."""
+    from qualify_canceled_continuation import qualify
+    before=planning.old.source_hash(); original=planning.current; base=api.DestinationProxy
+    hold={}; pongs=[]
+    class Observed(base):
+        def _control_frame(self,opcode,payload):
+            if opcode==10 and self._pending_ping is not None and payload==self._pending_ping[0]:
+                pongs.append(time.monotonic())
+            return super()._control_frame(opcode,payload)
+    def slow(*args,**kwargs):
+        value=original(*args,**kwargs)
+        if kwargs.get('started') and args[2].get('version')==5 and not hold:
+            hold['started']=time.monotonic(); time.sleep(26); hold['ended']=time.monotonic()
+        return value
+    with patch.object(planning,'current',side_effect=slow),patch.object(api,'DestinationProxy',Observed):
+        result=qualify(package,evidence,host_transfer=True)
+    matching=[t for t in pongs if hold['started']<=t<=hold['ended']]
+    require(hold['ended']-hold['started']>=26 and matching and result['qualifiedHostTransferContinuousHandoff'] and
+        planning.old.source_hash()==before,'Compiled observer starvation or implementation drift')
+    proof={'sourceHash':before,'foregroundHoldSeconds':hold['ended']-hold['started'],
+        'matchingPongsDuringBlockedForeground':len(matching),'heartbeatIntervalUnchanged':15,
+        'heartbeatTimeoutUnchanged':10,'hostTransferCompleted':True,'liveNativeConnections':0,
+        'provider':'loopback_fake_only','fixtureLedgerUsageAndExpiry':'synthetic_injected',
+        'oneDestinationLoad':True,'oneSubscription':True,'oneNewPreparationTurn':True,'replayMade':False}
+    exclusive(Path(evidence)/'slow-foreground-proof.json',proof); return proof
+
+
 def qualify_transfer(owner,package,evidence,calls,maintenance_q,source_provenance,before,sidecars,
-        binding_pin,old_pins,parent_pins,commands,processes,*,lost_ack=False):
+        binding_pin,old_pins,parent_pins,commands,processes,*,lost_ack=False,lost_completion=False):
     f=owner.f; registry,ledger=owner.registry,owner.ledger
     file=f.root/'completed-maintenance-transfer.json'; write_record(file,maintenance_q)
     maintenance_pins=api.phase.lifecycle.inventory(maintenance_q['journal'])
@@ -70,6 +100,11 @@ def qualify_transfer(owner,package,evidence,calls,maintenance_q,source_provenanc
                 result=super()._rpc(method,params)
                 if lost_ack and method=='thread/resume': raise OSError('Injected lost acknowledgement AFTER actual native load')
                 return result
+            def _line(self):
+                row=super()._line()
+                if lost_completion and row.get('method')=='turn/completed':
+                    raise NativeConnectionLost('heartbeat_missing')  # Inject only AFTER actual native completion.
+                return row
         attach=planning.transport.Subscription.attach
         def delayed(sub,claim):
             result=attach(sub,claim)
@@ -93,21 +128,48 @@ def qualify_transfer(owner,package,evidence,calls,maintenance_q,source_provenanc
                 result=api.confirm(registry,ledger,q,digest(q),writers_stopped=True,backup_root=archive)
             exclusive(evidence/'transfer-attempt.json',{'review':review,'result':result,'methods':methods,
                 'owner':{p.name:planning._read_private(p) for p in api.phase.owner_root(q).iterdir() if p.name=='failure.json'}})
-            require(result['status']==('blocked_or_unknown' if lost_ack else 'planning_completed') and api.status(q)==result,
+            expected='blocked_or_unknown' if lost_ack else 'incomplete_unknown' if lost_completion else 'planning_completed'
+            require(result['status']==expected and api.status(q)==result,
                 'Compiled production transfer/handoff failed: '+canonical(result))
             require(methods.count('initialize')==methods.count('thread/resume')==methods.count('project/restoreMetadata')==1 and
                 methods.count('thread/subscribe')==methods.count('turn/start')==methods.count('thread/metadata/update')==(0 if lost_ack else 1) and
                 len(set(pipes))==1 and len(calls)==(1 if lost_ack else 3),'Transfer/reload/reconnect/replay or model request count differs')
             require(not set(methods)&{'thread/start','project/create','project/import','turn/interrupt','account/login/start'} and
-                api.binding_review(q)['prerequisiteSatisfied'] is (not lost_ack),'Transfer introduced work, login or lost the exact result')
+                api.binding_review(q)['prerequisiteSatisfied'] is (not lost_ack and not lost_completion),'Transfer introduced work, login or lost the exact result')
             try: api.confirm(registry,ledger,q,digest(q),writers_stopped=True,backup_root=archive)
             except (Refusal,OSError): pass
             else: raise Refusal('Compiled transfer/handoff was retried')
+            reconciliation=None; reads=[]
+            if lost_completion:
+                consumer=api.phase.consumer_inventory(q); owner_records=api.phase.lifecycle.inventory(api.phase.owner_root(q))
+                probe=reconcile.Probe
+                class ReadOnly(probe):
+                    def _rpc(self,method,params):
+                        reads.append(method); return super()._rpc(method,params)
+                # All destination subscribers have really closed. Inspection
+                # must work with a persisted ended turn, not reload/subscribe.
+                time.sleep(1.5)
+                with patch.object(reconcile,'Probe',ReadOnly):
+                    reconciliation=reconcile.collect(registry,ledger,directory/'request.json',f.root/'independent-completion')
+                exclusive(evidence/'reconciliation.json',reconciliation)
+                require(reconciliation['status']=='preparation_completion_observed' and
+                    reconciliation['native']['nativeStatus']=={'type':'notLoaded'} and
+                    reconcile.status(registry,ledger,f.root/'independent-completion')==reconciliation and
+                    reconcile.binding_review(registry,ledger,f.root/'independent-completion')['prerequisiteSatisfied'],
+                    'Compiled read-only completion reconciliation failed: '+canonical(reconciliation))
+                require(set(reads)=={'initialize','account/read','project/read','thread/read','thread/turns/list'} and
+                    reads.count('initialize')==1 and consumer==api.phase.consumer_inventory(q) and
+                    owner_records==api.phase.lifecycle.inventory(api.phase.owner_root(q)) and
+                    api.status(q)==result and len(calls)==3,'Reconciliation changed old state or emitted new work')
         require(before==[database_proof(p) for p in (registry.db,ledger.db)] and sidecars==planning.old.sidecars(ledger) and
             binding_pin==planning.pin(owner.binding_file) and maintenance_pins==api.phase.lifecycle.inventory(maintenance_q['journal']) and
             old_pins==api.phase.lifecycle.inventory(canceled_load.read_review(maintenance_q['context']['loadFile'])['journal']) and
             parent_pins==api.phase.lifecycle.inventory(parent['journal']),'Old fixture state was changed')
-        summary={'qualifiedHostTransferContinuousHandoff':not lost_ack,'qualifiedLostLoadAcknowledgement':lost_ack,
+        summary={'qualifiedHostTransferContinuousHandoff':not lost_ack and not lost_completion,'qualifiedLostLoadAcknowledgement':lost_ack,
+            'qualifiedForwardOnlyCompletionReconciliation':lost_completion,
+            'completionLossInjection':'after_actual_native_completion' if lost_completion else None,
+            'reconciliationNativeMethods':reads,'reconciliationNativeLoads':0,'reconciliationSubscriptions':0,
+            'reconciliationTurns':0,'reconciliationUsageCollections':0,
             'qualifiedSourceHash':planning.old.source_hash(),
             'package':package,'provider':'loopback_fake_only','telemetry':'synthetic_local_numeric_fixture_only',
             'launchProvenance':'synthetic_journals_bound_to_actual_disposable_OS_process',

@@ -1,5 +1,19 @@
 # Codex-native orchestration roadmap
 
+- [x] Separate WebSocket control reading from slow foreground checks without
+  extending heartbeat/freshness/phase limits or adding reconnects.
+- [x] Implement explicit forward-only completion evidence for a consumed v5
+  preparation with both original receipt/proposal, preserving its unknown outcome
+  ([contract](OBSERVER-HEARTBEAT-AND-RECONCILIATION.md)).
+- [x] Qualify complete 3,270-case Python discovery (one optional skip), 40 JS
+  suites, syntax/AST checks and four compiled-native cases, including actual
+  heartbeat progress during a 26-second foreground block and unloaded read-only
+  reconciliation. Final discovery partitions have exact test-ID multiplicity
+  equality with unpartitioned discovery; no case is omitted.
+- [ ] Separate manual merge, safe installation and actual live evidence.
+- [ ] No binding cutover or worker Play from evidence alone; pilot acceptance
+  remains separate and historical terminal safety remains unknown.
+
 - [x] Implement a same-project successor **preparation-only** phase with a new
   exact review/clock, preserved original expiry/claims/holds, carried cumulative
   accounting and one already-loaded-only receipt/proposal; zero workers/reloads
