@@ -34,7 +34,7 @@ import test_canceled_play as fixtures
 import test_standard_run_mailbox as mailbox
 
 
-def qualify_reviewed_load(owner,package,evidence,processes,creators,calls,*,maintenance_load=False,successor_phase=False,phase_unloaded=False,commands=None):
+def qualify_reviewed_load(owner,package,evidence,processes,creators,calls,*,maintenance_load=False,successor_phase=False,phase_unloaded=False,commands=None,host_transfer=False,transfer_lost_ack=False):
     """Real cold/warm native load; synthetic launch provenance is labelled.
 
     The separate unit fixtures validate full issued-launch provenance. Here only
@@ -87,7 +87,8 @@ def qualify_reviewed_load(owner,package,evidence,processes,creators,calls,*,main
         and original_pin==api.pin(owner.binding_file),'Original synthetic requests/usage/claims/binding changed')
     if maintenance_load:
         return qualify_maintenance_load(owner,package,evidence,calls,q,provenance,candidate_file,
-            successor_phase=successor_phase,phase_unloaded=phase_unloaded,commands=commands)
+            successor_phase=successor_phase,phase_unloaded=phase_unloaded,commands=commands,
+            host_transfer=host_transfer,processes=processes,transfer_lost_ack=transfer_lost_ack)
     summary={'qualifiedProductionMetadataLoad':True,'package':package,'provider':'loopback_fake_only',
         'launchProvenance':'synthetic_fixture_only_unit_qualified_separately','nativeLoads':1,'warmModelRequests':0,
         'fakeProviderRequests':len(calls),'methodCounts':{m:methods.count(m) for m in sorted(set(methods))},
@@ -97,7 +98,7 @@ def qualify_reviewed_load(owner,package,evidence,processes,creators,calls,*,main
     return summary
 
 
-def qualify_maintenance_load(owner,package,evidence,calls,old_load,provenance,candidate_file,*,successor_phase=False,phase_unloaded=False,commands=None):
+def qualify_maintenance_load(owner,package,evidence,calls,old_load,provenance,candidate_file,*,successor_phase=False,phase_unloaded=False,commands=None,host_transfer=False,processes=None,transfer_lost_ack=False):
     """Real additional maintenance load; synthetic lineage is explicitly labelled.
 
     Full issued-host provenance is unit-qualified. Old load is real; parent
@@ -164,6 +165,10 @@ def qualify_maintenance_load(owner,package,evidence,calls,old_load,provenance,ca
         api.pin(owner.binding_file)==binding_pin and old_pins==same_project_lifecycle.inventory(old_load['journal']) and
         parent_pins==same_project_lifecycle.inventory(parent['journal']),'Original fixture history changed')
     exclusive(evidence/'maintenance-attempt.json',{'review':reviewed,'outcome':result,'methods':methods})
+    if host_transfer:
+        from qualify_host_transfer_handoff import qualify_transfer
+        return qualify_transfer(owner,package,evidence,calls,q,provenance,before,sidecars,binding_pin,
+            old_pins,parent_pins,commands,processes,lost_ack=transfer_lost_ack)
     if successor_phase:
         try:
             return qualify_successor_phase(owner,package,evidence,calls,q,provenance,before,sidecars,
@@ -244,13 +249,14 @@ def qualify_successor_phase(owner,package,evidence,calls,maintenance_q,provenanc
     exclusive(evidence/'summary.json',summary); return summary
 
 
-def qualify(package,evidence,*,reviewed_load=False,maintenance_load=False,forward_usage_evidence=False,continuous_handoff=False,same_project_successor=False,same_project_unloaded=False,successor_phase=False,phase_unloaded=False):
+def qualify(package,evidence,*,reviewed_load=False,maintenance_load=False,forward_usage_evidence=False,continuous_handoff=False,same_project_successor=False,same_project_unloaded=False,successor_phase=False,phase_unloaded=False,host_transfer=False,transfer_lost_ack=False):
+    host_transfer=host_transfer or transfer_lost_ack
     successor_phase=successor_phase or phase_unloaded
-    maintenance_load=maintenance_load or successor_phase
+    maintenance_load=maintenance_load or successor_phase or host_transfer
     reviewed_load=reviewed_load or maintenance_load
     same_project_successor=same_project_successor or same_project_unloaded
     require(not (reviewed_load and (forward_usage_evidence or continuous_handoff or same_project_successor)) and
-        not (continuous_handoff and same_project_successor),'Separate qualification modes required')
+        not (continuous_handoff and same_project_successor) and not (host_transfer and successor_phase),'Separate qualification modes required')
     forward_usage_evidence=forward_usage_evidence or continuous_handoff or same_project_successor
     evidence=Path(evidence).resolve(strict=True)
     require(not list(evidence.iterdir()) and not evidence.stat().st_mode & 0o077 and
@@ -341,7 +347,8 @@ stream_max_retries = 0
         f=owner.f; ledger,registry=owner.ledger,owner.registry
         if reviewed_load:
             return qualify_reviewed_load(owner,package,evidence,native_process,creators,calls,maintenance_load=maintenance_load,
-                successor_phase=successor_phase,phase_unloaded=phase_unloaded,commands=command)
+                successor_phase=successor_phase,phase_unloaded=phase_unloaded,commands=command,host_transfer=host_transfer,
+                transfer_lost_ack=transfer_lost_ack)
         with ledger.tx() as db:
             meta=ledger.get(db,'meta',1); run=meta['standardRun']
             if forward_usage_evidence:
@@ -542,8 +549,11 @@ if __name__=='__main__':
     p.add_argument('--same-project-unloaded',action='store_true',help='Actual native unload and original preflight refusal, then non-authorizing same-project diagnostic')
     p.add_argument('--successor-phase',action='store_true',help='Real same-project preparation phase after maintenance; synthetic expired old clock, separate fixture-owned warm prerequisite')
     p.add_argument('--phase-unloaded',action='store_true',help='Actual native unload after maintenance; phase diagnostic cannot subscribe, claim, collect or start')
+    p.add_argument('--host-transfer',action='store_true',help='Real same-brain/project transfer to a disjoint fixture host, then preparation on that same load connection; no fixture keeper')
+    p.add_argument('--transfer-lost-ack',action='store_true',help='Real destination load, inject lost acknowledgement and prove no second load/assignment/turn')
     args=p.parse_args(); print(canonical(qualify(args.package,args.evidence,reviewed_load=args.reviewed_load,
         maintenance_load=args.maintenance_load,
         forward_usage_evidence=args.forward_usage_evidence,continuous_handoff=args.continuous_handoff,
         same_project_successor=args.same_project_successor,same_project_unloaded=args.same_project_unloaded,
-        successor_phase=args.successor_phase,phase_unloaded=args.phase_unloaded)))
+        successor_phase=args.successor_phase,phase_unloaded=args.phase_unloaded,host_transfer=args.host_transfer,
+        transfer_lost_ack=args.transfer_lost_ack)))
