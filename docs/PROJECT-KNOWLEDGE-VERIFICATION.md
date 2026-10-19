@@ -4,6 +4,46 @@ This separates source implementation from installation, merge and live
 qualification. None of these entries grants standard Play, a brain replacement
 or strict Harness execution authority.
 
+## Same-project successor preparation phase — 2026-10-19
+
+[SUCCESSOR-PREPARATION-PHASE.md](SUCCESSOR-PREPARATION-PHASE.md) adds one
+new preparation-only phase, not an extension/replay of the expired run. Old
+disposition/load/planning lineage, both bindings, cumulative usage and repository
+holds stay pinned. Its independent confirmation-started clock grants no new
+capacity: original allowance/reserve caps and 120-second send freshness remain.
+Already-loaded-only ownership spans subscription, one actual numeric collection
+and one new inert receipt/proposal on the same connection. Zero workers or source
+edits are authorized. File-only preparation/status and non-authorizing metadata
+diagnostics do not create the loaded-runtime prerequisite. Historical PR-179
+maintenance is read only through its allowlisted frozen source, never executed.
+
+Twenty-seven new unit cases passed, including independent/new and original
+clocks, cumulative floors/caps, stale/gapped usage, owner Stop, permission waits,
+one-shot and partial claims, concurrent confirmations, changed binding/package/
+source/clock, credential non-reading, private backups, historical status and
+non-authorizing unloaded diagnostics. Full local regression passed 3,208 Python
+tests (3,207 passed; the existing opt-in Graphify test skipped), all 40 JavaScript
+suites, 31 web-script syntax checks, 159 source/script AST checks and diff checks.
+
+Four compiled native fixtures passed against the unchanged reviewed package:
+the new expired-predecessor preparation phase, its actual-unload diagnostic,
+unchanged same-project planning and continuous-handoff regressions. The new
+positive case starts one new receipt/proposal turn through one connection and
+subscription, with zero phase reloads. Its already-loaded prerequisite is an
+explicit independently owned fixture subscription, not a production keeper or
+maintenance handoff. The negative case actually unloads and sends no phase turn,
+subscription, usage collection or execution claim. Launch/ledger/accounting,
+preflight-refusal and expired-wall-clock conditions are labelled synthetic or
+injected. An early native harness run used the wrong typed reader in its final
+preservation assertion; the corrected complete final fixture is the evidence.
+No live credential/host, download, paid provider or Action is involved.
+
+This backend/operator-only source adds no UI and claims no new rendered browser
+qualification. Source, manual merge, backed-up stopped-writer installation,
+actual live eligibility, exact phase application and pilot acceptance remain
+separate evidence states. A historical maintenance observation cannot establish
+current loaded ownership or make a new phase live under a no-reload constraint.
+
 ## Post-disposition maintenance load — 2026-10-18
 
 [POST-DISPOSITION-MAINTENANCE-LOAD.md](POST-DISPOSITION-MAINTENANCE-LOAD.md)

@@ -34,7 +34,7 @@ import test_canceled_play as fixtures
 import test_standard_run_mailbox as mailbox
 
 
-def qualify_reviewed_load(owner,package,evidence,processes,creators,calls,*,maintenance_load=False):
+def qualify_reviewed_load(owner,package,evidence,processes,creators,calls,*,maintenance_load=False,successor_phase=False,phase_unloaded=False,commands=None):
     """Real cold/warm native load; synthetic launch provenance is labelled.
 
     The separate unit fixtures validate full issued-launch provenance. Here only
@@ -86,7 +86,8 @@ def qualify_reviewed_load(owner,package,evidence,processes,creators,calls,*,main
     require(before==[database_proof(p) for p in (registry.db,ledger.db)] and sidecars==api.old.sidecars(ledger)
         and original_pin==api.pin(owner.binding_file),'Original synthetic requests/usage/claims/binding changed')
     if maintenance_load:
-        return qualify_maintenance_load(owner,package,evidence,calls,q,provenance,candidate_file)
+        return qualify_maintenance_load(owner,package,evidence,calls,q,provenance,candidate_file,
+            successor_phase=successor_phase,phase_unloaded=phase_unloaded,commands=commands)
     summary={'qualifiedProductionMetadataLoad':True,'package':package,'provider':'loopback_fake_only',
         'launchProvenance':'synthetic_fixture_only_unit_qualified_separately','nativeLoads':1,'warmModelRequests':0,
         'fakeProviderRequests':len(calls),'methodCounts':{m:methods.count(m) for m in sorted(set(methods))},
@@ -96,7 +97,7 @@ def qualify_reviewed_load(owner,package,evidence,processes,creators,calls,*,main
     return summary
 
 
-def qualify_maintenance_load(owner,package,evidence,calls,old_load,provenance,candidate_file):
+def qualify_maintenance_load(owner,package,evidence,calls,old_load,provenance,candidate_file,*,successor_phase=False,phase_unloaded=False,commands=None):
     """Real additional maintenance load; synthetic lineage is explicitly labelled.
 
     Full issued-host provenance is unit-qualified. Old load is real; parent
@@ -130,9 +131,17 @@ def qualify_maintenance_load(owner,package,evidence,calls,old_load,provenance,ca
     with FixtureProxy(provenance['scope']['binding']['endpoint']) as observer:
         actual=observer._rpc('thread/read',{'threadId':f.brain,'includeTurns':False})
     require(actual['thread']['status']=={'type':'notLoaded'},'Require real unloaded native runtime before the new load')
-    methods=[]; production=prior.inspection.InspectionProxy
+    methods=[]; production=prior.inspection.InspectionProxy; fixture_keepers=[]
     class Observed(production):
         def _rpc(self,method,params): methods.append(method); return super()._rpc(method,params)
+        def __exit__(self,*args):
+            # Explicit fixture prerequisite, NOT a production handoff/keeper:
+            # another fixture client owns the already-loaded runtime before the
+            # maintenance connection closes. No new load or model keepalive.
+            if successor_phase and not phase_unloaded:
+                keeper=FixtureProxy(provenance['scope']['binding']['endpoint']).__enter__()
+                keeper._rpc(api.transport.METHOD,{'threadId':f.brain}); fixture_keepers.append(keeper)
+            return super().__exit__(*args)
     with patch.object(prior,'issued_provenance',return_value=provenance),\
          patch('time.time',return_value=parent['original']['run']['expiresAt']+1):
         reviewed=maintenance.prepare(registry,ledger,parent_file,old_file); q=reviewed['request']
@@ -155,6 +164,12 @@ def qualify_maintenance_load(owner,package,evidence,calls,old_load,provenance,ca
         api.pin(owner.binding_file)==binding_pin and old_pins==same_project_lifecycle.inventory(old_load['journal']) and
         parent_pins==same_project_lifecycle.inventory(parent['journal']),'Original fixture history changed')
     exclusive(evidence/'maintenance-attempt.json',{'review':reviewed,'outcome':result,'methods':methods})
+    if successor_phase:
+        try:
+            return qualify_successor_phase(owner,package,evidence,calls,q,provenance,before,sidecars,
+                binding_pin,old_pins,parent_pins,commands,unloaded=phase_unloaded)
+        finally:
+            for keeper in fixture_keepers: keeper.__exit__(None,None,None)
     summary={'qualifiedProductionMaintenanceLoad':True,'qualifiedSourceHash':api.old.source_hash(),'package':package,
         'provider':'loopback_fake_only','launchProvenance':'synthetic_fixture_only_unit_qualified_separately',
         'predecessorPreflightRefusal':'injected_fixture_only','expiredWallClock':'simulated_fixture_only',
@@ -166,7 +181,72 @@ def qualify_maintenance_load(owner,package,evidence,calls,old_load,provenance,ca
     exclusive(evidence/'summary.json',summary); return summary
 
 
-def qualify(package,evidence,*,reviewed_load=False,maintenance_load=False,forward_usage_evidence=False,continuous_handoff=False,same_project_successor=False,same_project_unloaded=False):
+def qualify_successor_phase(owner,package,evidence,calls,maintenance_q,provenance,before,sidecars,
+        binding_pin,old_pins,parent_pins,commands,*,unloaded=False):
+    """Production phase/usage/observer on real compiled host; no live access.
+
+    Old ledger/usage, launch lineage, expired clock and preflight refusal are
+    labelled synthetic. Positive case has an independently owned warm fixture
+    runtime; negative case actually unloads and sends no phase turn.
+    """
+    from orchestrator import successor_phase as phase, canceled_load as load
+    f=owner.f; registry,ledger=owner.registry,owner.ledger
+    file=f.root/'completed-maintenance.json'; write_record(file,maintenance_q)
+    maintenance_pins=same_project_lifecycle.inventory(maintenance_q['journal'])
+    parent=api.read_review(maintenance_q['context']['lineage']['parentFile'])
+    methods=[]; production=api.Proxy
+    class Observed(production):
+        def _rpc(self,method,params): methods.append(method); return super()._rpc(method,params)
+    with patch.object(load,'issued_provenance',return_value=provenance),\
+         patch('time.time',return_value=parent['original']['run']['expiresAt']+1):
+        review=phase.prepare(registry,ledger,file,duration_hours=1,max_tokens=100); q=review['request']
+        archive=f.root/'successor-phase-backup'; api.backup(registry,ledger,q,archive,writers_stopped=True)
+        if unloaded:
+            time.sleep(1.5)
+            original=phase.lifecycle.InspectionProxy
+            class Inspector(original):
+                def _rpc(self,method,params): methods.append(method); return super()._rpc(method,params)
+            with patch.object(phase.lifecycle,'InspectionProxy',Inspector): diagnostic=phase.inspect(registry,ledger,q)
+            require(diagnostic['nativeStatus']=={'type':'notLoaded'} and diagnostic['blockers']==['brain_not_loaded_no_reload_authorized'] and
+                not phase.owner_root(q).parent.exists() and not set(methods)&{'thread/subscribe','thread/resume','turn/start'} and len(calls)==1,
+                'Actual unloaded phase diagnostic must not claim, load, collect or start')
+            result={'status':'unloaded_diagnostic_only','diagnostic':diagnostic}
+        else:
+            script='import sys;sys.path.insert(0,'+repr(str(SOURCE))+');from orchestrator.canceled_continuation import submit;'+\
+                'p='+repr(str(Path(q['mailbox'])/'handoff.json'))+';'+\
+                'assert submit(p,"receive")["status"]=="received";'+\
+                'assert submit(p,"proposal",{"summary":"Separate successor preparation phase","nextSteps":["Review a future mission; do not dispatch"]})["status"]=="proposal_retained"'
+            commands.append(shlex.join([sys.executable,'-B','-c',script]))
+            with patch.object(api,'Proxy',Observed): result=phase.confirm(registry,ledger,q,digest(q),writers_stopped=True,backup_root=archive)
+            require(result['status']=='planning_completed' and phase.status(registry,q)==result,'Compiled new preparation phase failed: '+canonical(result))
+            require(methods.count('initialize')==methods.count('thread/subscribe')==methods.count('turn/start')==1 and
+                not set(methods)&{'thread/resume','thread/start','turn/interrupt'} and len(calls)==3,
+                'New phase must use one original subscription/turn with no load or replay')
+            clock=phase.phase_clock(q); require(clock['startedAt']>q['original']['run']['expiresAt'] and clock['expiresAt']==clock['startedAt']+3600,
+                'New phase clock must be separate from the immutable expired old phase')
+            try: phase.confirm(registry,ledger,q,digest(q),writers_stopped=True,backup_root=archive)
+            except (api.Refusal,OSError): pass
+            else: raise api.Refusal('Successor phase replayed')
+    require(before==[database_proof(p) for p in (registry.db,ledger.db)] and sidecars==api.old.sidecars(ledger) and
+        api.pin(owner.binding_file)==binding_pin and maintenance_pins==same_project_lifecycle.inventory(maintenance_q['journal']) and
+        old_pins==same_project_lifecycle.inventory(load.read_review(maintenance_q['context']['loadFile'])['journal']) and
+        parent_pins==same_project_lifecycle.inventory(parent['journal']),'Original fixture histories changed')
+    exclusive(evidence/'successor-phase-attempt.json',{'review':review,'result':result,'methods':methods})
+    summary={'qualifiedSuccessorPreparationPhase':not unloaded,'qualifiedUnloadedPhaseDiagnostic':unloaded,
+        'qualifiedSourceHash':api.old.source_hash(),'package':package,'provider':'loopback_fake_only',
+        'launchProvenance':'synthetic_fixture_only_unit_qualified_separately','predecessorPreflightRefusal':'injected_fixture_only',
+        'expiredWallClock':'simulated_fixture_only','telemetry':'synthetic_local_numeric_fixture_only',
+        'warmRuntimePrerequisite':'separate_fixture_owned_subscription_not_production_handoff' if not unloaded else 'actual_native_unload',
+        'originalSyntheticLedgerPreserved':True,'originalBindingPreserved':True,'originalClaimsPreserved':True,
+        'newProjectsCreated':0,'phaseReloads':0,'liveNativeConnections':0,'fakeProviderRequests':len(calls),
+        'phaseTurnStarts':methods.count('turn/start'),'oneOwningConnection':methods.count('initialize')==1,
+        'methodCounts':{m:methods.count(m) for m in sorted(set(methods))},'boundary':dict(phase.BOUNDARY)}
+    exclusive(evidence/'summary.json',summary); return summary
+
+
+def qualify(package,evidence,*,reviewed_load=False,maintenance_load=False,forward_usage_evidence=False,continuous_handoff=False,same_project_successor=False,same_project_unloaded=False,successor_phase=False,phase_unloaded=False):
+    successor_phase=successor_phase or phase_unloaded
+    maintenance_load=maintenance_load or successor_phase
     reviewed_load=reviewed_load or maintenance_load
     same_project_successor=same_project_successor or same_project_unloaded
     require(not (reviewed_load and (forward_usage_evidence or continuous_handoff or same_project_successor)) and
@@ -260,7 +340,8 @@ stream_max_retries = 0
             owner.setUp()
         f=owner.f; ledger,registry=owner.ledger,owner.registry
         if reviewed_load:
-            return qualify_reviewed_load(owner,package,evidence,native_process,creators,calls,maintenance_load=maintenance_load)
+            return qualify_reviewed_load(owner,package,evidence,native_process,creators,calls,maintenance_load=maintenance_load,
+                successor_phase=successor_phase,phase_unloaded=phase_unloaded,commands=command)
         with ledger.tx() as db:
             meta=ledger.get(db,'meta',1); run=meta['standardRun']
             if forward_usage_evidence:
@@ -459,7 +540,10 @@ if __name__=='__main__':
     p.add_argument('--continuous-handoff',action='store_true',help='Same owning connection beyond actual fixture idle-unload timeout; separate exact planning approval')
     p.add_argument('--same-project-successor',action='store_true',help='Injected historical preflight refusal, then one actual same-project compiled receipt/proposal lifecycle')
     p.add_argument('--same-project-unloaded',action='store_true',help='Actual native unload and original preflight refusal, then non-authorizing same-project diagnostic')
+    p.add_argument('--successor-phase',action='store_true',help='Real same-project preparation phase after maintenance; synthetic expired old clock, separate fixture-owned warm prerequisite')
+    p.add_argument('--phase-unloaded',action='store_true',help='Actual native unload after maintenance; phase diagnostic cannot subscribe, claim, collect or start')
     args=p.parse_args(); print(canonical(qualify(args.package,args.evidence,reviewed_load=args.reviewed_load,
         maintenance_load=args.maintenance_load,
         forward_usage_evidence=args.forward_usage_evidence,continuous_handoff=args.continuous_handoff,
-        same_project_successor=args.same_project_successor,same_project_unloaded=args.same_project_unloaded)))
+        same_project_successor=args.same_project_successor,same_project_unloaded=args.same_project_unloaded,
+        successor_phase=args.successor_phase,phase_unloaded=args.phase_unloaded)))

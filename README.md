@@ -16,6 +16,13 @@ controller authority: an exact owner confirmation is required for submission.
 
 ## What is included
 
+The separate [same-project successor preparation phase](docs/SUCCESSOR-PREPARATION-PHASE.md)
+preserves an expired canceled attempt and completed maintenance while proposing
+one new, independently clocked, preparation-only phase in the existing project.
+It carries cumulative consumption forward and grants no workers, reload, replay,
+repository edits or safety inference. An already-loaded runtime and exact new
+review remain mandatory; source qualification is not live continuation.
+
 **New opt-in standard contract:** [Cooperative standard runs](docs/STANDARD-COOPERATIVE-RUNS.md)
 connect exact owner Play/Pause/Resume to the existing native brain, bounded phase
 delegation, task inheritance and observed-usage accounting. Existing workspaces

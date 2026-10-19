@@ -77,6 +77,10 @@ remain byte-pinned. Missing usage never becomes zero or a refund.
 
 The original phase remains expired; existing planning, Play and recovery stay
 fenced. Loading is not authority to prepare a new mission through a native turn.
+The separate [successor preparation phase](SUCCESSOR-PREPARATION-PHASE.md)
+may propose a distinct preparation-only clock/scope after positive completion;
+it cannot reload, extend the old phase, release holds or activate workers. Its
+already-loaded prerequisite is independent of this historical observation.
 Expired-phase disposition, future phase/turn authority and actual pilot acceptance
 are separate work. No brain receipt, safe checkpoint, closeout or ownership
 release is fabricated. Current empty trackers do not establish historical cleanup;

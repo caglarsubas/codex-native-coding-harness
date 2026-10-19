@@ -1,5 +1,17 @@
 # Codex-native orchestration roadmap
 
+- [x] Implement a same-project successor **preparation-only** phase with a new
+  exact review/clock, preserved original expiry/claims/holds, carried cumulative
+  accounting and one already-loaded-only receipt/proposal; zero workers/reloads
+  ([contract](SUCCESSOR-PREPARATION-PHASE.md)).
+- [x] Qualify 27 new unit cases, complete 3,208-test Python regression (one
+  optional skip), 40 JavaScript suites, 31 syntax / 159 AST checks, compiled
+  warm-runtime and actual-unload cases plus two unchanged native regressions.
+- [ ] Separately merge and safely install the qualified successor-phase source.
+- [ ] Establish actual live already-loaded eligibility before any new phase
+  confirmation. No v4, replay, usage reset or assumed safety; preparation is not
+  worker-phase activation or pilot acceptance.
+
 - [x] Implement a distinct exact-reviewed post-disposition metadata load for the
   same existing brain/host, preserving positively closed old load and unknown
   planning claims, original usage/bindings/expiry, private backups and one-shot

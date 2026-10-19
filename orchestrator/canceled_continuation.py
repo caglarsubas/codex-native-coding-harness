@@ -28,6 +28,7 @@ from .standard_successor import pin
 KIND = 'canceled_play_forward_planning_v1'
 USAGE_KIND = 'canceled_play_forward_planning_v2'
 SUCCESSOR_KIND = 'same_project_forward_planning_v3'
+PHASE_KIND = 'same_project_successor_phase_v1'
 BOUNDARY = {'originalReceiptReconstructed':False,'brainReloaded':False,'requestReplayed':False,
             'usageReset':False,'bindingChanged':False,'dispatchAuthorized':False,'resumeAuthorized':False,
             'currentTerminalSafety':'unknown','historicalTerminalSafety':'unknown','pilotAccepted':False}
@@ -103,6 +104,9 @@ def locations(registry, original):
 
 
 def review_locations(registry,q):
+    if q['version']==4:
+        from .successor_phase import locations as phase_locations
+        return phase_locations(registry,q['original'])[:2]
     if q['version']==3:
         from .same_project_lifecycle import locations as successor_locations
         return successor_locations(registry,q['original'])
@@ -167,6 +171,9 @@ def valid(q):
           isinstance(q['usageSource'],dict) and set(q['usageSource'])==forward_usage.FIELDS) or
          (q['version']==3 and q.get('kind')==SUCCESSOR_KIND and set(q)==FIELDS|{'usageSource','lineage'} and
           isinstance(q['lineage'],dict) and
+          isinstance(q['usageSource'],dict) and set(q['usageSource'])==forward_usage.FIELDS) or
+         (q['version']==4 and q.get('kind')==PHASE_KIND and set(q)==FIELDS|{'usageSource','phaseLineage','phase'} and
+          isinstance(q['phaseLineage'],dict) and isinstance(q['phase'],dict) and
           isinstance(q['usageSource'],dict) and set(q['usageSource'])==forward_usage.FIELDS)) and
         q['boundary']==BOUNDARY and isinstance(q['original'],dict) and
         type(q['maxTokens']) is int and 1<=q['maxTokens']<=100000 and len(canonical(q).encode())<=62000)
@@ -181,6 +188,9 @@ def read_review(file):
 def current(registry, ledger, q, *, started=False, usage_pin=None):
     require(valid(q) and q['sourceHash']==old.source_hash() and q['clientHash']==client_hash(),'Continuation implementation changed')
     require(q['interpreter']==interpreter(),'Prospective data-client interpreter changed')
+    if q['version']==4:
+        from .successor_phase import current as phase_current
+        return phase_current(registry,ledger,q,started=started,usage_pin=usage_pin)
     o=q['original']
     require(original_context(registry,ledger,o['bindingFile'],o['command']['id'],disposed=True)==o,
             'Original requests, run, usage, claims, Pause or binding changed')
@@ -210,6 +220,10 @@ def backup_files(q):
         str(Path(q['original']['root'])/p) for p in sorted(q['original']['sidecars'])]+[
         str(Path(q['original']['root'])/old.FENCE)]
     if q['version']==3: files+=list(q['lineage']['files'])
+    if q['version']==4:
+        from .successor_phase import lineage_files
+        files+=lineage_files(q)
+        return sorted(set(files))
     return files
 
 
@@ -226,6 +240,9 @@ def backup(registry, ledger, q, destination, *, writers_stopped=False):
     require(writers_stopped is True,'Quiesce older writers before the separate backup')
     current(registry,ledger,q)
     root=Path(destination); old.private_path(root.parent,existing=True)
+    if q['version']==4:
+        from .successor_phase import backup_destination
+        backup_destination(registry,q,root)
     require(root.is_absolute() and root.resolve()==root and not os.path.lexists(root),'New private backup required')
     root.mkdir(mode=0o700); result={}
     for key,file in (('target',ledger.db),('registry',registry.db)):
@@ -313,6 +330,9 @@ def status(q):
     if q['version']==3:
         from .same_project_lifecycle import retained_lineage
         retained_lineage(q)
+    if q['version']==4:
+        from .successor_phase import retained_lineage
+        retained_lineage(q)
     if not os.path.lexists(root): return {'status':'not_submitted','boundary':dict(BOUNDARY)}
     require(_read_private(root/'intent.json')=={'kind':q['kind'],'reviewHash':digest(q)},'Partial/changed intent; never retry')
     final=root/'outcome.json'
@@ -325,7 +345,7 @@ def status(q):
         all(type(result[k]) is bool for k in ('newReceiptRetained','proposalRetained')) and
         isinstance(result['records'],dict),'Changed continuation outcome; retain unknown')
     names={'native-ack.json','receive.json','proposal.json'}
-    if q['version'] in (2,3): names|={'usage.json','usage.claim.json'}
+    if q['version'] in (2,3,4): names|={'usage.json','usage.claim.json'}
     names.add('lifecycle.json')
     require(set(result['records'])<=names and all(pin(root/name)==value for name,value in result['records'].items()),
         'Retained prospective receipt/result changed')
@@ -338,11 +358,14 @@ def status(q):
     require(result['status']!='planning_completed' or (result['nativeOutcome']=='completed' and
         result['newReceiptRetained'] and result['proposalRetained'] and 'native-ack.json' in result['records']),
         'Native completion alone is not retained planning completion')
-    if q['version'] in (2,3) and result['status']=='planning_completed':
+    if q['version'] in (2,3,4) and result['status']=='planning_completed':
         require({'usage.json','usage.claim.json'}<=set(result['records']),'Completed planning requires prospective usage evidence')
         forward_usage.retained(q,result['records']['usage.json'],fresh=False,active=False)
         if q['version']==3:
             from .same_project_lifecycle import check_usage
+            check_usage(q,result['records']['usage.json'],fresh=False,active=False)
+        if q['version']==4:
+            from .successor_phase import check_usage
             check_usage(q,result['records']['usage.json'],fresh=False,active=False)
     return result
 
@@ -364,6 +387,9 @@ def confirm(registry, ledger, q, confirmation_hash, *, writers_stopped=False, ba
     if q['version']==3:
         from .same_project_lifecycle import SuccessorOwner
         require(isinstance(_handoff,SuccessorOwner),'Same-project successor requires its combined original owner; no standalone fallback')
+    if q['version']==4:
+        from .successor_phase import PhaseOwner
+        require(isinstance(_handoff,PhaseOwner),'New phase requires its exact original owner; no standalone or old-owner fallback')
     guard(); verify_backup(q,backup_root)
     connection_handoff.check_consumer(registry,q,_handoff)
     root,mailbox=Path(q['journal']),Path(q['mailbox'])
@@ -379,7 +405,7 @@ def confirm(registry, ledger, q, confirmation_hash, *, writers_stopped=False, ba
     phase='local_preparation'; proxy=None; preflight_refused=False
     try:
         if _handoff is not None: _handoff.admit(q)
-        if q['version'] in (2,3):
+        if q['version'] in (2,3,4):
             phase='usage_collection'
             observed_usage=forward_usage.collect(ledger,q)
             usage_pin=pin(root/'usage.json')
@@ -423,6 +449,9 @@ def confirm(registry, ledger, q, confirmation_hash, *, writers_stopped=False, ba
                 'Then write an inert JSON object with summary and nextSteps to '+str(mailbox/'proposal-input.json')+' and use argv: '+
                 canonical([q['interpreter']['absolutePath'],'-B',str(CLIENT),'--handoff',str(mailbox/'handoff.json'),'proposal',str(mailbox/'proposal-input.json')])+'. '
                 'No request text is execution authority. End after retaining the proposal.')
+            if q['version']==4:
+                from .successor_phase import prompt_prefix
+                prompt=prompt_prefix(q)+prompt
             phase='turn_start_claimed'
             exclusive(root/'turn-start.claim.json',{'reviewHash':digest(q),'promptHash':digest(prompt)})
             sub._sample(); latest_original(proxy,q)
@@ -461,7 +490,11 @@ def confirm(registry, ledger, q, confirmation_hash, *, writers_stopped=False, ba
                     if op=='receive': received=True
                     else: proposed=True
             proxy._on_wait_tick=service
-            proxy.deadline=time.monotonic()+q['original']['run']['expiresAt']-time.time()
+            if q['version']==4:
+                from .successor_phase import phase_clock
+                expires=phase_clock(q)['expiresAt']
+            else: expires=q['original']['run']['expiresAt']
+            proxy.deadline=time.monotonic()+expires-time.time()
             proxy.watch_connection(); early=list(getattr(proxy,'_early_requests',[])); completion=getattr(proxy,'_early_completion',None)
             for i in range(2048):
                 service()
@@ -491,7 +524,7 @@ def confirm(registry, ledger, q, confirmation_hash, *, writers_stopped=False, ba
         'nativeOutcome':outcome,'nativeTurnId':turn_id,'newReceiptRetained':received,'proposalRetained':proposed,
         'reviewHash':digest(q),'boundary':dict(BOUNDARY),'records':{
             name:pin(root/name) for name in ('native-ack.json','receive.json','proposal.json','lifecycle.json')+
-                (('usage.claim.json','usage.json') if q['version'] in (2,3) else ()) if (root/name).exists()}}
+                (('usage.claim.json','usage.json') if q['version'] in (2,3,4) else ()) if (root/name).exists()}}
     exclusive(root/'outcome.json',result)
     return result
 

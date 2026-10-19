@@ -1,5 +1,27 @@
 # Codex Orchestrator — personal tooling
 
+## Same-project successor preparation phase (2026-10-19)
+
+Read docs/SUCCESSOR-PREPARATION-PHASE.md before this separate operator-only
+`same_project_successor_phase_v1` control. Only a complete positively closed
+maintenance load and unchanged expired canceled-Play disposition/closed planning
+lineage qualify. Preserve old rows, requests, claims, both bindings, cumulative
+usage/gaps, expiry and repository holds. A new exact scope-bound owner review
+permits only one preparation phase, its own confirmation-started clock, one
+already-loaded-only subscription, fresh monotone usage and an inert new receipt/
+proposal on that same original connection. Zero workers, repository edits and
+ordinary Play/Resume are authorized. The original phase is not renewed. Original
+allowance/reserve caps and 120-second send freshness remain intact. Canonical
+claims are independent of IDs/source/host and cannot retry, migrate or recurse.
+Require stopped writers/private verified backups and actual native identity/
+policy/current-tracker evidence. Unloaded/active/permission/unknown refuses;
+never reload, adopt an ended connection, answer/cancel or infer cleanup/safety.
+Preparation/backup/status are file-only; the explicit diagnostic grants no
+subscription/usage/turn/claim. Do not ask for futile execution confirmation when
+the runtime is unloaded. Source/fixtures install or confirm nothing live and
+qualify no pilot; manual merge, safe installation and actual eligibility remain
+separate. A preparation proposal is not a worker-development phase or new project.
+
 ## Post-disposition maintenance-load source (2026-10-18)
 
 Read docs/POST-DISPOSITION-MAINTENANCE-LOAD.md before this separate operator-only

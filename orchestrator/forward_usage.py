@@ -132,9 +132,14 @@ def inventory(value, run):
 def collect(ledger, q):
     """Called once, only after canonical owner intent; no native API or DB writes."""
     original=q['original']; run=original['run']; value=q['usageSource']; root=Path(q['journal'])
-    require((q['version'],q['kind']) in ((2,'canceled_play_forward_planning_v2'),(3,'same_project_forward_planning_v3')) and
+    require((q['version'],q['kind']) in ((2,'canceled_play_forward_planning_v2'),(3,'same_project_forward_planning_v3'),
+        (4,'same_project_successor_phase_v1')) and
         _read_private(root/'intent.json')=={'kind':q['kind'],'reviewHash':digest(q)},
         'Exact committed prospective owner intent required before collection')
+    if q['version']==4:
+        from .successor_phase import valid, phase_clock
+        require(valid(q),'Exact new preparation-only phase required')
+        phase_clock(q)
     check_source(ledger,value)
     exclusive(root/'usage.claim.json',{'kind':KIND,'reviewHash':digest(q),'sourceHash':digest(value),
         'baselineHash':original['usageReceiptHash']})
@@ -171,7 +176,7 @@ def collect(ledger, q):
         'baselineHash':original['usageReceiptHash'],'report':report,
         'files':{p:{'epoch':epoch,'sha256':hashes[p]} for p,epoch in files.items()}}
     exclusive(root/'usage.json',record)  # Retain gaps/regressions too; failure never erases evidence.
-    budget(original,q['maxTokens'],report)
+    budget(original,q['maxTokens'],report,active=q['version']!=4)
     return record
 
 
@@ -182,5 +187,5 @@ def retained(q, expected_pin, *, fresh, active=True):
         'baselineHash':q['original']['usageReceiptHash']}
     require(_read_private(root/'usage.claim.json')==expected and set(value)==set(expected)|{'report','files'} and
         all(value[k]==v for k,v in expected.items()), 'Exact one-shot observation and original baseline required')
-    budget(q['original'],q['maxTokens'],value['report'],fresh=fresh,active=active)
+    budget(q['original'],q['maxTokens'],value['report'],fresh=fresh,active=active and q['version']!=4)
     return value
