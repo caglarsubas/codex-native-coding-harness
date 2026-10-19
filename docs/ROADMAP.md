@@ -4,8 +4,12 @@
   lineage to an already registered disjoint target, preserving both numeric floors,
   old registry/run/claims/bindings and every hold
   ([contract](POST-PREPARATION-WORKER-ADMISSION.md)).
-- [ ] Qualify complete local regression and compiled-native accounting; keep
-  source, manual merge, safe installation and actual live evidence separate.
+- [x] Qualify 33 new cases and complete 3,303-case discovery (one optional skip),
+  40 JavaScript suites, 31 syntax / 351 AST checks, three compiled-native cases
+  and a disposable worker-to-checkpoint cycle. Final disjoint process partitions
+  exactly match full discovery's test-ID multiplicity. The preceding unpartitioned
+  3,302-case run passed before the additional uncommitted-marker refusal case.
+- [ ] Keep source, manual merge, safe installation and actual live evidence separate.
 - [ ] Resolve actual target eligibility before a worker-admission review; source
   delivery cannot reuse held v3 resources, load a brain, replay Play/recovery,
   reset usage or infer terminal safety/pilot acceptance.

@@ -117,3 +117,13 @@ nor admits workers. If the current registry has no eligible pre-existing disjoin
 target, report that blocker; do not request a futile approval, invent one, weaken
 the original registry proof or reuse held resources. This delivery changes no
 live dashboard, host, run, request, claim, usage, binding or hold.
+
+Local qualification: 33 new cases; complete 3,303-case discovery with one optional
+Graphify skip; 40 JavaScript suites; 31 web syntax and 351 Python AST checks.
+Final isolated process partitions have exact test-ID multiplicity equality with
+full discovery. The preceding unpartitioned 3,302-case command passed before the
+additional fail-closed uncommitted-marker case. Three compiled-native fixtures
+cover actual post-preparation response counters, lost-load acknowledgement and
+heartbeat progress during a 26-second foreground block. A separate disposable
+SQL/native-metadata fixture exercises fresh Play through worker checkpoint.
+All of these are source/disposable evidence, not installed or live-pilot acceptance.
