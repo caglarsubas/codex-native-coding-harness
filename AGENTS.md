@@ -1,5 +1,26 @@
 # Codex Orchestrator — personal tooling
 
+## Same-project new-host transfer and continuous handoff (2026-10-19)
+
+Read docs/HOST-TRANSFER-AND-CONTINUOUS-HANDOFF.md before the separate version-5
+operator path. Only the unchanged disposed canceled-Play/closed preflight lineage
+and positively closed maintenance load qualify. Preserve old rows, requests,
+claims, usage/gaps/expiry, repository holds and all original binding bytes.
+Repeated exact source metadata/history and an independently empty, issued,
+restricted destination are mandatory. Its existing native sign-in may rotate
+tokens normally: inspect credential privacy metadata only and compare actual
+non-refreshing account/routing hashes before every effect. Never read/hash/copy
+credential bytes or perform sign-in/refresh. One new exact review, stopped writers
+and verified private backups precede a canonical phase-owner claim, one project
+restore/load/assignment/subscription and a new preparation receipt/proposal on
+that SAME original foreground connection. No old load/phase/recovery claim may
+migrate or retry; partial/unknown stages are consumed. No keeper, reconnect,
+permission response, cancel, worker Play, usage reset, old-clock renewal or safety
+inference. Retain post-turn usage as uncollected/unknown. The conditional binding
+review installs nothing and requires exact positive handoff completion before a
+separate cutover. Source/fixtures and preparing reviews do not install, load,
+bind, confirm or qualify the live pilot. Older controls retain their fences.
+
 ## Same-project successor preparation phase (2026-10-19)
 
 Read docs/SUCCESSOR-PREPARATION-PHASE.md before this separate operator-only
