@@ -1,5 +1,15 @@
 # Durable project knowledge and bounded brain context
 
+[SUCCESSOR-PREPARATION-PHASE.md](SUCCESSOR-PREPARATION-PHASE.md) defines a
+distinct preparation-only phase inside the existing project after completed
+maintenance and original expiry. A new exact review starts its own bounded
+clock, carries cumulative usage against unchanged caps/reserve, and permits one
+already-loaded-only subscription and new inert receipt/proposal. Old runs,
+claims, bindings, expiry and repository holds remain immutable; workers, reload,
+replay and assumed safety are unavailable. An unloaded live runtime stays blocked
+without a futile approval request. Source qualification is not installation or
+actual continuation. Future worker-phase authority remains separate.
+
 [POST-DISPOSITION-MAINTENANCE-LOAD.md](POST-DISPOSITION-MAINTENANCE-LOAD.md)
 defines one separately reviewed metadata-only load on the same existing host and
 brain after a proved closed earlier load, complete canceled-Play disposition and

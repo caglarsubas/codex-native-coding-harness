@@ -1,5 +1,15 @@
 # Version 1 record contracts
 
+`same_project_successor_phase_v1` is a distinct preparation-only phase review,
+not a new project or replacement old-run row. Its canonical original-ledger/Play
+directory owns separate owner-clock, subscribe/handoff and usage/turn/receipt/
+proposal records. One exact confirmation starts that phase clock; old expiry,
+rows/claims, both usage floors, caps/reserve and repository holds stay unchanged.
+The internal carrier version does not create a project version. Status validates
+complete retained lineage and consumer inventory without connecting or renewing
+time. Unknown/partial outcomes cannot retry, reload or recurse. See the
+[successor preparation contract](SUCCESSOR-PREPARATION-PHASE.md).
+
 `post_disposition_maintenance_load_v1` pins the positively closed original load,
 complete canceled-Play disposition and exact unknown planning-refusal lineage,
 same issued host/candidate binding, source/interpreter and one metadata-only
