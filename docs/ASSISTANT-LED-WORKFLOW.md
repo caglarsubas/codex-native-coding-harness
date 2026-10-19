@@ -1,5 +1,13 @@
 # Conversation as the main project control surface
 
+After a transferred preparation completes, completion evidence alone is not a
+worker phase. The separate operator [usage/admission path](POST-PREPARATION-WORKER-ADMISSION.md)
+can retain actual destination accounting and prepare one scope-bound lineage
+review to an already registered, reviewed disjoint target. It is not an assistant
+chat control, host load, old Play/recovery retry or release of held repositories.
+Do not offer a confirmation until actual accounting and target eligibility pass.
+Source delivery changes no live state; new target Play stays separately reviewed.
+
 The owner directs development through the one-page project workspace. Select
 the brain on its persistent graph for durable instructions and replies; choose
 the separately labelled advisory guide for explanations and signed-control

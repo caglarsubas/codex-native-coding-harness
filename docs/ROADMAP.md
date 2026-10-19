@@ -1,5 +1,15 @@
 # Codex-native orchestration roadmap
 
+- [x] Implement append-only transferred-preparation usage and exact worker-phase
+  lineage to an already registered disjoint target, preserving both numeric floors,
+  old registry/run/claims/bindings and every hold
+  ([contract](POST-PREPARATION-WORKER-ADMISSION.md)).
+- [ ] Qualify complete local regression and compiled-native accounting; keep
+  source, manual merge, safe installation and actual live evidence separate.
+- [ ] Resolve actual target eligibility before a worker-admission review; source
+  delivery cannot reuse held v3 resources, load a brain, replay Play/recovery,
+  reset usage or infer terminal safety/pilot acceptance.
+
 - [x] Separate WebSocket control reading from slow foreground checks without
   extending heartbeat/freshness/phase limits or adding reconnects.
 - [x] Implement explicit forward-only completion evidence for a consumed v5

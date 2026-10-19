@@ -1,5 +1,15 @@
 # Version 1 record contracts
 
+`transferred_preparation_usage_v1` retains new intent/evidence outside the
+immutable completed v5 journals, with original source/epoch pins and repeated
+read-only destination identity/history. Actual cumulative numeric records cover
+both immutable baselines without prefix duplication, refunds or retimestamping.
+`post_preparation_worker_admission_v1` is a separate exact scope-bound lineage
+review to an already registered disjoint target. Verified backups precede the
+two permanent claims and schema-7 target snapshot; partial commits stay fenced.
+It grants no load, Play, binding change, historical release, safety or acceptance.
+See [the contract](POST-PREPARATION-WORKER-ADMISSION.md).
+
 `transferred_preparation_completion_evidence_v1` appends independent completion
 evidence outside immutable v5 owner/consumer journals. Original receipt/proposal
 and native acknowledgement are mandatory; the old outcome stays `incomplete_unknown`.

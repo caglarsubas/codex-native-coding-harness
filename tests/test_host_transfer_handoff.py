@@ -22,6 +22,10 @@ ProductionDestination=api.DestinationProxy
 
 
 class HostTransferTest(unittest.TestCase):
+    def history_rows(self):
+        return [{'type':'session_meta','payload':{'id':self.f.brain,'cwd':str(self.f.repo)}},
+            {'type':'event_msg','payload':{'type':'task_complete','turn_id':self.f.turn}}]
+
     def setUp(self):
         self.m=fixtures.MaintenanceLoadTest('runTest'); self.m.setUp(); self.addCleanup(self.m.doCleanups)
         self.assertEqual(self.m.apply()['status'],'maintenance_load_observed_idle')
@@ -35,8 +39,7 @@ class HostTransferTest(unittest.TestCase):
         (self.home/'config.toml').write_text(api.launch.CONFIG); (self.home/'config.toml').chmod(0o600)
         self.source_home=self.m.l.f.home
         self.history=self.source_home/'sessions'/('export-'+self.f.brain+'.jsonl')
-        self.rows=[{'type':'session_meta','payload':{'id':self.f.brain,'cwd':str(self.f.repo)}},
-            {'type':'event_msg','payload':{'type':'task_complete','turn_id':self.f.turn}}]
+        self.rows=self.history_rows()
         self.history.write_text(''.join(json.dumps(r)+'\n' for r in self.rows)); self.history.chmod(0o600)
         self.original_history=self.history.read_bytes()
         self.source=copy.deepcopy(self.m.parent['candidateBinding'])

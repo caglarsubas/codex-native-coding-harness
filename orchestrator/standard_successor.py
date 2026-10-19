@@ -89,8 +89,35 @@ def other_owners(registry, target, scopes):
         root = Path(row['root'])
         with standard.read_db(root/'ledger.sqlite3') as db:
             meta = Ledger.get(db, 'meta', 1); run = meta.get('standardRun') or {}
-            held = quarantine.fenced(root, meta)
-            if held: quarantine.repository_holds(root, db, meta)
+            quarantined = quarantine.fenced(root, meta)
+            if quarantined: quarantine.repository_holds(root, db, meta)
+            from . import canceled_play, partial_admission
+            reader = SimpleNamespace(root=root,db=root/'ledger.sqlite3',workspace_id=row['id'],get=Ledger.get,all=Ledger.all)
+            canceled = canceled_play.exists_in(reader,db)
+            if canceled:
+                require(canceled_play.retained_in(reader,db) is not None,
+                        'Unknown canceled ownership cannot release repository scope')
+            partial = os.path.lexists(root/partial_admission.FENCE)
+            forwarded = os.path.lexists(root/'standard-forward-continuation.json')
+            require(not forwarded or partial,'Forward ownership is missing its preserved partial disposition')
+            if partial:
+                # Hold validation only, not adoption/completion of that attempt.
+                from .native_read_client import decode
+                record = decode(private_file(root/partial_admission.FENCE).read_bytes())
+                require(isinstance(record,dict) and set(record)=={'kind','request','reviewHash','recordedAt','outcome'} and
+                        record['kind']==partial_admission.KIND and record['outcome']==partial_admission.OUTCOME and
+                        digest(record['request'])==record['reviewHash'], 'Unknown partial ownership remains fenced')
+                target = record['request']['target']
+                require(target['workspaceId']==row['id'] and target['root']==str(root) and
+                        target['brainId']==meta['brainId'] and
+                        sorted((r['id'],digest(r)) for r in Ledger.all(db,'repos'))==
+                        sorted((r['id'],r['recordHash']) for r in target['repositories']),
+                        'Preserved partial repository holds changed; no release from current metadata')
+            # A pre-snapshot admission marker (including the older two-claim
+            # protocol) is ownership, not free capacity merely because no run
+            # or worker was committed. Missing markers cannot release a slot.
+            claimed_successor = os.path.lexists(root/FENCE) or meta.get('standardSuccessor') is not None
+            held = quarantined or canceled or partial or forwarded or claimed_successor
             active = (meta.get('runner') or Ledger.all(db, 'workers') or
                       any(t.get('status') not in standard.TERMINAL for t in run.get('tasks', [])) or
                       any(m.get('status') in {'prepared', 'issued', 'uncertain'} for m in run.get('merges', [])))
@@ -114,7 +141,8 @@ def original(root, workspace, *, local_only=False):
             'repositories': repositories(request['state']['repos'], local_only=local_only)}
 
 
-def context(registry, source, target, binding_path, db, *, local_only=False):
+def target_context(registry, source, target, binding_path, db, old, *, local_only=False):
+    """Common target gates; each named predecessor adapter validates its own source."""
     from .enrollment import record_in, fence_exists
     from .workspaces import private_database
     for path in (registry.db, source.db, target.db):
@@ -127,7 +155,6 @@ def context(registry, source, target, binding_path, db, *, local_only=False):
             old_inspected['brainId'] != inspected['brainId'], 'Separate existing registered source and target required')
     require(not os.path.lexists(source_claim(registry.root, source.workspace_id)) and
             not os.path.lexists(target.root/FENCE), 'Successor already claimed; inspect its receipt, never retry')
-    old = original(source.root, source.workspace_id, local_only=local_only)
     meta = target.get(db, 'meta', 1)
     require(meta['schemaVersion'] == 1 and not meta.get('standardRun') and meta.get('paused') is True and
             not meta.get('controller') and not meta.get('runner') and not meta.get('admissionBinding') and
@@ -159,6 +186,11 @@ def context(registry, source, target, binding_path, db, *, local_only=False):
                 'missionReviewHash': mission['receiptHash'], 'bindingHash': digest(binding),
                 'scope': {k: str(v) if isinstance(v, Path) else v for k, v in scope.items()}},
             'bindingFile': str(binding_path), 'bindingPin': pin(binding_path), 'boundary': copy.deepcopy(BOUNDARY)}
+
+
+def context(registry, source, target, binding_path, db, *, local_only=False):
+    return target_context(registry,source,target,binding_path,db,
+        original(source.root,source.workspace_id,local_only=local_only),local_only=local_only)
 
 
 def prepare(registry, source, target_id, binding_path, *, local_only=False):
@@ -198,6 +230,10 @@ def retained_in(ledger, db, meta=None):
     require(path.is_file() and not path.is_symlink(), 'Successor claim is missing or invalid; writes remain fenced')
     pin(path)
     marker = decode(private_file(path).read_bytes())
+    require(isinstance(marker,dict),'Invalid successor marker; writes remain fenced')
+    if marker.get('kind') == 'post_preparation_worker_admission_v1':
+        from .worker_phase_admission import retained_in as worker_retained
+        return worker_retained(ledger,db,meta)
     require(set(marker) == {'kind', 'recordHash', 'reviewHash'} and marker['kind'] == KIND and
             meta.get('schemaVersion') == 7 and meta.get('successorLedgerVersion') == 1 and
             meta.get('standardSuccessor') == marker['recordHash'], 'Partial successor admission remains fenced')
@@ -280,6 +316,11 @@ def public(record):
     if record['kind'] == 'standard_forward_continuation_v1':
         result.update(lineageProtocol=record['kind'], originalAdmission='unqualified_uncommitted',
                       originalAdmissionRetried=False, bothOriginalClaimsPreserved=True,
+                      boundary=copy.deepcopy(record['request']['boundary']))
+    if record['kind'] == 'post_preparation_worker_admission_v1':
+        result.update(lineageProtocol=record['kind'],originalAttempt='canceled_unqualified_preserved',
+                      priorPostPreparationTokens=old['postPreparationTokens'],
+                      phaseTokenCeiling=old['phaseTokenCeiling'],
                       boundary=copy.deepcopy(record['request']['boundary']))
     return result
 
