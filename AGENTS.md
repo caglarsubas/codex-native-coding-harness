@@ -1,5 +1,21 @@
 # Codex Orchestrator — personal tooling
 
+## Empty pre-phase setup transition (2026-10-20)
+
+Read docs/EMPTY-SETUP-TRANSITION.md before the separate operator-only registration
+control. Only an unused, unowned schema-1 standard target with no reviewed mission
+may adopt its already-created exact durable empty brain and dual project IDs.
+Preserve consumed creation claims, predecessor history and both configuration
+epochs; accept only the fixed base plus the one exact-checkout trust append under
+a new exact scope-bound review. Never retry a create or call a load to qualify
+metadata. Repeated explicit native reads prove membership/empty history only;
+unloaded policy and current/historical safety remain unknown. Stopped writers,
+all registered database backups and an external partial-transition fence are
+mandatory. Preserve old rows/usage/gaps/expiry/holds; only the reviewed target's
+registration/current mapping and a new unreviewed draft may change. No host
+binding, old-proof rewrite, admission lineage, permission response, Play, recovery
+or pilot acceptance follows. Source/fixtures install or apply nothing live.
+
 ## Post-preparation worker admission and v4 usage (2026-10-19)
 
 Read docs/POST-PREPARATION-WORKER-ADMISSION.md before using the separate

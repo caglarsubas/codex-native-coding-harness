@@ -241,6 +241,11 @@ class Registry:
         inspected = inspect_ledger(row["root"])
         require(inspected["brainId"] == data["brainId"] and inspected["databaseIdentity"] == data["databaseIdentity"],
                 "Workspace identity changed; explicit recovery required")
+        if os.path.lexists(Path(row['root'])/'empty-setup-transition.claim.json') or 'emptySetupTransition' in data:
+            from .empty_setup_transition import retained
+            receipt = retained(Path(row['root']))
+            require(receipt is not None and data.get('emptySetupTransition') == receipt['reviewHash'] and
+                inspected['brainId'] == receipt['request']['spec']['brainId'], 'Partial setup transition remains fenced')
         return Path(row["root"])
 
     def ledger(self, workspace_id):

@@ -1,5 +1,12 @@
 # Codex-native orchestration roadmap
 
+- [x] Add exact-reviewed, local-only completion of already-created unused target
+  setup, preserving consumed claims/config epochs and original mapping history
+  ([contract](EMPTY-SETUP-TRANSITION.md)). No load or execution is included.
+- [ ] Independently requalify historical worker-admission proofs after any reviewed
+  setup transition; never rewrite an old registry hash or infer continuation.
+- [ ] Keep manual merge, live rollout, binding, mission Review and fresh Play separate.
+
 - [x] Implement append-only transferred-preparation usage and exact worker-phase
   lineage to an already registered disjoint target, preserving both numeric floors,
   old registry/run/claims/bindings and every hold
