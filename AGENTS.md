@@ -1,5 +1,19 @@
 # Codex Orchestrator — personal tooling
 
+## Forward-only historical admission requalification (2026-10-20)
+
+Read docs/HISTORICAL-ADMISSION-REQUALIFICATION.md before the explicit file-only
+`historical_admission` path. Validate the canonical completed setup transition,
+all original database/input backups and exact before/current registry relationship;
+never substitute a registry view or rewrite historical hashes. Require immutable
+allowlisted source proofs, unchanged old rows/claims/usage/gaps/clocks/bindings/holds
+and original observation times. Default validators remain strict. Requalification
+is not admission, freshness renewal, load, native evidence or authority. Its
+explicit admission pointer retains separate exact mission/binding/admission/Play
+reviews and normal effect gates; partial claims stay fenced. No reload, observer
+reconnect, Play/recovery replay, usage reset, terminal-safety or acceptance inference.
+Source/disposable qualification installs, confirms and starts nothing live.
+
 ## Empty pre-phase setup transition (2026-10-20)
 
 Read docs/EMPTY-SETUP-TRANSITION.md before the separate operator-only registration

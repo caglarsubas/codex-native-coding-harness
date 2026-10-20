@@ -3,8 +3,13 @@
 - [x] Add exact-reviewed, local-only completion of already-created unused target
   setup, preserving consumed claims/config epochs and original mapping history
   ([contract](EMPTY-SETUP-TRANSITION.md)). No load or execution is included.
-- [ ] Independently requalify historical worker-admission proofs after any reviewed
-  setup transition; never rewrite an old registry hash or infer continuation.
+- [x] Implement explicit forward-only historical worker-admission requalification
+  after the exact completed setup transition; never rewrite an old registry hash
+  or infer continuation ([contract](HISTORICAL-ADMISSION-REQUALIFICATION.md)).
+- [x] Qualify the historical requalification path in disposable fixtures and the
+  full local suites: 3,354 Python cases (one optional Graphify skip), 40 JavaScript
+  tests, 31 JavaScript syntax checks and 359 Python AST checks.
+- [ ] Separately merge, install and qualify the historical requalification path live.
 - [ ] Keep manual merge, live rollout, binding, mission Review and fresh Play separate.
 
 - [x] Implement append-only transferred-preparation usage and exact worker-phase

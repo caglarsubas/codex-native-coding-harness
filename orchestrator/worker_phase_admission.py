@@ -32,11 +32,22 @@ def target_reader(registry,workspace):
     return partial.reader(root,workspace,registry.root)
 
 
-def predecessor(registry,source,directory,*,local_only=False):
+def evidence(registry,source,directory,requalification=None):
+    if requalification is not None:
+        from . import historical_admission
+        qualified,result,q=historical_admission.resolved(registry,source,requalification)
+        require(qualified['context']['inputs']['usageDirectory']==str(Path(directory)),
+            'Requalification belongs to another original accounting source')
+        return result,q,qualified
     result=usage.status(registry,source,directory)
-    require(result['status']=='usage_observed','Qualified actual post-preparation usage required; no upload or unknown-as-zero')
     origin=result['context']; proof=origin['completionSource']
     q,_,_,_=usage.context(registry,source,origin['completionDirectory'],None if proof is None else proof['root'])
+    return result,q,None
+
+
+def predecessor(registry,source,directory,*,local_only=False,requalification=None):
+    result,q,_=evidence(registry,source,directory,requalification)
+    require(result['status']=='usage_observed','Qualified actual post-preparation usage required; no upload or unknown-as-zero')
     original=q['original']; run=original['run']; info=source.db.stat()
     require(source.workspace_id==original['workspaceId'] and str(source.root)==original['root'] and
         time.time()>=run['expiresAt'],'Exact unchanged expired source run required; never extend it')
@@ -53,8 +64,8 @@ def predecessor(registry,source,directory,*,local_only=False):
     return old,result
 
 
-def context(registry,source,target,binding,directory,db,*,local_only=False):
-    old,evidence=predecessor(registry,source,directory,local_only=local_only)
+def context(registry,source,target,binding,directory,db,*,local_only=False,requalification=None):
+    old,observed=predecessor(registry,source,directory,local_only=local_only,requalification=requalification)
     request=successor.target_context(registry,source,target,binding,db,old,local_only=local_only)
     mission=missions.state_in(target,db)
     require(mission['document']['spec']['authority']['tokenBudget']<=old['phaseTokenCeiling'],
@@ -62,14 +73,22 @@ def context(registry,source,target,binding,directory,db,*,local_only=False):
     request.update(kind=KIND,sourceHash=source_hash(),boundary=copy.deepcopy(BOUNDARY),
         postPreparation={'directory':str(Path(directory)),
             'evidencePin':successor.pin(Path(directory)/'evidence.json'),
-            'intentPin':successor.pin(Path(directory)/'intent.json'),'evidenceHash':digest(evidence)})
+            'intentPin':successor.pin(Path(directory)/'intent.json'),'evidenceHash':digest(observed)})
+    if requalification is not None:
+        from . import historical_admission
+        qualified=historical_admission.status(registry,source,requalification)
+        require(qualified['context']['inputs']['targetId']==target.workspace_id,
+            'Historical requalification cannot retarget another registered project')
+        request['postPreparation']['requalification']={'directory':str(Path(requalification)),
+            'intentPin':successor.pin(Path(requalification)/'intent.json'),
+            'evidencePin':successor.pin(Path(requalification)/'evidence.json'),'hash':digest(qualified)}
     return request
 
 
-def prepare(registry,source,target_id,binding,directory,*,local_only=False):
+def prepare(registry,source,target_id,binding,directory,*,local_only=False,requalification=None):
     target=target_reader(registry,target_id)
     with standard.read_db(target.db) as db:
-        request=context(registry,source,target,binding,directory,db,local_only=local_only)
+        request=context(registry,source,target,binding,directory,db,local_only=local_only,requalification=requalification)
     require(len(canonical(request).encode())<=65536,'Bounded exact worker-admission review required')
     return {'request':request,'reviewHash':digest(request),'validUntil':'scope_changes',
         'effect':'Record disjoint worker-phase lineage only; separate target mission and fresh Play remain required',
@@ -88,13 +107,31 @@ def read_request(file):
     return value
 
 
+def requalification(p):
+    value=p.get('requalification')
+    if value is None: return None
+    require(isinstance(value,dict) and set(value)=={'directory','intentPin','evidencePin','hash'} and
+        successor.pin(Path(value['directory'])/'intent.json')==value['intentPin'] and
+        successor.pin(Path(value['directory'])/'evidence.json')==value['evidencePin'],
+        'Exact immutable historical requalification pointer required')
+    return value['directory']
+
+
 def source_current(registry,source,request):
     p=request['postPreparation']
-    require(set(p)=={'directory','evidencePin','intentPin','evidenceHash'} and
+    require(set(p) in ({'directory','evidencePin','intentPin','evidenceHash'},
+        {'directory','evidencePin','intentPin','evidenceHash','requalification'}) and
         successor.pin(Path(p['directory'])/'evidence.json')==p['evidencePin'] and
         successor.pin(Path(p['directory'])/'intent.json')==p['intentPin'],'Exact post-preparation evidence changed')
-    old,evidence=predecessor(registry,source,p['directory'],local_only=request.get('identityPolicy')==successor.LOCAL_POLICY)
-    require(old==request['source'] and digest(evidence)==p['evidenceHash'],'Preserve source rows, holds and carried numeric usage')
+    qualified=requalification(p)
+    old,observed=predecessor(registry,source,p['directory'],local_only=request.get('identityPolicy')==successor.LOCAL_POLICY,
+        requalification=qualified)
+    require(old==request['source'] and digest(observed)==p['evidenceHash'],'Preserve source rows, holds and carried numeric usage')
+    if qualified is not None:
+        from . import historical_admission
+        value=historical_admission.status(registry,source,qualified)
+        require(digest(value)==p['requalification']['hash'] and
+            value['context']['inputs']['targetId']==request['target']['workspaceId'], 'Requalification scope drifted')
 
 
 def backup_inputs(registry,source,request):
@@ -104,16 +141,32 @@ def backup_inputs(registry,source,request):
     require(len(rows)<=32,'Bounded complete registry required')
     databases=[registry.db,*[partial.reader(Path(r['root']),r['id'],registry.root).db for r in rows]]
     require(len(set(databases))==len(databases),'Database aliases refuse admission backup')
-    p=request['postPreparation']; evidence=usage.status(registry,source,p['directory'])
-    old=evidence['context']; proof=old['completionSource']
-    q,_,_,_=usage.context(registry,source,old['completionDirectory'],None if proof is None else proof['root'])
+    p=request['postPreparation']; observed,q,_=evidence(registry,source,p['directory'],requalification(p))
+    old=observed['context']
     files=set(usage.completion.handoff.backup_files(q))|{request['bindingFile'],
         str(Path(p['directory'])/'intent.json'),str(Path(p['directory'])/'evidence.json'),
         str(Path(old['completionDirectory'])/'intent.json'),str(Path(old['completionDirectory'])/'evidence.json')}
     files.update(str(path) for path in Path(q['journal']).iterdir())
     files.update(str(path) for path in usage.completion.handoff.phase.owner_root(q).iterdir())
+    if requalification(p) is not None:
+        from . import historical_admission
+        extra,_=historical_admission.backup_inputs(registry,source,requalification(p)); files.update(extra)
     require(len(files)<=256,'Bounded exact non-credential sidecars required')
     return databases,sorted(files)
+
+
+def historical_databases(registry,source,request):
+    directory=requalification(request['postPreparation'])
+    if directory is None: return set()
+    from . import historical_admission
+    return historical_admission.backup_inputs(registry,source,directory)[1]
+
+
+def backup_pin(path,*,historical=False):
+    if historical:
+        from .admission_continuity import archive_pin
+        return archive_pin(path)
+    return successor.pin(path)
 
 
 def backup(registry,source,request,root,*,writers_stopped=False):
@@ -121,7 +174,8 @@ def backup(registry,source,request,root,*,writers_stopped=False):
     target=target_reader(registry,request['target']['workspaceId'])
     with standard.read_db(target.db) as db:
         require(context(registry,source,target,request['bindingFile'],request['postPreparation']['directory'],db,
-            local_only=request.get('identityPolicy')==successor.LOCAL_POLICY)==request,'Admission scope changed')
+            local_only=request.get('identityPolicy')==successor.LOCAL_POLICY,
+            requalification=requalification(request['postPreparation']))==request,'Admission scope changed')
     root=Path(root); usage.completion.planning.old.private_path(root.parent,existing=True)
     databases,files=backup_inputs(registry,source,request)
     protected=[registry.root,source.root,target.root,Path(request['bindingFile']),Path(__file__).resolve().parent.parent,
@@ -139,12 +193,17 @@ def backup(registry,source,request,root,*,writers_stopped=False):
         require(partial.database_proof(copied)['fingerprint']==before['fingerprint'] and
             partial.database_proof(path)==before,'Exact fresh database backup required')
         entries.append({'type':'database','original':str(path),'before':before,'copy':name})
+    historical=historical_databases(registry,source,request)
     for i,path in enumerate(files):
-        before=successor.pin(path); name='file-'+str(i)+'.bin'; copied=root/name
-        raw=private_file(path).read_bytes()
+        before=backup_pin(path,historical=path in historical); name='file-'+str(i)+'.bin'; copied=root/name
+        if path in historical:
+            with os.fdopen(os.open(path,os.O_RDONLY|os.O_NOFOLLOW),'rb') as stream: raw=stream.read(128*1024*1024+1)
+            require(len(raw)<=128*1024*1024, 'Historical database copy exceeded its explicit bound')
+        else: raw=private_file(path).read_bytes()
         with os.fdopen(os.open(copied,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600),'wb') as stream:
             stream.write(raw); stream.flush(); os.fsync(stream.fileno())
-        require(successor.pin(path)==before and successor.pin(copied)['sha256']==before['sha256'],'Sidecar backup changed')
+        require(backup_pin(path,historical=path in historical)==before and
+            backup_pin(copied,historical=path in historical)['sha256']==before['sha256'],'Sidecar backup changed')
         entries.append({'type':'file','original':path,'before':before,'copy':name})
     parts=[]
     for i in range(0,len(entries),8):
@@ -153,7 +212,8 @@ def backup(registry,source,request,root,*,writers_stopped=False):
     sync_directory(root); verify_backup(registry,source,request,root)
     with standard.read_db(target.db) as db:
         require(context(registry,source,target,request['bindingFile'],request['postPreparation']['directory'],db,
-            local_only=request.get('identityPolicy')==successor.LOCAL_POLICY)==request,'Admission changed during backup')
+            local_only=request.get('identityPolicy')==successor.LOCAL_POLICY,
+            requalification=requalification(request['postPreparation']))==request,'Admission changed during backup')
     return {'backup':str(root),'databases':len(databases),'files':len(files),'nativeAction':False}
 
 
@@ -163,6 +223,7 @@ def verify_backup(registry,source,request,root):
     require(isinstance(manifest,dict) and set(manifest)=={'kind','reviewHash','parts'} and manifest['kind']==KIND and
         manifest['reviewHash']==digest(request),'Exact private admission backup required')
     databases,files=backup_inputs(registry,source,request); seen_db=[]; seen_files=[]; names={'manifest.json'}
+    historical=historical_databases(registry,source,request)
     require(isinstance(manifest['parts'],list) and len(manifest['parts'])==(len(databases)+len(files)+7)//8,
         'Bounded complete backup parts required')
     for i,pin in enumerate(manifest['parts']):
@@ -182,8 +243,8 @@ def verify_backup(registry,source,request,root):
                     partial.database_proof(copied)['fingerprint']==row['before']['fingerprint'],'Database backup drifted')
             else:
                 require(row['type']=='file','Unsupported backup entry'); seen_files.append(row['original'])
-                require(successor.pin(row['original'])==row['before'] and
-                    successor.pin(copied)['sha256']==row['before']['sha256'],'Sidecar backup drifted')
+                require(backup_pin(row['original'],historical=row['original'] in historical)==row['before'] and
+                    backup_pin(copied,historical=row['original'] in historical)['sha256']==row['before']['sha256'],'Sidecar backup drifted')
     require(seen_db==databases and seen_files==files,'Complete exact backup inventory required')
     require({p.name for p in root.iterdir()}==names,'Unlisted backup contents refused')
 
@@ -202,7 +263,8 @@ def confirm(registry,source,request,confirmed_hash,*,writers_stopped=False,backu
     verify_backup(registry,source,request,backup_root)
     with partial.lock(registry.db),partial.lock(target.db) as db:
         require(context(registry,source,target,request['bindingFile'],request['postPreparation']['directory'],db,
-            local_only=request.get('identityPolicy')==successor.LOCAL_POLICY)==request,'Admission changed at commit boundary')
+            local_only=request.get('identityPolicy')==successor.LOCAL_POLICY,
+            requalification=requalification(request['postPreparation']))==request,'Admission changed at commit boundary')
         record={'kind':KIND,'request':copy.deepcopy(request),'reviewHash':confirmed_hash,
             'recordedAt':time.time(),'outcome':'lineage_recorded_play_not_started'}
         key=digest(record)
@@ -262,11 +324,13 @@ def main():
     p=argparse.ArgumentParser(description=__doc__); p.add_argument('--platform',required=True); p.add_argument('--workspace',required=True)
     sub=p.add_subparsers(dest='action',required=True)
     c=sub.add_parser('prepare'); c.add_argument('target'); c.add_argument('binding'); c.add_argument('usage'); c.add_argument('--local-only',action='store_true')
+    c.add_argument('--requalification')
     b=sub.add_parser('backup'); b.add_argument('review'); b.add_argument('directory'); b.add_argument('--writers-stopped',action='store_true')
     c=sub.add_parser('confirm'); c.add_argument('review'); c.add_argument('--confirm-hash',required=True); c.add_argument('--backup',required=True); c.add_argument('--writers-stopped',action='store_true')
     sub.add_parser('status')
     args=p.parse_args(); registry,source=partial.routes(args.platform,args.workspace)
-    if args.action=='prepare': result=prepare(registry,source,args.target,args.binding,args.usage,local_only=args.local_only)
+    if args.action=='prepare': result=prepare(registry,source,args.target,args.binding,args.usage,local_only=args.local_only,
+        requalification=args.requalification)
     elif args.action=='backup': result=backup(registry,source,read_request(args.review),args.directory,writers_stopped=args.writers_stopped)
     elif args.action=='confirm': result=confirm(registry,source,read_request(args.review),args.confirm_hash,writers_stopped=args.writers_stopped,backup_root=args.backup)
     else:
