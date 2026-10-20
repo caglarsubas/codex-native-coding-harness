@@ -248,7 +248,8 @@ def observe(spec):
                 proxy._rpc('thread/effectivePolicy/read', {'threadId': spec['brainId']})))
             history = proxy._rpc('thread/turns/list', {'threadId': spec['brainId'], 'cursor': None,
                 'limit': 1, 'sortDirection': 'desc', 'itemsView': 'notLoaded'})
-            require(history == {'data': [], 'nextCursor': None}, 'Complete empty native turn history required')
+            require(history == {'data': [], 'nextCursor': None, 'backwardsCursor': None},
+                'Complete empty native turn history required')
     require(statuses[0] == statuses[1], 'New brain activity changed during registration readback')
     return {'status': statuses[0], 'samples': 2, 'currentPolicyQualified': False,
         'independentLoadedPolicyPreviouslyMissing': True, 'currentTerminalSafety': 'unknown',

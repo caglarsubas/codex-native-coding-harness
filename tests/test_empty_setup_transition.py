@@ -95,7 +95,8 @@ class Fixture(unittest.TestCase):
                 'maximumAttempts': 1, 'retryPermitted': False, 'operatorSource': api.pin(operator),
                 'endpointHash': digest(self.endpoint)})
             self.spec['setupRecords'][key] = str(path)
-        self.status = 'notLoaded'; self.calls = []; self.history = {'data': [], 'nextCursor': None}
+        self.status = 'notLoaded'; self.calls = []
+        self.history = {'data': [], 'nextCursor': None, 'backwardsCursor': None}
         fixture = self
         class FakeProxy:
             def __enter__(self): return self
@@ -234,6 +235,15 @@ class SetupTransitionTest(Fixture):
         self.status = 'notLoaded'; self.history['data'] = [{'id': 'unexpected-turn'}]
         with self.assertRaisesRegex(Refusal, 'empty native turn'): self.preview()
         self.assertTrue(all(method not in ('thread/resume', 'thread/start', 'turn/start') for method, _ in self.calls))
+
+    def test_pinned_native_empty_history_schema_keeps_both_cursor_bounds(self):
+        for history in ({'data': [], 'nextCursor': None},
+            {'data': [], 'nextCursor': None, 'backwardsCursor': 'unseen'},
+            {'data': [], 'nextCursor': 'unseen', 'backwardsCursor': None},
+            {'data': [], 'nextCursor': None, 'backwardsCursor': None, 'unqualified': True}):
+            with self.subTest(history=history):
+                self.history = history
+                with self.assertRaisesRegex(Refusal, 'empty native turn history'): self.preview()
 
     def test_reviewed_mission_and_any_request_or_ownership_history_refuse(self):
         missions.change(self.ledger, {'id': str(uuid.uuid4()), 'operation': 'review',
