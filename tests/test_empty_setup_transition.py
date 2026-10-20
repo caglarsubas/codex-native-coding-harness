@@ -73,6 +73,7 @@ class Fixture(unittest.TestCase):
             'immutableInputs': [{'path': str(operator), 'sha256': api.pin(operator)['sha256'],
                 'identity': list(api.file_identity(operator.lstat()))}, api.input_pin(manifest)],
             'target': {'workspaceId': 'target', 'root': str(self.checkout)},
+            'appCatalog': {'actualProject': {'projectId': self.catalog, 'hostId': 'local', 'path': str(self.checkout)}},
             'predecessor': {'brainId': self.old},
             'reviewedHost': {'endpoint': self.endpoint, 'runtimePackage': {'root': '/fixture'}},
             'prospectiveNativeSetup': {'projectCreate': {'name': 'New empty project', 'roots': [{'path': str(self.checkout)}]},
@@ -227,6 +228,13 @@ class SetupTransitionTest(Fixture):
         path = self.spec['setupRecords']['brainClaim']; value = api.read(path)
         value['retryPermitted'] = True; self.write(path, value)
         with self.assertRaises(Refusal): self.preview()
+        self.assertEqual(self.calls, [])
+
+    def test_same_root_different_app_project_cannot_substitute_for_approved_id(self):
+        self.spec['catalogProjectId'] = str(uuid.uuid4())
+        self.write(self.spec['catalogObservation'], {'source': 'codex_app.list_projects',
+            'observedAt': time.time(), 'completeResult': self.catalog_result(self.spec['catalogProjectId'])})
+        with self.assertRaisesRegex(Refusal, 'originally reviewed'): self.preview()
         self.assertEqual(self.calls, [])
 
     def test_native_active_missing_turn_or_nonempty_history_refuses_without_load(self):

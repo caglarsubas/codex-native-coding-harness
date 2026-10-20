@@ -115,6 +115,9 @@ def provenance(spec):
         and request.get('version') == 1 and
         request.get('target', {}).get('workspaceId') == spec['workspaceId'] and
         request['target'].get('root') == spec['checkout'] and
+        request.get('appCatalog', {}).get('actualProject', {}).get('projectId') == spec['catalogProjectId'] and
+        request['appCatalog']['actualProject'].get('path') == spec['checkout'] and
+        request['appCatalog']['actualProject'].get('hostId') == 'local' and
         request.get('predecessor', {}).get('brainId') == spec['oldBrainId'],
         'Exact originally reviewed prospective setup required, never an old creation retry')
     require(values['ownerApproval'].get('reviewHash') == intent.get('reviewHash') == review and
@@ -378,7 +381,7 @@ def require_complete(ledger, db):
 
 def confirm(registry, workspace_id, request, confirm_hash, *, confirmed=False, writers_stopped=False,
             fresh_catalog=None):
-    require(confirmed is True and writers_stopped is True and request.get('kind') == KIND and
+    require(isinstance(request, dict) and confirmed is True and writers_stopped is True and request.get('kind') == KIND and
         request.get('workspaceId') == workspace_id and digest(request) == confirm_hash,
         'Exact new setup review and stopped-writer acknowledgment required; original creation approval is consumed')
     # Read historical success before old-identity context; it never reapplies a
