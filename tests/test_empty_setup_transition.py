@@ -63,12 +63,15 @@ class Fixture(unittest.TestCase):
         self.write(self.spec['catalogObservation'], {'source': 'codex_app.list_projects',
             'observedAt': time.time(), 'completeResult': self.catalog_result(self.catalog)})
         operator = self.records/'original-operator.py'; self.write(operator, 'consumed fixture', raw=True)
+        manifest = self.records/'launch-manifest.exact.json'
+        self.write(manifest, {'configPin': self.spec['originalConfigPin'], 'runtimePackage': {'root': '/fixture'},
+            'cwd': str(self.checkout), 'codexHome': str(self.home)})
         start = {'cwd': str(self.checkout), 'ephemeral': False, 'sandbox': 'workspace-write',
             'approvalPolicy': 'on-request', 'approvalsReviewer': 'user',
             'config': {'features': {'code_mode': {'enabled': False}}}}
         request = {'version': 1, 'kind': 'prospective_disjoint_v1_native_identity_setup_v1',
             'immutableInputs': [{'path': str(operator), 'sha256': api.pin(operator)['sha256'],
-                'identity': list(api.file_identity(operator.lstat()))}],
+                'identity': list(api.file_identity(operator.lstat()))}, api.input_pin(manifest)],
             'target': {'workspaceId': 'target', 'root': str(self.checkout)},
             'predecessor': {'brainId': self.old},
             'reviewedHost': {'endpoint': self.endpoint, 'runtimePackage': {'root': '/fixture'}},
@@ -243,7 +246,7 @@ class SetupTransitionTest(Fixture):
             with self.assertRaisesRegex(Refusal, 'context changed'): self.confirm(q)
         self.assertFalse((self.ledger.root/api.FENCE).exists())
         self.write(self.records/'original-operator.py', 'changed', raw=True)
-        with self.assertRaisesRegex(Refusal, 'operator'): self.confirm(q)
+        with self.assertRaisesRegex(Refusal, 'file epoch'): self.confirm(q)
 
     def test_dashboard_lock_and_foreign_database_change_refuse(self):
         from orchestrator.workspace_identity_recovery import dashboard_lock

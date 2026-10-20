@@ -65,6 +65,13 @@ def input_pin(path):
     return {'path': str(path), 'sha256': record['sha256'], 'identity': list(file_identity(before))}
 
 
+def preserved_pin(value):
+    require(isinstance(value, dict) and isinstance(value.get('path'), str), 'Retained setup file pin required')
+    inspect = input_pin if set(value) == {'path', 'sha256', 'identity'} else pin
+    require(inspect(value['path']) == value, 'Original consumed setup file epoch changed')
+    return value
+
+
 def identifier(value):
     try: valid = isinstance(value, str) and str(uuid.UUID(value)) == value
     except ValueError: valid = False
@@ -119,16 +126,26 @@ def provenance(spec):
         ('maximumProjectCreates', 'maximumBrainCreates', 'maximumLoads', 'maximumTurns')),
         'Exact integer creation/load/turn limits required')
     request_pin = intent.get('requestPin', {})
-    require(request_pin.get('path') == records['setupRequest'] and
-        request_pin.get('sha256') == pin(records['setupRequest'])['sha256'], 'Original setup request was replaced')
+    require(request_pin.get('path') == records['setupRequest'], 'Original setup request was replaced')
+    preserved_pin(request_pin)
     operator = intent.get('operatorSource', {})
-    require(operator.get('path') and pin(operator['path'])['sha256'] == operator.get('sha256'),
+    require(isinstance(operator.get('path'), str) and Path(operator['path']).suffix == '.py',
         'Preserve the original consumed operator implementation')
+    preserved_pin(operator)
     require(request['reviewedHost']['endpoint'] == spec['endpoint'], 'Original issued endpoint must stay unchanged')
     from .public_host_runtime import validate_pin
     package = request['reviewedHost']['runtimePackage']
     validate_pin(package)
     require(str(Path(package['root'])/'bin/codex') == spec['endpoint']['executable'], 'Original reviewed package differs')
+    manifests = [value for value in request.get('immutableInputs', [])
+        if Path(value.get('path', '')).name == 'launch-manifest.exact.json']
+    require(len(manifests) == 1, 'Original issued launch/configuration provenance required')
+    preserved_pin(manifests[0])
+    launch = read(manifests[0]['path'])
+    require(launch.get('configPin') == spec['originalConfigPin'] and launch.get('runtimePackage') == package and
+        launch.get('cwd') == spec['checkout'] and
+        Path(launch.get('codexHome', ''))/'config.toml' == Path(spec['configFile']),
+        'Original configuration epoch/home/checkout/package differs; no revised historical pin')
     setup = request['prospectiveNativeSetup']
     require(setup['threadStartParameters'] == {'cwd': spec['checkout'], 'ephemeral': False,
         'sandbox': 'workspace-write', 'approvalPolicy': 'on-request', 'approvalsReviewer': 'user',
