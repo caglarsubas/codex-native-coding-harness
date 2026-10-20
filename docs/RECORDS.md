@@ -1,5 +1,12 @@
 # Version 1 record contracts
 
+`historical_worker_admission_requalification_v1` binds the canonical completed
+setup transition, verified original database/input copies, actual current registry
+and untouched completion/accounting records. Immutable allowlisted implementations
+are hashed only. The explicit new admission pointer never renews an observation,
+rewrites old hashes, replays a claim or supplies mission/Play/safety authority.
+Default old paths remain strict. See [the requalification contract](HISTORICAL-ADMISSION-REQUALIFICATION.md).
+
 The [operator-only setup transition](EMPTY-SETUP-TRANSITION.md) retains a newly
 reviewed before/after identity mapping instead of repeating consumed native
 creation. It accepts only the exact restricted config plus one native checkout

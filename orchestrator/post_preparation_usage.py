@@ -16,17 +16,19 @@ from .native_read_client import file_identity
 from .standard_quarantine import exclusive
 
 KIND='transferred_preparation_usage_v1'
+PR183_SOURCE='a12d24ecc2eaceb2bff8f5e59a435e8084c8ff9d30bf4ad7dd812e89313a38fa'
 BOUNDARY={k:v for k,v in completion.BOUNDARY.items() if k not in {'usageCollected','postTurnUsage'}}
 BOUNDARY.update(executionAuthorized=False,providerBillingVerified=False,originalUsageChanged=False,
     originalCompletionUsageChanged=False,usageEvidenceOnly=True)
 
 
-def context(registry,ledger,directory,completion_source=None,*,live=False):
-    evidence=completion.status(registry,ledger,directory,completion_source=completion_source)
+def context(registry,ledger,directory,completion_source=None,*,live=False,setup_transition=None):
+    require(setup_transition is None or live is False, 'Registration requalification is file-only, not a usage collection permit')
+    evidence=completion.status(registry,ledger,directory,completion_source=completion_source,setup_transition=setup_transition)
     require(evidence['status']=='preparation_completion_observed','Independent completed preparation evidence required')
     old=evidence['context']; original_source=old['originalSource']
     q,now=completion.context(registry,ledger,old['reviewFile'],
-        None if original_source is None else original_source['root'],live=live)
+        None if original_source is None else original_source['root'],live=live,setup_transition=setup_transition)
     source_proof=None if completion_source is None else completion.handoff.phase.lifecycle.source_proof(completion_source)
     usage_file=Path(q['journal'])/'usage.json'; usage_pin=completion.planning.pin(usage_file)
     completion.handoff.check_usage(q,usage_pin,fresh=False,active=False)
@@ -114,14 +116,26 @@ def collect(registry,ledger,directory,out,*,completion_source=None):
     return result
 
 
-def status(registry,ledger,directory,*,fresh=False):
+def status(registry,ledger,directory,*,fresh=False,setup_transition=None,usage_source=None):
     root=Path(directory); result=completion.handoff.read(root/'evidence.json'); before=completion.handoff.read(root/'intent.json')
     require({p.name for p in root.iterdir()}=={'intent.json','evidence.json'} and result.get('kind')==KIND and
         result.get('context')==before and result.get('boundary')==BOUNDARY and
         result.get('status') in {'usage_observed','usage_gapped','unknown'},'Complete closed usage evidence required')
     source=before['completionSource']
-    q,original,now,baseline=context(registry,ledger,before['completionDirectory'],None if source is None else source['root'])
-    require(before==now and forward_usage.number(result.get('observedAt')) and
+    q,original,now,baseline=context(registry,ledger,before['completionDirectory'],None if source is None else source['root'],
+        setup_transition=setup_transition)
+    if usage_source is not None:
+        from .admission_continuity import implementation
+        require(setup_transition is not None and before['sourceHash']==before['context']['currentSourceHash']==PR183_SOURCE,
+            'Only exact original PR-183 accounting may use registration requalification')
+        implementation(before['sourceHash'],usage_source,PR183_SOURCE)
+        left,right=dict(before),dict(now)
+        left_context,right_context=dict(left.pop('context')),dict(right.pop('context'))
+        left.pop('sourceHash'); right.pop('sourceHash')
+        left_context.pop('currentSourceHash'); right_context.pop('currentSourceHash')
+        require(left==right and left_context==right_context, 'Unrelated accounting provenance changed')
+    else: require(before==now, 'Original usage evidence, source or observation changed')
+    require(forward_usage.number(result.get('observedAt')) and
         result['observedAt']<=time.time(),'Original usage evidence, source or observation changed')
     common={'kind','status','context','observedAt','boundary'}
     if result['status']=='unknown':

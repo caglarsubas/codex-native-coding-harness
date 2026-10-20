@@ -36,7 +36,8 @@ def qualified_source(q,root):
     return proof  # Read hashes/epochs only; never import historical Python.
 
 
-def context(registry,ledger,file,source=None,*,live=False):
+def context(registry,ledger,file,source=None,*,live=False,setup_transition=None):
+    require(setup_transition is None or live is False, 'Historical registration continuity cannot authorize a native connection')
     q=planning.read_review(file); require(handoff.valid(q),'Only the exact version-5 transfer is supported')
     proof=qualified_source(q,source); old=handoff.status(q); result=planning.status(q)
     require(old['status']=='incomplete_unknown' and old['connectionClosed'] is True and
@@ -72,7 +73,14 @@ def context(registry,ledger,file,source=None,*,live=False):
         isinstance(proposal['nextSteps'],list) and 1<=len(proposal['nextSteps'])<=8 and
         all(isinstance(v,str) and 0<len(v)<=1000 for v in proposal['nextSteps']),'Bounded original inert proposal required')
     original=planning.original_context(registry,ledger,q['original']['bindingFile'],q['original']['command']['id'],disposed=True)
-    require(original==q['original'] and tuple(map(str,handoff.phase.locations(registry,original)[:2]))==(q['journal'],q['mailbox']),
+    if setup_transition is not None:
+        from .admission_continuity import original_relation
+        require(isinstance(setup_transition,dict) and set(setup_transition)=={'targetId','setupSource'},
+            'Closed explicit registration continuity input required')
+        original_relation(registry,ledger,q['original'],original,setup_transition['targetId'],
+            setup_source=setup_transition['setupSource'])
+    else: require(original==q['original'], 'Original rows, usage, claims, bindings and canonical identity must remain unchanged')
+    require(tuple(map(str,handoff.phase.locations(registry,original)[:2]))==(q['journal'],q['mailbox']),
         'Original rows, usage, claims, bindings and canonical identity must remain unchanged')
     handoff.phase_clock(q,active=False)
     handoff.check_usage(q,result['records']['usage.json'],fresh=False,active=False)
@@ -92,7 +100,7 @@ def context(registry,ledger,file,source=None,*,live=False):
         row['historySha256']==t['archivePin']['sha256'],'Original positive metadata transfer required')
     # Hash complete old inventories; never adopt, rewrite or add to either one.
     old_pin=planning.pin(owner/'outcome.json')
-    preserved=digest({'original':original,'owner':old,'outcomePin':old_pin,
+    preserved=digest({'original':q['original'],'owner':old,'outcomePin':old_pin,
         'consumer':handoff.phase.consumer_inventory(q),'transfer':t,'sourceProof':proof})
     return q,{'reviewFile':str(file),'reviewPin':planning.pin(file),'reviewHash':digest(q),
         'originalSource':proof,'preservedHash':preserved,'originalOutcomePin':old_pin,'nativeTurnId':turn,
@@ -179,12 +187,13 @@ def collect(registry,ledger,file,directory,*,source=None):
     return evidence
 
 
-def status(registry,ledger,directory,*,completion_source=None):
+def status(registry,ledger,directory,*,completion_source=None,setup_transition=None):
     root=Path(directory); evidence=handoff.read(root/'evidence.json'); before=handoff.read(root/'intent.json')
     require({p.name for p in root.iterdir()}=={'intent.json','evidence.json'} and evidence.get('kind')==KIND and
         evidence.get('context')==before and evidence.get('boundary')==BOUNDARY and
         evidence.get('status') in ('preparation_completion_observed','unknown'),'Complete unmodified independent evidence required')
-    source=before['originalSource']; _,now=context(registry,ledger,before['reviewFile'],None if source is None else source['root'])
+    source=before['originalSource']; _,now=context(registry,ledger,before['reviewFile'],None if source is None else source['root'],
+        setup_transition=setup_transition)
     if before['currentSourceHash']!=now['currentSourceHash']:
         require(completion_source is not None and before['currentSourceHash']==PR182_SOURCE,
             'Historical completion requires its exact immutable qualified PR-182 source')
