@@ -43,7 +43,10 @@ Preview checks the original operator/package, consumed lineage, exact current
 configuration, original registration/catalog mapping, all registered database
 identities/content, and an unreviewed draft or no mission. Any run, request,
 worker, managed/strict state, admission/disposition claim, ownership fence or
-reviewed mission refuses. It independently reads only the already-created new
+reviewed mission refuses. It verifies the original checkout/home directory identities and explicit
+local-only Git lineage/configuration proof; a matching path cannot hide a replaced
+repository. That metadata observation grants no global free-capacity assertion.
+It independently reads only the already-created new
 project, brain, effective policy and one complete empty history page twice.
 It never reads the predecessor brain, creates, loads, subscribes, signs in,
 refreshes authentication, handles a permission, starts a turn or lists arbitrary

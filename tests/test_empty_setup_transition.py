@@ -5,6 +5,7 @@ import hashlib
 import os
 from pathlib import Path
 import sqlite3
+import subprocess
 import tempfile
 import time
 import unittest
@@ -24,6 +25,9 @@ class Fixture(unittest.TestCase):
         self.root = Path(self.temp.name).resolve(); self.root.chmod(0o700)
         self.registry = Registry(self.root/'platform', create=True)
         self.checkout = self.root/'checkout'; self.checkout.mkdir(mode=0o700)
+        self.git('init', '-q')
+        self.git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost',
+            'commit', '--allow-empty', '-qm', 'Seed')
         self.home = self.root/'native-home'; self.home.mkdir(mode=0o700)
         self.records = self.root/'records'; self.records.mkdir(mode=0o700)
         self.old, self.brain, self.native, self.catalog = [str(uuid.uuid4()) for _ in range(4)]
@@ -65,14 +69,20 @@ class Fixture(unittest.TestCase):
         operator = self.records/'original-operator.py'; self.write(operator, 'consumed fixture', raw=True)
         manifest = self.records/'launch-manifest.exact.json'
         self.write(manifest, {'configPin': self.spec['originalConfigPin'], 'runtimePackage': {'root': '/fixture'},
-            'cwd': str(self.checkout), 'codexHome': str(self.home)})
+            'cwd': str(self.checkout), 'codexHome': str(self.home),
+            'cwdIdentity': api.directory_identity(self.checkout), 'homeIdentity': api.directory_identity(self.home)})
+        from orchestrator.standard_successor import repositories
+        with standard.read_db(self.ledger.db) as db: scope = repositories(Ledger.all(db, 'repos'), local_only=True)
+        observation = self.records/'repository-observation.json'
+        repository_observation = {'protocol': 'reviewed_local_git_v1', 'repositories': scope}
+        self.write(observation, repository_observation)
         start = {'cwd': str(self.checkout), 'ephemeral': False, 'sandbox': 'workspace-write',
             'approvalPolicy': 'on-request', 'approvalsReviewer': 'user',
             'config': {'features': {'code_mode': {'enabled': False}}}}
         request = {'version': 1, 'kind': 'prospective_disjoint_v1_native_identity_setup_v1',
             'immutableInputs': [{'path': str(operator), 'sha256': api.pin(operator)['sha256'],
-                'identity': list(api.file_identity(operator.lstat()))}, api.input_pin(manifest)],
-            'target': {'workspaceId': 'target', 'root': str(self.checkout)},
+                'identity': list(api.file_identity(operator.lstat()))}, api.input_pin(manifest), api.input_pin(observation)],
+            'target': {'workspaceId': 'target', 'root': str(self.checkout), 'localRepositoryObservationHash': digest(repository_observation)},
             'appCatalog': {'actualProject': {'projectId': self.catalog, 'hostId': 'local', 'path': str(self.checkout)}},
             'predecessor': {'brainId': self.old},
             'reviewedHost': {'endpoint': self.endpoint, 'runtimePackage': {'root': '/fixture'}},
@@ -117,6 +127,11 @@ class Fixture(unittest.TestCase):
 
     def write(self, path, value, raw=False):
         path = Path(path); path.write_text(value if raw else canonical(value)); path.chmod(0o600)
+
+    def git(self, *args):
+        return subprocess.run(['git', '-C', str(self.checkout), *args], check=True,
+            capture_output=True, env={'PATH': os.environ.get('PATH', '/usr/bin:/bin'),
+                'GIT_CONFIG_NOSYSTEM': '1', 'GIT_CONFIG_GLOBAL': '/dev/null', 'LC_ALL': 'C'})
 
     def catalog_result(self, pid):
         return {'schemaVersion': 2, 'projects': [{'projectKind': 'local', 'projectId': pid,
@@ -305,6 +320,19 @@ class SetupTransitionTest(Fixture):
         q = self.preview(); raw = self.config.read_text()
         self.write(self.config, raw, raw=True)
         with self.assertRaisesRegex(Refusal, 'context changed'): self.confirm(q)
+
+    def test_repository_config_drift_is_not_hidden_by_unchanged_path_and_ledger(self):
+        before = self.contents(self.ledger.db)
+        self.git('remote', 'add', 'origin', 'https://example.invalid/fixture.git')
+        with self.assertRaises(Refusal): self.preview()
+        self.assertEqual(self.contents(self.ledger.db), before)
+        self.assertEqual(self.calls, [])
+
+    def test_same_path_replacement_of_checkout_directory_refuses(self):
+        original = self.root/'retained-checkout'; self.checkout.rename(original)
+        self.checkout.mkdir(mode=0o700)
+        with self.assertRaisesRegex(Refusal, 'checkout or isolated native home'): self.preview()
+        self.assertEqual(self.calls, [])
 
     def test_nonprivate_source_input_is_preserved_but_runtime_records_stay_private(self):
         source = self.records/'source.md'; self.write(source, 'original reviewed source', raw=True); source.chmod(0o644)

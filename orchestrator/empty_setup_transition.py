@@ -20,7 +20,7 @@ from . import missions, projects, standard
 from .host_lifecycle import private_file, sync_directory
 from .native_read_client import ReadProxy, decode, validate_endpoint, file_identity
 from .native_policy_evidence import reported, matches
-from .public_host_lifecycle import CONFIG
+from .public_host_lifecycle import CONFIG, directory_identity
 from .public_host_restart import pin, read_file
 from .standard_quarantine import exclusive
 from .workspace_identity_recovery import (read_database, checked_fingerprint,
@@ -44,10 +44,11 @@ INIT = {'clientInfo': {'name': 'codex_orchestrator_observer', 'version': '1'},
 
 
 def source_hash():
-    from . import core, workspaces, native_policy_evidence, native_read_client
-    return digest([hashlib.sha256(Path(m.__file__).read_bytes()).hexdigest()
-        for m in (core, workspaces, missions, projects, native_policy_evidence,
-                  native_read_client)] + [hashlib.sha256(Path(__file__).read_bytes()).hexdigest()])
+    # Include transitive repository, package, backup and read-client gates too.
+    # A pending review cannot survive a changed helper implementation merely
+    # because its direct caller's bytes stayed the same.
+    from .standard_preplay import source_hash as implementation_hash
+    return implementation_hash()
 
 
 def read(path):
@@ -149,6 +150,9 @@ def provenance(spec):
         launch.get('cwd') == spec['checkout'] and
         Path(launch.get('codexHome', ''))/'config.toml' == Path(spec['configFile']),
         'Original configuration epoch/home/checkout/package differs; no revised historical pin')
+    require(directory_identity(spec['checkout']) == launch.get('cwdIdentity') and
+        directory_identity(Path(spec['configFile']).parent) == launch.get('homeIdentity'),
+        'Original checkout or isolated native home identity changed')
     setup = request['prospectiveNativeSetup']
     require(setup['threadStartParameters'] == {'cwd': spec['checkout'], 'ephemeral': False,
         'sandbox': 'workspace-write', 'approvalPolicy': 'on-request', 'approvalsReviewer': 'user',
@@ -190,6 +194,21 @@ def original_inputs(spec):
         seen.add(value['path'])
         require(input_pin(value['path']) == value, 'An immutable predecessor/setup input changed; never rewrite its pin')
     return copy.deepcopy(values)
+
+
+def repository_scope(spec, repos):
+    from .standard_successor import repositories
+    original = read(spec['setupRecords']['setupRequest'])
+    records = [row for row in original['immutableInputs']
+        if Path(row['path']).name == 'repository-observation.json']
+    require(len(records) == 1, 'Original explicit local-only repository observation required')
+    preserved_pin(records[0]); saved = read(records[0]['path'])
+    require(saved.get('protocol') == 'reviewed_local_git_v1' and
+        digest(saved) == original['target'].get('localRepositoryObservationHash'),
+        'Original repository scope was not approved by this setup review')
+    current = repositories(repos, local_only=True)
+    require(current == saved['repositories'], 'Original Git lineage/configuration/identity changed; no path-based substitution')
+    return current
 
 
 def validate_spec(spec):
@@ -324,10 +343,12 @@ def context(registry, workspace_id, spec, *, claimed=False):
         'Preserve one intact original registration/catalog mapping; never hide an existing identity mismatch')
     lineage = provenance(spec)
     immutable = original_inputs(spec)
+    repository = repository_scope(spec, repos)
     config = configuration(spec['configFile'], spec['checkout'], spec['originalConfigPin'])
     result = {'kind': KIND, 'version': 1, 'sourceHash': source_hash(), 'workspaceId': workspace_id,
         'spec': copy.deepcopy(spec), 'setupPins': lineage, 'catalogPin': pin(spec['catalogObservation']),
         'immutableSetupInputs': immutable,
+        'repositoryScope': repository,
         'configTransition': config, 'registration': selected, 'oldCatalog': saved, 'oldBindings': bindings,
         'newCatalogProject': project, 'originalMeta': meta, 'draftHash': mission['documentHash'],
         'databases': {str(path): database(path) for path in [registry.db, *[Path(r['root'])/'ledger.sqlite3' for r in rows]]},
