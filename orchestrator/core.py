@@ -191,6 +191,8 @@ class Ledger:
         try:
             db.execute("BEGIN IMMEDIATE")
             meta = self.get(db, "meta", 1)
+            from .empty_setup_transition import require_complete as setup_complete
+            setup_complete(self, db)
             from .canceled_play import exists_in as canceled_play_fenced
             require(not canceled_play_fenced(self, db),
                     'Canceled Play disposition is read-only; no reload, receipt reconstruction or replay')
@@ -215,6 +217,7 @@ class Ledger:
                 retained_in(self, db)
             readiness_retained(self, db)
             owned_readiness_retained(self,db)
+            setup_complete(self, db)
             db.commit()
         except BaseException:
             db.rollback()

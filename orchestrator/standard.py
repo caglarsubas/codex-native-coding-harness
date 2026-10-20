@@ -96,6 +96,8 @@ def git_root(path):
 
 def eligible(ledger, db):
     meta = ledger.get(db, "meta", 1)
+    from .empty_setup_transition import require_complete as setup_complete
+    setup_complete(ledger, db)
     from .canceled_play import exists_in as canceled_play_fenced
     require(not canceled_play_fenced(ledger, db), 'Canceled Play is disposed as unqualified; continuation has no execution authority')
     require(not os.path.lexists(ledger.root/'standard-partial-admission-disposition.json') or

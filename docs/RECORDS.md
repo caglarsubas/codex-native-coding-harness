@@ -1,5 +1,13 @@
 # Version 1 record contracts
 
+The [operator-only setup transition](EMPTY-SETUP-TRANSITION.md) retains a newly
+reviewed before/after identity mapping instead of repeating consumed native
+creation. It accepts only the exact restricted config plus one native checkout
+trust append, repeats non-loading zero-turn readback, backs up every registered
+database, preserves original setup/old-run records and produces a new unreviewed
+draft. External claim/completion fencing covers partial local commits. This
+source increment does not install, bind, load, admit, start or accept a live pilot.
+
 `transferred_preparation_usage_v1` retains new intent/evidence outside the
 immutable completed v5 journals, with original source/epoch pins and repeated
 read-only destination identity/history. Actual cumulative numeric records cover
