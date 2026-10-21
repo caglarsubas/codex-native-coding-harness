@@ -1,6 +1,7 @@
 """Actual disposable admission plus synthetic native readiness, never live state."""
 import copy
 import json
+import os
 from pathlib import Path
 from types import SimpleNamespace
 import unittest
@@ -24,6 +25,22 @@ class AdmittedReadinessTest(unittest.TestCase):
         self.h=lineage.HistoricalAdmissionTest('runTest'); self.addCleanup(self.h.doCleanups)
         with patch.object(lineage.SetupFixture,'checkout_local',True,create=True): self.h.setUp()
         self.registry,self.target=self.h.registry,self.h.target
+        if getattr(self,'historical_source',False):
+            # A completed admission genuinely crosses an implementation epoch;
+            # the inert frozen Python is only hashed, never imported/executed.
+            self.frozen=self.h.u.f.f.f.root/'inert-original-readiness-source'
+            directory=self.frozen/'orchestrator'; directory.mkdir(parents=True,mode=0o700)
+            inert=directory/'fixture.py'; inert.write_text("raise AssertionError('Never execute historical source')\n"); inert.chmod(0o600)
+            original_source=admission.source_hash
+            self.epoch=source_proof(self.frozen)['sourceHash']
+            original_context=history.context
+            def historical_context(*args,**kwargs):
+                context,result,q=original_context(*args,**kwargs); context['sourceHash']=self.epoch
+                return context,result,q
+            for p in (patch.object(history,'PR185_SOURCE',self.epoch),
+                      patch.object(history,'context',side_effect=historical_context),
+                      patch.object(admission,'source_hash',side_effect=lambda:self.epoch)):
+                p.start(); self.addCleanup(p.stop)
         self.h.qualify()
         state=missions.read(self.target)
         missions.change(self.target,{'id':'review-admitted-readiness-fixture','operation':'review',
@@ -38,6 +55,13 @@ class AdmittedReadinessTest(unittest.TestCase):
         admission.backup(self.registry,self.h.source,preview['request'],self.h.backup,writers_stopped=True)
         self.receipt=admission.confirm(self.registry,self.h.source,preview['request'],preview['reviewHash'],
             writers_stopped=True,backup_root=self.h.backup)
+        if getattr(self,'historical_source',False):
+            self.epoch=original_source()
+            continuity.qualify(self.registry,self.target,self.frozen,writers_stopped=True)
+            path=self.target.root/continuity.FILE
+            os.utime(path,ns=(1792000000000000001,1792000000000000001))
+            self.original_continuity_bytes=path.read_bytes()
+            self.original_continuity_pin=admission.successor.pin(path)
         self.original_marker=(self.target.root/admission.successor.FENCE).read_bytes()
         self.original_source_claim=admission.successor.source_claim(self.registry.root,self.h.source.workspace_id).read_bytes()
         self.r=readiness.ReadinessOwnedTest('runTest'); self.r.setUp(); self.addCleanup(self.r.doCleanups)
@@ -69,6 +93,10 @@ class AdmittedReadinessTest(unittest.TestCase):
         self.assertEqual((self.target.root/admission.successor.FENCE).read_bytes(),self.original_marker)
         self.assertEqual(admission.successor.source_claim(self.registry.root,self.h.source.workspace_id).read_bytes(),self.original_source_claim)
         self.assertIsNone(self.target.snapshot()['meta'].get('standardRun'))
+        if getattr(self,'historical_source',False):
+            path=self.target.root/continuity.FILE
+            self.assertEqual(path.read_bytes(),self.original_continuity_bytes)
+            self.assertEqual(admission.successor.pin(path),self.original_continuity_pin)
 
     def test_exact_admission_readiness_uses_new_review_and_same_connection_without_play(self):
         before=admission.partial.database_proof(self.target.db)
@@ -168,6 +196,49 @@ class AdmittedReadinessTest(unittest.TestCase):
         archive=owned.record(proof['backup']['path'],1_000_000)
         self.assertEqual(len(archive['files']),2+len(review['local']['sidecars']))
         self.conserved()
+
+
+class HistoricalAdmittedReadinessWireTest(unittest.TestCase):
+    def setUp(self):
+        self.f=AdmittedReadinessTest('runTest'); self.f.historical_source=True
+        self.addCleanup(self.f.doCleanups); self.f.setUp()
+
+    def test_signed_display_and_integer_authority_pins_survive_real_javascript(self):
+        f=self.f; p=f.r.prepare(); review=f.r.review()
+        original=review['local']['workerAdmission']['sourceContinuityPin']
+        self.assertEqual(original,f.original_continuity_pin)
+        self.assertIn(1792000000000000001,original['identity'])
+        display=p['document']['preview']['details']['workerAdmission']['sourceContinuityPin']
+        self.assertEqual(display,{'sha256':original['sha256'],'identity':[str(n) for n in original['identity']]})
+        wire=f.r.browser_roundtrip(p)
+        self.assertEqual(wire,p,'The complete signed envelope, not just its inner request, must survive JavaScript')
+        self.assertEqual(f.r.review(wire),review)
+        f.r.confirm(wire); delivered=f.r.deliver(); f.r.receipt()
+        self.assertEqual(delivered['notification']['status'],'accepted')
+        saved=next(c for c in f.target.snapshot()['commands'] if c['id']==f.r.cid)
+        self.assertEqual(saved['payload']['readinessStart'],review)
+        f.r.confirm(wire); f.r.deliver()
+        self.assertEqual([m for m,_ in f.r.calls].count('thread/resume'),1)
+        self.assertEqual([m for m,_ in f.r.calls].count('turn/start'),1)
+        self.assertEqual(standard.read(f.target)['catalogRefresh']['status'],'completed')
+        f.conserved()
+
+    def test_display_or_authority_tampering_cannot_create_a_claim(self):
+        f=self.f; p=f.r.prepare()
+        for value in ('1792000000000000002',1792000000000000001):
+            bad=f.r.browser_roundtrip(p)
+            bad['document']['preview']['details']['workerAdmission']['sourceContinuityPin']['identity'][-1]=value
+            with self.subTest(display=value), self.assertRaises(Refusal): f.r.confirm(bad)
+        review=f.r.review(); rounded=f.r.browser_roundtrip(review)
+        self.assertNotEqual(rounded['local']['workerAdmission']['sourceContinuityPin'],f.original_continuity_pin)
+        bad=copy.deepcopy(p); bad['document']['request']=owned.browser_request(rounded)
+        bad['signature']=f.r.proposals.sign(bad['document'])
+        with self.assertRaises(Refusal): f.r.confirm(bad)
+        review['local']['workerAdmission']['sourceContinuityPin']['identity']=[str(n) for n in f.original_continuity_pin['identity']]
+        with self.assertRaises(Refusal): owned.validate_review(review)
+        self.assertFalse(owned.claims(f.target)); self.assertEqual(f.target.snapshot()['commands'],[])
+        self.assertFalse(any(m in ('thread/resume','turn/start') for m,_ in f.r.calls))
+        f.conserved()
 
 
 class AdmissionSourceContinuityTest(unittest.TestCase):

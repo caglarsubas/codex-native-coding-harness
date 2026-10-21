@@ -313,7 +313,13 @@ class JourneyProposals(ActionProposals):
                 'checkout':host.binding['brains'][review['brainId']]['cwd'],
                 'preservedRequestIds':sorted(review['local']['oldCommands'])}
             if review['version']==2:
-                preview['details']['workerAdmission']=review['local']['workerAdmission']
+                # This is a display copy inside the signed outer envelope.
+                # Keep its nanosecond epochs exact across JavaScript too; the
+                # authoritative integer pins stay in readinessStartJson.
+                lineage=copy.deepcopy(review['local']['workerAdmission'])
+                if lineage['sourceContinuityPin'] is not None:
+                    lineage['sourceContinuityPin']['identity']=[str(n) for n in lineage['sourceContinuityPin']['identity']]
+                preview['details']['workerAdmission']=lineage
                 preview['summary'].insert(0,'New first readiness for the exact admitted target; preserve its existing admission and predecessor holds.')
         elif kind == "usage_check":
             request = {"id": ident, "runId": standard["run"]["id"], "contextHash": standard["contextHash"]}

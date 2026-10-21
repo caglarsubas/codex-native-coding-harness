@@ -54,6 +54,15 @@ Its canonical UTF-8 text preserves nanosecond integers across the browser wire.
 It has no timer expiry; scope, source, native state and session/key changes still
 invalidate it. Installation, admission and earlier approvals do not confirm it.
 
+The signed outer preview's display copy of a historical source-continuity file
+identity uses exact decimal strings. The authoritative integer pins remain only
+inside the canonical `readinessStartJson` text. Do not send another raw numeric
+copy in preview details: JavaScript rounds nanosecond epochs and then the full
+envelope fails its unchanged HMAC gate before any command or claim is created.
+This rejection is not a host failure or timer expiry. Never silently re-sign,
+coerce authoritative pins, confirm a refreshed review or replay the rejected
+control. A refreshed exact review still needs the owner's separate confirmation.
+
 Only this specific admission kind qualifies. Generic successors, partial or
 disposed admissions, active/expired runs, strict/Harness enrollment, Stop,
 workers/packets/decisions, controller ownership, pending requests and any previous
@@ -119,3 +128,22 @@ source and all five operational databases without installing a qualification.
 Separate preservation checks verified both claims, all old target rows, 895
 protected records and the same live dashboard source/process/binding. No live
 readiness, load, turn, replay, usage reset or pilot acceptance occurred.
+
+The historical source-qualified browser case is distinct from a current-source
+admission whose continuity pin is null. Qualification must cover both. The
+`--historical-admission` disposable rendered fixture includes a real completed
+admission, explicit inert frozen-source qualification and an odd nanosecond file
+epoch. Its optional `--confirm-browser` mode checks the real HTTP/local command
+and exact original integer pins with native delivery explicitly suppressed.
+Unit cases additionally cover signature tampering, rounded authoritative pins,
+source/claim preservation and one-shot synthetic delivery; none operates live.
+
+The display-copy repair passed the complete local 3,371-case Python discovery
+(3,370 passed; one existing optional Graphify skip), with exact test-ID
+multiplicity across four isolated groups and unchanged implementation hashes.
+All 40 JavaScript suites, 31 web syntax checks, 361 tracked Python AST checks and
+diff checks passed. Ordinary, current-source admitted and historical-source
+admitted Chrome reviews each passed at 1440px and 320px, including one opt-in
+local-only browser confirmation per disposable project. Read-only live checks
+preserved all five databases and 964 private records; no live command, claim,
+load, turn, installation, replay, usage reset or pilot acceptance occurred.
