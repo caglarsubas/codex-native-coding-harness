@@ -176,6 +176,8 @@ class WakeProxy(ReadProxy):
         # masked frames on the same nonblocking stdin pipe.
         with self._frame_lock:
             self._write_deadline.value = time.monotonic() + 2
+            if hasattr(self, '_readiness_owned_deadline'):
+                self._write_deadline.value = min(self._write_deadline.value, self._readiness_owned_deadline)
             try:
                 return super()._send_frame(opcode, payload)
             finally:
@@ -204,11 +206,29 @@ class WakeProxy(ReadProxy):
             raise
 
     def _rpc(self, method, params):
+        if hasattr(self, '_readiness_owned_deadline'):
+            # A short I/O budget starts at this RPC, not before foreground
+            # database/source validation. Never renew the original send window.
+            now = time.monotonic()
+            require(now < self._readiness_owned_deadline, 'Original readiness window ended; no retry')
+            if method == 'turn/start':
+                checked = getattr(self, '_readiness_scope_checked_at', None)
+                require(checked is not None and 0 <= now-checked <= 120,
+                        'Readiness native scope is stale; no turn or retry')
+            self.deadline = min(self._readiness_owned_deadline, now + self.timeout)
         self._awaiting_start = method == "turn/start"
         try:
             return super()._rpc(method, params)
         finally:
             self._awaiting_start = False
+
+    def begin_readiness(self, seconds):
+        require(not hasattr(self, '_readiness_owned_deadline') and seconds == 900,
+                'Original bounded readiness connection only; no renewal')
+        self._readiness_owned_deadline = time.monotonic() + seconds
+        self.deadline = self._readiness_owned_deadline
+        # I/O only, on this pipe: no RPCs, callbacks or authority in the reader.
+        self.watch_connection()
 
     def _write(self, value):
         # Native commands/permission responses remain foreground-only. A known
@@ -972,8 +992,23 @@ class AppServerWake:
         confirmed_turn_id = None
         retained = False
         try:
+            stage = 'request_check'
+            # Admission validation can be expensive. Do it before opening the
+            # native connection; every readiness effect still repeats check().
+            with self.ledger.tx() as db:
+                sending_command = self.ledger.get(db, 'commands', command_id)
+                recovery_kind = sending_command.get('kind')
+                public_catalog = (recovery_kind == 'standard_catalog_refresh' and
+                    (sending_command.get('notification') or {}).get('preplayCatalog', {}).get('version') in (2,3))
+                readiness_owned = public_catalog and (sending_command.get('notification') or {}).get('preplayCatalog',{}).get('version') == 3
+                recovery = recovery_kind in ('brain_reply_recovery', 'standard_pause_recovery', 'standard_pause_receipt_recovery')
+                successor = self.ledger.get(db, 'meta', 1).get('schemaVersion') == 7
+                require(not successor or not recovery, 'Successor delivery never loads or replays a recovery')
+            stage = 'connect'
             proxy = WakeProxy(self.binding["endpoint"], timeout=15)
             proxy.__enter__()
+            if readiness_owned:
+                proxy.begin_readiness(900)
             stage = "thread_read"
             read = proxy._rpc("thread/read", {"threadId": brain_id, "includeTurns": False})
             thread = read.get("thread") if isinstance(read, dict) else None
@@ -991,16 +1026,6 @@ class AppServerWake:
                 # subscription for active turns is qualified, refuse the effect.
                 return {"status": "unavailable", "detail":
                         "The bound brain already has an active turn; native approval coverage for queued turns is unavailable. No message was sent."}
-            stage = "request_check"
-            with self.ledger.tx() as db:
-                sending_command = self.ledger.get(db, "commands", command_id)
-                recovery_kind = sending_command.get("kind")
-                public_catalog = (recovery_kind == 'standard_catalog_refresh' and
-                    (sending_command.get('notification') or {}).get('preplayCatalog', {}).get('version') in (2,3))
-                readiness_owned = public_catalog and (sending_command.get('notification') or {}).get('preplayCatalog',{}).get('version') == 3
-                recovery = recovery_kind in ("brain_reply_recovery", "standard_pause_recovery", "standard_pause_receipt_recovery")
-                successor = self.ledger.get(db, 'meta', 1).get('schemaVersion') == 7
-                require(not successor or not recovery, 'Successor delivery never loads or replays a recovery')
             if recovery:
                 if recovery_kind == "standard_pause_receipt_recovery":
                     from .pause_receipt_recovery import send_check
@@ -1282,7 +1307,8 @@ class AppServerWake:
                         (control.get("notification") or {}).get("preplayCatalog", {}).get("transport") ==
                         "preplay_catalog_observer_v1"):
                     proxy._on_wait_tick = inspect_request
-                proxy.watch_connection()
+                if not getattr(proxy, '_watching', False):
+                    proxy.watch_connection()
             early_requests = list(getattr(proxy, "_early_requests", ()))
             for _ in range(0 if early and early[:2] == (brain_id, turn_id) else 100_000):
                 row = early_requests.pop(0) if early_requests else proxy._line()

@@ -276,6 +276,10 @@ def public(record):
 
 def retired_in(ledger, db, command_id):
     record = retained_in(ledger, db)
+    if record and record['request']['command']['id'] == command_id:
+        return True
+    from .readiness_prestart_resolution import retained_in as prestart_retained
+    record = prestart_retained(ledger, db)
     return bool(record and record['request']['command']['id'] == command_id)
 
 

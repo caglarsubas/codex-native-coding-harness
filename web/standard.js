@@ -51,6 +51,7 @@ const standardCatalogRequests=new Map(),standardCatalogTimers=new Map(),standard
 function catalogMissing(s){return (!s.run||['completed','blocked'].includes(s.run.status))&&!s.available&&s.catalogRequired===true;}
 function catalogStatus(refresh){
   if(!refresh)return {title:'Codex readiness has not been checked',detail:'Choose Check Codex readiness to ask the designated brain for available models and efforts. This does not start development.'};
+  if(refresh.disposition?.kind==='readiness_prestart_resolution_v1')return {title:'Readiness stopped before loading · unqualified',detail:'The original deadline failure and consumed claim are preserved. No brain receipt, new readiness allowance or Play authority was created. Do not repeat readiness; terminal safety remains unknown.'};
   if(refresh.disposition?.status==='disposed_unqualified')return {title:'Readiness check ended without a result',detail:'Cancel resolved. This attempt is recorded as unqualified; its missing brain receipt is preserved. Nothing is waiting on this attempt. A new, separately requested check is required before Play; this attempt cannot be resent.'};
   if(refresh.status==='completed')return {title:'Native capabilities recorded',detail:refresh.result};
   if(refresh.status==='failed')return catalogReadinessIssue(refresh)||{title:'Codex readiness check failed',detail:'The brain recorded a capability error. Inspect the saved diagnostic before requesting another check. Play has not started.'};
@@ -63,6 +64,7 @@ function catalogStatus(refresh){
       ?'The bound Codex host started a turn. Waiting for the designated brain’s separate ledger receipt.'
       :'Native delivery was acknowledged, not received by the brain. Waiting for the designated brain’s separate ledger receipt; a legacy desktop queue may not start an unloaded task.'};
   if(notification.status==='uncertain'||notification.status==='sending')return {title:'Delivery unconfirmed',detail:'The request is retained and will not be resent automatically. Waiting for the brain or heartbeat to reconcile the exact request.'};
+  if(notification.status==='unavailable'&&(refresh.readinessOwned||notification.preplayCatalog?.version===3))return {title:'Readiness needs operator attention',detail:notification.detail+' This one-shot request cannot be retried.'};
   if(notification.status==='unavailable')return {title:'Automatic delivery unavailable',detail:`${notification.detail} Safe delivery attempt ${refresh.deliveryAttempts} of ${refresh.maxDeliveryAttempts}.`};
   return {title:'Capability request saved',detail:'The request is retained but has not been sent. A stopped or parked brain must be explicitly resumed; this request never resumes it.'};
 }
@@ -303,6 +305,7 @@ function standardPanel(root,mode='all'){
   if(needsCatalog&&s.catalogRefresh?.status==='queued'&&!s.catalogRefresh.disposition){requestButton.textContent='Waiting for native capabilities';requestButton.disabled=true;}
   if(needsCatalog&&s.catalogRefresh?.disposition)requestButton.textContent='Request a new readiness check';
   if(needsCatalog&&s.catalogRefresh?.status==='failed')requestButton.textContent=catalogReadinessIssue(s.catalogRefresh)?'Inspect Codex readiness':'Retry capability refresh';
+  if(s.readinessResolution){requestButton.textContent='Readiness resolved · development blocked';requestButton.disabled=true;}
   standardConfirmation(panel,s,run);
   root.append(panel);
 }

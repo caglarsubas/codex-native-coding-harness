@@ -170,6 +170,21 @@ def projection(ledger, db):
     }
     if latest_refresh and latest_refresh.get('payload',{}).get('readinessStart'):
         result['catalogRefresh']['readinessOwned'] = True
+    from . import readiness_prestart_resolution as prestart
+    if os.path.lexists(ledger.root/prestart.FENCE) or db.execute(
+            'SELECT 1 FROM snapshots WHERE kind=?',(prestart.KIND,)).fetchone():
+        try:
+            resolved = prestart.retained_in(ledger,db)
+            public = prestart.public(resolved)
+            result.update(readinessDisposition=public, readinessResolution=public,
+                readinessOwned={'consumed':True,'reconnectAllowed':False,'terminalSafety':'unknown'},
+                blocker='Readiness stopped before loading; resolved as unqualified. No retry or new load allowance.',
+                contextHash=digest(meta))
+            if latest_refresh: result['catalogRefresh']['disposition'] = public
+        except (OSError,Refusal,ValueError,KeyError,TypeError,sqlite3.Error):
+            result.update(readinessResolution={'status':'incomplete_or_changed','writesBlocked':True},
+                blocker='Readiness resolution is partial or changed; preserve its original claim, never retry',contextHash=digest(meta))
+        return result
     from . import readiness_disposition as disposition
     from .canceled_play import status_in as canceled_play_status
     canceled = canceled_play_status(ledger, db)

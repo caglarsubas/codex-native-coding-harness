@@ -50,6 +50,30 @@ class WorkspaceTest(unittest.TestCase):
         self.assertEqual(self.registry.ledger("a").snapshot()["meta"]["brainId"], "brain-a")
         self.assertNotIn(str(self.a.root), json.dumps(self.registry.list()))
 
+    def test_status_reads_do_not_request_a_writer_lock(self):
+        self.registry.register('a','A',self.a.root)
+        result=[]; errors=[]
+        def inspect():
+            try: result.append((self.registry.list(),self.registry.root_for('a')))
+            except BaseException as error: errors.append(error)
+        with self.registry.tx():
+            thread=threading.Thread(target=inspect); thread.start(); thread.join(timeout=2)
+            self.assertFalse(thread.is_alive(),'A status snapshot cannot wait for the writer reservation')
+        self.assertEqual(errors,[]); self.assertEqual(result[0][1],self.a.root)
+        with self.registry.read() as db:
+            with self.assertRaises(sqlite3.OperationalError): db.execute('DELETE FROM workspaces')
+
+    def test_normal_registry_status_closes_cold_wal_without_stale_sidecars(self):
+        self.registry.register('a','A',self.a.root)
+        before=self.registry.db.read_bytes()
+        self.assertEqual(before[18:20],b'\x02\x02')
+        self.assertFalse(self.registry.db.with_name('platform.sqlite3-shm').exists())
+        self.assertEqual(self.registry.root_for('a'),self.a.root)
+        self.assertEqual(len(self.registry.list()),1)
+        self.assertEqual(self.registry.db.read_bytes(),before)
+        self.assertFalse(self.registry.db.with_name('platform.sqlite3-shm').exists())
+        self.assertFalse(self.registry.db.with_name('platform.sqlite3-wal').exists())
+
     def test_independent_commands_and_profiles(self):
         for name, ledger in (("a", self.a), ("b", self.b)):
             self.registry.register(name, name.upper(), ledger.root)

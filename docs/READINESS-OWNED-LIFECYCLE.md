@@ -1,5 +1,10 @@
 # Forward-only readiness-owned load and subscription
 
+The prospective deadline repair and separate, non-waking disposition of a
+positively proved pre-load failure are in
+[Readiness deadlines and pre-start resolution](READINESS-DEADLINE-AND-PRESTART-RESOLUTION.md).
+They never rearm this control's consumed claim or restore a load allowance.
+
 The new `codex_readiness_start` signed owner control is a distinct first-phase
 public-backend readiness operation. It is not an inspection reload, an upgrade
 of an old command, Play, recovery, a binding change or a terminal-safety claim.

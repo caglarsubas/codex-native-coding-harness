@@ -198,6 +198,8 @@ class Ledger:
                     'Canceled Play disposition is read-only; no reload, receipt reconstruction or replay')
             from .readiness_disposition import retained_in as readiness_retained
             readiness_retained(self, db)
+            from .readiness_prestart_resolution import require_open as prestart_open
+            prestart_open(self,db)
             from .readiness_owned import retained_in as owned_readiness_retained
             owned_readiness_retained(self,db)
             forward = os.path.lexists(self.root/'standard-forward-continuation.json')
@@ -216,6 +218,7 @@ class Ledger:
                 from .standard_successor import retained_in
                 retained_in(self, db)
             readiness_retained(self, db)
+            prestart_open(self,db)
             owned_readiness_retained(self,db)
             setup_complete(self, db)
             db.commit()
@@ -776,6 +779,14 @@ class Ledger:
             from .readiness_disposition import retained_in as readiness_retained, public as readiness_public
             disposition = readiness_retained(self, db)
             result['readinessDisposition'] = readiness_public(disposition) if disposition else None
+            from . import readiness_prestart_resolution as prestart
+            try:
+                resolved = prestart.retained_in(self,db)
+                result['readinessResolution'] = prestart.public(resolved) if resolved else None
+                if resolved: result['readinessDisposition'] = result['readinessResolution']
+            except (OSError,Refusal,ValueError,KeyError,TypeError,sqlite3.Error):
+                result['readinessResolution'] = {'status':'incomplete_or_changed','writesBlocked':True,
+                                                 'boundary':dict(prestart.BOUNDARY)}
             from .canceled_play import status_in as canceled_play_status
             canceled = canceled_play_status(self, db)
             result['canceledPlayDisposition'] = canceled if canceled['status'] != 'not_recorded' else None
