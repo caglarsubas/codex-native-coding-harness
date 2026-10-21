@@ -16,6 +16,12 @@ controller authority: an exact owner confirmation is required for submission.
 
 ## What is included
 
+The separate [post-startup worker readiness observation](docs/WORKER-PHASE-READINESS.md)
+verifies actual public API/model/policy metadata after a completed preparation,
+without another readiness message, load, subscription or turn. An unloaded brain
+retains unknown policy/trackers and a concrete blocker. Saved evidence preserves
+all old accounting/claims and cannot unfence normal writes or authorize Play.
+
 The separate [same-project successor preparation phase](docs/SUCCESSOR-PREPARATION-PHASE.md)
 preserves an expired canceled attempt and completed maintenance while proposing
 one new, independently clocked, preparation-only phase in the existing project.

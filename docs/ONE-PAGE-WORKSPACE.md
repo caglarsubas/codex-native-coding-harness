@@ -114,6 +114,15 @@ evidence verifies its existence, branch, checks and merge state.
 
 ## Verification and rollout boundary
 
+After a preparation-only startup, the retained proposal is not worker readiness.
+The explicit operator [worker evidence check](WORKER-PHASE-READINESS.md) can
+observe the existing bound host without sending another message or loading the
+brain. `brain_not_loaded` means current policy and trackers are unavailable, not
+that a user should repeat readiness or Play. Its file-only status does not renew
+observation times, clear the original request or unlock controls. Worker-phase
+review and fresh Play remain separate; never offer an executable review while
+the loaded-only prerequisite is missing.
+
 Local qualification covers old deep links, Back/Forward, graph selection and
 chat drafts, pending receipts, unknown/blocked states, long histories, project
 isolation, keyboard tabs and focus, reduced motion and 320px reflow. Protocol
