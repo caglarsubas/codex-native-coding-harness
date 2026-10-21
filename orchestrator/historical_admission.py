@@ -15,6 +15,7 @@ from .standard_quarantine import exclusive
 from .host_lifecycle import sync_directory
 
 KIND='historical_worker_admission_requalification_v1'
+PR185_SOURCE='dc6cdc99b3a1d4e8401b3ca85ed5fb4d04f52eba1f9c92e858b355589123f777'
 BOUNDARY={'nativeConnection':False,'brainReloaded':False,'requestReplayed':False,
     'usageCollected':False,'usageReset':False,'observationsRenewed':False,'bindingChanged':False,
     'claimsRearmed':False,'admissionAuthorized':False,'playAuthorized':False,
@@ -70,7 +71,7 @@ def qualify(registry,source,target_id,usage_directory,out,*,setup_source=None,us
     return value
 
 
-def resolved(registry,source,directory):
+def resolved(registry,source,directory,*,implementation_source=None):
     root=Path(directory); value=continuity.setup.read(root/'evidence.json'); before=continuity.setup.read(root/'intent.json')
     require({p.name for p in root.iterdir()}=={'intent.json','evidence.json'} and set(value)=={
         'kind','status','context','qualifiedAt','postPreparationTokens','remainingConservativePhaseCeiling','boundary'} and
@@ -79,13 +80,24 @@ def resolved(registry,source,directory):
         usage.forward_usage.number(value['qualifiedAt']) and value['qualifiedAt']<=time.time(),
         'Complete immutable file-only requalification required; no partial/unknown fallback')
     now,old,q=context(registry,source,before['inputs'])
-    require(before==now and value['postPreparationTokens']==old['report']['tokens']['total_tokens'] and
+    if implementation_source is not None:
+        # Only the explicit completed-admission continuity adapter supplies this
+        # pointer. Validate original immutable source bytes; never execute them
+        # or replace the original source hash with the current implementation.
+        continuity.implementation(before['sourceHash'],implementation_source,PR185_SOURCE)
+        left,right=dict(before),dict(now)
+        left.pop('sourceHash'); right.pop('sourceHash')
+        require(left==right, 'Historical evidence changed beyond its separately proved implementation epoch')
+    else:
+        require(before==now, 'Requalification source changed; explicit completed-admission continuity required')
+    require(value['postPreparationTokens']==old['report']['tokens']['total_tokens'] and
         value['remainingConservativePhaseCeiling']==old['remainingConservativePhaseCeiling'],
         'Requalification scope/source/accounting drifted; never rewrite or renew historical evidence')
     return value,old,q
 
 
-def status(registry,source,directory): return resolved(registry,source,directory)[0]
+def status(registry,source,directory,*,implementation_source=None):
+    return resolved(registry,source,directory,implementation_source=implementation_source)[0]
 
 
 def backup_inputs(registry,source,directory):

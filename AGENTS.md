@@ -1,5 +1,20 @@
 # Codex Orchestrator — personal tooling
 
+## Admitted-target first readiness (2026-10-21)
+
+Read docs/ADMITTED-TARGET-READINESS.md before the explicit completed-admission
+source qualifier or version-2 readiness-owned review. Only complete canonical
+post-preparation worker admission qualifies, never partial/generic successors or
+pending old approvals. Prove immutable qualified PR-185 source without executing
+it; retain original hashes/rows/claims/usage/gaps/clocks/bindings/holds. Qualification
+is file-only and requires stopped writers; it authorizes no load or turn. The new
+exact owner-confirmed readiness pins admission and uses the existing shared
+one-shot claim, restricted load/capture/receipt on its original connection, and
+all Stop/policy/tracker/foreign-owner fences. No retry, phase-control fallback
+load, keeper, Play/recovery replay, usage reset or safety inference. Source and
+disposable tests install/confirm nothing live; merge, installation, qualification,
+the owner control and pilot acceptance stay separate.
+
 ## Forward-only historical admission requalification (2026-10-20)
 
 Read docs/HISTORICAL-ADMISSION-REQUALIFICATION.md before the explicit file-only

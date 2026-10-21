@@ -5,6 +5,11 @@ public-backend readiness operation. It is not an inspection reload, an upgrade
 of an old command, Play, recovery, a binding change or a terminal-safety claim.
 The existing version-2 public readiness path remains already-loaded-only.
 
+The narrowly qualified version-2 **inner review** for a completed disjoint worker
+admission is described in [Admitted-target readiness](ADMITTED-TARGET-READINESS.md).
+It preserves this control's shared canonical one-shot fence and original
+connection; it does not convert an old request or relax generic successor gates.
+
 ## One request, one connection
 
 **Review readiness-owned startup** displays the same brain, project/checkout,

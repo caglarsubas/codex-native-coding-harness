@@ -32,6 +32,10 @@ standard-project cycle stays in this workspace:
    The original connection owns any permitted one-shot load, capability capture
    and receipt turn; no manual timed inspection-to-readiness handoff is needed.
    Unknown delivery never enables a retry, and this is not Review or Play.
+   A completed disjoint worker admission uses the same entry with its new
+   admission-bound first-readiness review; it keeps schema 7 and both original
+   claims. See [ADMITTED-TARGET-READINESS.md](ADMITTED-TARGET-READINESS.md) for
+   explicit file-only implementation continuity during a backed-up upgrade.
    New standard drafts include `phase.durationHours` (1–24 whole hours, normally
    24). Play uses that reviewed value, not a second default. Changing the duration
    requires revising and reviewing the phase plan first. Brain allowance remains

@@ -1,5 +1,18 @@
 # Codex-native orchestration roadmap
 
+- [x] Implement admission-bound first readiness for complete disjoint worker
+  targets without schema downgrade or running-phase-profile substitution
+  ([contract](ADMITTED-TARGET-READINESS.md)).
+- [x] Implement explicit file-only source continuity for completed PR-185
+  admissions; preserve original claims, old rows, usage and observation times.
+- [x] Qualify 3,369 Python cases (one optional Graphify skip) in four disjoint
+  processes with exact full-discovery multiplicity and unchanged implementation,
+  all 40 JavaScript suites, 31 syntax / 361 AST checks and desktop/320px reviews.
+- [ ] Separately merge, install with verified backups and quiesced writers,
+  qualify the original admission source, and review/confirm readiness startup.
+- [ ] Start/accept a live pilot only through its later fresh evidence and Play;
+  source delivery is not a live load, authority grant or qualification.
+
 - [x] Add exact-reviewed, local-only completion of already-created unused target
   setup, preserving consumed claims/config epochs and original mapping history
   ([contract](EMPTY-SETUP-TRANSITION.md)). No load or execution is included.

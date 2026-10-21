@@ -1092,7 +1092,7 @@ class AppServerWake:
             if contract is not None:
                 from .native_policy_evidence import collect, matches
                 stage = "effective_policy"
-                evidence = successor_evidence if successor else collect(proxy, self.binding, brain_id, command_id)
+                evidence = successor_evidence if successor and not public_catalog else collect(proxy, self.binding, brain_id, command_id)
                 require(matches(evidence["reported"]), "Loaded native policy is not verified before turn start")
                 validate_endpoint(self.binding["endpoint"])
                 require(self.configured(brain_id), "Reviewed policy endpoint changed before turn start")
@@ -1135,7 +1135,7 @@ class AppServerWake:
             if public_backend:
                 stage = "authentication_check"
                 require_ready(proxy)
-            if successor:
+            if successor and not public_catalog:
                 # Never fall back to resume when the existing loaded target was
                 # lost, paused or changed while retaining the observation.
                 stage = 'effective_policy'

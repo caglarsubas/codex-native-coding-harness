@@ -4,6 +4,29 @@ This separates source implementation from installation, merge and live
 qualification. None of these entries grants standard Play, a brain replacement
 or strict Harness execution authority.
 
+## Admission-bound first readiness — 2026-10-21
+
+[ADMITTED-TARGET-READINESS.md](ADMITTED-TARGET-READINESS.md) adds a new exact
+inner review for complete worker-admitted targets using the existing one-shot
+readiness fence and original load/capture/receipt connection. Explicit file-only
+PR-185 source continuity retains old hashes and clocks. Legacy advisory readiness
+is not offered for an admitted target; ordinary and running-phase load gates
+remain separate. No pending/partial request is upgraded or replayed.
+
+Final qualification covered all 3,369 discovered Python cases in four disjoint
+processes (3,368 passed, one optional Graphify skip), with exact test-ID
+multiplicity and unchanged implementation hashes. All 40 JavaScript suites,
+31 web syntax checks, 361 Python AST checks and diff checks passed. Disposable
+desktop/320px browser reviews and local-only confirmations passed for both entry
+types, with native delivery suppressed and exact nanosecond wire pins retained.
+
+Read-only live validation proved the completed original source relationship and
+preserved all five operational databases, both claims, all old target rows and
+895 protected records. The live dashboard source/process/binding stayed unchanged.
+Source delivery installs no qualification, performs no live load/turn/Play or
+replay, resets no usage and makes no current/historical terminal-safety or pilot
+acceptance claim. Manual merge and separately approved rollout/review remain.
+
 ## Observer heartbeat and independent completion evidence — 2026-10-19
 
 [OBSERVER-HEARTBEAT-AND-RECONCILIATION.md](OBSERVER-HEARTBEAT-AND-RECONCILIATION.md)

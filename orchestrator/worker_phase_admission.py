@@ -32,21 +32,28 @@ def target_reader(registry,workspace):
     return partial.reader(root,workspace,registry.root)
 
 
-def evidence(registry,source,directory,requalification=None):
+def evidence(registry,source,directory,requalification=None,*,implementation_source=None):
     if requalification is not None:
         from . import historical_admission
-        qualified,result,q=historical_admission.resolved(registry,source,requalification)
+        qualified,result,q=historical_admission.resolved(registry,source,requalification,
+            implementation_source=implementation_source)
         require(qualified['context']['inputs']['usageDirectory']==str(Path(directory)),
             'Requalification belongs to another original accounting source')
         return result,q,qualified
     result=usage.status(registry,source,directory)
+    require(implementation_source is None,'Historical source continuity requires the original explicit requalification')
     origin=result['context']; proof=origin['completionSource']
     q,_,_,_=usage.context(registry,source,origin['completionDirectory'],None if proof is None else proof['root'])
     return result,q,None
 
 
-def predecessor(registry,source,directory,*,local_only=False,requalification=None):
-    result,q,_=evidence(registry,source,directory,requalification)
+def predecessor(registry,source,directory,*,local_only=False,requalification=None,implementation_source=None):
+    result,q,_=evidence(registry,source,directory,requalification,implementation_source=implementation_source)
+    return _predecessor(source,result,q,local_only=local_only)
+
+
+def _predecessor(source,result,q,*,local_only=False):
+    """Project the evidence just validated by this caller, never a cache."""
     require(result['status']=='usage_observed','Qualified actual post-preparation usage required; no upload or unknown-as-zero')
     original=q['original']; run=original['run']; info=source.db.stat()
     require(source.workspace_id==original['workspaceId'] and str(source.root)==original['root'] and
@@ -65,7 +72,8 @@ def predecessor(registry,source,directory,*,local_only=False,requalification=Non
 
 
 def context(registry,source,target,binding,directory,db,*,local_only=False,requalification=None):
-    old,observed=predecessor(registry,source,directory,local_only=local_only,requalification=requalification)
+    observed,q,qualified=evidence(registry,source,directory,requalification)
+    old,_=_predecessor(source,observed,q,local_only=local_only)
     request=successor.target_context(registry,source,target,binding,db,old,local_only=local_only)
     mission=missions.state_in(target,db)
     require(mission['document']['spec']['authority']['tokenBudget']<=old['phaseTokenCeiling'],
@@ -75,8 +83,6 @@ def context(registry,source,target,binding,directory,db,*,local_only=False,requa
             'evidencePin':successor.pin(Path(directory)/'evidence.json'),
             'intentPin':successor.pin(Path(directory)/'intent.json'),'evidenceHash':digest(observed)})
     if requalification is not None:
-        from . import historical_admission
-        qualified=historical_admission.status(registry,source,requalification)
         require(qualified['context']['inputs']['targetId']==target.workspace_id,
             'Historical requalification cannot retarget another registered project')
         request['postPreparation']['requalification']={'directory':str(Path(requalification)),
@@ -95,10 +101,14 @@ def prepare(registry,source,target_id,binding,directory,*,local_only=False,requa
         'nativeAction':False,'sourceHoldReleased':False,'playAuthorized':False}
 
 
-def valid(request):
+def shape(request):
     return (isinstance(request,dict) and (set(request)==FIELDS or set(request)==FIELDS|{'identityPolicy'} and
         request['identityPolicy']==successor.LOCAL_POLICY) and type(request['version']) is int and request['version']==1 and
-        request['kind']==KIND and request['sourceHash']==source_hash() and request['boundary']==BOUNDARY)
+        request['kind']==KIND and request['boundary']==BOUNDARY)
+
+
+def valid(request):
+    return shape(request) and request['sourceHash']==source_hash()
 
 
 def read_request(file):
@@ -117,19 +127,17 @@ def requalification(p):
     return value['directory']
 
 
-def source_current(registry,source,request):
+def source_current(registry,source,request,*,implementation_source=None):
     p=request['postPreparation']
     require(set(p) in ({'directory','evidencePin','intentPin','evidenceHash'},
         {'directory','evidencePin','intentPin','evidenceHash','requalification'}) and
         successor.pin(Path(p['directory'])/'evidence.json')==p['evidencePin'] and
         successor.pin(Path(p['directory'])/'intent.json')==p['intentPin'],'Exact post-preparation evidence changed')
     qualified=requalification(p)
-    old,observed=predecessor(registry,source,p['directory'],local_only=request.get('identityPolicy')==successor.LOCAL_POLICY,
-        requalification=qualified)
+    observed,q,value=evidence(registry,source,p['directory'],qualified,implementation_source=implementation_source)
+    old,_=_predecessor(source,observed,q,local_only=request.get('identityPolicy')==successor.LOCAL_POLICY)
     require(old==request['source'] and digest(observed)==p['evidenceHash'],'Preserve source rows, holds and carried numeric usage')
     if qualified is not None:
-        from . import historical_admission
-        value=historical_admission.status(registry,source,qualified)
         require(digest(value)==p['requalification']['hash'] and
             value['context']['inputs']['targetId']==request['target']['workspaceId'], 'Requalification scope drifted')
 
@@ -280,17 +288,36 @@ def confirm(registry,source,request,confirmed_hash,*,writers_stopped=False,backu
     return successor.public(record)
 
 
-def retained_in(ledger,db,meta=None):
+def _receipt_in(ledger,db,meta=None):
+    """Correlate local receipt identity only; not current admission eligibility.
+
+    Readiness uses this after standard.eligible has validated the complete
+    lineage in the same database snapshot. Never reuse it as a send gate.
+    """
     meta=meta or Ledger.get(db,'meta',1); marker=usage.completion.handoff.read(ledger.root/successor.FENCE)
     require(set(marker)=={'kind','recordHash','reviewHash'} and marker['kind']==KIND and
         meta.get('schemaVersion')==7 and meta.get('successorLedgerVersion')==1 and
         meta.get('standardSuccessor')==marker['recordHash'],'Partial worker admission stays fenced')
-    record=Ledger.get(db,'snapshots',marker['recordHash']); req=record['request']; target=req['target']
-    require(valid(req) and record['kind']==KIND and record['outcome']=='lineage_recorded_play_not_started' and
+    record=Ledger.get(db,'snapshots',marker['recordHash']); req=record['request']
+    require(shape(req) and set(record)=={'kind','request','reviewHash','recordedAt','outcome'} and
+        record['kind']==KIND and record['outcome']=='lineage_recorded_play_not_started' and
+        digest(record)==marker['recordHash'] and digest(req)==marker['reviewHash']==record['reviewHash'],
+        'Exact complete worker admission receipt required')
+    return record
+
+
+def retained_in(ledger,db,meta=None):
+    meta=meta or Ledger.get(db,'meta',1); record=_receipt_in(ledger,db,meta)
+    marker=usage.completion.handoff.read(ledger.root/successor.FENCE); req=record['request']; target=req['target']
+    implementation_source=None
+    if shape(req) and req['sourceHash']!=source_hash():
+        from .worker_admission_source import retained_source
+        implementation_source=retained_source(ledger,record,marker)
+    require((valid(req) or implementation_source is not None) and record['kind']==KIND and record['outcome']=='lineage_recorded_play_not_started' and
         digest(record)==marker['recordHash'] and digest(req)==marker['reviewHash']==record['reviewHash'],
         'Exact current-source worker admission receipt required')
     registry,source=partial.routes(ledger.platform_root,req['source']['workspaceId'])
-    source_current(registry,source,req)
+    source_current(registry,source,req,implementation_source=implementation_source)
     info=ledger.db.stat(); ri=registry.db.stat()
     require(ledger.workspace_id==target['workspaceId'] and str(ledger.root)==target['root'] and
         meta['brainId']==target['brainId'] and [info.st_dev,info.st_ino]==target['ledgerIdentity'] and
