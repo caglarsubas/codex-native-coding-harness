@@ -31,7 +31,7 @@ class Fixture(unittest.TestCase):
         self.home = self.root/'native-home'; self.home.mkdir(mode=0o700)
         self.records = self.root/'records'; self.records.mkdir(mode=0o700)
         self.old, self.brain, self.native, self.catalog = [str(uuid.uuid4()) for _ in range(4)]
-        self.ledger = Ledger(self.root/'target')
+        self.ledger = Ledger(self.checkout/'.state' if getattr(self,'checkout_local',False) else self.root/'target')
         self.ledger.initialize({'schemaVersion': 1, 'brainId': self.old, 'repositories': [
             {'id': 'repo', 'path': str(self.checkout), 'projectId': 'old-catalog', 'ref': 'main',
              'mergePolicy': 'manual', 'policyProfile': 'standard'}]})

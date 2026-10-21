@@ -184,8 +184,12 @@ def catalog(state):
         None if budget.get("available") else budget.get("reason") or "An empty paused owned-host phase is required.")
     add("usage_check", "Refresh phase usage", "Read registered local session counters. Missing measurements stay unknown; this never resumes the phase.",
         None if run else "Start a reviewed phase before measuring its usage.")
+    admitted=(state['meta'].get('schemaVersion')==7 and
+        (s.get('successor') or {}).get('lineageProtocol')=='post_preparation_worker_admission_v1' and
+        bool((s.get('successor') or {}).get('recordHash')))
     add("codex_check", "Check Codex readiness", "Ask the brain to refresh available native models and efforts.",
-        message_reason or ("The current phase owns its capability catalog." if active else
+        message_reason or ('Use the admission-bound readiness-owned startup review for this target.' if admitted else
+        "The current phase owns its capability catalog." if active else
         "A capability request is already pending." if (s.get("catalogRefresh") or {}).get("status") in ("queued", "processing") and
             not (s.get("catalogRefresh") or {}).get('disposition') else
         None if s.get("catalogRequired") else "The native capability catalog is current."))
@@ -194,7 +198,7 @@ def catalog(state):
         add(WORKFLOW,'Review readiness-owned startup',IMPACT,
             message_reason or ('This readiness-owned allowance is consumed; inspect its original request.' if s.get('readinessOwned') else
                 'A new empty first-phase project is required.' if active or run or
-                state['meta'].get('schemaVersion') != 1 else
+                state['meta'].get('schemaVersion') != 1 and not admitted else
                 'A capability request is already pending.' if (s.get('catalogRefresh') or {}).get('status') in ('queued','processing') and
                 not (s.get('catalogRefresh') or {}).get('disposition') else
                 None if s.get('catalogRequired') else 'The native capability catalog is current.'))
@@ -308,6 +312,9 @@ class JourneyProposals(ActionProposals):
                 'catalogProjectId':host.binding['brains'][review['brainId']].get('catalogProjectId'),
                 'checkout':host.binding['brains'][review['brainId']]['cwd'],
                 'preservedRequestIds':sorted(review['local']['oldCommands'])}
+            if review['version']==2:
+                preview['details']['workerAdmission']=review['local']['workerAdmission']
+                preview['summary'].insert(0,'New first readiness for the exact admitted target; preserve its existing admission and predecessor holds.')
         elif kind == "usage_check":
             request = {"id": ident, "runId": standard["run"]["id"], "contextHash": standard["contextHash"]}
         elif kind in ("phase_historical_effects", "phase_terminal_closeout"):

@@ -37,15 +37,30 @@ def _brain(ledger):
     with standard.read_db(ledger.db) as db: return ledger.get(db,'meta',1)['brainId']
 
 
+def admitted(ledger,db):
+    """After eligible: pin its validated receipt, never a generic successor."""
+    from . import worker_phase_admission as admission, worker_admission_source as continuity
+    record=admission._receipt_in(ledger,db)
+    require(record['kind']==admission.KIND,'Only qualified post-preparation worker admission supports readiness startup')
+    registry,_=partial.routes(ledger.platform_root,ledger.workspace_id)
+    admission.successor.other_owners(registry,ledger,record['request']['target']['repositories'])
+    path=ledger.root/continuity.FILE
+    return {'recordHash':digest(record),'reviewHash':record['reviewHash'],
+            'sourceHash':record['request']['sourceHash'],
+            'sourceContinuityPin':admission.successor.pin(path) if os.path.lexists(path) else None}
+
+
 def local(ledger, db, *, own_id=None):
     from .brain_control import stopped
     from .readiness_disposition import retired_in
     meta, mission = standard.eligible(ledger,db)
-    require(meta['schemaVersion'] == 1 and meta.get('standardRun') is None and meta.get('controller') is None and
+    require(meta['schemaVersion'] in (1,7) and meta.get('standardRun') is None and meta.get('controller') is None and
             not meta.get('brainHandoff') and not stopped(meta) and
             not any(ledger.all(db,t) for t in ('workers','queue','decisions','continuations')) and
             not os.path.lexists(standard.controller_file(ledger)), 'Empty unowned unstopped first-phase project required')
+    lineage=admitted(ledger,db) if meta['schemaVersion']==7 else None
     commands = [c for c in ledger.all(db,'commands') if c['id'] != own_id]
+    require(lineage is None or not commands, 'Admitted startup is a new first readiness request, never a retry or disposition fallback')
     require(len(commands) <= 16, 'Bounded original readiness history required')
     for c in commands:
         n = c.get('notification') or {}
@@ -63,7 +78,8 @@ def local(ledger, db, *, own_id=None):
     # changes. Every other meta field, including all counters, remains pinned.
     stable = copy.deepcopy(meta); stable.pop('revision',None)
     return {'metaHash':digest(stable),'missionHash':mission['documentHash'],
-            'reposHash':digest(ledger.all(db,'repos')),'oldCommands':{c['id']:digest(c) for c in commands}}
+            'reposHash':digest(ledger.all(db,'repos')),'oldCommands':{c['id']:digest(c) for c in commands},
+            **({'workerAdmission':lineage} if lineage is not None else {})}
 
 
 def old_receipt(ledger,c):
@@ -93,6 +109,18 @@ def sidecars(ledger):
     from .public_host_restart import pin
     found = pins(ledger)
     found.update({p.name:pin(p,1_000_000) for p in ledger.root.iterdir() if p.name.startswith(PREFIX)})
+    with standard.read_db(ledger.db) as db:
+        meta=ledger.get(db,'meta',1)
+        if meta.get('schemaVersion')==7:
+            from . import worker_phase_admission as admission
+            # Backup inventory, not an eligibility shortcut. Every caller
+            # separately validates local() at its authority/effect boundary.
+            saved=admission._receipt_in(ledger,db)
+            registry,_=partial.routes(ledger.platform_root,ledger.workspace_id)
+            require(not {'admitted-source-claim','admitted-binding'} & set(found), 'Admission backup keys cannot hide an original sidecar')
+            found['admitted-source-claim']=pin(admission.successor.source_claim(registry.root,
+                saved['request']['source']['workspaceId']),1_000_000)
+            found['admitted-binding']=pin(saved['request']['bindingFile'],1_000_000)
     return found
 
 
@@ -161,12 +189,23 @@ def repeated(proxy,binding,brain):
 
 
 def validate_review(value):
-    require(isinstance(value,dict) and set(value) == FIELDS and value['version'] == 1 and
+    base={'metaHash','missionHash','reposHash','oldCommands','databaseProofs','sidecars'}
+    require(isinstance(value,dict) and set(value) == FIELDS and value['version'] in (1,2) and
             type(value['version']) is int and value['protocol'] == PROTOCOL and value['maximumSeconds'] == SECONDS and
             type(value['maximumSeconds']) is int and isinstance(value['before'],dict) and
             value['before'].get('activity') in ('idle','notLoaded') and isinstance(value['local'],dict) and
-            set(value['local']) == {'metaHash','missionHash','reposHash','oldCommands','databaseProofs','sidecars'},
+            set(value['local']) == (base if value['version']==1 else base|{'workerAdmission'}),
             'Closed readiness-owned review required')
+    if value['version']==2:
+        lineage=value['local']['workerAdmission']
+        require(isinstance(lineage,dict) and set(lineage)=={'recordHash','reviewHash','sourceHash','sourceContinuityPin'} and
+                all(isinstance(lineage[k],str) and SHA.fullmatch(lineage[k]) for k in ('recordHash','reviewHash','sourceHash')) and
+                value['local']['oldCommands']=={}, 'Exact complete admission-bound first readiness review required')
+        pin=lineage['sourceContinuityPin']
+        require(pin is None or isinstance(pin,dict) and set(pin)=={'identity','sha256'} and
+                isinstance(pin['identity'],list) and len(pin['identity'])==4 and
+                all(type(v) is int and v>=0 for v in pin['identity']) and
+                isinstance(pin['sha256'],str) and SHA.fullmatch(pin['sha256']), 'Exact historical source qualification pin required')
     before = value['before']; latest = before.get('latestTurn')
     require(set(before) == {'activity','latestTurn','policy','trackedTerminals','authenticationHash',
                             'environmentHash','environmentScope'} and
@@ -221,6 +260,10 @@ def prepare(registry,ledger,binding,ident):
     with _read_registry(registry) as db: require(record_in(db) is None, 'Strict enrollment fences readiness loading')
     with standard.read_db(ledger.db) as db:
         state = local(ledger,db); context = standard.projection(ledger,db)['contextHash']
+        if 'workerAdmission' in state:
+            from .worker_phase_admission import _receipt_in as admission_record
+            require(admission_record(ledger,db)['request']['target']['bindingHash']==digest(binding),
+                    'Readiness must keep the exact admitted target binding')
     proof = {'registry':partial.database_proof(registry.db),'ledger':partial.database_proof(ledger.db)}
     pins = sidecars(ledger)
     validate_endpoint(binding['endpoint'])
@@ -228,7 +271,7 @@ def prepare(registry,ledger,binding,ident):
     with standard.read_db(ledger.db) as db: require(local(ledger,db) == state,'Local readiness scope changed')
     require(proof == {'registry':partial.database_proof(registry.db),'ledger':partial.database_proof(ledger.db)} and
             sidecars(ledger) == pins,'Private scope changed during review')
-    return {'version':1,'protocol':PROTOCOL,'commandId':ident,'workspaceId':ledger.workspace_id,
+    return {'version':2 if 'workerAdmission' in state else 1,'protocol':PROTOCOL,'commandId':ident,'workspaceId':ledger.workspace_id,
             'brainId':brain,'ledgerRoot':str(ledger.root),'ledgerIdentity':preplay._identity(ledger.db),
             'registryIdentity':preplay._identity(registry.db),'contextHash':context,'bindingHash':digest(binding),
             'sourceHash':preplay.source_hash(),'local':{**state,'databaseProofs':proof,'sidecars':pins},

@@ -89,6 +89,7 @@ function assistantWorkflowPreview(item,proposal,guided=false){
   if(doc.workflow==='codex_readiness_start'){
     section.append(el('p','Same project and brain · readiness only. Play remains separate.','chat-phase-title'),
       el('p',p.details.checkout),el('p','Current activity: '+p.details.before.activity+'. Terminal safety remains unknown.','muted'));
+    if(p.details.workerAdmission)section.append(el('p','First readiness for this admitted target. Existing admission, usage and predecessor holds stay unchanged.','muted'));
     const details=el('details');details.append(el('summary','Details · exact readiness scope'),el('pre',JSON.stringify(p.details,null,2)));section.append(details);
   }
   if(['phase_pause_recovery','phase_pause_receipt_recovery'].includes(doc.workflow)){

@@ -2,6 +2,7 @@
 import json
 import os
 import signal
+import socket
 from pathlib import Path
 import sys
 import threading
@@ -16,7 +17,12 @@ from test_readiness_owned import ReadinessOwnedTest
 if __name__ == '__main__':
     signal.signal(signal.SIGINT,signal.default_int_handler)
     http_thread=threading.Thread
-    fixture=ReadinessOwnedTest('runTest'); fixture.setUp()
+    http_socket=socket.socket
+    if '--admitted' in sys.argv[1:]:
+        from test_admitted_readiness import AdmittedReadinessTest
+        owner_fixture=AdmittedReadinessTest('runTest'); owner_fixture.setUp(); fixture=owner_fixture.r
+    else:
+        owner_fixture=ReadinessOwnedTest('runTest'); owner_fixture.setUp(); fixture=owner_fixture
     confirm_browser='--confirm-browser' in sys.argv[1:]
     old=fixture.ledger.root/'public-preplay-load-consumed.claim'
     exclusive(old,{'fixture':'consumed original inspection','usageGap':'unknown'})
@@ -28,18 +34,30 @@ if __name__ == '__main__':
     # threads. Opt-in confirmation validates the real HTTP/local transaction,
     # but never invokes the notifier, load or turn, even on the fake host.
     threading.Thread=http_thread
+    if '--admitted' in sys.argv[1:]:
+        # The historical fixture forbids every native socket. Permit only the
+        # disposable HTTP listener; outbound native connections remain denied.
+        class HttpOnlySocket(http_socket):
+            def bind(self,address):
+                assert address[0]=='127.0.0.1','Disposable loopback listener only'
+                return super().bind(address)
+            def connect(self,*args): raise AssertionError('No native connection')
+            def connect_ex(self,*args): raise AssertionError('No native connection')
+        socket.socket=HttpOnlySocket
     server=Dashboard(fixture.ledger,0,registry=fixture.registry,
         runtime_root=Path(__file__).resolve().parents[1],inference_env=fixture.f.root/'absent.env')
-    runtime=server.runtime_for('v3'); runtime.notifier.app_server=fixture.wake
+    server.daemon_threads=False
+    runtime=server.runtime_for(fixture.ledger.workspace_id); runtime.notifier.app_server=fixture.wake
     if confirm_browser: runtime.notify_control=lambda command:command
     runtime.brain_activity.snapshot=lambda *_:{'status':'unknown','observedAt':None}
     runtime.task_activity.snapshot=lambda *_:{}
     server.bootstrap='disposable-readiness-owned-fixture'
-    print(json.dumps({'origin':server.origin,'token':server.bootstrap}),flush=True)
+    print(json.dumps({'origin':server.origin,'token':server.bootstrap,'workspace':fixture.ledger.workspace_id}),flush=True)
     before=fixture.f.proof()
     try: server.serve_forever()
     except KeyboardInterrupt: pass
     finally:
+        server.server_close()  # Finish in-flight fixture reads before cleanup.
         if confirm_browser:
             after=fixture.ledger.snapshot(); commands=after['commands']
             assert len(commands)==1,'Browser must confirm exactly one new command'
@@ -61,4 +79,4 @@ if __name__ == '__main__':
         assert registry_before==owned.partial.database_proof(fixture.registry.db)
         assert old.read_bytes()==old_bytes and pin(old)['identity']==old_identity
         assert not fixture.calls or all(m not in ('thread/resume','turn/start') for m,_ in fixture.calls)
-        server.server_close(); fixture.doCleanups()
+        owner_fixture.doCleanups()

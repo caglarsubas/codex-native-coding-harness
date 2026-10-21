@@ -51,7 +51,13 @@ def _eligible(ledger, db, command):
     from . import standard
     from .brain_control import stopped
     meta, mission = standard.eligible(ledger, db)
-    require(meta.get("schemaVersion") == 1 and meta.get("standardRun") is None and meta.get("controller") is None and
+    admitted=meta.get('schemaVersion')==7
+    if admitted:
+        from .readiness_owned import local, validate_review
+        review=validate_review(command.get('payload',{}).get('readinessStart'))
+        require(review['version']==2 and local(ledger,db,own_id=command['id']).get('workerAdmission')==
+                review['local']['workerAdmission'],'Admitted pre-Play needs its new exact admission-bound readiness review')
+    require((meta.get("schemaVersion") == 1 or admitted) and meta.get("standardRun") is None and meta.get("controller") is None and
             not stopped(meta) and not meta.get("brainHandoff"),
             "Pre-Play receipt requires an empty, unowned, unstopped standard project")
     require(command["kind"] == standard.CATALOG_REFRESH_KIND and command["status"] == "queued" and

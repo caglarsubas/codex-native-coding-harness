@@ -1,5 +1,15 @@
 # Version 1 record contracts
 
+`completed_worker_admission_source_v1` is an explicit file-only qualification
+of one complete PR-185 worker admission against its unchanged frozen source.
+It retains both canonical claims and all old hashes, accounting and clocks;
+pending requests gain no compatibility. The existing readiness-owned protocol
+uses a new version-2 inner review for that admitted target's first readiness,
+sharing the original one-shot ledger/brain fence. Its restricted load, actual
+capability capture and receipt turn stay on one original connection. Source
+delivery installs/confirms nothing and grants no Play, recovery or safety.
+See [the admitted-target contract](ADMITTED-TARGET-READINESS.md).
+
 `historical_worker_admission_requalification_v1` binds the canonical completed
 setup transition, verified original database/input copies, actual current registry
 and untouched completion/accounting records. Immutable allowlisted implementations
