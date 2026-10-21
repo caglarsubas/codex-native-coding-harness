@@ -1,5 +1,21 @@
 # Codex Orchestrator — personal tooling
 
+## Post-startup worker readiness evidence (2026-10-21)
+
+Read docs/WORKER-PHASE-READINESS.md before the explicit metadata-only collector.
+Only a positively completed canonical preparation with unchanged full source,
+database, admission, mailbox/receipt and claim lineage qualifies. Hash explicit
+historical PR-189 bytes; never execute them or rewrite old evidence. Export only
+the pinned binary's schemas in an isolated empty home, and repeat exact bound
+native metadata/model/account/policy reads without a load, subscription, turn,
+permission response, cancel or replay. Unloaded policy/trackers remain null and
+blocked. Preserve all original usage/gaps and charge at least the reservation or
+larger actual overrun; missing usage is not zero. Evidence/status cannot renew
+timestamps, remove holds/fences, change bindings, reconstruct old readiness or
+grant worker review/Play or pilot acceptance. Do not ask for an executable review
+when loaded-only prerequisites are absent. Source/disposable qualification
+installs and activates nothing; manual merge and safe rollout stay separate.
+
 ## New pre-start preparation authority (2026-10-21)
 
 Read docs/PRESTART-STARTUP-PREPARATION.md before the separate operator-only
