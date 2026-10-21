@@ -41,6 +41,7 @@ class ReadinessOwnedTest(unittest.TestCase):
         outer=self
         class Proxy:
             def __init__(self,*_,**__): self.closed=False; self.deadline=0; outer.proxies.append(self)
+            def begin_readiness(self,seconds): self._readiness_owned_deadline=time.monotonic()+seconds
             def __enter__(self): return self
             def __exit__(self,*_): self.closed=True
             def call(self,method,params): return self._rpc(method,params)

@@ -413,15 +413,21 @@ def start(ledger,binding,command_id,proxy):
     """Called once by the existing notifier on its original owned connection."""
     value = check(ledger,binding,command_id)
     require(repeated(proxy,binding,value['brainId']) == value['before'],'Native readiness start state changed')
+    native_checked_at = time.monotonic()
     require(not os.path.lexists(journal(ledger,command_id,'load-claim')),'Readiness load already consumed; no retry')
     exclusive(journal(ledger,command_id,'load-claim'),{'reviewHash':digest(value),
         'loadRequired':value['before']['activity'] == 'notLoaded'})
-    proxy._readiness_owned_deadline = time.monotonic()+SECONDS
+    # The original notifier starts this window on opening its owned connection.
+    # Never move it forward after slow local validation or load preparation.
+    if not hasattr(proxy, '_readiness_owned_deadline'):
+        proxy._readiness_owned_deadline = time.monotonic()+SECONDS
+    require(time.monotonic() < proxy._readiness_owned_deadline, 'Original readiness window ended; no retry')
     proxy.deadline = min(proxy._readiness_owned_deadline,time.monotonic()+120)
     check(ledger,binding,command_id)
     loaded = value['before']['activity'] == 'notLoaded'
     if loaded:
         r = binding['brains'][value['brainId']]
+        require(0 <= time.monotonic()-native_checked_at <= 120, 'Readiness native load scope is stale; no retry')
         proxy._readiness_resume_attempted = True
         result = proxy._rpc('thread/resume',load_params({'brainId':value['brainId'],'cwd':r['cwd']}))
         t = result.get('thread') if isinstance(result,dict) else None
@@ -482,5 +488,6 @@ def send_ready(ledger,binding,command_id,proxy):
     with standard.read_db(ledger.db) as db: proof = catalog_proof(ledger.get(db,'commands',command_id))
     require(repeated(proxy,binding,value['brainId']) == proof['loaded'],
             'Loaded brain, ended turn, policy or tracker changed before readiness send')
+    proxy._readiness_scope_checked_at = time.monotonic()
     check(ledger,binding,command_id)
     require(time.monotonic() < proxy._readiness_owned_deadline,'Readiness connection window ended; no retry')

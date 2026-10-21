@@ -192,6 +192,13 @@ Read `docs/STANDARD-HOST-EVIDENCE.md` for the exact boundaries and rollout.
 
 ## Pre-Play capability request
 
+A consumed readiness-owned pre-load deadline failure is not a queued retry.
+The operator-only, non-waking resolution in source
+`docs/READINESS-DEADLINE-AND-PRESTART-RESOLUTION.md` preserves its original command,
+claim, missing receipt and usage as unqualified. It grants no catalog, reload,
+new readiness allowance, Play, cleanup or pilot acceptance. The designated brain
+cannot confirm it. Source qualification does not install or apply it live.
+
 If the original owned notification supplies `--preplay-handoff`, read source
 `docs/PREPLAY-READINESS.md` completely. Use only `standard-preplay-state`,
 `standard-preplay-receipt` and `standard-preplay-status` with that exact handoff,

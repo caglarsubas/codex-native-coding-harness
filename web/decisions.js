@@ -5,6 +5,9 @@ const decisionDetailsOpen = new Set();
 const decisionLabels = {open:"Needs your decision", answered:"Answer recorded", received:"Received by brain", applied:"Applied to design", blocked:"Needs follow-up", superseded:"Superseded"};
 
 function commandPresentation(c, activity=state?.brainActivity, now=Date.now()/1000) {
+  if(c.kind==='standard_catalog_refresh'&&state?.standard?.readinessResolution?.status==='disposed_unqualified'&&
+      state.standard.readinessResolution.commandId===c.id)return {
+    label:'Readiness stopped before loading · unqualified',detail:'The original deadline failure, missing receipt and consumed claim are preserved. No brain was loaded or turn started by that attempt. No retry or new load allowance is granted; terminal safety remains unknown.'};
   if(c.kind==='standard_play'&&state?.canceledPlayDisposition?.status==='disposed_unqualified'&&
       state.canceledPlayDisposition.commandId===c.id)return {
     label:'Canceled Play · unqualified',detail:'Cancel resolved. The original missing brain receipt and run are preserved. No response is waiting to be resent; continuation is separately fenced and terminal safety remains unknown.'};

@@ -229,12 +229,12 @@ class Registry:
         return {k: data[k] for k in ("id", "name", "brainId", "registeredAt")}
 
     def list(self):
-        with self.tx() as db:
+        with self.read() as db:
             return [self.public(json.loads(row[0])) for row in db.execute("SELECT data FROM workspaces ORDER BY rowid")]
 
     def root_for(self, workspace_id):
         identity(workspace_id)
-        with self.tx() as db:
+        with self.read() as db:
             row = db.execute("SELECT root,data FROM workspaces WHERE id=?", (workspace_id,)).fetchone()
         require(row is not None, "Unknown workspace")
         data = json.loads(row["data"])
@@ -247,6 +247,26 @@ class Registry:
             require(receipt is not None and data.get('emptySetupTransition') == receipt['reviewHash'] and
                 inspected['brainId'] == receipt['request']['spec']['brainId'], 'Partial setup transition remains fenced')
         return Path(row["root"])
+
+    @contextlib.contextmanager
+    def read(self):
+        """Status reads must not contend for the registry writer reservation.
+
+        This snapshot is not an effect gate; all writers retain tx() and their
+        transaction-bound authority/identity checks.
+        """
+        # Preserve an explicitly read-only registry's filesystem boundary. A
+        # normal registry uses its existing read/write-capable handle so SQLite
+        # can retire its own cold-WAL sidecars on close; query_only still forbids
+        # SQL writes, and BEGIN (not IMMEDIATE) reserves no writer lock.
+        db = (sqlite3.connect(self.db.as_uri() + '?mode=ro', uri=True, isolation_level=None, timeout=10)
+              if self.read_only else sqlite3.connect(self.db, isolation_level=None, timeout=10))
+        db.row_factory = sqlite3.Row
+        try:
+            db.execute('PRAGMA query_only=ON'); db.execute('BEGIN')
+            yield db
+        finally:
+            db.rollback(); db.close()
 
     def ledger(self, workspace_id):
         ledger = Ledger(self.root_for(workspace_id), read_only=self.read_only)

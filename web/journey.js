@@ -166,6 +166,12 @@ function roadmapJourneyState(snapshot,isConnected=true,now=Date.now()/1000){
   const repos=snapshot.repositories;
   if(!snapshot.workspace||!Array.isArray(repos)||!repos.length||repos.some(r=>r.policyProfile!=='standard'))
     return result(0,'This project uses packet approvals','Review the approved queue and project readiness to continue this roadmap. Phase Play is available for configured standard projects.','Review approved queue','queue',{strict:true});
+  if(s?.readinessResolution)return result(1,
+    s.readinessResolution.status==='disposed_unqualified'?'Readiness stopped before loading · unqualified':'Readiness resolution needs inspection',
+    s.readinessResolution.status==='disposed_unqualified'?
+    'The deadline failure, original request and consumed claim are preserved. No receipt or new readiness allowance was created. Do not click readiness again; development remains blocked and terminal safety is unknown.':
+    'The local resolution is incomplete or changed. Preserve all records; no load, retry or development is authorized.',
+    'Inspect preserved request','operations',{requiresOperator:true});
   if(s?.quarantine)return result(3,'Attempt quarantined · not qualified',
     'The original run, usage and evidence gaps are preserved. Repository ownership remains held; terminal safety is unknown. Quarantine does not allow Resume or another Play.',
     'Inspect preserved disposition','operations',{requiresOperator:true});

@@ -1,5 +1,21 @@
 # Codex Orchestrator — personal tooling
 
+## Readiness pre-start deadline resolution (2026-10-21)
+
+Read docs/READINESS-DEADLINE-AND-PRESTART-RESOLUTION.md before this operator-only
+local disposition. Require the exact positive pre-load/pre-turn deadline failure,
+canonical consumed claim, original backup/handoff, immutable original source,
+unchanged binding, mission and admitted lineage. A new exact scope-bound owner
+review, stopped writers and verified disjoint backups precede one unqualified
+snapshot and permanent local write fence. Preserve every original row/claim/usage/
+binding/hold; partial or changed state never retries or reconstructs receipts.
+No native client, reload, readiness/Play/recovery replay, restored allowance,
+ownership release or terminal-safety/acceptance inference. Prospective readiness
+keeps short RPC I/O budgets separate from local checks and a fixed overall window,
+with the same original pipe/reader and unchanged fresh scope/effect gates. Status
+snapshots are query-only, never write authority. Source/fixtures install or
+confirm nothing live; manual merge, rollout and exact live review stay separate.
+
 ## Admitted-target first readiness (2026-10-21)
 
 Read docs/ADMITTED-TARGET-READINESS.md before the explicit completed-admission
