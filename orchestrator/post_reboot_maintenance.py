@@ -25,7 +25,7 @@ from .native_read_client import decode, file_identity, secure_path
 from .standard_quarantine import exclusive
 from .workspaces import identity, private_path
 
-KIND = 'post_reboot_maintenance_epoch_v1'
+KIND = 'post_reboot_maintenance_epoch_v2'
 FENCE = 'post-reboot-maintenance.claim.json'
 PR190 = '9b50866bc27ba97c17f3ac1fd73d9002ad5623bea84a1b9fc00534a244ada197'
 BOUNDARY = {**worker.BOUNDARY, 'registryWritten': False, 'ledgerWritten': False,
@@ -47,6 +47,17 @@ def boot_epoch():
     m = re.fullmatch(rb'\{ sec = ([0-9]+), usec = ([0-9]+) \}[^\n]*\n?', r.stdout)
     require(m is not None and int(m[2]) < 1000000, 'Unsupported boot metadata')
     return int(m[1]) + int(m[2]) / 1000000
+
+
+def boot_session():
+    """Kernel boot identity, unlike calendar-adjusted kern.boottime, is stable."""
+    r = subprocess.run(['/usr/sbin/sysctl', '-n', 'kern.bootsessionuuid'], capture_output=True,
+                       timeout=5, env={'PATH': '/usr/bin:/bin', 'LC_ALL': 'C'})
+    require(r.returncode == 0 and not r.stderr and len(r.stdout) < 128,
+            'Complete boot-session identity required')
+    m = re.fullmatch(rb'([a-fA-F0-9]{8}(?:-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12})\n?', r.stdout)
+    require(m is not None and m[1].replace(b'-', b'') != b'0' * 32, 'Unsupported boot-session identity')
+    return m[1].decode('ascii').lower()
 
 
 def pin(path):
@@ -145,14 +156,26 @@ def location(registry, ledger, startup_hash):
         'workspace': ledger.workspace_id, 'inode': ledger.db.stat().st_ino, 'startup': startup_hash})
 
 
-def context(platform, workspace, witness):
+def context(platform, workspace, witness, *, reviewed_boot=None):
+    session = boot_session()
     registry, ledger, saved = route(platform, workspace)
     witness = private_path(witness, existing=True)
     require({p.name for p in witness.iterdir()} == {'intent.json', 'report.json', 'seal.json'},
             'Complete original worker observation required, not an arbitrary evidence file')
     report, intent, seal = (read(witness / n) for n in ('report.json', 'intent.json', 'seal.json'))
-    c = report['context']; old = saved['databaseIdentity'][0]; new = device(ledger.db.stat()); boot = boot_epoch()
-    require(type(old) is int and type(new) is int and old != new and 0 < boot <= time.time() and
+    c = report['context']; old = saved['databaseIdentity'][0]; new = device(ledger.db.stat()); observed_boot = boot_epoch()
+    require(type(observed_boot) in (int, float) and math.isfinite(observed_boot) and
+            0 < observed_boot <= time.time(), 'Complete current boot boundary required')
+    if reviewed_boot is None:
+        reviewed_boot = {'bootSessionUuid': session, 'bootedAt': observed_boot}
+    require(isinstance(reviewed_boot, dict) and set(reviewed_boot) == {'bootSessionUuid', 'bootedAt'} and
+            reviewed_boot['bootSessionUuid'] == session and type(reviewed_boot['bootedAt']) in (int, float) and
+            math.isfinite(reviewed_boot['bootedAt']) and 0 < reviewed_boot['bootedAt'] <= time.time(),
+            'Exact reviewed boot session and original timestamp boundary required')
+    # Never renew the reviewed cutoff. A backward calendar adjustment tightens,
+    # not relaxes, the historical bound; a new boot UUID always refuses.
+    boot = min(observed_boot, reviewed_boot['bootedAt'])
+    require(type(old) is int and type(new) is int and old != new and
             report['version'] == 1 and report['kind'] == worker.KIND and report['boundary'] == worker.BOUNDARY and
             c['kind'] == worker.KIND and c['boundary'] == worker.BOUNDARY and
             c['implementationHash'] in (PR190, startup.owned.preplay.source_hash()) and
@@ -253,8 +276,10 @@ def context(platform, workspace, witness):
     binding = read(p['bindingFile'])
     require(digest(binding) == p['bindingHash'], 'Preserve original binding bytes')
     endpoint = retired_endpoint(binding)
+    require(boot_session() == session, 'Boot session changed during inspection')
     return {'workspaceId': workspace, 'root': str(ledger.root), 'brainId': p['brainId'],
-            'startupReviewHash': digest(q), 'oldDevice': old, 'currentDevice': new, 'bootedAt': boot,
+            'startupReviewHash': digest(q), 'oldDevice': old, 'currentDevice': new,
+            'bootedAt': reviewed_boot['bootedAt'], 'bootSessionUuid': session,
             'checkout': p['scope']['checkout'],
             'databases': actual, 'files': pins, 'sourceEpochs': proofs, 'bindingHash': p['bindingHash'],
             'retiredEndpoint': endpoint,
@@ -268,7 +293,7 @@ def prepare(platform, workspace, witness):
     journal = location(registry, ledger, c['startupReviewHash'])
     require(not os.path.lexists(journal) and not os.path.lexists(ledger.root / FENCE),
             'Maintenance epoch already claimed or partial; no retry or device/source successor')
-    q = {'version': 1, 'kind': KIND, 'sourceHash': startup.owned.preplay.source_hash(), 'workspaceId': workspace,
+    q = {'version': 2, 'kind': KIND, 'sourceHash': startup.owned.preplay.source_hash(), 'workspaceId': workspace,
          'platform': str(registry.root), 'witness': str(Path(witness)), 'context': c,
          'journal': str(journal), 'boundary': dict(BOUNDARY)}
     require(len(canonical(q).encode()) <= 64000, 'Complete bounded maintenance review required')
@@ -277,10 +302,12 @@ def prepare(platform, workspace, witness):
 
 
 def current(q):
-    require(isinstance(q, dict) and set(q) == FIELDS and type(q['version']) is int and q['version'] == 1 and
+    require(isinstance(q, dict) and set(q) == FIELDS and type(q['version']) is int and q['version'] == 2 and
             q['kind'] == KIND and q['boundary'] == BOUNDARY and
             q['sourceHash'] == startup.owned.preplay.source_hash() and
-            q['context'] == context(q['platform'], q['workspaceId'], q['witness']), 'Maintenance scope changed')
+            isinstance(q['context'], dict) and all(k in q['context'] for k in ('bootSessionUuid', 'bootedAt')) and
+            q['context'] == context(q['platform'], q['workspaceId'], q['witness'], reviewed_boot={
+                k: q['context'][k] for k in ('bootSessionUuid', 'bootedAt')}), 'Maintenance scope changed')
     registry, ledger, _ = route(q['platform'], q['workspaceId'])
     require(q['journal'] == str(location(registry, ledger, q['context']['startupReviewHash'])), 'Canonical maintenance owner required')
     return registry, ledger

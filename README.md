@@ -144,6 +144,9 @@ For the narrow admitted post-reboot case, see the separately reviewed
 [maintenance epoch contract](docs/POST-REBOOT-MAINTENANCE.md). It preserves all
 old database and binding bytes and restores only explicit read-only maintenance
 inspection; it does not override ordinary identity checks or activate a host.
+The [boot-identity correction](docs/MAINTENANCE-BOOT-IDENTITY.md) pins the kernel
+boot-session UUID while retaining the original timestamp cutoff. It does not
+convert old reviews, relax freshness or retry a consumed claim.
 
 Use Python 3.11+; the controller and tests use only the standard library. The
 optional YAML packet importer additionally requires an **already installed**

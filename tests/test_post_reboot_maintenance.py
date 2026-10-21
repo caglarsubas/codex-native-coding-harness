@@ -36,6 +36,7 @@ class RebootMaintenanceTest(unittest.TestCase):
         self.original_files = {p: Path(p).read_bytes() for p in self.f.protected}
         for p in (patch.object(maintenance, 'device', side_effect=lambda s: s.st_dev + 17),
                   patch.object(maintenance, 'boot_epoch', return_value=self.boot),
+                  patch.object(maintenance, 'boot_session', return_value='bc741038-18ab-46a3-9212-35469ee79513'),
                   patch.object(maintenance, 'retired_endpoint', return_value={
                       'fixture': 'synthetic_predecessor_endpoint', 'nativeConnectionMade': False})):
             p.start(); self.addCleanup(p.stop)
@@ -61,6 +62,59 @@ class RebootMaintenanceTest(unittest.TestCase):
         self.assertEqual(a, b); self.assertEqual(a['validUntil'], 'scope_changes')
         self.assertFalse(a['request']['boundary']['bindingChanged'])
         self.assertFalse(Path(a['request']['journal']).exists()); self.conserved()
+
+    def test_calendar_boot_drift_keeps_exact_review_and_original_cutoff(self):
+        boot = self.boot + 1
+        with patch.object(maintenance.time, 'time', return_value=boot + 2), \
+             patch.object(maintenance, 'boot_epoch', return_value=boot):
+            proposed = self.prepare(); q = proposed['request']
+            maintenance.backup(q, self.backup_root, writers_stopped=True)
+            with patch.object(maintenance, 'boot_epoch', return_value=boot + .061651):
+                maintenance.current(q)
+                maintenance.confirm(q, proposed['reviewHash'], self.backup_root, writers_stopped=True)
+            with patch.object(maintenance, 'boot_epoch', return_value=boot - .061651):
+                result = maintenance.status(q)
+            self.assertEqual(q['context']['bootedAt'], boot)
+            self.assertTrue(result['maintenanceIdentityRecognized'])
+            self.assertEqual(proposed['reviewHash'], digest(q))
+        self.conserved()
+
+    def test_same_device_new_boot_session_refuses_before_and_after_claim(self):
+        proposed = self.prepare(); q = proposed['request']
+        maintenance.backup(q, self.backup_root, writers_stopped=True)
+        other = '11111111-2222-4333-8444-555555555555'
+        with patch.object(maintenance, 'boot_session', return_value=other):
+            with self.assertRaises(Refusal):
+                maintenance.confirm(q, proposed['reviewHash'], self.backup_root, writers_stopped=True)
+        self.assertFalse(Path(q['journal']).exists())
+        maintenance.confirm(q, proposed['reviewHash'], self.backup_root, writers_stopped=True)
+        with patch.object(maintenance, 'boot_session', return_value=other):
+            with self.assertRaises(Refusal): maintenance.status(q)
+        self.conserved()
+
+    def test_backward_clock_boundary_cannot_admit_postboot_evidence(self):
+        proposed = self.prepare(); q = proposed['request']
+        with patch.object(maintenance, 'boot_epoch', return_value=self.boot - 3600):
+            with self.assertRaises(Refusal): maintenance.current(q)
+        changed = copy.deepcopy(q); changed['context']['bootedAt'] = self.boot - 3600
+        with patch.object(maintenance, 'boot_epoch', return_value=self.boot + 3600), \
+             patch.object(maintenance.time, 'time', return_value=self.boot + 7200):
+            with self.assertRaises(Refusal): maintenance.current(changed)
+        self.assertFalse(Path(q['journal']).exists()); self.conserved()
+
+    def test_legacy_review_never_converts_or_reuses_its_approval(self):
+        proposed = self.prepare(); q = copy.deepcopy(proposed['request'])
+        q['version'] = 1; q['kind'] = 'post_reboot_maintenance_epoch_v1'
+        del q['context']['bootSessionUuid']
+        with self.assertRaises(Refusal): maintenance.current(q)
+        with self.assertRaises(Refusal): maintenance.confirm(q, digest(q), self.backup_root, writers_stopped=True)
+        self.assertFalse(Path(q['journal']).exists()); self.conserved()
+
+    def test_boot_change_during_collection_refuses_even_with_same_device(self):
+        with patch.object(maintenance, 'boot_session', side_effect=[
+                'bc741038-18ab-46a3-9212-35469ee79513', '11111111-2222-4333-8444-555555555555']):
+            with self.assertRaisesRegex(Refusal, 'Boot session changed'): self.prepare()
+        self.conserved()
 
     def test_one_confirmed_epoch_restores_only_explicit_maintenance_read(self):
         a = self.apply(); b = maintenance.status(self.q)
@@ -202,6 +256,22 @@ class RebootMaintenanceTest(unittest.TestCase):
 
 
 class LocalGuardTest(unittest.TestCase):
+    def test_fixed_boot_session_read_is_bounded_private_metadata_only(self):
+        with patch.object(maintenance.subprocess, 'run', return_value=SimpleNamespace(
+                returncode=0, stderr=b'', stdout=b'BC741038-18AB-46A3-9212-35469EE79513\n')) as run:
+            self.assertEqual(maintenance.boot_session(), 'bc741038-18ab-46a3-9212-35469ee79513')
+        run.assert_called_once_with(['/usr/sbin/sysctl', '-n', 'kern.bootsessionuuid'], capture_output=True,
+                                    timeout=5, env={'PATH': '/usr/bin:/bin', 'LC_ALL': 'C'})
+
+    def test_unsupported_boot_identity_never_falls_back_to_wall_time(self):
+        for out, err, code in ((b'', b'', 0), (b'not-a-uuid\n', b'', 0),
+                               (b'00000000-0000-0000-0000-000000000000\n', b'', 0),
+                               (b'BC741038-18AB-46A3-9212-35469EE79513\nextra', b'', 0),
+                               (b'x' * 128, b'', 0), (b'', b'unsupported', 1)):
+            with self.subTest(output=out), patch.object(maintenance.subprocess, 'run', return_value=SimpleNamespace(
+                    returncode=code, stderr=err, stdout=out)):
+                with self.assertRaises(Refusal): maintenance.boot_session()
+
     def test_private_child_of_writable_ancestor_is_refused(self):
         with tempfile.TemporaryDirectory() as d:
             outer = Path(d).resolve() / 'public'; outer.mkdir(mode=0o777); outer.chmod(0o777)

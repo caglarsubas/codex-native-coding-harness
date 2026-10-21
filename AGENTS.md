@@ -3,6 +3,13 @@
 ## Post-reboot maintenance epoch (2026-10-22)
 
 Read docs/POST-REBOOT-MAINTENANCE.md before this separate operator control.
+Version 2 pins the fixed kernel boot-session UUID, not the calendar-adjustable
+boot timestamp as identity. Keep the original reviewed timestamp cutoff and
+repeat its full historical checks against the earlier original/current boot
+boundary; no tolerance, rounding or freshness renewal. Legacy previews and
+approvals never auto-convert, and the same canonical permanent claim/fence
+continues to block retries across versions. A new exact review is separate
+from installation; no native effect or ordinary identity adoption follows.
 Only the exact empty admitted schema-7/pre-load-failure/completed-preparation
 lineage and sealed pre-reboot PR-190 observation qualify. Hash historical source;
 never execute it. Require unchanged full databases/inodes, repository, original

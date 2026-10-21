@@ -1,5 +1,9 @@
 # Post-reboot maintenance source qualification
 
+Historical PR-191/version-1 record. It is retained verbatim below, not a claim
+that later version-2 source or the old live review is qualified. See the
+[boot-identity correction](MAINTENANCE-BOOT-IDENTITY.md) for the discovered defect.
+
 Implementation hash:
 `f744d347d107f57b35c55af4a90beb77ed218866c6df377e65129800a6607275`.
 

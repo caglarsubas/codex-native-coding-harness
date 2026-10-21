@@ -1,6 +1,6 @@
 # Forward-only post-reboot maintenance epoch
 
-`post_reboot_maintenance_epoch_v1` is a separate operator-only, read-only
+`post_reboot_maintenance_epoch_v2` is a separate operator-only, read-only
 maintenance migration. It recognizes an unchanged admitted ledger across a
 macOS volume device-number change, retaining an exact new certificate outside
 the old records. It is **not** an identity override for ordinary operation.
@@ -28,8 +28,14 @@ assertion, newer capture, incomplete observation or another source version is
 not supported. Read no historical Python as executable code. Its full bytes and
 file epochs are hashed against the exact qualified PR-189/PR-187 sources.
 
-The fixed macOS boot metadata read bounds the old observation and every retained
-record's change time. Across all registered databases require identical SQL
+The fixed macOS boot-session UUID identifies the reviewed boot, with repeated
+reads bracketing the inspection. The original reviewed boot timestamp remains
+the upper bound for the old observation and every retained record's change time.
+`kern.boottime` is calendar-adjustable, not immutable boot identity. Revalidation
+uses the earlier of that original cutoff and the current reported boot time;
+it never rounds, applies a tolerance, refreshes the cutoff or ignores a newer
+boot with the same device number. Missing/malformed/changing boot-session identity
+refuses. Across all registered databases require identical SQL
 schema, complete logical contents and inode; exactly one old device maps to one
 new current device. Historical private-file comparisons admit only that device
 component: hash, inode, size, owner, mode/link count and applicable original
@@ -60,6 +66,12 @@ invalidates it. Generic assent, source/merge permission and prior startup or
 host approvals do not confirm this control. Preparation reads only local SQL,
 private files, Git metadata and fixed OS boot metadata. It exports no native
 schemas, opens no native client and writes no operational state.
+
+Legacy version-1 previews/approvals/certificates are never converted or repaired
+in place. Preserve them verbatim. This version requires a separate exact review
+with its boot-session pin. The permanent canonical owner and target fence are
+unchanged across versions: an existing completed or partial claim still prohibits
+another attempt. Source installation cannot apply either review.
 
 Independently stop older writers before confirmation. Back up all registered
 databases as verified self-contained SQLite copies, plus the entire explicitly
