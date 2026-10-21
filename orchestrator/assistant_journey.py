@@ -202,6 +202,9 @@ def catalog(state):
                 'A capability request is already pending.' if (s.get('catalogRefresh') or {}).get('status') in ('queued','processing') and
                 not (s.get('catalogRefresh') or {}).get('disposition') else
                 None if s.get('catalogRequired') else 'The native capability catalog is current.'))
+    if s.get('startupPreparation'):
+        for action in result.values():
+            action.update(available=False, unavailableReason='New startup preparation owns this target. Inspect its result; no readiness replay, Play or automatic retry.')
     if s.get('readinessResolution'):
         for action in result.values():
             action.update(available=False, unavailableReason='Consumed pre-load readiness is resolved as unqualified. No retry, load or Play is authorized.')

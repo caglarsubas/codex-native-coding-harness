@@ -200,6 +200,8 @@ class Ledger:
             readiness_retained(self, db)
             from .readiness_prestart_resolution import require_open as prestart_open
             prestart_open(self,db)
+            from .prestart_startup import require_open as startup_open
+            startup_open(self,db)
             from .readiness_owned import retained_in as owned_readiness_retained
             owned_readiness_retained(self,db)
             forward = os.path.lexists(self.root/'standard-forward-continuation.json')
@@ -219,6 +221,7 @@ class Ledger:
                 retained_in(self, db)
             readiness_retained(self, db)
             prestart_open(self,db)
+            startup_open(self,db)
             owned_readiness_retained(self,db)
             setup_complete(self, db)
             db.commit()
@@ -780,6 +783,8 @@ class Ledger:
             disposition = readiness_retained(self, db)
             result['readinessDisposition'] = readiness_public(disposition) if disposition else None
             from . import readiness_prestart_resolution as prestart
+            from .prestart_startup import status_in as startup_status
+            result['startupPreparation'] = startup_status(self,db)
             try:
                 resolved = prestart.retained_in(self,db)
                 result['readinessResolution'] = prestart.public(resolved) if resolved else None
