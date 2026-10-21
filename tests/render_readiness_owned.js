@@ -3,8 +3,8 @@
 const assert=require('node:assert/strict'),cp=require('node:child_process');
 const {chromium}=require('playwright');
 (async()=>{
-  const confirmBrowser=process.argv.includes('--confirm-browser'),admitted=process.argv.includes('--admitted');
-  const child=cp.spawn('python3',['tests/manual_readiness_owned_fixture.py',...(confirmBrowser?['--confirm-browser']:[]),...(admitted?['--admitted']:[])],{stdio:['ignore','pipe','pipe']});
+  const confirmBrowser=process.argv.includes('--confirm-browser'),historicalAdmission=process.argv.includes('--historical-admission'),admitted=process.argv.includes('--admitted')||historicalAdmission;
+  const child=cp.spawn('python3',['tests/manual_readiness_owned_fixture.py',...(confirmBrowser?['--confirm-browser']:[]),...(admitted?['--admitted']:[]),...(historicalAdmission?['--historical-admission']:[])],{stdio:['ignore','pipe','pipe']});
   const exited=new Promise(resolve=>child.once('exit',resolve));
   let browser,stderr='';child.stderr.on('data',x=>stderr+=x);
   try{
@@ -41,6 +41,12 @@ const {chromium}=require('playwright');
         throw error;
       }
       assert.equal(await page.getByRole('button',{name:'confirm readiness-owned startup',exact:true}).last().isEnabled(),true);
+      if(historicalAdmission){
+        const display=await page.evaluate(()=>[...assistantActions.values()].at(-1).proposal.document.preview.details.workerAdmission.sourceContinuityPin);
+        assert.deepEqual(display.identity,fixture.continuityIdentityDecimal,'Signed display epochs must remain exact decimal strings');
+        assert(display.identity.every(n=>typeof n==='string'));
+        assert(display.identity.includes('1792000000000000001'));
+      }
       assert.equal(await page.getByText('Confirmation window ended. Refresh the review here; no need to write another message.',{exact:true}).count(),0,'No expired footer on a scope-bound review');
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,'Reflow at '+width);
       runs.push({width,exactReview:true,noTimerExpiry:true,noOverflow:true,confirmed:false});
@@ -62,7 +68,7 @@ const {chromium}=require('playwright');
       assert.equal(writes.filter(x=>!x.endsWith('/login')&&!x.endsWith('/assistant/preview')&&!x.endsWith('/assistant/confirm')).length,0);
     }
     assert.deepEqual(errors,[]);
-    console.log(JSON.stringify({rendered:runs,admitted,previews:2,confirmations:confirmBrowser?1:0,
+    console.log(JSON.stringify({rendered:runs,admitted,historicalAdmission,previews:2,confirmations:confirmBrowser?1:0,
       localCommandOnly:confirmBrowser,nativeActions:0,exactNanosecondPins:true,errors:0}));
     await context.close();
   }catch(error){
