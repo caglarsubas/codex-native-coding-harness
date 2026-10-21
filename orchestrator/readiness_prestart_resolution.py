@@ -126,6 +126,8 @@ def valid(q):
 
 
 def prepare(registry, ledger, binding_file, ident, original_source):
+    from .prestart_startup import require_open
+    require_open(ledger,None)
     q = context(registry,ledger,binding_file,ident,original_source)
     require(valid(q),'Closed bounded resolution review required')
     return {'request':q,'reviewHash':digest(q),'validUntil':'scope_changes',
@@ -229,6 +231,8 @@ def public(record):
 
 
 def confirm(registry,ledger,q,confirmation_hash,*,writers_stopped=False,backup_root=None):
+    from .prestart_startup import require_open
+    require_open(ledger,None)
     require(valid(q) and confirmation_hash == digest(q) and q['workspaceId'] == ledger.workspace_id and
             q['root'] == str(ledger.root),'Exact new resolution owner review required')
     if os.path.lexists(ledger.root/FENCE):
@@ -236,6 +240,7 @@ def confirm(registry,ledger,q,confirmation_hash,*,writers_stopped=False,backup_r
         require(saved['request'] == q,'A different resolution is already claimed'); return public(saved)
     require(writers_stopped is True and backup_root is not None,'Stopped writers and private verified backup required')
     with partial.lock(registry.db), partial.lock(ledger.db) as db:
+        require_open(ledger,db)
         same(registry,ledger,q); verify_backup(q,backup_root)
         exclusive(ledger.root/FENCE,{'kind':KIND,'reviewHash':digest(q)})
         record = {'kind':KIND,'request':q,'reviewHash':digest(q),'recordedAt':time.time(),

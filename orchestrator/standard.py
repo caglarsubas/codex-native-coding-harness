@@ -170,6 +170,13 @@ def projection(ledger, db):
     }
     if latest_refresh and latest_refresh.get('payload',{}).get('readinessStart'):
         result['catalogRefresh']['readinessOwned'] = True
+    from .prestart_startup import status_in as startup_status
+    startup = startup_status(ledger,db)
+    if startup:
+        result.update(startupPreparation=startup,
+            blocker='New preparation-only startup is claimed. Old readiness remains consumed and unqualified; no Play or replay.',
+            contextHash=digest(meta))
+        return result
     from . import readiness_prestart_resolution as prestart
     if os.path.lexists(ledger.root/prestart.FENCE) or db.execute(
             'SELECT 1 FROM snapshots WHERE kind=?',(prestart.KIND,)).fetchone():

@@ -1,5 +1,22 @@
 # Codex Orchestrator — personal tooling
 
+## New pre-start preparation authority (2026-10-21)
+
+Read docs/PRESTART-STARTUP-PREPARATION.md before the separate operator-only
+startup control. Only the exact proved pre-load deadline failure qualifies.
+One NEW scope-bound owner review permits at most one restricted load and one
+new receipt/inert-proposal turn on the original foreground connection. It is
+preparation only, not another readiness request, catalog backfill, worker Play
+or recovery. Preserve every original row, missing receipt, claim, usage/gap,
+clock, binding and hold. Claim permanently before effects; partial or uncertain
+attempts never retry, migrate or rearm. Use only the closed checkout-local
+standalone mailbox helper; no sandbox SQL/control socket. Keep freshness and
+fixed connection windows; no automatic permission response/cancel/reconnect.
+Reserve planning usage conservatively within the carried allocation, not a
+reset or budget grant. Terminal safety remains unknown. Source/fixtures install
+and confirm nothing live; later worker readiness, exact Play and pilot acceptance
+remain separate.
+
 ## Readiness pre-start deadline resolution (2026-10-21)
 
 Read docs/READINESS-DEADLINE-AND-PRESTART-RESOLUTION.md before this operator-only

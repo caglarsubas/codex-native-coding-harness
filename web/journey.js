@@ -166,6 +166,10 @@ function roadmapJourneyState(snapshot,isConnected=true,now=Date.now()/1000){
   const repos=snapshot.repositories;
   if(!snapshot.workspace||!Array.isArray(repos)||!repos.length||repos.some(r=>r.policyProfile!=='standard'))
     return result(0,'This project uses packet approvals','Review the approved queue and project readiness to continue this roadmap. Phase Play is available for configured standard projects.','Review approved queue','queue',{strict:true});
+  if(s?.startupPreparation)return result(1,
+    s.startupPreparation.status==='startup_preparation_completed'?'Pilot proposal prepared · not started':'Startup preparation needs inspection',
+    'This new preparation has its own one-shot receipt and proposal. The old readiness request remains consumed and unqualified. No worker Play, retry or safety assertion is authorized.',
+    'Inspect startup preparation','operations',{requiresOperator:true});
   if(s?.readinessResolution)return result(1,
     s.readinessResolution.status==='disposed_unqualified'?'Readiness stopped before loading · unqualified':'Readiness resolution needs inspection',
     s.readinessResolution.status==='disposed_unqualified'?

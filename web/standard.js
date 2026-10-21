@@ -138,6 +138,19 @@ async function reviewStandardControl(s,operation,run){
 function standardPanel(root,mode='all'){
   const s=state.standard;if(!s)return;
   const panel=el('section',null,'mission-status'),run=s.run;
+  if(s.startupPreparation){
+    const d=s.startupPreparation;
+    panel.append(el('p','PREPARATION ONLY','eyebrow'),el('h2',d.status==='startup_preparation_completed'?
+      'Pilot proposal prepared · not started':'Startup preparation needs inspection'),
+      el('p','This preparation owns a separate receipt. The original readiness request and missing receipt remain unchanged. No worker Play, retry or terminal-safety assertion follows.','muted'));
+    if(d.proposal){
+      panel.append(el('h3',d.proposal.objective));
+      for(const step of d.proposal.steps)panel.append(el('p',step));
+      panel.append(el('p','Proposed checkpoint: '+d.proposal.stoppingCheckpoint,'checkpoint'));
+    }
+    const details=el('details');details.append(el('summary','Details · new preparation and preserved boundaries'),el('pre',JSON.stringify(d,null,2)));
+    panel.append(details);root.append(panel);return;
+  }
   if(s.canceledPlayDisposition){
     const d=s.canceledPlayDisposition;
     panel.append(el('p','PRESERVED ATTEMPT','eyebrow'),el('h2',d.status==='disposed_unqualified'?'Canceled Play · unqualified':'Canceled Play disposition · record unavailable'),
@@ -306,6 +319,7 @@ function standardPanel(root,mode='all'){
   if(needsCatalog&&s.catalogRefresh?.disposition)requestButton.textContent='Request a new readiness check';
   if(needsCatalog&&s.catalogRefresh?.status==='failed')requestButton.textContent=catalogReadinessIssue(s.catalogRefresh)?'Inspect Codex readiness':'Retry capability refresh';
   if(s.readinessResolution){requestButton.textContent='Readiness resolved · development blocked';requestButton.disabled=true;}
+  if(s.startupPreparation){requestButton.textContent='Preparation only · inspect result';requestButton.disabled=true;}
   standardConfirmation(panel,s,run);
   root.append(panel);
 }

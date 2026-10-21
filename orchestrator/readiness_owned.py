@@ -247,6 +247,8 @@ def browser_review(request):
 
 
 def prepare(registry,ledger,binding,ident):
+    from .prestart_startup import require_open
+    require_open(ledger,None)
     from .enrollment import record_in
     from .native_project_assignment import _read_registry, _registered
     from .public_native_tasks import validate_contract

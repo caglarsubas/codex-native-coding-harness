@@ -1,5 +1,14 @@
 # Cooperative standard-project brain
 
+For the operator-only new preparation startup, read
+`docs/PRESTART-STARTUP-PREPARATION.md` fully. Only a new exact owner review of the
+proved pre-load failure permits one distinct receipt/inert-proposal turn and at
+most one restricted load. Use its standalone checkout-local mailbox, never SQL
+or the protected socket from the sandbox. It cannot receipt/replay readiness,
+populate a catalog, start workers or Play, reset usage or release holds. Preserve
+the canonical permanent attempt and all uncertainty; no retry, reconnect or
+automatic permission response follows. Source delivery installs nothing.
+
 For the explicit operator-only version-2 canceled-attempt planning review, read
 `docs/FORWARD-USAGE-EVIDENCE.md` fully. The old snapshot-backed usage stays an
 immutable baseline. Exact confirmation claims one local collection into the new
