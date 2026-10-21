@@ -140,6 +140,11 @@ not cryptographically certified by the controller.
 
 ## Quick start
 
+For the narrow admitted post-reboot case, see the separately reviewed
+[maintenance epoch contract](docs/POST-REBOOT-MAINTENANCE.md). It preserves all
+old database and binding bytes and restores only explicit read-only maintenance
+inspection; it does not override ordinary identity checks or activate a host.
+
 Use Python 3.11+; the controller and tests use only the standard library. The
 optional YAML packet importer additionally requires an **already installed**
 PyYAML. Do not install dependencies during a restricted execution run.

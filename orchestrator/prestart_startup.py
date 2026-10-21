@@ -39,7 +39,7 @@ def location(registry,ledger):
     return registry.root/'prestart-startups'/digest({'workspaceId':ledger.workspace_id,'ledgerIdentity':[s.st_dev,s.st_ino]})
 
 def blocked(ledger):
-    if any(os.path.lexists(ledger.root/name) for name in (FENCE,ANCHOR)): return True
+    if any(os.path.lexists(ledger.root/name) for name in (FENCE,ANCHOR,'post-reboot-maintenance.claim.json')): return True
     root=getattr(ledger,'platform_root',None)
     if root:
         from types import SimpleNamespace
