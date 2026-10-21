@@ -1,5 +1,22 @@
 # Codex Orchestrator — personal tooling
 
+## Post-reboot maintenance epoch (2026-10-22)
+
+Read docs/POST-REBOOT-MAINTENANCE.md before this separate operator control.
+Only the exact empty admitted schema-7/pre-load-failure/completed-preparation
+lineage and sealed pre-reboot PR-190 observation qualify. Hash historical source;
+never execute it. Require unchanged full databases/inodes, repository, original
+pins and clocks; translate only the reviewed device component for historical
+comparison, never live effect checks. One new exact scope-bound review and
+verified disjoint backups precede a permanent file-only epoch certificate.
+Preserve every database row, registry/binding byte, old claim, receipt, usage/gap
+and fence. Partial claims never retry or gain a device/source successor. Only the
+explicit maintenance reader recognizes the certificate; ordinary routes and
+writes stay fenced. No host, load, reconnect, subscription, turn, permission,
+cancel, replay, usage reset, safety or acceptance authority follows. Source and
+disposable qualification install or apply nothing live; manual merge, rollout
+and the exact maintenance review remain separate.
+
 ## Post-startup worker readiness evidence (2026-10-21)
 
 Read docs/WORKER-PHASE-READINESS.md before the explicit metadata-only collector.
