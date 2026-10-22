@@ -1,5 +1,24 @@
 # Codex Orchestrator — personal tooling
 
+## Certificate loaded-runtime startup (2026-10-22)
+
+Read docs/CERTIFICATE-RUNTIME-STARTUP.md before this separate operator control.
+Only the complete certificate/issued-host and sealed PR-195 unloaded observation
+qualify; hash historical source, never execute it or renew its evidence. One new
+exact scope-bound review, independently quiesced writers and verified all-database/
+private-input backups precede one canonical permanent session claim and at most
+one fixed restricted metadata-only load. Preserve runs, requests, claims, usage/
+gaps/clocks/holds and every binding byte. Retain that SAME original foreground
+connection within its fixed 900-second window; the I/O reader handles only
+WebSocket controls, not authority, model keepalives or RPC polling. Scope/Stop/
+permission/drift/loss closes without reconnect, migration, renewal or retry.
+Actual repeated loaded policy and empty current trackers are mandatory, never
+requested-setting substitutes or historical safety. Status is saved/file-only;
+closing may unload again. No worker, turn, receipt backfill, normal unfence,
+Play/recovery replay, usage reset, binding change or pilot acceptance follows.
+Source/fixture qualification and preparing the exact review load nothing live;
+manual merge, safe inactive installation and exact startup approval stay separate.
+
 ## Certificate-aware worker evidence (2026-10-22)
 
 Read docs/CERTIFICATE-WORKER-READINESS.md before this separate operator path.

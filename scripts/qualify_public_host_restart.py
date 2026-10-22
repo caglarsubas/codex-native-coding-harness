@@ -27,7 +27,9 @@ from orchestrator.native_auth_readiness import inspect as authentication
 from qualify_public_native_tasks import StdioFixture
 
 
-def qualify(binary, expected_hash, *, inspection=False, subscription_seconds=None, signed_in_preplay=False, preplay_load=False, readiness_owned=False, successor_preplay=False, prestart_startup=False, worker_readiness=False):
+def qualify(binary, expected_hash, *, inspection=False, subscription_seconds=None, signed_in_preplay=False, preplay_load=False, readiness_owned=False, successor_preplay=False, prestart_startup=False, worker_readiness=False, runtime_startup=False):
+    require(not runtime_startup or not any((inspection, subscription_seconds, signed_in_preplay, preplay_load,
+            readiness_owned, successor_preplay, prestart_startup, worker_readiness)), 'Separate zero-turn startup fixture required')
     require(not worker_readiness or not any((inspection,signed_in_preplay,preplay_load,readiness_owned,successor_preplay,subscription_seconds,prestart_startup)),
             'Worker-readiness qualification is a separate disposable post-startup fixture')
     require(not prestart_startup or not any((inspection,signed_in_preplay,preplay_load,readiness_owned,successor_preplay,subscription_seconds)),
@@ -155,6 +157,48 @@ def qualify(binary, expected_hash, *, inspection=False, subscription_seconds=Non
             if signed_in_preplay:
                 require(stamp(auth_file.lstat()) == auth_epoch and not (backup/'auth.json').exists(),
                         'Warm native fixture changed or copied the synthetic auth file')
+            if runtime_startup:
+                from orchestrator import certificate_runtime_startup as startup
+                from orchestrator.public_pilot_inspection import load_params
+                host = {'brainId': brain, 'checkout': str(cwd), 'latestTurnId': turn['id'], 'endpoint': endpoint,
+                        'record': {'cwd': str(cwd), 'projectId': project['id']}}
+                q = {'context': {'host': host}}
+                with startup.RuntimeProxy(host) as proxy:
+                    proxy.begin_readiness(startup.SECONDS)
+                    unloaded = startup.sample(proxy, q)
+                    require(unloaded['activity'] == 'notLoaded' and unloaded['policy'] is None and
+                            unloaded['trackedTerminals'] is None, 'Actual unloaded unknowns required')
+                    proxy.load_permitted = True
+                    loaded_reply = proxy._rpc('thread/resume', load_params({'brainId': brain, 'cwd': str(cwd)}))
+                    require(loaded_reply['thread']['id'] == brain, 'Exact native load acknowledgment required')
+                    loaded = startup.sample(proxy, q)
+                    require(loaded['activity'] == 'idle' and startup.worker.policy_matches(loaded['policy']) and
+                            loaded['trackedTerminals'] == [], 'Actual loaded restricted policy and trackers required')
+                    models, pages = startup.worker.public.models(proxy)
+                    require(models and pages and not (home/'auth.json').exists(), 'No credential or fabricated model evidence')
+                    # No JSON RPC in this hold: only the original reader's WebSocket
+                    # control traffic. Cross the native default 60-second unload grace.
+                    held = time.monotonic()
+                    while time.monotonic() - held < 75:
+                        startup.no_events(proxy); time.sleep(.25)
+                    require(startup.sample(proxy, q) == loaded and warm.poll() is None and len(requests) == 1,
+                            'Original connection must stay loaded beyond grace without another model turn')
+                deadline = time.monotonic() + 85
+                while True:
+                    with RestartReadProxy(endpoint, brain, project['id']) as reader:
+                        state = reader._rpc('thread/read', {'threadId': brain, 'includeTurns': False})['thread']
+                    if state['status']['type'] == 'notLoaded': break
+                    require(warm.poll() is None and time.monotonic() < deadline, 'Released fixture must unload without reconnect ownership')
+                    time.sleep(2)
+                require(history.read_bytes().startswith(before) and restricted_config(home, cwd) == config_before and
+                        len(requests) == 1, 'Startup must preserve original history/config and make zero new model calls')
+                return {'status': 'loaded_runtime_transport_fixture_passed', 'binarySha256': expected_hash,
+                    'originalForegroundConnectionRetainedBeyondSeconds': 75, 'releasedOwnerAllowsUnload': True,
+                    'startupLoads': 1, 'startupTurns': 0, 'startupProviderRequests': 0, 'coldFixtureModelRequests': 1,
+                    'actualRestrictedLoadedPolicyObserved': True, 'currentTrackersObservedEmpty': True,
+                    'ledgerCertificateLineage': 'separate_disposable_unit_fixtures', 'liveHostConnections': 0,
+                    'liveNativeWrites': 0, 'currentTerminalSafety': 'unknown', 'historicalTerminalSafety': 'unknown',
+                    'pilotAccepted': False}
             if successor_preplay:
                 stop(warm)
                 require(warm.poll() is not None,'Exact owned warm predecessor must actually exit')
@@ -299,6 +343,7 @@ if __name__ == '__main__':
     parser.add_argument('--readiness-owned',action='store_true',help='Qualify a distinct readiness-owned load, capture, turn and synthetic fixture receipt')
     parser.add_argument('--prestart-startup',action='store_true',help='Qualify a new preparation purpose after an injected old pre-load failure; never replay readiness')
     parser.add_argument('--worker-readiness',action='store_true',help='After disposable startup, qualify metadata-only worker evidence with no reload, turn, replay or unfence')
+    parser.add_argument('--runtime-startup',action='store_true',help='Qualify zero-turn loaded startup and retained original connection beyond native unload grace, disposable only')
     parser.add_argument('--signed-in-preplay',action='store_true',help='Test the separate auth-metadata-only backup using a synthetic empty auth container; no load')
     parser.add_argument('--successor-preplay',action='store_true',help='With signed-in-preplay, qualify a second disposable same-home reopen after actual warm exit')
     parser.add_argument('--subscription-seconds',type=int,
@@ -308,4 +353,4 @@ if __name__ == '__main__':
                           subscription_seconds=args.subscription_seconds,signed_in_preplay=args.signed_in_preplay,
                           preplay_load=args.preplay_load,readiness_owned=args.readiness_owned,
                           successor_preplay=args.successor_preplay,prestart_startup=args.prestart_startup,
-                          worker_readiness=args.worker_readiness)))
+                          worker_readiness=args.worker_readiness,runtime_startup=args.runtime_startup)))
