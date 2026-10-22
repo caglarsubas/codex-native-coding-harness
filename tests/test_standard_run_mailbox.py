@@ -123,7 +123,10 @@ class RunMailboxTest(unittest.TestCase):
         call = {'sequence': sequence, 'operation': operation, 'payload': payload or {}}
         file = self.ledger.root / ('call-' + str(sequence) + '.json')
         if not file.exists(): inspection._write_once(file, call)
-        with patch.object(mailbox.time, 'monotonic', side_effect=[0, 31]):
+        # Keep the two exact deadline reads local to the mailbox under test;
+        # another fixture's observer thread must retain the real process clock.
+        with patch.object(mailbox, 'time', wraps=time) as clock:
+            clock.monotonic.side_effect = [0, 31]
             result = mailbox.submit(self.handoff, file)
         self.calls[sequence] = file
         return result

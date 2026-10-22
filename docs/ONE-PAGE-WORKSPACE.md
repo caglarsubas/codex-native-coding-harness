@@ -114,6 +114,17 @@ evidence verifies its existence, branch, checks and merge state.
 
 ## Verification and rollout boundary
 
+The separately reviewed [post-reboot recovery view](POST-REBOOT-DASHBOARD.md)
+keeps the graph and contextual inspector when the ordinary registry identity
+route is fenced. It recognizes only its exact completed maintenance certificate
+and issued host repair; it does not change historical identity pins or bindings.
+Selecting the brain inspects its saved observation, not a live chat connection.
+This explicit read-only mode has no sender or operational controls. It shows the
+original unqualified request, distinct retained preparation, unchanged usage/gaps
+and missing next gate. Refresh never collects native metadata or renews its time;
+stale observations and unknown policy/terminal safety remain explicit. Source or
+scope loss hides the last good view rather than offering a replay or fallback.
+
 After a preparation-only startup, the retained proposal is not worker readiness.
 The explicit operator [worker evidence check](WORKER-PHASE-READINESS.md) can
 observe the existing bound host without sending another message or loading the

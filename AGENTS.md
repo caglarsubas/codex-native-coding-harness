@@ -1,5 +1,24 @@
 # Codex Orchestrator — personal tooling
 
+## Certificate-aware read-only dashboard (2026-10-22)
+
+Read docs/POST-REBOOT-DASHBOARD.md before the separate operator path. Only the
+completed exact maintenance certificate and complete issued host-repair lineage
+qualify. Hash original qualified launch source; never execute it. Preserve all
+old rows, requests, claims, usage/gaps/clocks/holds and binding bytes. Pin actual
+new process/socket/dual identities, original home/config/history and credential
+metadata only. Explicit closed native inspection is not a load or subscription;
+polls collect nothing and retain original observation times/unknown safety.
+A new scope-bound dashboard-only review, stopped writers and complete verified
+private backups precede a permanent external startup claim and one foreground
+loopback read-only view with isolated browser auth. Partial/failed/unknown starts
+never retry across IDs/source/ports/directories. Deny every operational write and
+foreign route; source/scope loss has no stale fallback. Normal Registry/Ledger,
+dashboard and execution identity gates remain strict. No reload, native turn,
+permission response/cancel, readiness/Play/recovery replay, usage reset, ownership
+release or pilot acceptance follows. Source/fixtures install, collect and confirm
+nothing live; manual merge, safe installation and exact live review are separate.
+
 ## Post-reboot host-only repair (2026-10-22)
 
 Read docs/POST-REBOOT-HOST-REPAIR.md before this separate operator control.

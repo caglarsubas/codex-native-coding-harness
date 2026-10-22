@@ -147,6 +147,10 @@ inspection; it does not override ordinary identity checks or activate a host.
 The [boot-identity correction](docs/MAINTENANCE-BOOT-IDENTITY.md) pins the kernel
 boot-session UUID while retaining the original timestamp cutoff. It does not
 convert old reviews, relax freshness or retry a consumed claim.
+After a separately issued host repair, the [certificate-aware recovery dashboard](docs/POST-REBOOT-DASHBOARD.md)
+can restore a selected graph/inspector view under its own exact review and verified
+backup. It is read-only, preserves historical bindings and ordinary identity gates,
+and does not load a brain, replay requests or activate the pilot.
 
 Use Python 3.11+; the controller and tests use only the standard library. The
 optional YAML packet importer additionally requires an **already installed**
