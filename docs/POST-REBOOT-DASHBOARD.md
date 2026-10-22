@@ -126,6 +126,11 @@ replay, usage reset, ownership release, terminal cleanup or pilot acceptance.
 Current and historical terminal safety remain unknown. Ordinary Registry/Ledger,
 normal dashboard and effect gates remain strict and unmodified.
 
+The separate [certificate worker observation](CERTIFICATE-WORKER-READINESS.md)
+can prepare a metadata-only review against the same issued host, without changing
+this dashboard or its binding. It is never invoked by refresh or HTTP polling.
+Unloaded prerequisites stay blocked, and it offers no executable worker/Play review.
+
 ## Qualification and rollout boundary
 
 Source delivery stops at an open PR for manual merge. It installs, starts,

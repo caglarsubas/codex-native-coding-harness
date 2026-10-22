@@ -1,5 +1,23 @@
 # Codex Orchestrator — personal tooling
 
+## Certificate-aware worker evidence (2026-10-22)
+
+Read docs/CERTIFICATE-WORKER-READINESS.md before this separate operator path.
+Use only the completed exact maintenance certificate and actually issued current
+host; preserve all historical records/claims/usage/gaps/clocks/holds/bindings.
+The scope-bound review covers one explicit metadata-only observation, not worker
+execution. Revalidate both project IDs, accounting and actual current process/
+socket/home/package. Hash historical source without executing it. Use the closed
+read proxy and pinned binary schema export in an empty credential-free disposable
+home; no download, load, subscription, turn, permission response/cancel, host
+restart, reconnect, binding change or usage reset. Unloaded policy/trackers stay
+null and blocked; ended turns and empty trackers do not establish safety. Partial
+evidence never overwrites or auto-recollects. Status is file-only and never renews
+the 120-second observation window. All outputs fence normal writes and execution
+reviews; no old receipt, worker-phase authority, Play or pilot acceptance is
+manufactured. Preparing collects nothing. Source/fixtures install nothing and
+do not replace the dashboard or confirm live collection; merge/rollout separate.
+
 ## Certificate-aware read-only dashboard (2026-10-22)
 
 Read docs/POST-REBOOT-DASHBOARD.md before the separate operator path. Only the
