@@ -1,5 +1,22 @@
 # Codex Orchestrator — personal tooling
 
+## Post-reboot host-only repair (2026-10-22)
+
+Read docs/POST-REBOOT-HOST-REPAIR.md before this separate operator control.
+Only the positively completed exact maintenance certificate and unchanged
+original issued public launch/home/package qualify. Historical device comparison
+is limited to that closed pre-reboot inventory; current execution pins stay real.
+Repeat process/home/database quiescence and verify private non-credential backups.
+Never open/copy credential bytes, modify native SQL/config, recreate an old socket
+or use ordinary device recovery. One new exact scope-bound review precedes the
+canonical permanent external claim and one fixed foreground launch-only exec.
+Partial/failed/unknown attempts never retry across source, device or endpoint.
+Preserve all old rows, requests, claims, usage/gaps/clocks/holds and binding bytes;
+normal routes remain fenced. No load, subscription, native turn, binding cutover,
+permission response, cancel, readiness/Play/recovery replay, usage reset, safety
+inference or pilot acceptance follows. Source/disposable qualification installs
+and launches nothing live; manual merge, rollout and exact launch review separate.
+
 ## Post-reboot maintenance epoch (2026-10-22)
 
 Read docs/POST-REBOOT-MAINTENANCE.md before this separate operator control.
