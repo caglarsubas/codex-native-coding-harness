@@ -101,7 +101,10 @@ This certificate restores only the **explicit maintenance inspection path**.
 It deliberately does not make the ordinary dashboard/execution identity check
 accept the old registry pin. A live dashboard cutover, new host process/socket,
 binding review and any permitted load still need their separate supported
-contracts. It grants no launcher, subscription, thread load, turn, permission
+contracts. The separate [launch-only host repair](POST-REBOOT-HOST-REPAIR.md)
+can prepare a new exact review for this completed lineage; the certificate
+and its consumed approval are not themselves launch authority.
+It grants no launcher, subscription, thread load, turn, permission
 response, cancellation, readiness/Play/recovery replay, usage reset, ownership
 release, worker-phase activation or pilot acceptance. The current no-reload and
 unchanged-binding limits remain effective; current and historical policy/terminal
