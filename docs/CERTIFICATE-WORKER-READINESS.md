@@ -90,6 +90,11 @@ Source delivery, disposable qualification, manual merge, inactive installation,
 live exact observation review, worker-phase authority and pilot acceptance remain
 separate. Preparing a review collects and confirms nothing live.
 
+The separate [loaded-runtime startup](CERTIFICATE-RUNTIME-STARTUP.md) can prepare
+one new zero-turn original-connection review from a complete otherwise eligible
+unloaded report. Observation approval is not startup approval. Preparing it loads
+nothing; closing a future session cannot silently reload or authorize workers.
+
 ## Qualification
 
 Use disposable SQLite/file/socket fixtures plus existing complete certificate/
